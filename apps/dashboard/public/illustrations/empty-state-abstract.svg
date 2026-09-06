@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <style>
+    .halo {
+      animation: breathe 3.5s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+      0%, 100% {
+        opacity: 0.10;
+      }
+
+      50% {
+        opacity: 0.20;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .halo {
+        animation: none;
+        opacity: 0.10;
+      }
+    }
+  </style>
+
+  <defs>
+    <radialGradient id="haloGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#3D5AFE"/>
+      <stop offset="100%" stop-color="#3D5AFE" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="trailFade" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0B0C0E" stop-opacity="0.75"/>
+      <stop offset="100%" stop-color="#0B0C0E" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Warm background -->
+  <rect width="200" height="200" fill="#F5F4EF"/>
+
+  <!-- Breathing blue halo -->
+  <circle
+    class="halo"
+    cx="100"
+    cy="100"
+    r="72"
+    fill="url(#haloGradient)"
+    opacity="0.10"
+  />
+
+  <!-- Envelope: outer rectangle -->
+  <rect
+    x="42"
+    y="68"
+    width="92"
+    height="64"
+    rx="1"
+    fill="none"
+    stroke="#0B0C0E"
+    stroke-width="2"
+  />
+
+  <!-- Envelope: flap -->
+  <path
+    d="M43 69 L88 105 L133 69"
+    fill="none"
+    stroke="#0B0C0E"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Fading dotted trail -->
+  <path
+    d="M134 132 L145 140 M151 144 L160 150 M166 153 L173 157 M179 160 L184 162"
+    fill="none"
+    stroke="url(#trailFade)"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-dasharray="1 5"
+  />
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Concept H: Pulse A">
+  <!-- Continuous single gesture: A whose crossbar breaks into a pulse, dot terminates -->
+  <path d="M10 56 L26 8 L42 56" fill="none" stroke="#0B0C0E" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M17 42 H24 L27 36 L31 46 L34 40 H41" fill="none" stroke="#0B0C0E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="45" cy="42" r="4" fill="#1E3A8A"/>
+</svg>
