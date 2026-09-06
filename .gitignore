@@ -8,7 +8,7 @@ build
 .env.*.local
 *.log
 coverage
-drizzle
+*.tsbuildinfo
 .pnpm-store
 .DS_Store
 .vercel
