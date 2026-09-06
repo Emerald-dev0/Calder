@@ -15,7 +15,8 @@ const COLORS = [
   ["Paper", "#F5F4EF", "Warm off-white background"],
   ["Surface", "#FFFFFF", "Cards and panels"],
   ["Muted", "#737373", "Secondary text"],
-  ["Avenor Blue", "#1E3A8A", "The signal — sparingly"],
+  ["Avenor Blue", "#1E3A8A", "Interactive accents on light"],
+  ["Signal Blue", "#3D5AFE", "The mark's dot, dark surfaces"],
 ] as const;
 
 export default function BrandPage() {
@@ -37,21 +38,21 @@ export default function BrandPage() {
             <Reveal>
               <p className="eyebrow">The mark</p>
               <h2 className="h2">
-                A route, a pulse, <em>a dot.</em>
+                A signal, <em>a destination.</em>
               </h2>
               <p className="lede" style={{ marginTop: "1.2rem" }}>
-                Two converging strokes form an abstract A — the infrastructure path. The crossbar
-                breaks into a signal waveform. The dot is the delivered message, and the only
-                accent-colored element in the identity.
+                An origin dot and a bold route that resolves into an abstract A — connection,
+                movement, reliability, without a single envelope in sight. The full exploration
+                (nine concepts considered, one chosen) is documented in the repo.
               </p>
             </Reveal>
             <Reveal delay={100}>
               <div className="pipeline" style={{ marginTop: "2rem", textAlign: "center" }}>
                 <Image
-                  src="/assets/brand/final/lockup-horizontal.svg"
-                  alt="Avenor horizontal logo lockup"
-                  width={1016}
-                  height={164}
+                  src="/assets/brand/avenor-logo-primary.png"
+                  alt="Avenor primary logo lockup"
+                  width={1200}
+                  height={630}
                   style={{ maxWidth: 640, width: "100%", height: "auto" }}
                 />
                 <div
@@ -65,21 +66,28 @@ export default function BrandPage() {
                 >
                   <a
                     className="btn btn-secondary btn-sm"
-                    href="/assets/brand/final/lockup-horizontal.svg"
+                    href="/assets/brand/final/avenor-lockup.svg"
                     download
                   >
                     Lockup (SVG)
                   </a>
                   <a
                     className="btn btn-secondary btn-sm"
-                    href="/assets/brand/final/symbol.svg"
+                    href="/assets/brand/final/avenor-lockup-dark.svg"
+                    download
+                  >
+                    Lockup dark (SVG)
+                  </a>
+                  <a
+                    className="btn btn-secondary btn-sm"
+                    href="/assets/brand/final/avenor-symbol.svg"
                     download
                   >
                     Symbol (SVG)
                   </a>
                   <a
                     className="btn btn-secondary btn-sm"
-                    href="/assets/brand/final/wordmark.svg"
+                    href="/assets/brand/final/avenor-wordmark.svg"
                     download
                   >
                     Wordmark (SVG)

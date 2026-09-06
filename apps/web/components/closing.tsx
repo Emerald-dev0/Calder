@@ -14,24 +14,9 @@ export function FinalCta() {
               viewBox="0 0 420 420"
               aria-hidden="true"
             >
-              <g transform="translate(94,94) scale(3.6)">
-                <path
-                  d="M10 55 L26 9 L42 55"
-                  fill="none"
-                  stroke="#F5F4EF"
-                  strokeWidth="6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M17 41 H24 L27 35 L31 45 L34 39 H41"
-                  fill="none"
-                  stroke="#F5F4EF"
-                  strokeWidth="4.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <circle cx="45.5" cy="41" r="4.5" fill="#3B82F6" />
+              <g transform="translate(103,143) scale(1.95)" fill="#F5F4EF">
+                <circle cx="18" cy="50" r="9" />
+                <path d="M31 18C34 12 39 9 46 9h7c5 0 8 3 11 9l27 52H72L51 31c-2-4-5-6-9-6h-4c-3 0-5 2-7 6l-5 9-9-9z" />
               </g>
               <circle
                 cx="210"

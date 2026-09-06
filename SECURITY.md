@@ -53,3 +53,30 @@ Screenshot/preview tooling used for the `docs/DESIGN.md` visual QA loop must run
 ## 13. Incident posture
 
 Not yet formalized. Disaster recovery (backups, RPO/RTO, restoration) must be implemented and _tested_ before being described as supported.
+
+## 14. SMTP gateway security
+
+The SMTP ingress is abuse-sensitive by nature and gets its own controls on top of
+everything above:
+
+- **No open relay, ever.** Every submission requires AUTH + TLS; unauthenticated
+  `MAIL FROM` is rejected before DATA. Anonymous relay is impossible by construction,
+  and covered by protocol tests that attempt it.
+- **Credentials:** per-project secrets, shown once, hashed at rest, rotatable and
+  revocable with immediate effect. Revocation must bypass all caches — a revoked
+  credential authenticates nowhere, even within a TTL window.
+- **Transport:** STARTTLS on 587 required; plaintext AUTH rejected. Certificates
+  managed with rotation runbook; expiry monitored with alerts.
+- **Limits:** per-IP connection caps, per-credential/project/org message and
+  recipient limits, message-size caps — all through the central rate limiter.
+- **Abuse detection:** auth-failure monitoring (credential stuffing), velocity
+  anomalies, bounce/complaint monitoring shared with the API path, project
+  suspension with appeal.
+- **Sender authorization:** envelope-from must map to a verified project identity;
+  cross-project and foreign-domain spoofing fails closed and is logged.
+- **Leak response:** suspected credential leak → revoke → rotate → audit sends made
+  with the credential → notify the project owner. Runbooked, drilled.
+- **Logging:** SMTP codes and auth outcomes logged; secrets and message bodies never logged.
+
+SMTP credential lifecycle events (`smtp_credential.created`, `.rotated`, `.revoked`)
+belong in the §11 audit log event set once implemented.

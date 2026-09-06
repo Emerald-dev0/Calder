@@ -8,7 +8,7 @@ import { TemplateScene, DomainScene, MeterScene } from "./product-scenes";
  */
 export function ProductTour() {
   return (
-    <section className="section" id="product" style={{ paddingTop: 0 }}>
+    <section className="section" id="product">
       <div className="wrap">
         <Reveal>
           <p className="eyebrow">The product</p>
@@ -77,18 +77,9 @@ export function ProductTour() {
               ✦
             </span>
             <Reveal className="ed-copy">
-              <div className="ed-index">Domains &amp; reputation</div>
+              <div className="ed-index">Sending setup</div>
               <h3>Your name on every send</h3>
-              <p>
-                Add a domain, paste three DNS records, and send from an address people recognize.
-                Then watch its health — bounce rate, complaint rate, verification state — without
-                opening a second tool.
-              </p>
-              <ul className="ed-list">
-                <li>Guided SPF, DKIM, and DMARC setup</li>
-                <li>Per-domain delivery health at a glance</li>
-                <li>Stale verifications cleaned up automatically</li>
-              </ul>
+              <p>Paste three DNS records, wait for propagation, done — no redeploy required.</p>
             </Reveal>
             <Reveal delay={120} className="ed-visual">
               <DomainScene />

@@ -1,10 +1,10 @@
 import { Navigation } from "../components/navigation";
 import { Hero } from "../components/hero";
 import { Pipeline, StackStrip } from "../components/pipeline";
+import { SmtpSection } from "../components/smtp-section";
 import { Developers } from "../components/developers";
 import { Capabilities } from "../components/capabilities";
 import { TransmissionBand } from "../components/transmission";
-import { Observability } from "../components/observability";
 import { ProductTour } from "../components/product";
 import { Pricing } from "../components/pricing";
 import { FinalCta, Footer } from "../components/closing";
@@ -23,12 +23,12 @@ export default function Home() {
         <StackStrip />
         <Pipeline />
         <hr className="rule" />
+        <SmtpSection />
+        <hr className="rule" />
         <Developers />
         <hr className="rule" />
         <Capabilities />
         <TransmissionBand />
-        <Observability />
-        <hr className="rule" />
         <ProductTour />
         <hr className="rule" />
         <Pricing />

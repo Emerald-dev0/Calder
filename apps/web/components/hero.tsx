@@ -100,8 +100,8 @@ export function Hero() {
           <div data-intro>
             <p className="lede" style={{ marginTop: "1.6rem" }}>
               Avenor is the email layer for apps that can&rsquo;t afford &ldquo;did they get
-              it?&rdquo; — OTPs, verification links, password resets, receipts. One endpoint, honest
-              statuses, and every event on the record.
+              it?&rdquo; — OTPs, verification links, password resets, receipts. One endpoint, or
+              plain SMTP if that&rsquo;s your world. Honest statuses, and every event on the record.
             </p>
             <div className="hero-ctas">
               <a className="btn btn-primary" href="/waitlist">

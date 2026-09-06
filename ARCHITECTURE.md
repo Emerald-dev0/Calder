@@ -6,21 +6,27 @@ For _why_ specific choices were made, see `docs/DECISIONS.md`. For visual/fronte
 
 ```
 Client → API (Hono) → Validate → Persist (Postgres) → Enqueue → 202 Accepted
-                                                            │
-                                                            ▼
-                                                        Worker → Provider (SES) → Events → Webhooks
+                                                             │
+App ──→ SMTP Gateway → Normalize → Persist (Postgres) → Enqueue → 250 Queued
+                                                             │
+                                                             ▼
+                                                         Worker → Provider (SES) → Events → Webhooks
 ```
+
+REST and SMTP are interfaces into one pipeline: same email model, same queue,
+same worker, same events, same usage meter. There is exactly one delivery system.
 
 ## 2. Services
 
 - **apps/web** — marketing site (editorial, expressive)
 - **apps/dashboard** — customer-facing app (precise, dense, functional)
 - **apps/api** — public REST API
+- **apps/smtp-gateway** — SMTP ingress (AUTH, STARTTLS, MIME normalize → shared pipeline)
 - **apps/worker** — send queue, retries, scheduled/cron jobs
 
 ## 3. Data layer
 
-PostgreSQL is the single source of truth. Core entities: `users`, `organizations`, `memberships`, `projects`, `api_keys`, `domains`, `domain_verifications`, `templates`, `template_versions`, `emails`, `email_events`, `webhooks`, `webhook_deliveries`, `suppressions`, `subscriptions`, `plans`, `plan_prices`, `usage_records`, `otp_challenges`, `provider_accounts`, `provider_events`, `audit_logs`. All schema changes via migrations (Drizzle CLI — see `AGENTS.md` CLI-first tooling).
+PostgreSQL is the single source of truth. Core entities: `users`, `organizations`, `memberships`, `projects`, `api_keys`, `smtp_credentials`, `domains`, `domain_verifications`, `templates`, `template_versions`, `emails`, `email_events`, `webhooks`, `webhook_deliveries`, `suppressions`, `subscriptions`, `plans`, `plan_prices`, `usage_records`, `otp_challenges`, `provider_accounts`, `provider_events`, `audit_logs`. All schema changes via migrations (Drizzle CLI — see `AGENTS.md` CLI-first tooling).
 
 ## 4. Multi-tenancy
 
@@ -37,6 +43,33 @@ Avenor → EmailProvider interface → SES adapter (v1) → [future adapters]
 ```
 
 Same pattern for `PaymentAdapter` (→ Bachs) and `HostedDomainProvider` (→ Vercel first).
+
+## 5b. SMTP gateway
+
+`smtp.avenor.email:587` (STARTTLS; 465 implicit-TLS reserved). Standard SMTP —
+AUTH PLAIN/LOGIN, MAIL FROM, RCPT TO, DATA, MIME (HTML/text/attachments, CC/BCC/
+Reply-To, custom headers) — no custom protocol, no invented extensions. Optional
+Avenor-specific headers (e.g. template selection) are documented as extensions,
+never as protocol.
+
+```
+SMTP client → TCP LB (pass-through, no TLS termination)
+  → Gateway → AUTH (project-scoped credential) → MIME parse → validate
+  → normalize to Email model → persist → enqueue → `250 Queued`
+```
+
+- Credentials are per-project: generated secret shown once, hashed at rest,
+  rotatable, revocable, last-used tracked, audit-logged. TLS + AUTH mandatory;
+  anonymous relay impossible by construction.
+- Sender authorization: envelope-from must belong to a verified project identity
+  (own domain, or Avenor-managed identity for onboarding) — spoofing fails closed.
+- Rate limits reuse the central limiter at IP/project/org/credential/connection/
+  message/recipient dimensions; Redis-backed counters.
+- Billing meters at the canonical accepted-send event — identical for API and SMTP.
+- Observability: connections, auth success/failure, SMTP codes, submission→message
+  ID→job→provider ID trace, all correlatable in the dashboard.
+- Full protocol/support-matrix spec: `docs/SMTP.md`. Service-boundary justification:
+  ADR-014.
 
 ## 6. Queue & retries
 

@@ -11,12 +11,12 @@ export function Pipeline() {
         <Reveal>
           <p className="eyebrow">How it works</p>
           <h2 className="h2">
-            What happens <em>after you hit send.</em>
+            Most email APIs are a black box <em>with a prayer inside.</em>
           </h2>
           <p className="lede" style={{ marginTop: "1.2rem" }}>
-            Most email APIs are a black box with a prayer inside. Here&rsquo;s our box, with the lid
-            off: your request is validated, stored, and queued in milliseconds — then a worker walks
-            the email to the provider and writes down everything that happens.
+            Here&rsquo;s ours with the lid off: your request is validated, stored, and queued in
+            milliseconds — then a worker walks the email to the provider and writes down everything
+            that happens.
           </p>
         </Reveal>
         <Reveal delay={120}>

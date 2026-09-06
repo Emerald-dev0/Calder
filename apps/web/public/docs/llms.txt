@@ -1,0 +1,44 @@
+# Avenor — transactional email infrastructure for developers
+# One endpoint in (POST /v1/emails → 202), delivered events out (signed webhooks).
+# Test keys simulate everything; live keys deliver. NGN + USD pricing, hard limits.
+# Full content: /docs/llms-full.txt
+
+## Start
+- Documentation: /docs
+- Quickstart Node.js: /docs/quickstart/nodejs
+- Quickstart Python: /docs/quickstart/python
+- Quickstart Go: /docs/quickstart/go
+- Quickstart PHP: /docs/quickstart/php
+- Quickstart Ruby: /docs/quickstart/ruby
+- Quickstart cURL: /docs/quickstart/curl
+- Quickstart Shell: /docs/quickstart/cli
+
+## Learn
+- Sending: /docs/sending
+- SMTP (specified, rolling out): /docs/smtp
+- Domains: /docs/domains
+- API Keys: /docs/api-keys
+- Webhooks: /docs/webhooks
+- Idempotency: /docs/idempotency
+- Suppression: /docs/suppression
+- Usage & Billing: /docs/usage-billing
+- Templates (soon): /docs/templates
+- OTP (soon): /docs/otp
+- Core concepts: /docs/concepts
+
+## Resources
+- Examples: /docs/examples
+- Security: /docs/security
+- Migrate from Resend: /docs/migrate-resend
+- Migrate from Postmark: /docs/migrate-postmark
+- API reference: /docs/api-reference
+- Deliverability: /docs/deliverability
+
+## Elsewhere
+- Changelog: /changelog
+- Status: /status
+- Pricing: /pricing
+- Support: /support
+
+# Note: maintained by hand alongside the docs. If a page exists here but not
+# above, trust the site nav — then tell us.

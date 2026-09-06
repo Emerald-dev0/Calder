@@ -1804,6 +1804,226 @@ a {
   color: var(--ink);
 }
 
+/* ── Docs tabs + search + cards ─────────────────────────────────── */
+
+.docs-tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.docs-tabs a {
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0.5rem 0.8rem;
+  border-radius: 8px;
+}
+
+.docs-tabs a:hover {
+  color: var(--ink);
+  background: rgba(11, 12, 14, 0.05);
+}
+
+.docs-search-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.42rem 0.5rem 0.42rem 0.8rem;
+  cursor: pointer;
+}
+
+.docs-search-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--ink);
+}
+
+.docs-search-btn kbd {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0.1rem 0.4rem;
+}
+
+.docs-search-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 12, 14, 0.35);
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  padding: 12vh 1rem 1rem;
+}
+
+.docs-search-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 560px;
+  height: fit-content;
+  max-height: 60vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 30px 80px -20px rgba(11, 12, 14, 0.4);
+}
+
+.docs-search-modal input {
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 1.2rem;
+  font-size: 1rem;
+  background: transparent;
+  color: var(--ink);
+}
+
+.docs-search-modal input:focus {
+  outline: none;
+}
+
+.docs-search-modal ul {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem;
+  overflow-y: auto;
+}
+
+.docs-search-modal button {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.docs-search-modal button.active {
+  background: var(--accent-wash);
+  color: var(--ink);
+}
+
+.docs-search-section {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  min-width: 88px;
+}
+
+.docs-search-empty {
+  padding: 1rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.docs-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.8rem;
+  margin: 1.4rem 0 2.4rem;
+}
+
+.docs-card {
+  text-decoration: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.1rem 1.2rem;
+  display: block;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.docs-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: 0 14px 30px -18px rgba(11, 12, 14, 0.3);
+}
+
+.docs-card-icon {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent);
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.docs-card b {
+  display: block;
+  color: var(--ink);
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.docs-card span:last-child {
+  display: block;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+  line-height: 1.5;
+}
+
+.docs-prereqs {
+  counter-reset: prereq;
+  list-style: none;
+  padding: 0;
+  margin: 1.2rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.docs-prereqs li {
+  display: flex;
+  gap: 0.9rem;
+  align-items: baseline;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+}
+
+.docs-prereqs li::before {
+  counter-increment: prereq;
+  content: counter(prereq);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  min-width: 1.7rem;
+  height: 1.7rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--paper);
+}
+
+@media (max-width: 900px) {
+  .docs-tabs {
+    display: none;
+  }
+}
+
 /* ── Changelog / status ───────────────────────────────────────── */
 
 .change-entry {

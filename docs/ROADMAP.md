@@ -320,6 +320,24 @@ replay-after-outage. Validation: kill test endpoint, recover, confirm redelivery
 without duplicates (idempotent event IDs). Risks: retry storms — per-endpoint
 backoff caps + circuit pause. Exit: delivery, failure, replay all visible in UI.
 
+### Phase 6b — SMTP gateway + credentials (MVP)
+
+Objective: beginners and SMTP-native stacks send through the same pipeline.
+Dependencies: Phases 3 (projects/keys pattern to mirror), 4 (sender authorization),
+5 (pipeline to converge into). Tasks: `smtp_credentials` table + migration (hash,
+rotation, revocation, last-used); `apps/smtp-gateway` (AUTH PLAIN/LOGIN, STARTTLS,
+MIME→Email normalization, sender-auth + suppression checks, shared enqueue);
+TCP-LB pass-through + cert runbook; dashboard SMTP setup UI (host/port/user/secret,
+rotation, Nodemailer/smtplib copy-paste); `docs/SMTP.md` + site quickstart.
+Parallel: abuse-monitor tuning, migration guide from Gmail-SMTP DIY. Deliverables:
+working `smtp.avenor.email:587` in staging. Testing: protocol tests (incl.
+open-relay attempts, plaintext-AUTH rejection), auth/rotation/revocation tests,
+TLS tests, Nodemailer + smtplib + PHPMailer interop tests, failure tests.
+Validation: send via three real clients; revoke mid-flight; leak drill. Risks:
+abuse magnet — gate staging behind invite; connection-exhaustion — caps from day
+one. Exit: §35-style definition of done green (auth, TLS, no relay, pipeline
+convergence, events, metering, logs, limits, docs, scale plan).
+
 ### Phase 7 — Observability, metrics, status
 
 Objective: answer "what happened to my email" in seconds. Dependencies: Phase 6.
@@ -405,7 +423,7 @@ surprises — mitigated by everything above. Exit: GA declared, first real reven
 
 ## MVP Boundary
 
-**MVP = Phases 0–10 + 13 (launch), with 11–12 compressed to essentials.**
+**MVP = Phases 0–10 + 13 (launch), including 6b (SMTP gateway), with 11–12 compressed to essentials.**
 Concretely: golden path in production, OAuth login, projects/keys/domains, live SES,
 webhooks, usage+billing (sandbox-validated), completed dashboard, docs + TS SDK,
 baseline abuse ladder, measured smoke capacity. Deferred to post-MVP: Python SDK,

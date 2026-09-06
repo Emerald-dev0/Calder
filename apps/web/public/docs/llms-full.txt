@@ -1,0 +1,74 @@
+Avenor — full documentation for LLMs. Mirrors /docs. Regenerate by hand when docs change.
+
+WHAT AVENOR IS
+Transactional email infrastructure: one endpoint in, delivered events out.
+Base URL: https://api.avenor.com. Versioned: /v1/….
+
+QUICKSTART (all languages, same call)
+POST /v1/emails, headers Authorization: Bearer avenor_sk_test_… and
+Idempotency-Key: <uuid>, JSON body {from, to, subject, html|text}.
+Response 202: {id, status: "queued"}. Test keys simulate; live keys deliver.
+Node: fetch. Python: requests (pip install requests). Go: net/http stdlib
+(+ github.com/google/uuid). PHP: cURL extension. Ruby: net/http stdlib.
+cURL: raw flags. Shell: curl + poll loop; dated keys for cron (deploy-X-$(date +%F)).
+
+SENDING
+202 Accepted = queued, not delivered. Track by id in logs/timeline/webhooks.
+Always send Idempotency-Key.
+
+DOMAINS
+POST /v1/domains {domain} → token + records. Create SPF/DKIM/DMARC TXT records,
+POST /v1/domains/:id/verify (polls with backoff, specific failure reasons).
+Continuous re-verification. Hosted (Vercel etc.) verification maps to an
+Avenor-managed subdomain — project ownership, not DNS control.
+
+API KEYS
+avenor_sk_test_… (simulate, unmetered) vs avenor_sk_live_… (deliver, metered).
+Scoped per project+env, hashed at rest, shown once. Rotate by overlap;
+revoke → immediate fail-closed.
+
+WEBHOOKS
+Events: email.queued/.sent/.delivered/.bounced/.complained/.failed/.opened/.clicked.
+Register URL + event list → signing secret (shown once). Verify HMAC-SHA256
+with timingSafeEqual. Dedupe on event ID. 200 fast, work async. Retries with
+backoff; attempt history + manual replay in dashboard.
+
+IDEMPOTENCY
+Idempotency-Key required on POST /v1/emails. First request stores result per
+project; repeats within 24h return it with 200. UUID per operation; dated keys
+for cron. No double-send, no double-meter.
+
+SUPPRESSION
+Bounces/complaints/unsubscribes auto-suppress with logged reason. Sends to
+suppressed addresses return a "suppressed" error naming reason + event. Manual
+entries supported, reversible, audited.
+
+USAGE & BILLING
+Billable = one 202. Webhooks/reads/retries/test traffic free. Aggregated from
+durable records. Plans: Free 3,000/mo; Starter ₦5,000/$7 25,000; Pro
+₦12,000/$15 100,000; Scale ₦45,000/$50 500,000. Hard limits, no overages.
+
+TEMPLATES (soon) / OTP (soon)
+Not shipped. Templates: versioned, variables, previews (planned). OTP: managed
+challenges (planned). Today: send rendered HTML; generate/verify codes yourself
+(short TTL, 5-attempt cap).
+
+ERRORS
+Always {error: {code, message, request_id}}. Codes: validation_error,
+authentication_error, authorization_error, domain_not_verified, suppressed,
+rate_limit_error, not_found, provider_error. Quote request_id for support.
+
+RATE LIMITS
+Sending 100/min, verification 10/min, auth 20/min, OTP 5/min. 429s carry
+limit/remaining/reset/Retry-After.
+
+MIGRATION
+Resend: resend.emails.send() → POST /v1/emails; 200+{id} → 202+{id,status};
+add Idempotency-Key; broadcasts have no equivalent (transactional-only).
+Postmark: X-Postmark-Server-Token → Bearer key; /email fields map near-1:1;
+streams unnecessary (single reputation pool).
+
+SECURITY (developer summary)
+Env/secret-manager keys, never client/git. Test/live cryptographically distinct.
+HMAC-verify webhooks. Full policy: SECURITY.md; posture: /security.
+Report: support@avenor.com, subject "security".

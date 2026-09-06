@@ -110,3 +110,33 @@ Record any decision that (a) reverses something already built, or (b) a reasonab
 **Status:** Accepted
 **Decision:** API keys are verified via SHA-256 hex with constant-time comparison (`timingSafeEqual`).
 **Why:** keys are checked on every API request — bcrypt's cost would add unacceptable per-request latency. Entropy comes from 24 random bytes + optional `API_KEY_PEPPER`, not from a slow hash.
+
+---
+
+## ADR-014: SMTP gateway as a separate deployable converging on one pipeline
+
+**Status:** Accepted (topology: gateway process TBD — see open points)
+**Decisions:**
+
+1. Avenor supports SMTP alongside REST because beginners and existing stacks
+   (WordPress, Laravel, Django, Nodemailer/smtplib users) already speak it —
+   meeting them at their protocol beats teaching an abstraction. No invented
+   SMTP extensions; standard AUTH/STARTTLS/MAIL/RCPT/DATA/MIME only.
+2. SMTP and REST converge after ingestion into one email model, one queue, one
+   worker fleet, one event lifecycle, one usage meter. Two delivery systems are
+   banned by design, not just by review.
+3. Credentials are project-scoped (never account-global), shown once, hashed at
+   rest — unlike the industry default of reusing one API key as the SMTP password.
+4. The gateway is its own deployable (`apps/smtp-gateway`), sharing queue/pipeline
+   packages. Justification under ADR-007: long-lived TCP connections vs short HTTP
+   requests (different scaling/failure profile), an abuse-sensitive public ingress
+   (different security boundary), and protocol-specific deploy risk. All three map
+   to accepted split triggers — this is not "felt cleaner."
+5. Load balancing is TCP pass-through (HAProxy/NLB-class, least-conn, health
+   checks); TLS terminates at the gateway, never the LB — validated against
+   industry practice (STARTTLS lives inside the TCP session; terminating it
+   upstream complicates the protocol and the audit trail).
+   **Why:** SMTP is the migration path and the beginner path; one pipeline keeps
+   billing, events, and guarantees coherent across interfaces.
+   **Open (must validate before GA):** managed TCP-LB provider choice; cert rotation
+   mechanism; attachment size caps; `X-Avenor-*` extension header set.

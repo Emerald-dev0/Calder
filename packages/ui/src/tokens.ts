@@ -12,6 +12,9 @@ export const colors = {
   avenorBlue: "#1E3A8A",
   avenorBlueLight: "#3B82F6",
   avenorBlueMuted: "#DBEAFE",
+  // Signal Blue — canonical brand accent per the identity board
+  // (docs/brand-board.png). Reserved for the mark's dot and dark-surface accents.
+  signal: "#3D5AFE",
   border: "#E5E5E5",
   borderStrong: "#D4D4D4",
   success: "#16A34A",

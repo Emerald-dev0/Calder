@@ -3,32 +3,25 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Documentation — Avenor",
-  description: "Guides and references for the Avenor email infrastructure API.",
+  description: "Guides and references for the Avenor transactional email API.",
 };
 
-const CARDS = [
-  {
-    href: "/docs/quickstart",
-    title: "Quickstart",
-    desc: "First delivered email in about five minutes.",
-  },
-  {
-    href: "/docs/concepts",
-    title: "Core concepts",
-    desc: "Lifecycle, idempotency, queues, and events.",
-  },
-  {
-    href: "/docs/api-reference",
-    title: "API reference",
-    desc: "Endpoints, auth, errors, and rate limits.",
-  },
-  { href: "/docs/webhooks", title: "Webhooks", desc: "Receiving and verifying event deliveries." },
-  {
-    href: "/docs/deliverability",
-    title: "Deliverability",
-    desc: "Domains, authentication, and reputation.",
-  },
-  { href: "/migrate", title: "Migrate from Resend", desc: "Move sending over in an afternoon." },
+const QUICKSTARTS = [
+  { icon: "TS", title: "Node.js", desc: "fetch in minutes.", href: "/docs/quickstart/nodejs" },
+  { icon: "PY", title: "Python", desc: "requests, same shape.", href: "/docs/quickstart/python" },
+  { icon: "GO", title: "Go", desc: "net/http, no deps.", href: "/docs/quickstart/go" },
+  { icon: "PHP", title: "PHP", desc: "cURL extension.", href: "/docs/quickstart/php" },
+  { icon: "RB", title: "Ruby", desc: "net/http stdlib.", href: "/docs/quickstart/ruby" },
+  { icon: "$_", title: "cURL", desc: "Raw HTTP.", href: "/docs/quickstart/curl" },
+  { icon: "SH", title: "Shell", desc: "Script the API.", href: "/docs/quickstart/cli" },
+] as const;
+
+const EXPLORE = [
+  { icon: "✉", title: "Emails", desc: "Send and track.", href: "/docs/sending" },
+  { icon: "✓", title: "Domains", desc: "Verify and monitor.", href: "/docs/domains" },
+  { icon: "↯", title: "Webhooks", desc: "Events, signed.", href: "/docs/webhooks" },
+  { icon: "◈", title: "API Keys", desc: "Test vs live.", href: "/docs/api-keys" },
+  { icon: "◔", title: "Usage & Billing", desc: "Metered, NGN/USD.", href: "/docs/usage-billing" },
 ] as const;
 
 export default function DocsIndex() {
@@ -36,31 +29,44 @@ export default function DocsIndex() {
     <>
       <h1>Documentation</h1>
       <p className="docs-lede">
-        Everything you need to send your first email and understand your hundredth thousand. Start
-        with the quickstart; come back for the concepts when something surprises you.
+        Avenor is transactional email infrastructure: one endpoint in, delivered events out.
       </p>
-      <div style={{ display: "grid", gap: "0.8rem", marginTop: "2rem" }}>
-        {CARDS.map((c) => (
-          <Link
-            key={c.href}
-            href={c.href}
-            style={{
-              textDecoration: "none",
-              background: "#fff",
-              border: "1px solid var(--border)",
-              borderRadius: 12,
-              padding: "1.1rem 1.3rem",
-              display: "block",
-            }}
-          >
-            <span style={{ fontWeight: 700, color: "var(--ink)", fontSize: "1.02rem" }}>
-              {c.title}
-            </span>
-            <span
-              style={{ display: "block", color: "var(--muted)", fontSize: "0.9rem", marginTop: 4 }}
-            >
-              {c.desc}
-            </span>
+
+      <h2>Before you start</h2>
+      <ol className="docs-prereqs">
+        <li>
+          <span>
+            <b>An API key.</b> Grab a test key — no DNS homework, nothing real gets delivered.{" "}
+            <Link href="/waitlist">Join the waitlist</Link> for yours.
+          </span>
+        </li>
+        <li>
+          <span>
+            <b>A verified sending domain — or skip it.</b> Test keys work with zero DNS setup; add a
+            real domain under <Link href="/docs/domains">Domains</Link> whenever you&rsquo;re ready
+            to go live.
+          </span>
+        </li>
+      </ol>
+
+      <h2>Quickstart</h2>
+      <div className="docs-cards">
+        {QUICKSTARTS.map((c) => (
+          <Link key={c.href} href={c.href} className="docs-card">
+            <span className="docs-card-icon">{c.icon}</span>
+            <b>{c.title}</b>
+            <span>{c.desc}</span>
+          </Link>
+        ))}
+      </div>
+
+      <h2>Explore</h2>
+      <div className="docs-cards">
+        {EXPLORE.map((c) => (
+          <Link key={c.href} href={c.href} className="docs-card">
+            <span className="docs-card-icon">{c.icon}</span>
+            <b>{c.title}</b>
+            <span>{c.desc}</span>
           </Link>
         ))}
       </div>

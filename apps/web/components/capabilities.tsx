@@ -1,9 +1,9 @@
 import { Reveal } from "./reveal";
+import { DomainScene } from "./product-scenes";
 
 /**
- * Core capabilities as editorial rows with ghost numerals — never a card grid.
- * Every claim maps to a real architectural behavior. The .ed-visual panels
- * are sized to accept sourced illustrations later without layout changes.
+ * Why Avenor — five numbered reasons, editorial rows, no bullet lists.
+ * Visuals carry the detail the prose deliberately skips.
  */
 export function Capabilities() {
   return (
@@ -12,16 +12,13 @@ export function Capabilities() {
         <Reveal>
           <p className="eyebrow">Why Avenor</p>
           <h2 className="h2">
-            The boring parts, <em>done properly.</em>
-          </h2>
-          <p className="lede" style={{ marginTop: "1.2rem" }}>
             Sending an email is easy. Sending it exactly once, knowing it arrived, and proving it
-            later — that&rsquo;s the job. Here&rsquo;s how Avenor handles it.
-          </p>
+            later — that&rsquo;s the actual job.
+          </h2>
         </Reveal>
 
         <div style={{ marginTop: "2rem" }}>
-          {/* 01 — async */}
+          {/* 01 — Async by default */}
           <div className="ed-row">
             <span className="ghost-num" data-parallax="0.08" aria-hidden="true">
               01
@@ -30,15 +27,10 @@ export function Capabilities() {
               <div className="ed-index">01 — Async by default</div>
               <h3>Your API never waits on a mail server</h3>
               <p>
-                Providers throttle. Networks stall. DNS takes its time. None of that should be your
-                user&rsquo;s problem — or your p99&rsquo;s. We persist the email, enqueue the job,
-                and answer in milliseconds. Delivery happens on infrastructure built for waiting.
+                Providers throttle, networks stall — that&rsquo;s not your request&rsquo;s problem.
+                We persist, queue, and answer in milliseconds; delivery happens somewhere built to
+                wait around.
               </p>
-              <ul className="ed-list">
-                <li>202 Accepted while the provider is still waking up</li>
-                <li>Transient failures retried with backoff + jitter, not hope</li>
-                <li>Exhausted jobs wait in dead-letter — replayable, never vanished</li>
-              </ul>
             </Reveal>
             <Reveal delay={120} className="ed-visual">
               <div className="minilog">
@@ -55,12 +47,6 @@ export function Capabilities() {
                   <span className="time">…</span>
                 </div>
                 <div className="minilog-row">
-                  <span className="status-dot ok" />
-                  <span className="addr">verify@example.com</span>
-                  <span className="tag ok">delivered</span>
-                  <span className="time">0.94s</span>
-                </div>
-                <div className="minilog-row">
                   <span className="status-dot warn" />
                   <span className="addr">retry@example.com</span>
                   <span className="tag warn">retry 2/5</span>
@@ -73,13 +59,10 @@ export function Capabilities() {
                   <span className="time">0.61s</span>
                 </div>
               </div>
-              <p className="caption" style={{ marginTop: "1rem" }}>
-                Queue depth, attempts, outcomes — visible, never silent.
-              </p>
             </Reveal>
           </div>
 
-          {/* 02 — idempotency */}
+          {/* 02 — Idempotent sends */}
           <div className="ed-row flip">
             <span className="ghost-num" data-parallax="0.08" aria-hidden="true">
               02
@@ -88,16 +71,10 @@ export function Capabilities() {
               <div className="ed-index">02 — Idempotent sends</div>
               <h3>Nobody gets two receipts</h3>
               <p>
-                Your request timed out — but did the email send? Without an answer, your code
-                retries and your customer gets the receipt twice. Hand us an{" "}
-                <span className="mono">Idempotency-Key</span> and the retry returns the original
-                result. Same key, same outcome, one email.
+                Your request timed out. Did it send or not? Hand us an{" "}
+                <span className="mono">Idempotency-Key</span> and a retry returns the exact same
+                result — same key, same outcome, one email.
               </p>
-              <ul className="ed-list">
-                <li>Keys stored durably per project, good for 24 hours</li>
-                <li>Retry freely on timeouts and 5xx — it&rsquo;s safe now</li>
-                <li>Metered exactly once, so billing matches reality</li>
-              </ul>
             </Reveal>
             <Reveal delay={120} className="ed-visual">
               <div className="keyline">Idempotency-Key: welcome-user-4815</div>
@@ -112,7 +89,7 @@ export function Capabilities() {
             </Reveal>
           </div>
 
-          {/* 03 — webhooks + suppression */}
+          {/* 03 — Events & webhooks */}
           <div className="ed-row">
             <span className="ghost-num" data-parallax="0.08" aria-hidden="true">
               03
@@ -122,15 +99,8 @@ export function Capabilities() {
               <h3>Webhooks that show their work</h3>
               <p>
                 A webhook that fires once into the void isn&rsquo;t infrastructure — it&rsquo;s a
-                wish. Every send fans out signed events with delivery attempts you can inspect and
-                replay. And addresses that bounced or complained? Blocked before sending, with the
-                reason logged — never silently swallowed.
+                wish. Every send fans out signed, retryable events you can actually inspect.
               </p>
-              <ul className="ed-list">
-                <li>HMAC-signed payloads with idempotent event IDs</li>
-                <li>Background delivery with visible retry history</li>
-                <li>Suppression checked before every single send</li>
-              </ul>
             </Reveal>
             <Reveal delay={120} className="ed-visual">
               <div className="minilog">
@@ -159,11 +129,70 @@ export function Capabilities() {
                   <span className="time">…</span>
                 </div>
               </div>
-              <p className="caption" style={{ marginTop: "1rem" }}>
-                Verifiable signatures, inspectable failures, one-click replays.
-              </p>
             </Reveal>
           </div>
+
+          {/* 04 — Observability */}
+          <div className="ed-row flip">
+            <span className="ghost-num" data-parallax="0.08" aria-hidden="true">
+              04
+            </span>
+            <Reveal className="ed-copy">
+              <div className="ed-index">04 — Observability</div>
+              <h3>&ldquo;I never got the email.&rdquo; Now you have an answer.</h3>
+              <p>
+                Every response carries a request ID. Every email gets a timeline from creation to
+                open.
+              </p>
+            </Reveal>
+            <Reveal delay={120} className="ed-visual">
+              <div
+                className="mono"
+                style={{ fontSize: "0.78rem", color: "var(--muted)", marginBottom: "1rem" }}
+              >
+                em_9f2k41xq · req_x7k2… · project acme/production
+              </div>
+              <div className="minilog">
+                {[
+                  ["created", "ok", "validated · suppression checked · persisted", "t+0ms"],
+                  ["queued", "info", "job accepted · worker picked up", "t+12ms"],
+                  ["sent", "info", "provider accepted · MessageId ses_84…", "t+340ms"],
+                  ["delivered", "ok", "inbox confirmed", "t+1.02s"],
+                  ["opened", "ok", "first open recorded", "t+4m"],
+                ].map(([state, tone, detail, time]) => (
+                  <div className="minilog-row" key={state}>
+                    <span className={`status-dot ${tone}`} />
+                    <span className="addr">
+                      <b>{state}</b> — {detail}
+                    </span>
+                    <span className="time">{time}</span>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
+          </div>
+
+          {/* 05 — Domains & reputation */}
+          <div className="ed-row">
+            <span className="ghost-num" data-parallax="0.08" aria-hidden="true">
+              05
+            </span>
+            <Reveal className="ed-copy">
+              <div className="ed-index">05 — Domains &amp; reputation</div>
+              <h3>Your domain, verified. Your reputation, visible.</h3>
+              <p>
+                An email from you@yourproduct.com lands differently than one from a shared sending
+                service — in the inbox and in the reader&rsquo;s head. Verify with DNS, then watch
+                what it earns you.
+              </p>
+            </Reveal>
+            <Reveal delay={120} className="ed-visual">
+              <DomainScene />
+            </Reveal>
+          </div>
+
+          {/* TODO(emerald): one-line founder reason for building Avenor — first person,
+              real, no marketing speak. Fill in before this ships. */}
         </div>
       </div>
     </section>

@@ -1,5 +1,14 @@
 # Avenor — Brand Identity (v1)
 
+> **Canonical mark update.** The production identity is the board-approved system
+> (`avenor-symbol.svg`, `avenor-wordmark.svg`, `avenor-lockup.svg`,
+> `avenor-lockup-dark.svg`, favicon; board: `docs/brand-board.png`): an origin dot
+> plus a bold route resolving into an abstract A, with the custom angular AVENOR
+> wordmark. Accent Blue is `#3D5AFE`. The signal-route exploration below
+> (`symbol.svg`, `lockup-horizontal.svg`, etc.) is retained as process history —
+> its pulse/dot motif language still drives site illustrations and motion, but it
+> is NOT the logo. Do not mix the two marks in one surface.
+
 ## The concept: the signal route
 
 Avenor sits between an application and its recipient. The mark captures that

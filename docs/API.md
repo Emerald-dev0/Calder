@@ -38,3 +38,10 @@ Per API key, project, and organization; different limits for sending vs. verific
 ## Sandbox / test mode
 
 `test` keys never trigger real external delivery — simulated events and webhook deliveries only.
+
+## SMTP (not REST — see docs/SMTP.md)
+
+The SMTP gateway is a separate interface, not part of this REST surface. SMTP
+credential management endpoints (create/rotate/revoke per project) will be
+specified alongside gateway implementation — no paths are stable yet, so none
+are listed here. Protocol behavior, normalization, and limits: `docs/SMTP.md`.

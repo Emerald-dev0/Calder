@@ -8,7 +8,7 @@ Initial primitive: Transactional email
 
 Avenor is developer-first communication infrastructure, starting with transactional email and designed to expand into a broader communication layer (OTP, SMS, push) without architectural rework.
 
-Positioning: **Avenor — communication infrastructure that gets out of your way.** Differentiation comes from developer experience + domain intelligence + debuggability + predictable pricing + distinctive design, combined — not any single feature.
+Positioning: **Avenor — the easiest way to add reliable transactional email to an application.** Communication infrastructure that gets out of your way. Differentiation comes from developer experience + domain intelligence + debuggability + predictable pricing + distinctive design, combined — not any single feature.
 
 ## 2. Problem
 
@@ -16,7 +16,7 @@ Developers need application-generated transactional communication but implementi
 
 ## 3. Users
 
-**Targeting:** indie developers, startups, SaaS companies, engineering teams.
+**Targeting:** indie developers, startups, SaaS companies, engineering teams — plus junior developers and teams with existing SMTP-based stacks (WordPress, Laravel, Django, legacy systems) who need infrastructure without replatforming.
 
 **Not targeting (initially):** newsletter platforms, marketing automation, CRM, bulk/broadcast email.
 
@@ -33,7 +33,7 @@ Organization (billing/ownership boundary)
 
 ## 5. Core modules (MVP scope)
 
-Email API, domain verification (DNS-based), async queue + worker, provider abstraction (SES first), retries with backoff, idempotency, full email event lifecycle, signed/retried webhooks, usage metering from authoritative records, basic dashboard, Bachs billing integration.
+Email API, **SMTP gateway (same pipeline, project-scoped credentials)**, domain verification (DNS-based), async queue + worker, provider abstraction (SES first), retries with backoff, idempotency, full email event lifecycle, signed/retried webhooks, usage metering from authoritative records, basic dashboard, Bachs billing integration.
 
 ## 6. Post-MVP
 
@@ -54,6 +54,10 @@ Email-based OTP: create/verify challenge, expiration, attempt limits, replay pre
 ## 10. API conventions
 
 Versioned from first release (`/v1/...`). Predictable error shape: `{ error: { code, message, request_id } }`. API keys: `test`/`live`, hashed at rest, prefixed, revocable, rotatable.
+
+## 10b. Two interfaces, one pipeline
+
+Avenor exposes **REST API** (modern applications, SDKs) and **SMTP** (`smtp.avenor.email:587`, STARTTLS; project-scoped username + generated secret) for existing stacks and SMTP-native libraries (Nodemailer, smtplib, Laravel/Django mailers, etc.). Both converge into the same ingestion → queue → worker → provider pipeline: one email model, one event lifecycle, one usage meter, one billable event. SMTP is a standard-protocol interface, not a second delivery system. No anonymous relay, ever — authentication and TLS are mandatory. Full spec: `docs/SMTP.md`.
 
 ## 11. Pricing (initial hypothesis)
 
@@ -90,4 +94,6 @@ Immediately: build microservices everywhere, support every email provider, build
 
 **Decided:** name (Avenor), developer-first positioning, transactional-first, email as first primitive, PostgreSQL, TypeScript, Next.js, Hono, Drizzle, Redis-compatible infra, Lenis for smooth scroll, queue-based delivery, provider abstraction, AWS SES as initial provider, NGN+USD pricing, Bachs as initial payment candidate, monorepo, compact doc strategy, AGENTS.md, "Editorial Infrastructure" design direction, CLI-first tooling philosophy, production-first engineering philosophy.
 
-**Not yet locked:** primary domain, exact accent color values, final hosting providers, queue/Redis provider, final Bachs integration, final pricing, exact Vercel verification mechanism, first SDK release date, OTP in-MVP-or-not, exact failover strategy.
+**Not yet locked:** primary domain, exact accent color values, final hosting providers, queue/Redis provider, final Bachs integration, final pricing, exact Vercel verification mechanism, first SDK release date, OTP in-MVP-or-not, exact failover strategy, SMTP gateway deploy topology (see ADR-014).
+
+**Explicitly not the product:** automating personal Gmail SMTP accounts. Avenor replaces self-operated email infrastructure; it does not script around consumer mailboxes.
