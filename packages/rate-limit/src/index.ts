@@ -68,6 +68,7 @@ export const rateLimitPresets = {
   auth: { windowMs: 60_000, max: 20 },
   webhook: { windowMs: 60_000, max: 60 },
   otp: { windowMs: 60_000, max: 5 },
+  waitlist: { windowMs: 60_000, max: 5 }, // unauthenticated public signup
   dashboard: { windowMs: 60_000, max: 120 },
 } as const;
 

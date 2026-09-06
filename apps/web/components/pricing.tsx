@@ -108,7 +108,7 @@ export function Pricing() {
                   <li key={f}>{f}</li>
                 ))}
               </ul>
-              <a className={`btn ${p.featured ? "btn-paper" : "btn-secondary"}`} href="#start">
+              <a className={`btn ${p.featured ? "btn-paper" : "btn-secondary"}`} href="/waitlist">
                 {p.cta}
               </a>
             </Reveal>

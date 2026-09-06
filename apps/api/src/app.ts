@@ -9,6 +9,7 @@ import emails from "./routes/emails.js";
 import domains from "./routes/domains.js";
 import projects from "./routes/projects.js";
 import webhooks from "./routes/webhooks.js";
+import waitlist from "./routes/waitlist.js";
 
 export interface Env {
   Variables: {
@@ -53,6 +54,7 @@ export function createApp() {
   app.route("/v1/domains", domains);
   app.route("/v1/projects", projects);
   app.route("/v1/webhooks", webhooks);
+  app.route("/v1/waitlist", waitlist);
 
   // 404
   app.notFound((c) => {

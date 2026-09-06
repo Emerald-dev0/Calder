@@ -104,7 +104,7 @@ export function Hero() {
               statuses, and every event on the record.
             </p>
             <div className="hero-ctas">
-              <a className="btn btn-primary" href="#start">
+              <a className="btn btn-primary" href="/waitlist">
                 Get an API key{" "}
                 <span className="arrow" aria-hidden="true">
                   →

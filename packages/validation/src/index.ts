@@ -67,6 +67,22 @@ export const createWebhookSchema = z.object({
 
 export type CreateWebhookInput = z.infer<typeof createWebhookSchema>;
 
+// ── Waitlist ───────────────────────────────────────────────────
+
+export const joinWaitlistSchema = z.object({
+  email: z
+    .string()
+    .email()
+    .max(320)
+    .transform((v) => v.toLowerCase().trim()),
+  ref: z
+    .string()
+    .regex(/^[A-Za-z0-9]{6,16}$/, "Invalid referral code")
+    .optional(),
+});
+
+export type JoinWaitlistInput = z.infer<typeof joinWaitlistSchema>;
+
 // ── Environment validation ───────────────────────────────────
 
 export function validate<T>(schema: z.ZodType<T>, data: unknown): T {

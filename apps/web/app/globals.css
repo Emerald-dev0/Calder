@@ -1868,6 +1868,183 @@ a {
   }
 }
 
+/* ── Waitlist ─────────────────────────────────────────────────── */
+
+.waitlist-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  margin: 0 0 1.4rem;
+}
+
+.waitlist-form {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 1.4rem;
+  max-width: 36rem;
+}
+
+.waitlist-row {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.waitlist-row input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 0 1rem;
+  font-size: 0.95rem;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.waitlist-row input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.waitlist-row .btn {
+  height: 48px;
+  flex-shrink: 0;
+}
+
+.waitlist-error {
+  color: var(--danger);
+  font-size: 0.88rem;
+  margin: 0.7rem 0 0;
+}
+
+@media (max-width: 560px) {
+  .waitlist-row {
+    flex-direction: column;
+  }
+  .waitlist-row .btn {
+    justify-content: center;
+  }
+}
+
+/* Ticket — ink card with punched perforation */
+.ticket {
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 20px;
+  padding: 1.8rem;
+  max-width: 36rem;
+  box-shadow: 0 30px 70px -24px rgba(11, 12, 14, 0.5);
+}
+
+.ticket-in {
+  animation: ticket-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes ticket-in {
+  from {
+    opacity: 0;
+    transform: translateY(26px) rotate(-1deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ticket-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  color: rgba(245, 244, 239, 0.6);
+}
+
+.ticket-position {
+  margin: 1.4rem 0 1.6rem;
+}
+
+.ticket-number {
+  display: block;
+  font-size: clamp(3.2rem, 8vw, 4.8rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.ticket-sub {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.92rem;
+  color: rgba(245, 244, 239, 0.7);
+}
+
+.ticket-perforation {
+  height: 2px;
+  background-image: linear-gradient(to right, rgba(245, 244, 239, 0.35) 45%, transparent 45%);
+  background-size: 14px 2px;
+  margin: 0 -1.8rem 1.4rem;
+  position: relative;
+}
+
+.ticket-perforation::before,
+.ticket-perforation::after {
+  content: "";
+  position: absolute;
+  top: -11px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--paper);
+}
+
+.ticket-perforation::before {
+  left: -30px;
+}
+
+.ticket-perforation::after {
+  right: -30px;
+}
+
+.ticket-ref {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ticket-link {
+  font-size: 0.8rem;
+  color: var(--accent-bright);
+  word-break: break-all;
+  margin: 0;
+}
+
+.copy-btn.light {
+  background: rgba(245, 244, 239, 0.1);
+  border-color: rgba(245, 244, 239, 0.25);
+  color: var(--paper);
+  flex-shrink: 0;
+}
+
+.copy-btn.light:hover {
+  background: rgba(245, 244, 239, 0.2);
+}
+
+.ticket-fine {
+  margin: 1.2rem 0 0;
+  color: rgba(245, 244, 239, 0.5);
+}
+
 /* ── Reveal ─────────────────────────────────────────────────── */
 
 .reveal {
@@ -1902,6 +2079,10 @@ a {
     left: calc(100% - 7px);
   }
   .send-state.live {
+    animation: none;
+  }
+  .ticket-in,
+  .courier-drift {
     animation: none;
   }
   *,

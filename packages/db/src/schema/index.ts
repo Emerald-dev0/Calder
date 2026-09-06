@@ -8,3 +8,4 @@ export * from "./emails.js";
 export * from "./webhooks.js";
 export * from "./billing.js";
 export * from "./system.js";
+export * from "./waitlist.js";

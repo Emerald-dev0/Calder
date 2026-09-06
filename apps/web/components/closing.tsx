@@ -65,13 +65,13 @@ export function FinalCta() {
               <span className="mono">delivered</span> tag is one POST request.
             </p>
             <div className="final-ctas">
-              <a className="btn btn-paper" href="#top">
-                Create your project{" "}
+              <a className="btn btn-paper" href="/waitlist">
+                Join the waitlist{" "}
                 <span className="arrow" aria-hidden="true">
                   →
                 </span>
               </a>
-              <a className="btn btn-outline-paper" href="#developers">
+              <a className="btn btn-outline-paper" href="/docs/quickstart">
                 Read the quickstart
               </a>
             </div>

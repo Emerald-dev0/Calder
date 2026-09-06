@@ -4,11 +4,12 @@ import * as React from "react";
 import { Logo } from "./logo";
 
 const links = [
-  { label: "Pipeline", href: "#pipeline" },
-  { label: "Developers", href: "#developers" },
-  { label: "Product", href: "#product" },
-  { label: "Pricing", href: "#pricing" },
+  { label: "Pipeline", href: "/#pipeline" },
+  { label: "Developers", href: "/#developers" },
+  { label: "Product", href: "/#product" },
+  { label: "Pricing", href: "/#pricing" },
   { label: "Docs", href: "/docs" },
+  { label: "Waitlist", href: "/waitlist" },
 ];
 
 export function Navigation() {
@@ -17,7 +18,7 @@ export function Navigation() {
   return (
     <header className="nav">
       <div className="nav-inner">
-        <a href="#top" aria-label="Avenor home">
+        <a href="/" aria-label="Avenor home">
           <Logo />
         </a>
         <nav className={`nav-links${open ? "open" : ""}`} aria-label="Primary">
@@ -28,11 +29,11 @@ export function Navigation() {
           ))}
         </nav>
         <div className="nav-cta">
-          <a className="btn btn-ghost btn-sm" href="#developers">
+          <a className="btn btn-ghost btn-sm" href="/docs">
             Read the docs
           </a>
-          <a className="btn btn-primary btn-sm" href="#start">
-            Get an API key{" "}
+          <a className="btn btn-primary btn-sm" href="/waitlist">
+            Join the waitlist{" "}
             <span className="arrow" aria-hidden="true">
               →
             </span>

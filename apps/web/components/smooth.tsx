@@ -24,11 +24,18 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
     raf = requestAnimationFrame(loop);
 
     const onClick = (e: MouseEvent) => {
-      const anchor = (e.target as HTMLElement).closest?.('a[href^="#"]');
+      const anchor = (e.target as HTMLElement).closest?.("a[href]");
       if (!anchor) return;
-      const id = anchor.getAttribute("href");
-      if (!id || id.length < 2) return;
-      const el = document.querySelector(id);
+      let url: URL;
+      try {
+        url = new URL(anchor.getAttribute("href") ?? "", window.location.href);
+      } catch {
+        return;
+      }
+      // Same-page section links ("/#pipeline" from anywhere) scroll smoothly.
+      if (url.origin !== window.location.origin || url.pathname !== "/" || !url.hash) return;
+      const el = document.querySelector(url.hash);
+      if (window.location.pathname !== "/") return; // let cross-page navigation happen natively
       if (!el) return;
       e.preventDefault();
       lenis.scrollTo(el as HTMLElement, { offset: -70, duration: 1.4 });
