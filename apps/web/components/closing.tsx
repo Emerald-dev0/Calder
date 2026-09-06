@@ -86,27 +86,32 @@ const COLUMNS: Array<{ title: string; links: Array<{ label: string; href: string
   {
     title: "Product",
     links: [
-      { label: "Email API", href: "#developers" },
-      { label: "Pipeline", href: "#pipeline" },
-      { label: "Observability", href: "#observability" },
-      { label: "Pricing", href: "#pricing" },
+      { label: "Developers", href: "/developers" },
+      { label: "Templates", href: "/templates" },
+      { label: "Webhooks", href: "/webhooks" },
+      { label: "Domains", href: "/domains" },
+      { label: "Pricing", href: "/pricing" },
     ],
   },
   {
     title: "Developers",
     links: [
-      { label: "Quickstart", href: "#developers" },
-      { label: "API reference", href: "#developers" },
-      { label: "Webhooks", href: "#capabilities" },
-      { label: "Delivery status", href: "#observability" },
+      { label: "Documentation", href: "/docs" },
+      { label: "Quickstart", href: "/docs/quickstart" },
+      { label: "API reference", href: "/docs/api-reference" },
+      { label: "Migrate from Resend", href: "/migrate" },
+      { label: "Status", href: "/status" },
     ],
   },
   {
     title: "Company",
     links: [
-      { label: "Why Avenor", href: "#capabilities" },
-      { label: "Domains", href: "#observability" },
-      { label: "Get started", href: "#start" },
+      { label: "About", href: "/about" },
+      { label: "Blog", href: "/blog" },
+      { label: "Changelog", href: "/changelog" },
+      { label: "Brand", href: "/brand" },
+      { label: "Security", href: "/security" },
+      { label: "Support", href: "/support" },
     ],
   },
 ];
@@ -142,7 +147,10 @@ export function Footer() {
         </div>
         <div className="footer-bottom">
           <span>© 2026 Avenor — communication infrastructure that gets out of your way.</span>
-          <span className="mono">all systems nominal · light mode by default</span>
+          <span style={{ display: "inline-flex", gap: "1rem" }}>
+            <a href="/legal/privacy">Privacy</a>
+            <a href="/legal/terms">Terms</a>
+          </span>
         </div>
       </div>
     </footer>
