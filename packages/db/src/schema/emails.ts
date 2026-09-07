@@ -8,8 +8,8 @@ import {
   uniqueIndex,
   integer,
 } from "drizzle-orm/pg-core";
-import { emailStatusEnum, emailEventTypeEnum } from "./enums.js";
-import { projects } from "./projects.js";
+import { emailStatusEnum, emailEventTypeEnum } from "./enums";
+import { projects } from "./projects";
 
 export const emails = pgTable(
   "emails",

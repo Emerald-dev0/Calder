@@ -99,9 +99,21 @@ importers:
 
   apps/dashboard:
     dependencies:
+      '@avenor/auth':
+        specifier: workspace:^
+        version: link:../../packages/auth
+      '@avenor/config':
+        specifier: workspace:^
+        version: link:../../packages/config
+      '@avenor/db':
+        specifier: workspace:^
+        version: link:../../packages/db
       '@avenor/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      drizzle-orm:
+        specifier: ^0.38.0
+        version: 0.38.4(@types/react@18.3.31)(postgres@3.4.9)(react@18.3.1)
       next:
         specifier: ^14.2.0
         version: 14.2.35(react-dom@18.3.1(react@18.3.1))(react@18.3.1)

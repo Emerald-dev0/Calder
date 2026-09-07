@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { InMemoryQueue } from "./queue.js";
+import { InMemoryQueue } from "./queue";
 
 describe("InMemoryQueue", () => {
   it("enqueues and processes jobs", async () => {

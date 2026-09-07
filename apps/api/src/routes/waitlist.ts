@@ -112,12 +112,18 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
   if (ref && (await referralCodeExists(db, ref))) referredBy = ref;
 
   const code = await uniqueReferralCode(db);
+  // Set createdAt explicitly (ms precision) instead of DB now(): Postgres stores
+  // microseconds, but the driver round-trips milliseconds — comparing a re-read
+  // timestamp against stored values then misses by fractions of a millisecond
+  // (position computed as 0). Exact-ms values compare exactly.
+  const now = new Date();
   try {
     await db.insert(waitlistSignups).values({
       id: newId("wl"),
       email,
       referralCode: code,
       referredBy,
+      createdAt: now,
     });
   } catch (err: unknown) {
     // Race: same email inserted concurrently → return the winner's ticket.
@@ -131,6 +137,26 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
   const ticket = await buildTicket(db, email);
   if (!ticket)
     throw new AppError("internal_error", "Could not join the waitlist. Please retry.", 500);
+
+  // Dogfood: confirm through our own pipeline under the founder-owned tenant.
+  // Same idempotency key every time, so replays never duplicate. A failure here
+  // must never fail the signup — log loudly, deliverability is retried by design.
+  try {
+    const { sendInternalEmail } = await import("../services/email-service.js");
+    const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+    await sendInternalEmail({
+      to: email,
+      subject: `You're #${ticket.position} in line — welcome to Avenor`,
+      html: `<p>You're <b>#${ticket.position}</b> in line for Avenor early access.</p><p>Your referral code: <b>${ticket.referralCode}</b></p><p>Share it: <a href="${appUrl}/waitlist?ref=${ticket.referralCode}">${appUrl}/waitlist?ref=${ticket.referralCode}</a> — friends join behind you.</p><p>We'll email you from this address when your batch opens.</p>`,
+      text: `You're #${ticket.position} in line for Avenor early access. Referral code: ${ticket.referralCode}. Share: ${appUrl}/waitlist?ref=${ticket.referralCode}`,
+      idempotencyKey: `waitlist-confirm:${email}`,
+      requestId: c.get("requestId"),
+    });
+  } catch (err) {
+    const { logger } = await import("@avenor/observability");
+    logger.error({ err, email }, "Waitlist confirmation failed to enqueue (signup kept)");
+  }
+
   return c.json({ data: { ...ticket, joined: true } }, 201);
 });
 

@@ -26,6 +26,8 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GITHUB_CLIENT_ID: z.string().optional(),
   GITHUB_CLIENT_SECRET: z.string().optional(),
+  // Founder bootstrap: comma-separated emails auto-granted owner of org_avenor on first login
+  FOUNDER_EMAILS: z.string().optional(),
 
   // Email Provider — optional in dev (mock provider used)
   AWS_REGION: z.string().default("us-east-1"),

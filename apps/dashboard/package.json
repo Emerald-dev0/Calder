@@ -14,7 +14,11 @@
     "clean": "rm -rf .next"
   },
   "dependencies": {
+    "@avenor/auth": "workspace:^",
+    "@avenor/config": "workspace:^",
+    "@avenor/db": "workspace:^",
     "@avenor/ui": "workspace:*",
+    "drizzle-orm": "^0.38.0",
     "next": "^14.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

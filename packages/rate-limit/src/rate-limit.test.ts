@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { InMemoryRateLimiter, rateLimitPresets, buildRateLimitKey } from "./index.js";
+import { InMemoryRateLimiter, rateLimitPresets, buildRateLimitKey } from "./index";
 
 describe("rate limiting", () => {
   it("allows requests within limit", async () => {

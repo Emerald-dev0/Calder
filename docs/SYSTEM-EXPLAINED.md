@@ -53,8 +53,11 @@ organizationId, env }`. No key → 401. Wrong project → 403.
      Exhausted → dead-letter state (reason, attempts, last error, replayable).
    - Success → status `sent` + `providerMessageId`, event recorded, webhook job
      enqueued, usage counted.
-7. Test keys (`avenor_sk_test_…`) force the Mock provider end-to-end: same code
-   path, zero external delivery.
+7. Provider selection is currently GLOBAL to the worker process: SES if AWS
+   creds are present, else Mock. Per-email test/live routing is NOT yet
+   implemented — in dev (no SES creds) everything flows through Mock; in prod
+   with SES creds everything would send for real. Test-key simulation must
+   become per-email before untrusted users onboard.
 
 ## 3. Auth: two doors, one building
 
@@ -86,33 +89,41 @@ organizationId, env }`. No key → 401. Wrong project → 403.
 
 ## 5. Dogfooding doctrine (corrected)
 
-Our own mail (waitlist confirmations, onboarding, billing) goes through the SAME
-`POST /v1/emails` path as customers — test keys in staging, live keys in prod.
-There is no special internal bypass and no self-calling provider: a previous
-iteration (`AvenorEmailProvider` HTTP-looping worker→API→queue→worker) was
-removed because it recursed and faked `accepted: true`, corrupting the event
-trail the whole system exists to keep honest. The stub class remains as a seam
-that throws until a direct-enqueue delegation exists; the worker selects only
-SES/mock as last-mile providers.
+Our own mail goes through the same persist → enqueue → worker → event path as
+customer mail, via `sendInternalEmail()` (`apps/api/src/services/email-service.ts`)
+under the founder-owned tenant (`org_avenor` / `proj_website`, seeded by
+`pnpm --filter @avenor/db db:seed`). First live consumer: waitlist confirmations
+(position + referral code, idempotency key `waitlist-confirm:<email>` so replays
+never duplicate; signup succeeds even if the confirmation fails). There is no
+special bypass and no self-calling provider: a previous iteration
+(`AvenorEmailProvider` HTTP-looping worker→API→queue→worker) was removed because
+it recursed and faked `accepted: true`, corrupting the event trail the whole
+system exists to keep honest. The stub class remains as a seam that throws; the
+worker selects only SES/mock as last-mile providers. Verified live: waitlist join
+→ confirmation row under `proj_website` → worker → `sent` + events. Founder
+claims the account by signing in with an email listed in `FOUNDER_EMAILS`
+(auto-owner of `org_avenor` on first login).
 
 ## 6. What's REAL vs what's STUB (honest inventory)
 
-| Component                                             | Status                                                   |
-| ----------------------------------------------------- | -------------------------------------------------------- |
-| API validation/auth/rate-limit/error model            | Real                                                     |
-| Idempotency (durable keys, replay)                    | Real                                                     |
-| Redis queue (BullMQ) API↔worker delivery              | Real (this cutover)                                      |
-| Worker retry/backoff/DLQ/suppression/events           | Real                                                     |
-| SES provider                                          | Real code, needs AWS creds + sandbox warm-up to fire     |
-| Mock provider (test keys)                             | Real, full-path simulation                               |
-| OAuth login, sessions, linking                        | Real code, needs provider console creds to click through |
-| Orgs/projects/keys/domains/webhooks API               | Real CRUD, tenant-scoped                                 |
-| Webhook delivery engine (signed, retried, replayable) | Partial — enqueue exists, dedicated deliverer pending    |
-| Usage aggregation cron                                | Planned (Phase 8)                                        |
-| Billing charges (Bachs)                               | Abstraction + mock only; provider unvalidated            |
-| SMTP gateway                                          | Specified (`docs/SMTP.md`), not built                    |
-| Templates / OTP                                       | Schema stubs + docs; not built                           |
-| Dashboard pages beyond overview                       | Shells; data wiring in progress                          |
+| Component                                             | Status                                                        |
+| ----------------------------------------------------- | ------------------------------------------------------------- |
+| API validation/auth/rate-limit/error model            | Real                                                          |
+| Idempotency (durable keys, replay)                    | Real                                                          |
+| Redis queue (BullMQ) API↔worker delivery              | Real (this cutover)                                           |
+| Worker retry/backoff/DLQ/suppression/events           | Real                                                          |
+| SES provider                                          | Real code, needs AWS creds + sandbox warm-up to fire          |
+| Mock provider (test keys)                             | Real, full-path simulation                                    |
+| OAuth login, sessions, linking                        | Real code, needs provider console creds to click through      |
+| Orgs/projects/keys/domains/webhooks API               | Real CRUD, tenant-scoped                                      |
+| Webhook delivery engine (signed, retried, replayable) | Partial — enqueue exists, dedicated deliverer pending         |
+| Usage aggregation cron                                | Planned (Phase 8)                                             |
+| Billing charges (Bachs)                               | Abstraction + mock only; provider unvalidated                 |
+| SMTP gateway                                          | Specified (`docs/SMTP.md`), not built                         |
+| Templates / OTP                                       | Schema stubs + docs; not built                                |
+| Dashboard auth (OAuth login, sessions, middleware)    | Real code; needs GOOGLE/GITHUB console creds to click through |
+| Dashboard reads (overview stats, emails list)         | Real, server components via tenant helper (ADR-015)           |
+| Dashboard domains/keys/webhooks/usage/billing         | Shells; data wiring pending                                   |
 
 ## 7. How to run it (local truth)
 
@@ -140,7 +151,27 @@ curl -X POST localhost:3002/v1/emails -H "Authorization: Bearer <key>" \
 #    idempotency_keys row exists. Re-POST same key → 200, no new email row.
 ```
 
+## 8b. Dashboard data pattern (ADR-015)
+
+Dashboard pages are Next.js Server Components that query Postgres directly
+through `getTenantContext()` (`apps/dashboard/lib/auth.ts`): session cookie →
+sealed id → validated row (expiry + revocation) → memberships → projects. Every
+query is scoped to the user's own projects; `resolveProject` rejects foreign
+project ids. Rationale: server components run on the server, so this is a BFF
+read, not client DB access; routing every dashboard read through HTTP to our own
+API would add latency and a second auth mechanism for zero isolation benefit
+(the tenant helper IS the enforcement point). Mutations stay in server actions
+with the same helper. Middleware checks cookie presence only (fast path).
+
 ## 9. Changelog (newest first)
+
+- **Dogfood loop live:** waitlist confirmations send through the pipeline under
+  `org_avenor/proj_website`, visible in the dashboard emails list; founder
+  bootstrap via `FOUNDER_EMAILS`; dashboard login/callback/logout + overview
+  stats + emails list wired to tenant helper.
+- **Position-0 bug:** Postgres stores µs, driver round-trips ms — re-read
+  timestamps missed by fractions of a ms. Fixed by setting `createdAt`
+  explicitly at insert (exact-ms values compare exactly).
 
 - **Redis pipeline cutover:** `createQueue` returns BullMQ-backed queue when
   `REDIS_URL` is set; InMemory kept for tests only (prod import = bug, guarded).

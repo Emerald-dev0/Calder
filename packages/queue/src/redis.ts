@@ -1,6 +1,6 @@
 import { Queue as BullQueue, Worker as BullWorker, type Job } from "bullmq";
 import IORedis from "ioredis";
-import type { Queue, QueueJob, QueueOptions, JobHandler } from "./queue.js";
+import type { Queue, QueueJob, QueueOptions, JobHandler } from "./queue";
 
 /**
  * Redis-backed queue (BullMQ). Production implementation of Queue<T>.

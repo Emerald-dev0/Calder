@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { SendEmailInput } from "@avenor/validation";
 import { createQueue } from "@avenor/queue";
 import { logger } from "@avenor/observability";
+import { getConfig } from "@avenor/config";
+import { AppError } from "../errors/index.js";
 
 /**
  * Thin service layer — business logic outside HTTP handlers.
@@ -192,4 +194,64 @@ async function lookupIdempotency(
 // Export queue for worker to share in-process (scaffold)
 export function getSharedEmailQueue() {
   return getEmailQueue();
+}
+
+// ── Internal (dogfood) sends ─────────────────────────────────────
+// Avenor's own mail enters through this function — the same persist +
+// enqueue path as customer sends, under the founder-owned tenant below.
+// No HTTP loop, no special bypass, no separate provider. See
+// docs/SYSTEM-EXPLAINED.md §5.
+export const INTERNAL_ORG_ID = "org_avenor";
+export const INTERNAL_PROJECT_ID = "proj_website";
+export const INTERNAL_FROM = "Avenor <hello@avenor.com>";
+
+export interface InternalEmailParams {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  idempotencyKey: string;
+  requestId: string;
+}
+
+export async function sendInternalEmail(
+  params: InternalEmailParams
+): Promise<{ id: string; replay: boolean }> {
+  const { getDb, organizations, projects } = await import("@avenor/db");
+  const { eq } = await import("drizzle-orm");
+  const db = getDb();
+  const org = await db
+    .select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.id, INTERNAL_ORG_ID))
+    .limit(1);
+  const proj = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(eq(projects.id, INTERNAL_PROJECT_ID))
+    .limit(1);
+  if (!org[0] || !proj[0]) {
+    throw new AppError(
+      "internal_error",
+      "Internal tenant not seeded — run: pnpm --filter @avenor/db db:seed.",
+      500
+    );
+  }
+  const env = getConfig().NODE_ENV === "production" ? ("live" as const) : ("test" as const);
+  const result = await handleSendEmail({
+    projectId: INTERNAL_PROJECT_ID,
+    organizationId: INTERNAL_ORG_ID,
+    apiKeyId: "internal",
+    env,
+    requestId: params.requestId,
+    idempotencyKey: params.idempotencyKey,
+    input: {
+      from: INTERNAL_FROM,
+      to: params.to,
+      subject: params.subject,
+      html: params.html,
+      text: params.text,
+    },
+  });
+  return { id: result.response.id, replay: result.idempotentReplay };
 }

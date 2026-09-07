@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateApiKey, hashApiKey, verifyApiKey, isValidKeyFormat } from "./api-keys.js";
+import { generateApiKey, hashApiKey, verifyApiKey, isValidKeyFormat } from "./api-keys";
 
 describe("api keys", () => {
   it("generates prefixed keys and verifies hash", () => {

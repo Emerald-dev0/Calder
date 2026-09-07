@@ -4,16 +4,16 @@ export {
   generateApiKey,
   extractKeyPrefix,
   type GeneratedApiKey,
-} from "./api-keys.js";
-export { type AuthContext, type ApiKeyContext, type SessionContext } from "./types.js";
-export { requireProjectAccess, requireOrgAccess, assertTenantScope } from "./authorization.js";
+} from "./api-keys";
+export { type AuthContext, type ApiKeyContext, type SessionContext } from "./types";
+export { requireProjectAccess, requireOrgAccess, assertTenantScope } from "./authorization";
 export {
   startOAuth,
   completeOAuth,
   configuredProviders,
   type OAuthProvider,
   type OAuthProfile,
-} from "./oauth.js";
+} from "./oauth";
 export {
   createSession,
   getSessionUser,
@@ -23,4 +23,4 @@ export {
   clearSessionCookieHeader,
   SESSION_COOKIE,
   type SessionUser,
-} from "./session.js";
+} from "./session";

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sendEmailSchema, createDomainSchema } from "./index.js";
+import { sendEmailSchema, createDomainSchema } from "./index";
 
 describe("validation schemas", () => {
   it("sendEmailSchema accepts valid input", () => {

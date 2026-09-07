@@ -1,4 +1,4 @@
-import type { BillingProvider, CheckoutSession } from "./provider.js";
+import type { BillingProvider, CheckoutSession } from "./provider";
 
 export interface BillingService {
   createCheckout(

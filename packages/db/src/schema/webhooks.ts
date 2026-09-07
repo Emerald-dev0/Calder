@@ -8,8 +8,8 @@ import {
   boolean,
   integer,
 } from "drizzle-orm/pg-core";
-import { webhookEventEnum, webhookDeliveryStatusEnum } from "./enums.js";
-import { projects } from "./projects.js";
+import { webhookEventEnum, webhookDeliveryStatusEnum } from "./enums";
+import { projects } from "./projects";
 
 export const webhooks = pgTable(
   "webhooks",

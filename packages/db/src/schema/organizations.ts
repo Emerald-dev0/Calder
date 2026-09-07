@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp, varchar, uniqueIndex, index } from "drizzle-orm/pg-core";
-import { organizationRoleEnum } from "./enums.js";
-import { users } from "./users.js";
+import { organizationRoleEnum } from "./enums";
+import { users } from "./users";
 
 export const organizations = pgTable("organizations", {
   id: text("id").primaryKey(),

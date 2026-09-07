@@ -1,5 +1,5 @@
 import { pgTable, text, timestamp, varchar, index, uniqueIndex } from "drizzle-orm/pg-core";
-import { users } from "./users.js";
+import { users } from "./users";
 
 /**
  * OAuth identities. One row per (provider, provider-user). Login links by

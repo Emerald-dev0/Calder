@@ -5,12 +5,12 @@ export {
   type ProviderError,
   MockEmailProvider,
   isProviderError,
-} from "./provider.js";
-export { createEmailService, type EmailService } from "./service.js";
+} from "./provider";
+export { createEmailService, type EmailService } from "./service";
 export {
   type DomainVerificationProvider,
   type VerificationResult,
   DnsVerificationProvider,
   VercelVerificationProvider,
   CompositeVerificationProvider,
-} from "./domain-verification.js";
+} from "./domain-verification";

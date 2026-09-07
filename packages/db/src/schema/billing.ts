@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp, varchar, integer, jsonb, index } from "drizzle-orm/pg-core";
-import { planTierEnum, subscriptionStatusEnum } from "./enums.js";
-import { organizations } from "./organizations.js";
+import { planTierEnum, subscriptionStatusEnum } from "./enums";
+import { organizations } from "./organizations";
 
 export const plans = pgTable("plans", {
   id: text("id").primaryKey(),

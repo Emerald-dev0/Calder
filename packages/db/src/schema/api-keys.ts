@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp, varchar, index } from "drizzle-orm/pg-core";
-import { apiKeyEnvEnum } from "./enums.js";
-import { projects } from "./projects.js";
+import { apiKeyEnvEnum } from "./enums";
+import { projects } from "./projects";
 
 export const apiKeys = pgTable(
   "api_keys",

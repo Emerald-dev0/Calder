@@ -140,3 +140,17 @@ Record any decision that (a) reverses something already built, or (b) a reasonab
    billing, events, and guarantees coherent across interfaces.
    **Open (must validate before GA):** managed TCP-LB provider choice; cert rotation
    mechanism; attachment size caps; `X-Avenor-*` extension header set.
+
+---
+
+## ADR-015: Dashboard reads via server components + tenant helper
+
+**Status:** Accepted
+**Decision:** Dashboard pages query Postgres directly in Server Components
+through `getTenantContext()`, instead of HTTP calls to our own API.
+**Why:** server components execute on the server (BFF pattern, not client DB
+access); an HTTP hop would add latency plus a second auth mechanism with no
+isolation gain. Enforcement lives in the helper (seal + expiry + revocation +
+project scoping), and middleware is documented as presence-check only.
+**Constraint:** every new dashboard query must go through the helper —
+raw `getDb()` in a page without tenant scoping is a bug.

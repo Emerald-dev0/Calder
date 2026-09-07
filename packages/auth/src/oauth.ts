@@ -1,9 +1,9 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { Google, GitHub, generateState, generateCodeVerifier } from "arctic";
 import { eq, and } from "drizzle-orm";
-import { getDb, users, oauthAccounts } from "@avenor/db";
+import { getDb, users, oauthAccounts, organizations, organizationMembers } from "@avenor/db";
 import { getConfig } from "@avenor/config";
-import { createSession } from "./session.js";
+import { createSession } from "./session";
 
 export type OAuthProvider = "google" | "github";
 
@@ -193,5 +193,48 @@ export async function completeOAuth(
     });
   }
 
+  await ensureFounderAccess(db, userId, profile.email);
+
   return createSession(userId);
+}
+
+/**
+ * Founder bootstrap: emails listed in FOUNDER_EMAILS are granted owner of the
+ * internal Avenor org on first login — this is how the founder claims control
+ * of Avenor's own account (org_avenor) and sees its mail in the dashboard.
+ * No-ops for everyone else. Never grants anything beyond org_avenor.
+ */
+async function ensureFounderAccess(
+  db: ReturnType<typeof getDb>,
+  userId: string,
+  email: string
+): Promise<void> {
+  const founders = (getConfig().FOUNDER_EMAILS ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (!founders.includes(email.toLowerCase())) return;
+
+  await db
+    .insert(organizations)
+    .values({ id: "org_avenor", name: "Avenor", slug: "avenor" })
+    .onConflictDoNothing();
+  const existing = await db
+    .select({ id: organizationMembers.id })
+    .from(organizationMembers)
+    .where(
+      and(
+        eq(organizationMembers.organizationId, "org_avenor"),
+        eq(organizationMembers.userId, userId)
+      )
+    )
+    .limit(1);
+  if (!existing[0]) {
+    await db.insert(organizationMembers).values({
+      id: newId("orgm"),
+      organizationId: "org_avenor",
+      userId,
+      role: "owner",
+    });
+  }
 }
