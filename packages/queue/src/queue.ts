@@ -1,6 +1,8 @@
+import { RedisQueue } from "./redis.js";
+
 /**
  * Queue abstraction — all enqueue/dequeue goes through this interface.
- * Implementations: InMemoryQueue (dev/test), RedisQueue (production via BullMQ/IORedis)
+ * Implementations: InMemoryQueue (tests, single-process dev), RedisQueue (production via BullMQ/IORedis)
  */
 
 export interface QueueJob<T = unknown> {
@@ -153,17 +155,37 @@ export class InMemoryQueue<T = unknown> implements Queue<T> {
   }
 }
 
+const redisInstances = new Map<string, RedisQueue<unknown>>();
+
+/**
+ * Shared Redis instances per queue name. A new BullMQ Queue object opens its
+ * own connection — call sites like per-job webhook enqueueing must reuse
+ * instances, never mint connections per call.
+ */
+function sharedRedisQueue<T>(name: string, redisUrl: string, maxAttempts?: number): Queue<T> {
+  const existing = redisInstances.get(name);
+  if (existing) return existing as RedisQueue<T>;
+  const created = new RedisQueue<T>(name, redisUrl, { maxAttempts });
+  redisInstances.set(name, created as unknown as RedisQueue<unknown>);
+  return created;
+}
+
+/** For tests: drop cached Redis instances. */
+export function resetSharedQueues(): void {
+  redisInstances.clear();
+}
+
 export function createQueue<T>(
   name: string,
   opts?: { maxAttempts?: number; redisUrl?: string }
 ): Queue<T> {
-  // In production, if REDIS_URL is set and ioredis is available, we would return a Redis-backed queue.
-  // For scaffold, always return InMemoryQueue — RedisQueue is a drop-in replacement.
-  // To enforce the abstraction boundary at compile time, we return Queue<T>.
+  // Redis when a URL is present (explicit opt or env) — this is what connects
+  // the API process to the worker process. Without it, InMemory (same-process
+  // only: tests, single-process dev). To enforce the abstraction boundary at
+  // compile time, we return Queue<T>.
   const redisUrl = opts?.redisUrl ?? process.env.REDIS_URL;
-  if (redisUrl && process.env.NODE_ENV === "production") {
-    // Placeholder: would instantiate RedisQueue here.
-    // Keeping InMemoryQueue for now to avoid hard dependency on Redis in scaffold.
+  if (redisUrl) {
+    return sharedRedisQueue<T>(name, redisUrl, opts?.maxAttempts);
   }
   return new InMemoryQueue<T>(name, opts);
 }

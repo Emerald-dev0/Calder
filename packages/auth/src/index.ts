@@ -7,3 +7,20 @@ export {
 } from "./api-keys.js";
 export { type AuthContext, type ApiKeyContext, type SessionContext } from "./types.js";
 export { requireProjectAccess, requireOrgAccess, assertTenantScope } from "./authorization.js";
+export {
+  startOAuth,
+  completeOAuth,
+  configuredProviders,
+  type OAuthProvider,
+  type OAuthProfile,
+} from "./oauth.js";
+export {
+  createSession,
+  getSessionUser,
+  revokeSession,
+  sealSessionCookie,
+  sessionCookieHeader,
+  clearSessionCookieHeader,
+  SESSION_COOKIE,
+  type SessionUser,
+} from "./session.js";

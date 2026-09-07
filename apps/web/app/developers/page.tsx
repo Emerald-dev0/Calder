@@ -95,6 +95,14 @@ export default function DevelopersPage() {
                 <p className="caption" style={{ marginTop: "1rem" }}>
                   Every 429 carries limit, remaining, reset, and a Retry-After. No guessing games.
                 </p>
+                <div style={{ marginTop: "2rem", display: "flex", justifyContent: "center" }}>
+                  <a className="btn btn-primary" href="/waitlist">
+                    Join the waitlist{" "}
+                    <span className="arrow" aria-hidden="true">
+                      →
+                    </span>
+                  </a>
+                </div>
               </div>
             </Reveal>
           </div>

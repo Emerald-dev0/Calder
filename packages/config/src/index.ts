@@ -22,6 +22,10 @@ const envSchema = z.object({
   // Auth
   AUTH_SECRET: z.string().min(16).default("dev-secret-change-me-32-chars-min"),
   AUTH_URL: z.string().url().default("http://localhost:3001"),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GITHUB_CLIENT_ID: z.string().optional(),
+  GITHUB_CLIENT_SECRET: z.string().optional(),
 
   // Email Provider — optional in dev (mock provider used)
   AWS_REGION: z.string().default("us-east-1"),

@@ -9,3 +9,4 @@ export * from "./webhooks.js";
 export * from "./billing.js";
 export * from "./system.js";
 export * from "./waitlist.js";
+export * from "./sessions.js";

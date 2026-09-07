@@ -69,6 +69,16 @@ export default function AboutPage() {
                 </div>
               ))}
             </div>
+            <Reveal delay={100}>
+              <div style={{ marginTop: "3rem", display: "flex", justifyContent: "center" }}>
+                <a className="btn btn-primary" href="/waitlist">
+                  Join the waitlist{" "}
+                  <span className="arrow" aria-hidden="true">
+                    →
+                  </span>
+                </a>
+              </div>
+            </Reveal>
           </div>
         </section>
         <FinalCta />

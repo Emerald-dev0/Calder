@@ -12,6 +12,9 @@ interface EmailJobData {
 }
 
 function getProvider() {
+  // Last-mile providers only. Internal (dogfood) mail enters upstream at
+  // enqueue time — routing ALL jobs through a self-calling provider here
+  // would recurse (worker → API → queue → worker). See docs/SYSTEM-EXPLAINED.md.
   // Use SES if AWS creds are present, otherwise mock
   if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
     logger.info("Using SES email provider");

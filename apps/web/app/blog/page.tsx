@@ -46,6 +46,33 @@ export default function BlogIndex() {
                 </div>
               </Link>
             </Reveal>
+            <Reveal delay={120}>
+              <div
+                style={{
+                  marginTop: "4rem",
+                  textAlign: "center",
+                  borderTop: "1px solid var(--border)",
+                  paddingTop: "3rem",
+                }}
+              >
+                <p className="eyebrow" style={{ justifyContent: "center" }}>
+                  Join the conversation
+                </p>
+                <h2 className="h2">
+                  Stay on the <em>record.</em>
+                </h2>
+                <p className="lede" style={{ margin: "1rem auto 2rem" }}>
+                  We're onboarding early-access users in position order. Get your ticket now to be
+                  among the first to shape the platform.
+                </p>
+                <a className="btn btn-primary" href="/waitlist">
+                  Join the waitlist{" "}
+                  <span className="arrow" aria-hidden="true">
+                    →
+                  </span>
+                </a>
+              </div>
+            </Reveal>
           </div>
         </section>
       </main>
