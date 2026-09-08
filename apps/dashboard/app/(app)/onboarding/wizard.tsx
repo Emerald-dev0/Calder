@@ -10,15 +10,31 @@ import {
   getEmailStatus,
   addDomain,
   checkDomainDns,
+  saveProfile,
+  completeOnboarding,
   type DnsRecord,
 } from "./actions";
-import { USE_CASES, VOLUMES, ENVIRONMENTS, type Environment } from "../../../lib/onboarding";
+import {
+  USE_CASES,
+  VOLUMES,
+  ENVIRONMENTS,
+  ROLES,
+  REFERRAL_SOURCES,
+  type Environment,
+} from "../../../lib/onboarding";
 import { ArrivalMoment } from "../../../components/arrival-moment";
 
 interface Org {
   id: string;
   name: string;
   slug: string;
+}
+
+export interface InitialProfile {
+  name: string;
+  username: string;
+  role: string;
+  referralSource: string;
 }
 
 const inputStyle: React.CSSProperties = {
@@ -76,10 +92,24 @@ function Err({ message }: { message: string | null }) {
   );
 }
 
-export function OnboardingWizard({ orgs }: { orgs: Org[] }) {
+export function OnboardingWizard({
+  orgs,
+  initialProfile,
+}: {
+  orgs: Org[];
+  initialProfile: InitialProfile;
+}) {
   const [step, setStep] = React.useState(0);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  const [displayName, setDisplayName] = React.useState(initialProfile.name);
+  const [username, setUsername] = React.useState(initialProfile.username);
+  const [role, setRole] = React.useState(initialProfile.role || (ROLES[0] as string));
+  const [referralSource, setReferralSource] = React.useState(
+    initialProfile.referralSource || (REFERRAL_SOURCES[0] as string)
+  );
+  const [done, setDone] = React.useState(false);
 
   const [orgId, setOrgId] = React.useState<string | null>(orgs[0]?.id ?? null);
   const [orgName, setOrgName] = React.useState("");
@@ -133,7 +163,15 @@ export function OnboardingWizard({ orgs }: { orgs: Org[] }) {
     };
   }, [emailId, projectId, emailStatus]);
 
-  const steps = ["Organization", "Project", "API key", "First send", "Domain"];
+  const steps = ["Profile", "Organization", "Project", "API key", "First send", "Domain"];
+
+  async function finish() {
+    const r = await run(async () => {
+      await completeOnboarding();
+      return true;
+    });
+    if (r) setDone(true);
+  }
 
   return (
     <div style={{ maxWidth: 640 }}>
@@ -153,6 +191,67 @@ export function OnboardingWizard({ orgs }: { orgs: Org[] }) {
       </ol>
 
       {step === 0 && (
+        <div>
+          <h2 style={{ margin: "0 0 6px" }}>Who are you?</h2>
+          <p style={{ color: "#737373", fontSize: 14, margin: "0 0 20px" }}>
+            Your profile travels with you across every organization — pick a handle you&rsquo;ll
+            keep.
+          </p>
+          <Field label="Your name">
+            <input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Ada Engineer"
+              style={inputStyle}
+            />
+          </Field>
+          <Field label="Username (unique, lowercase)">
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+              placeholder="ada"
+              style={inputStyle}
+            />
+          </Field>
+          <Field label="I am a…">
+            <select value={role} onChange={(e) => setRole(e.target.value)} style={inputStyle}>
+              {ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="How did you hear about Avenor?">
+            <select
+              value={referralSource}
+              onChange={(e) => setReferralSource(e.target.value)}
+              style={inputStyle}
+            >
+              {REFERRAL_SOURCES.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <button
+            style={btnPrimary}
+            disabled={busy}
+            onClick={() =>
+              run(async () => {
+                await saveProfile({ name: displayName, username, role, referralSource });
+                setStep(1);
+              })
+            }
+          >
+            Continue →
+          </button>
+          <Err message={error} />
+        </div>
+      )}
+
+      {step === 1 && (
         <div>
           <h2 style={{ margin: "0 0 6px" }}>Where does this belong?</h2>
           <p style={{ color: "#737373", fontSize: 14, margin: "0 0 20px" }}>
@@ -191,7 +290,7 @@ export function OnboardingWizard({ orgs }: { orgs: Org[] }) {
                   setOrgId(org.orgId);
                 }
                 if (!orgId && !orgName.trim()) throw new Error("Pick or name an organization.");
-                setStep(1);
+                setStep(2);
               })
             }
           >
@@ -201,7 +300,7 @@ export function OnboardingWizard({ orgs }: { orgs: Org[] }) {
         </div>
       )}
 
-      {step === 1 && (
+      {step === 2 && (
         <div>
           <h2 style={{ margin: "0 0 6px" }}>What are you sending from?</h2>
           <p style={{ color: "#737373", fontSize: 14, margin: "0 0 20px" }}>
@@ -265,7 +364,7 @@ export function OnboardingWizard({ orgs }: { orgs: Org[] }) {
             </select>
           </Field>
           <div style={{ display: "flex", gap: 10 }}>
-            <button style={btnSecondary} onClick={() => setStep(0)}>
+            <button style={btnSecondary} onClick={() => setStep(1)}>
               ← Back
             </button>
             <button
@@ -282,7 +381,7 @@ export function OnboardingWizard({ orgs }: { orgs: Org[] }) {
                     volume,
                   });
                   setProjectId(p.projectId);
-                  setStep(2);
+                  setStep(3);
                 })
               }
             >
@@ -293,7 +392,7 @@ export function OnboardingWizard({ orgs }: { orgs: Org[] }) {
         </div>
       )}
 
-      {step === 2 && (
+      {step === 3 && (
         <div>
           <h2 style={{ margin: "0 0 6px" }}>Here&rsquo;s your test key</h2>
           <p style={{ color: "#737373", fontSize: 14, margin: "0 0 20px" }}>
@@ -342,10 +441,10 @@ export function OnboardingWizard({ orgs }: { orgs: Org[] }) {
             </div>
           )}
           <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-            <button style={btnSecondary} onClick={() => setStep(1)}>
+            <button style={btnSecondary} onClick={() => setStep(2)}>
               ← Back
             </button>
-            <button style={btnPrimary} disabled={busy || !projectId} onClick={() => setStep(3)}>
+            <button style={btnPrimary} disabled={busy || !projectId} onClick={() => setStep(4)}>
               Continue to first send →
             </button>
           </div>
@@ -353,7 +452,7 @@ export function OnboardingWizard({ orgs }: { orgs: Org[] }) {
         </div>
       )}
 
-      {step === 3 && (
+      {step === 4 && (
         <div>
           <h2 style={{ margin: "0 0 6px" }}>Send one for real</h2>
           <p style={{ color: "#737373", fontSize: 14, margin: "0 0 20px" }}>
@@ -414,7 +513,7 @@ export function OnboardingWizard({ orgs }: { orgs: Org[] }) {
                 </p>
               )}
               <div style={{ marginTop: 16 }}>
-                <button style={btnPrimary} onClick={() => setStep(4)}>
+                <button style={btnPrimary} onClick={() => setStep(5)}>
                   Continue to domain →
                 </button>
               </div>
@@ -424,7 +523,7 @@ export function OnboardingWizard({ orgs }: { orgs: Org[] }) {
         </div>
       )}
 
-      {step === 4 && (
+      {step === 5 && (
         <div>
           <h2 style={{ margin: "0 0 6px" }}>Send from your own name</h2>
           <p style={{ color: "#737373", fontSize: 14, margin: "0 0 20px" }}>
@@ -503,17 +602,23 @@ export function OnboardingWizard({ orgs }: { orgs: Org[] }) {
                 <p style={{ fontSize: 13, color: "#737373", margin: "10px 0 0" }}>{dnsDetail}</p>
               )}
               <div style={{ marginTop: 16 }}>
-                <a
-                  href={projectId ? `/emails?project=${projectId}` : "/emails"}
-                  style={{
-                    ...btnPrimary,
-                    textDecoration: "none",
-                    display: "inline-block",
-                    lineHeight: "44px",
-                  }}
-                >
-                  Done — show me my emails →
-                </a>
+                {!done ? (
+                  <button style={btnPrimary} disabled={busy} onClick={() => void finish()}>
+                    Finish setup →
+                  </button>
+                ) : (
+                  <a
+                    href={projectId ? `/emails?project=${projectId}` : "/emails"}
+                    style={{
+                      ...btnPrimary,
+                      textDecoration: "none",
+                      display: "inline-block",
+                      lineHeight: "44px",
+                    }}
+                  >
+                    Done — show me my emails →
+                  </a>
+                )}
               </div>
             </div>
           )}

@@ -11,6 +11,7 @@ import {
   apiKeys,
   domains,
   emails,
+  users,
   type ProjectMetadata,
 } from "@avenor/db";
 import { generateApiKey } from "@avenor/auth";
@@ -20,6 +21,55 @@ import { slugify, type Environment } from "../../../lib/onboarding";
 
 function rid(prefix: string): string {
   return `${prefix}_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+}
+
+export interface ProfileInput {
+  name: string;
+  username: string;
+  role: string;
+  referralSource: string;
+}
+
+/** Step 0: who are you. Username unique (case-insensitive); returns field errors. */
+export async function saveProfile(input: ProfileInput) {
+  const ctx = await getTenantContext();
+  const name = input.name.trim().slice(0, 100);
+  const username = input.username.toLowerCase().trim();
+  if (name.length < 2) throw new Error("Tell us your name (2+ characters).");
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/.test(username)) {
+    throw new Error("Username: lowercase letters, numbers, hyphens (max 39).");
+  }
+  const db = getDb();
+  const taken = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.username, username))
+    .limit(1);
+  if (taken[0] && taken[0].id !== ctx.user.userId) {
+    throw new Error("That username is taken — try another.");
+  }
+  await db
+    .update(users)
+    .set({
+      name,
+      username,
+      role: input.role.slice(0, 32),
+      referralSource: input.referralSource.slice(0, 100),
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, ctx.user.userId));
+  return { ok: true as const };
+}
+
+/** Mark the whole flow done (enables the dashboard's full nav later). */
+export async function completeOnboarding() {
+  const ctx = await getTenantContext();
+  const db = getDb();
+  await db
+    .update(users)
+    .set({ onboardingCompletedAt: new Date(), updatedAt: new Date() })
+    .where(eq(users.id, ctx.user.userId));
+  return { ok: true as const };
 }
 
 async function membershipOrgIds(userId: string): Promise<Set<string>> {

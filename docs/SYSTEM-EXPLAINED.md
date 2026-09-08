@@ -165,6 +165,15 @@ with the same helper. Middleware checks cookie presence only (fast path).
 
 ## 8c. Onboarding wizard (`/onboarding`)
 
+Six steps, profile first: who you are (name, unique handle, role, referral
+source → `users` + migration `0004`) → organization → project (+environment,
+use-cases, volume in `projects.metadata`) → test key (secret shown once) →
+first send (via the public API with the fresh key, status polled until terminal,
+arrival animation on success) → domain (real records, real DNS check via
+`resolveTxt`, honest pending state). Progress is derived from data, not stored
+separately — re-runnable, resumable; `onboarding_completed_at` stamps the finish.
+Every server action re-checks membership; usernames are case-insensitive unique.
+
 Five steps, each unlocking the next because the data model requires it:
 organization → project (+environment, use-cases, volume stored in
 `projects.metadata`) → test key (secret shown once) → first send (via the
