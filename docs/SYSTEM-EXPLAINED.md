@@ -186,6 +186,12 @@ re-runnable, resumable. Server actions enforce membership on every step.
 
 - **Onboarding wizard:** org → project (+metadata via 0003) → test key → first
   real send → domain with live DNS verification.
+- **Dashboard data pages:** domains (add + live DNS check), API keys (create
+  once-shown secret, revoke), webhooks (create with AES-GCM-encrypted secrets,
+  enable/disable), usage (live counts + plan tiers). Server/client split rule:
+  `node:` modules never cross into `"use client"` bundles (crypto in actions
+  only, pure constants in shared files). Webpack Edge lesson recorded: middleware
+  must not import the auth barrel.
 
 - **Dogfood loop live:** waitlist confirmations send through the pipeline under
   `org_avenor/proj_website`, visible in the dashboard emails list; founder
