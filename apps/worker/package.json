@@ -1,5 +1,5 @@
 {
-  "name": "@avenor/worker",
+  "name": "@calder/worker",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -15,12 +15,13 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@avenor/config": "workspace:*",
-    "@avenor/db": "workspace:*",
-    "@avenor/email": "workspace:*",
-    "@avenor/observability": "workspace:*",
-    "@avenor/providers": "workspace:*",
-    "@avenor/queue": "workspace:*",
+    "@calder/auth": "workspace:^",
+    "@calder/config": "workspace:*",
+    "@calder/db": "workspace:*",
+    "@calder/email": "workspace:*",
+    "@calder/observability": "workspace:*",
+    "@calder/providers": "workspace:*",
+    "@calder/queue": "workspace:*",
     "drizzle-orm": "^0.38.0",
     "zod": "^3.23.8"
   },

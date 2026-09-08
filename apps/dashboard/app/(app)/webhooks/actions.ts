@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { eq, and } from "drizzle-orm";
-import { getDb, webhooks } from "@avenor/db";
+import { getDb, webhooks } from "@calder/db";
 import { getTenantContext } from "../../../lib/auth";
 import { encryptSecret, newWebhookSecret } from "./crypto";
 import { WEBHOOK_EVENTS } from "./events";

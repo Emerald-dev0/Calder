@@ -5,22 +5,22 @@ export interface GeneratedApiKey {
   secret: string;
   /** Hash to store in DB */
   hash: string;
-  /** Prefix fragment for identification (e.g., avenor_sk_test_abc123) */
+  /** Prefix fragment for identification (e.g., calder_sk_test_abc123) */
   prefix: string;
   /** First 12 chars of prefix for display */
   displayPrefix: string;
 }
 
 const PREFIX_MAP = {
-  test: "avenor_sk_test_",
-  live: "avenor_sk_live_",
+  test: "calder_sk_test_",
+  live: "calder_sk_live_",
 } as const;
 
 type KeyEnv = keyof typeof PREFIX_MAP;
 
 /**
  * Generate a cryptographically secure API key.
- * Format: avenor_sk_{env}_{32 random hex chars}
+ * Format: calder_sk_{env}_{32 random hex chars}
  */
 export function generateApiKey(env: KeyEnv = "test"): GeneratedApiKey {
   const random = randomBytes(24).toString("hex"); // 48 hex chars
@@ -62,7 +62,8 @@ export function extractKeyPrefix(secret: string): string {
 
 /**
  * Validate key format (basic). Real validation is hash lookup.
+ * Legacy `avenor_sk_` keys verify forever — hashing is prefix-agnostic.
  */
 export function isValidKeyFormat(key: string): boolean {
-  return /^avenor_sk_(test|live)_[a-f0-9]{32,}$/.test(key);
+  return /^(calder|avenor)_sk_(test|live)_[a-f0-9]{32,}$/.test(key);
 }

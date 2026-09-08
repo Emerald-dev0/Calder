@@ -1,7 +1,7 @@
 import { getDb, organizations, projects } from "./index";
 
 /**
- * Idempotent bootstrap: the founder-owned internal tenant that Avenor's own
+ * Idempotent bootstrap: the founder-owned internal tenant that Calder's own
  * mail (waitlist confirmations, onboarding, billing) is sent under.
  * Safe to re-run — conflicts are ignored, nothing is overwritten.
  */
@@ -11,7 +11,7 @@ export async function seedInternalTenant(): Promise<{ orgId: string; projectId: 
   const projectId = "proj_website";
   await db
     .insert(organizations)
-    .values({ id: orgId, name: "Avenor", slug: "avenor" })
+    .values({ id: orgId, name: "Calder", slug: "calder" })
     .onConflictDoNothing();
   await db
     .insert(projects)

@@ -3,24 +3,24 @@ import Link from "next/link";
 import { CodeBlock } from "../../../../components/code";
 
 export const metadata: Metadata = {
-  title: "Quickstart: PHP — Avenor Docs",
-  description: "Send your first Avenor email from PHP with the cURL extension.",
+  title: "Quickstart: PHP — Calder Docs",
+  description: "Send your first Calder email from PHP with the cURL extension.",
 };
 
-const CODE = `$ch = curl_init("https://api.avenor.com/v1/emails");
+const CODE = `$ch = curl_init("https://api.calder.com/v1/emails");
 curl_setopt_array($ch, [
     CURLOPT_POST => true,
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_TIMEOUT => 10,
     CURLOPT_HTTPHEADER => [
-        "Authorization: Bearer avenor_sk_test_…",
+        "Authorization: Bearer calder_sk_test_…",
         "Idempotency-Key: " . bin2hex(random_bytes(16)),
         "Content-Type: application/json",
     ],
     CURLOPT_POSTFIELDS => json_encode([
         "from" => "app@acme.com",
         "to" => "you@example.com",
-        "subject" => "Hello from Avenor",
+        "subject" => "Hello from Calder",
         "text" => "It works.",
     ]),
 ]);
@@ -37,7 +37,7 @@ export default function PhpQuickstart() {
       <CodeBlock title="send.php" copyText={CODE}>
         <span className="tok-path">$ch</span> <span className="tok-dim">=</span>{" "}
         <span className="tok-method">curl_init</span>(
-        <span className="tok-str">&quot;https://api.avenor.com/v1/emails&quot;</span>);
+        <span className="tok-str">&quot;https://api.calder.com/v1/emails&quot;</span>);
         {"\n"}
         <span className="tok-method">curl_setopt_array</span>(<span className="tok-path">$ch</span>,
         [{"\n"}

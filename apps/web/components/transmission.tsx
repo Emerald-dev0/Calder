@@ -1,7 +1,7 @@
 import { Reveal } from "./reveal";
 
 /**
- * Cinematic dark interlude: signals leaving the Avenor core and fanning out
+ * Cinematic dark interlude: signals leaving the Calder core and fanning out
  * to recipients, with delivery confirmations returning. Pure SVG + CSS —
  * ownable art direction, no stock, no filler. Respects reduced motion.
  */

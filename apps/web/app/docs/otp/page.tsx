@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "OTP — Avenor Docs",
+  title: "OTP — Calder Docs",
   description: "Email OTP challenges (planned). Current workaround inside.",
 };
 

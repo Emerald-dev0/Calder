@@ -4,8 +4,8 @@ import { Footer } from "../../../components/closing";
 import { PageHero } from "../../../components/page-hero";
 
 export const metadata: Metadata = {
-  title: "Terms of Service — Avenor",
-  description: "The terms governing your use of Avenor.",
+  title: "Terms of Service — Calder",
+  description: "The terms governing your use of Calder.",
 };
 
 export default function TermsPage() {
@@ -20,7 +20,7 @@ export default function TermsPage() {
               Fair terms, <em>plainly stated.</em>
             </>
           }
-          lede="The short version: use Avenor for lawful transactional email, pay for what you use, and we'll hold up our end on delivery and transparency. Last updated September 2026."
+          lede="The short version: use Calder for lawful transactional email, pay for what you use, and we'll hold up our end on delivery and transparency. Last updated September 2026."
         />
         <section className="section" style={{ paddingTop: 0 }}>
           <div className="wrap docs-main" style={{ maxWidth: 720 }}>

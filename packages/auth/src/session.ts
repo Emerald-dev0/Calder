@@ -1,10 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { sealData, unsealData } from "iron-session";
 import { eq, and, isNull, gt } from "drizzle-orm";
-import { getDb, sessions, users } from "@avenor/db";
-import { getConfig } from "@avenor/config";
+import { getDb, sessions, users } from "@calder/db";
+import { getConfig } from "@calder/config";
 
-export const SESSION_COOKIE = "avenor_session";
+export const SESSION_COOKIE = "calder_session";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days idle
 
 function newId(prefix: string): string {

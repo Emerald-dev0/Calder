@@ -3,22 +3,22 @@ import Link from "next/link";
 import { CodeBlock } from "../../../../components/code";
 
 export const metadata: Metadata = {
-  title: "Quickstart: Python — Avenor Docs",
-  description: "Send your first Avenor email from Python with requests.",
+  title: "Quickstart: Python — Calder Docs",
+  description: "Send your first Calder email from Python with requests.",
 };
 
 const CODE = `import requests, uuid
 
 res = requests.post(
-    "https://api.avenor.com/v1/emails",
+    "https://api.calder.com/v1/emails",
     headers={
-        "Authorization": "Bearer avenor_sk_test_…",
+        "Authorization": "Bearer calder_sk_test_…",
         "Idempotency-Key": str(uuid.uuid4()),
     },
     json={
         "from": "app@acme.com",
         "to": "you@example.com",
-        "subject": "Hello from Avenor",
+        "subject": "Hello from Calder",
         "text": "It works.",
     },
     timeout=10,
@@ -39,14 +39,14 @@ export default function PythonQuickstart() {
         <span className="tok-path">res</span> <span className="tok-dim">=</span>{" "}
         <span className="tok-path">requests.post</span>({"\n"}
         &nbsp;&nbsp;&nbsp;&nbsp;
-        <span className="tok-str">&quot;https://api.avenor.com/v1/emails&quot;</span>,{"\n"}
+        <span className="tok-str">&quot;https://api.calder.com/v1/emails&quot;</span>,{"\n"}
         &nbsp;&nbsp;&nbsp;&nbsp;<span className="tok-key">headers</span>
         <span className="tok-dim">=</span>
         <span className="tok-punct">{"{"}</span>
         {"\n"}
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <span className="tok-str">&quot;Authorization&quot;</span>:{" "}
-        <span className="tok-str">&quot;Bearer avenor_sk_test_…&quot;</span>,{"\n"}
+        <span className="tok-str">&quot;Bearer calder_sk_test_…&quot;</span>,{"\n"}
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <span className="tok-str">&quot;Idempotency-Key&quot;</span>:{" "}
         <span className="tok-path">str</span>(<span className="tok-path">uuid.uuid4</span>()),
@@ -64,7 +64,7 @@ export default function PythonQuickstart() {
         <span className="tok-str">&quot;you@example.com&quot;</span>,{"\n"}
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <span className="tok-str">&quot;subject&quot;</span>:{" "}
-        <span className="tok-str">&quot;Hello from Avenor&quot;</span>,{"\n"}
+        <span className="tok-str">&quot;Hello from Calder&quot;</span>,{"\n"}
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <span className="tok-str">&quot;text&quot;</span>:{" "}
         <span className="tok-str">&quot;It works.&quot;</span>,{"\n"}

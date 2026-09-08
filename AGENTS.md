@@ -1,4 +1,4 @@
-# Avenor — AI Agent Instructions
+# Calder — AI Agent Instructions
 
 This file governs how AI coding agents (Claude Code, Codex, OpenCode, etc.) must operate in this repository. It is authoritative for _behavior_. It is not authoritative for _product scope_ (`PRD.md`), _system design_ (`ARCHITECTURE.md`), _security requirements_ (`SECURITY.md`), or _visual direction_ (`docs/DESIGN.md`) — read those first when relevant to the task.
 
@@ -35,9 +35,22 @@ This file governs how AI coding agents (Claude Code, Codex, OpenCode, etc.) must
 - Don't create a new microservice without citing which trigger in `ARCHITECTURE.md` §14 justifies it — "it felt cleaner" is not sufficient.
 - Don't optimize for imaginary scale.
 
+## Documentation evolution (permanent rule)
+
+Whenever a meaningful product capability, architecture decision, pricing model, API behavior, branding decision, infrastructure change, or product direction changes:
+
+1. update the authoritative relevant documentation;
+2. update PRD/roadmap when scope changes;
+3. update architecture documentation when architecture changes;
+4. update API docs when behavior changes;
+5. update landing-page copy when the product promise changes;
+6. add significant decisions to `docs/DECISIONS.md`.
+
+Documentation must evolve with the product. A capability merged without its docs is unfinished work, not velocity.
+
 ## CLI-first tooling
 
-Wherever a CLI exists for a tool or platform Avenor depends on, prefer it over clicking through a web dashboard — this applies to agents and humans alike. CLIs are scriptable, diffable, reviewable in a PR description, and reproducible in CI. A web-dashboard action leaves no trace an agent (or a teammate) can audit later.
+Wherever a CLI exists for a tool or platform Calder depends on, prefer it over clicking through a web dashboard — this applies to agents and humans alike. CLIs are scriptable, diffable, reviewable in a PR description, and reproducible in CI. A web-dashboard action leaves no trace an agent (or a teammate) can audit later.
 
 Concretely:
 
@@ -71,7 +84,7 @@ Any credentials a CLI needs (`gh auth`, `vercel login`, database connection stri
 
 ## Visual QA loop — required for any UI-visible change
 
-Avenor's design bar is defined in `docs/DESIGN.md` ("Editorial Infrastructure"). An agent must never assume code that compiles is code that looks right. Before opening a PR that touches marketing pages, the dashboard, shared UI components, or email templates:
+Calder's design bar is defined in `docs/DESIGN.md` ("Editorial Infrastructure"). An agent must never assume code that compiles is code that looks right. Before opening a PR that touches marketing pages, the dashboard, shared UI components, or email templates:
 
 1. **Render it.** Run the app locally or in a Vercel preview deployment (`vercel` CLI — see CLI-first tooling above).
 2. **Screenshot it.** Capture the actual rendered state — not a description of it — at minimum at desktop (1440px) and mobile (390px) widths. Capture any interactive/motion states that materially changed (hover, scroll-triggered reveal, loading, empty state).
@@ -81,4 +94,4 @@ Avenor's design bar is defined in `docs/DESIGN.md` ("Editorial Infrastructure").
 6. **Attach evidence.** Include the screenshot(s) — before/after if this is a revision — and a short written self-assessment (what you checked, what you adjusted, what you're unsure about) in the PR description.
 7. **When genuinely unsure**, flag the specific uncertainty in the PR rather than guessing confidently — e.g. "accent color may still be too saturated in the hero on mobile, wasn't sure whether to pull it down further without a second reference point."
 
-This loop applies even to small changes (a button state, a spacing tweak) — the bar is "does this actually look like Avenor," not "does this match the spec on paper."
+This loop applies even to small changes (a button state, a spacing tweak) — the bar is "does this actually look like Calder," not "does this match the spec on paper."

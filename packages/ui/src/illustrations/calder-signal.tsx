@@ -1,4 +1,4 @@
-interface AvenorSignalProps {
+interface CalderSignalProps {
   size?: number;
   className?: string;
 }
@@ -8,7 +8,7 @@ interface AvenorSignalProps {
  * Baked pulse kept as-is; class names prefixed to avoid collisions.
  * Purely decorative — hidden from assistive tech.
  */
-export function AvenorSignal({ size = 64, className = "" }: AvenorSignalProps) {
+export function CalderSignal({ size = 64, className = "" }: CalderSignalProps) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -19,7 +19,7 @@ export function AvenorSignal({ size = 64, className = "" }: AvenorSignalProps) {
       role="img"
       aria-hidden="true"
     >
-      <title>Avenor signal motif</title>
+      <title>Calder signal motif</title>
       <style>{`
         .avsig-accent {
           animation: avsig-pulse 2.5s ease-in-out infinite;

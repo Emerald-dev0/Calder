@@ -6,7 +6,7 @@ import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
-  title: "Blog — Avenor",
+  title: "Blog — Calder",
   description: "Notes on transactional email, deliverability, and building infrastructure.",
 };
 
@@ -27,11 +27,11 @@ export default function BlogIndex() {
         <section className="section" style={{ paddingTop: 0 }}>
           <div className="wrap">
             <Reveal>
-              <Link href="/blog/hello-avenor" style={{ textDecoration: "none", display: "block" }}>
+              <Link href="/blog/hello-calder" style={{ textDecoration: "none", display: "block" }}>
                 <div className="pipeline">
                   <p className="eyebrow">September 2026 · 4 min</p>
                   <h2 className="h2" style={{ fontSize: "clamp(1.5rem, 3vw, 2.2rem)" }}>
-                    Hello, Avenor: why transactional email deserves its own company
+                    Hello, Calder: why transactional email deserves its own company
                   </h2>
                   <p className="lede" style={{ marginTop: "1rem", fontSize: "1.05rem" }}>
                     Sending an email is easy. Knowing it arrived is the whole business — and why we

@@ -55,7 +55,7 @@ export function WebhookCreator({ projectId }: { projectId: string }) {
       <input
         value={url}
         onChange={(e) => setUrl(e.target.value)}
-        placeholder="https://acme.com/hooks/avenor"
+        placeholder="https://acme.com/hooks/calder"
         style={{
           width: "100%",
           height: 44,

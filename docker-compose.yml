@@ -3,15 +3,15 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: avenor
-      POSTGRES_PASSWORD: avenor
-      POSTGRES_DB: avenor
+      POSTGRES_USER: calder
+      POSTGRES_PASSWORD: calder
+      POSTGRES_DB: calder
     ports:
       - "5432:5432"
     volumes:
-      - avenor-postgres:/var/lib/postgresql/data
+      - calder-postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U avenor"]
+      test: ["CMD-SHELL", "pg_isready -U calder"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,7 +22,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - avenor-redis:/data
+      - calder-redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -31,5 +31,5 @@ services:
     command: redis-server --appendonly yes
 
 volumes:
-  avenor-postgres:
-  avenor-redis:
+  calder-postgres:
+  calder-redis:

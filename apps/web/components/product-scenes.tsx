@@ -1,5 +1,5 @@
 /**
- * Original spot illustrations in the Avenor etching language:
+ * Original spot illustrations in the Calder etching language:
  * ink linework, single blue accent, generous negative space.
  * Transparent backgrounds — they sit on any surface.
  */

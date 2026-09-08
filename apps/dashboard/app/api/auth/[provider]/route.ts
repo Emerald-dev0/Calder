@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { startOAuth, type OAuthProvider } from "@avenor/auth";
+import { startOAuth, type OAuthProvider } from "@calder/auth";
 
 const COOKIE_OPTS = "Path=/; HttpOnly; Max-Age=600; SameSite=Lax";
 
@@ -22,11 +22,11 @@ export async function GET(
     );
   }
   const res = NextResponse.redirect(started.url);
-  res.headers.append("Set-Cookie", `avenor_oauth_state=${started.state}; ${COOKIE_OPTS}`);
+  res.headers.append("Set-Cookie", `calder_oauth_state=${started.state}; ${COOKIE_OPTS}`);
   if (started.codeVerifier) {
     res.headers.append(
       "Set-Cookie",
-      `avenor_oauth_verifier=${started.codeVerifier}; ${COOKIE_OPTS}`
+      `calder_oauth_verifier=${started.codeVerifier}; ${COOKIE_OPTS}`
     );
   }
   return res;

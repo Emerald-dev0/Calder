@@ -1,4 +1,4 @@
-# Avenor — Architecture
+# Calder — Architecture
 
 For _why_ specific choices were made, see `docs/DECISIONS.md`. For visual/frontend direction, see `docs/DESIGN.md`.
 
@@ -39,17 +39,17 @@ Every tenant-data query must be scoped at the data-access layer, not just route 
 ## 5. Provider abstraction
 
 ```
-Avenor → EmailProvider interface → SES adapter (v1) → [future adapters]
+Calder → EmailProvider interface → SES adapter (v1) → [future adapters]
 ```
 
 Same pattern for `PaymentAdapter` (→ Bachs) and `HostedDomainProvider` (→ Vercel first).
 
 ## 5b. SMTP gateway
 
-`smtp.avenor.email:587` (STARTTLS; 465 implicit-TLS reserved). Standard SMTP —
+`smtp.calder.com:587` (STARTTLS; 465 implicit-TLS reserved). Standard SMTP —
 AUTH PLAIN/LOGIN, MAIL FROM, RCPT TO, DATA, MIME (HTML/text/attachments, CC/BCC/
 Reply-To, custom headers) — no custom protocol, no invented extensions. Optional
-Avenor-specific headers (e.g. template selection) are documented as extensions,
+Calder-specific headers (e.g. template selection) are documented as extensions,
 never as protocol.
 
 ```
@@ -62,7 +62,7 @@ SMTP client → TCP LB (pass-through, no TLS termination)
   rotatable, revocable, last-used tracked, audit-logged. TLS + AUTH mandatory;
   anonymous relay impossible by construction.
 - Sender authorization: envelope-from must belong to a verified project identity
-  (own domain, or Avenor-managed identity for onboarding) — spoofing fails closed.
+  (own domain, or Calder-managed identity for onboarding) — spoofing fails closed.
 - Rate limits reuse the central limiter at IP/project/org/credential/connection/
   message/recipient dimensions; Redis-backed counters.
 - Billing meters at the canonical accepted-send event — identical for API and SMTP.
@@ -70,6 +70,34 @@ SMTP client → TCP LB (pass-through, no TLS termination)
   ID→job→provider ID trace, all correlatable in the dashboard.
 - Full protocol/support-matrix spec: `docs/SMTP.md`. Service-boundary justification:
   ADR-014.
+
+## 5c. Transports & graduation
+
+Delivery moves through per-project **transports** (`project_transports`):
+Gmail (OAuth-connected, capped) → SES → future managed infrastructure. The worker
+resolves each job's transport at send time — active default wins, suspended/
+revoked fail closed, absent means the global SES/mock provider:
+
+```
+job → load project_transports → pickDefaultTransport()
+  → gmail? cap-check → GmailTransport → Gmail API
+  → else? SES (creds) / mock (dev)
+```
+
+- The API, keys, logs, templates, events, and usage meter never change when the
+  transport does. Graduation (Gmail → verified domain → managed infra) is a row
+  update, not a reintegration — the onboarding "how do you want to send?" choice
+  (Connect Gmail vs Add domain) writes the first default transport.
+- Gmail credentials: OAuth refresh tokens, AES-256-GCM encrypted, minimum
+  `gmail.send` scope, decrypted only in-memory at send time. No passwords, ever.
+- Caps enforced pre-send per UTC day (default 400 Gmail); over-cap fails
+  permanently with an explainable error pointing at graduation — never silently,
+  never over Google's limits.
+- Interface: `EmailTransport` extends `EmailProvider` (+ capabilities, health).
+  New transports implement the interface; the pipeline never branches on type.
+- Campaigns (post-MVP) build on audiences/consent/scheduling tables that do not
+  exist yet — deliberately. Transactional sends never share reputation pools or
+  code paths with future bulk sending.
 
 ## 6. Queue & retries
 
@@ -109,7 +137,7 @@ Structured JSON logs, `request_id` tracing, metrics (API latency/errors, send/de
 
 ## 14. System design: why a modular monolith, and when that changes
 
-Avenor deliberately does **not** start as microservices — see ADR-007 in `docs/DECISIONS.md`.
+Calder deliberately does **not** start as microservices — see ADR-007 in `docs/DECISIONS.md`.
 
 **Initial shape:**
 
@@ -143,7 +171,7 @@ packages/billing     — natural second candidate (different consistency needs)
 
 - **Lenis** provides smooth scrolling on `apps/web` (marketing) and, more conservatively, `apps/dashboard` where it doesn't interfere with data-dense scrolling (e.g. long log tables) — see `docs/DESIGN.md` §8 for when motion is and isn't appropriate.
 - Motion/scroll-linked effects must respect `prefers-reduced-motion` — Lenis and any scroll-triggered animation are disabled or reduced to instant-jump behavior for users who request it.
-- Shared visual primitives (typography scale, color tokens, spacing scale, the "Avenor Signal" motif) live in `packages/ui` and are consumed by both `apps/web` and `apps/dashboard` so the two surfaces stay in the same visual universe without being identical.
+- Shared visual primitives (typography scale, color tokens, spacing scale, the "Calder Signal" motif) live in `packages/ui` and are consumed by both `apps/web` and `apps/dashboard` so the two surfaces stay in the same visual universe without being identical.
 
 ## 16. Deployment & CLI tooling
 

@@ -24,7 +24,7 @@ export function SmtpSection() {
           <Reveal>
             <CodeBlock
               title="api — POST /v1/emails → 202"
-              copyText={`curl https://api.avenor.com/v1/emails -H "Authorization: Bearer avenor_sk_live_…" -d '{"from":"app@acme.com","to":"ada@example.com","subject":"Hi","text":"…"}'`}
+              copyText={`curl https://api.calder.com/v1/emails -H "Authorization: Bearer calder_sk_live_…" -d '{"from":"app@acme.com","to":"ada@example.com","subject":"Hi","text":"…"}'`}
             >
               <span className="tok-method">POST</span> <span className="tok-path">/v1/emails</span>{" "}
               <span className="tok-method">→ 202</span>
@@ -39,14 +39,14 @@ export function SmtpSection() {
           </Reveal>
           <Reveal delay={120}>
             <CodeBlock
-              title="smtp — smtp.avenor.email:587"
-              copyText={`host: smtp.avenor.email
+              title="smtp — smtp.calder.com:587"
+              copyText={`host: smtp.calder.com
 port: 587 (STARTTLS)
 user: <project SMTP username>
 pass: <generated secret, shown once>`}
             >
               <span className="tok-key">host</span>:{" "}
-              <span className="tok-str">smtp.avenor.email</span>
+              <span className="tok-str">smtp.calder.com</span>
               {"\n"}
               <span className="tok-key">port</span>: <span className="tok-num">587</span>{" "}
               <span className="tok-dim">(STARTTLS)</span>

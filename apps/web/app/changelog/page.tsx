@@ -5,8 +5,8 @@ import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
-  title: "Changelog — Avenor",
-  description: "What shipped at Avenor, in order. No hype, just the work.",
+  title: "Changelog — Calder",
+  description: "What shipped at Calder, in order. No hype, just the work.",
 };
 
 const ENTRIES = [
@@ -14,7 +14,7 @@ const ENTRIES = [
     date: "Sep 2026",
     title: "Brand identity + illustration system",
     points: [
-      "Final signal-route mark, path-built AVENOR wordmark, lockups, favicon",
+      "Final signal-route mark, path-built CALDER wordmark, lockups, favicon",
       "Etching-style illustration language across landing and dashboard",
       "404 page that treats missing routes like failed deliveries",
     ],

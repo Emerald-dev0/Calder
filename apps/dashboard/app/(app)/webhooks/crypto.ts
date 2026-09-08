@@ -1,5 +1,5 @@
 import { randomBytes, createCipheriv, createDecipheriv, createHash } from "node:crypto";
-import { getConfig } from "@avenor/config";
+import { getConfig } from "@calder/config";
 
 /**
  * Webhook signing secrets must be recoverable (HMAC needs the raw secret),

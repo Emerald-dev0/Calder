@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-// Mirrors SESSION_COOKIE from @avenor/auth. Deliberately not imported: the
+// Mirrors SESSION_COOKIE from @calder/auth. Deliberately not imported: the
 // barrel pulls node:crypto (via api-keys) which cannot bundle for the Edge
 // runtime this middleware runs on. Keep in sync by hand — it changes never.
-const SESSION_COOKIE = "avenor_session";
+const SESSION_COOKIE = "calder_session";
 
 /**
  * Fast cookie-presence gate only. Real enforcement happens per-page in

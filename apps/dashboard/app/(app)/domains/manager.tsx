@@ -134,7 +134,7 @@ export function DomainRow({
       </div>
       {state !== "verified" && domain.verificationToken && (
         <div className="mono" style={{ fontSize: 12, color: "#737373", marginTop: 8 }}>
-          TXT _avenor.{domain.domain} → avenor_verify_{domain.verificationToken.slice(0, 12)}…
+          TXT _calder.{domain.domain} → calder_verify_{domain.verificationToken.slice(0, 12)}…
         </div>
       )}
       {detail && <p style={{ fontSize: 13, color: "#737373", margin: "8px 0 0" }}>{detail}</p>}

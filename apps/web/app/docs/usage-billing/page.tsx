@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Usage & Billing — Avenor Docs",
+  title: "Usage & Billing — Calder Docs",
   description: "How usage is metered, what counts, plans in NGN and USD.",
 };
 
@@ -25,8 +25,9 @@ export default function UsageBilling() {
 
       <h2>Plans</h2>
       <p>
-        Free (3,000/mo), Starter (₦5,000 / $7 — 25,000), Pro (₦12,000 / $15 — 100,000), Scale
-        (₦45,000 / $50 — 500,000). Full detail on the <Link href="/pricing">pricing page</Link>.
+        Free (3,000/mo), Builder (≈ ₦3,500 — ~25,000), Pro (≈ ₦7,500 — ~75,000), Scale (≈ ₦20,000 —
+        ~250,000). Hypothesis under review — full detail on the{" "}
+        <Link href="/pricing">pricing page</Link>.
       </p>
 
       <h2>Limits, not overages</h2>

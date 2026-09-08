@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { configuredProviders } from "@avenor/auth";
+import { configuredProviders } from "@calder/auth";
 
 const LABELS = { google: "Continue with Google", github: "Continue with GitHub" } as const;
 
@@ -7,10 +7,10 @@ export default function LoginPage() {
   const providers = configuredProviders();
   return (
     <div style={{ maxWidth: 420, margin: "12vh auto", padding: 24 }}>
-      <p style={{ fontWeight: 700, fontSize: 22, margin: "0 0 6px" }}>Avenor</p>
+      <p style={{ fontWeight: 700, fontSize: 22, margin: "0 0 6px" }}>Calder</p>
       <h1 style={{ fontSize: 26, margin: "0 0 8px" }}>Sign in</h1>
       <p style={{ color: "#737373", fontSize: 14, margin: "0 0 24px" }}>
-        One account for every organization you belong to — including Avenor itself.
+        One account for every organization you belong to — including Calder itself.
       </p>
       {providers.length === 0 ? (
         <div
@@ -55,7 +55,7 @@ export default function LoginPage() {
       )}
       <p style={{ color: "#737373", fontSize: 12, marginTop: 20 }}>
         New here? Signing in creates your account automatically — founders listed in{" "}
-        <span className="mono">FOUNDER_EMAILS</span> are granted the Avenor org on first login.
+        <span className="mono">FOUNDER_EMAILS</span> are granted the Calder org on first login.
       </p>
     </div>
   );

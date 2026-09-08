@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Avenor Dashboard",
+  title: "Calder Dashboard",
   description: "Manage projects, API keys, domains, emails, and webhooks.",
 };
 

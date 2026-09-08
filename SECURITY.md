@@ -1,8 +1,8 @@
-# Avenor — Security
+# Calder — Security
 
 Read before touching authentication, authorization, secrets, payments, email sending, or tenant isolation.
 
-## 1. What Avenor handles
+## 1. What Calder handles
 
 Credentials, email addresses, domains, application data, potentially email content, billing information. Treat all of it as sensitive by default.
 
@@ -28,7 +28,7 @@ Outgoing webhooks are signed. Incoming webhooks (payment/email provider) are ver
 
 ## 7. Abuse prevention
 
-Mandatory. New accounts progress: limited sending → domain verification → reputation checks → full production sending. Continuously monitor bounce rate, complaint rate, sending velocity, account behavior — Avenor's own SES reputation depends on this.
+Mandatory. New accounts progress: limited sending → domain verification → reputation checks → full production sending. Continuously monitor bounce rate, complaint rate, sending velocity, account behavior — Calder's own SES reputation depends on this.
 
 ## 8. Input handling
 
@@ -77,6 +77,24 @@ everything above:
 - **Leak response:** suspected credential leak → revoke → rotate → audit sends made
   with the credential → notify the project owner. Runbooked, drilled.
 - **Logging:** SMTP codes and auth outcomes logged; secrets and message bodies never logged.
+
+## 15. Gmail transport security
+
+Connected Gmail accounts are user credentials held in trust — stricter rules apply:
+
+- **OAuth only, minimum scope** (`gmail.send` + identity). Passwords are never
+  requested, never accepted, never stored. If Google stops returning refresh
+  tokens, the flow errors loudly instead of degrading silently.
+- **Encrypted at rest** (AES-256-GCM, context-separated keys), decrypted only
+  in-memory at send time. Dashboard and API never return token material.
+- **Revocation is user-controlled first:** disconnecting in the dashboard marks the
+  transport revoked immediately; Google-side revocation surfaces as an explicit
+  `gmail_revoked` error (permanent, explainable), never a silent stall.
+- **Conservative caps** (default 400/day) enforced pre-send; over-cap fails closed
+  pointing at graduation. Gmail-connected projects get the strictest abuse
+  monitoring in the system — unusual velocity pages before Google notices.
+- **Sender pinning:** Gmail sends only as the connected address. Spoofing another
+  sender through this path is impossible by construction, not by policy.
 
 SMTP credential lifecycle events (`smtp_credential.created`, `.rotated`, `.revoked`)
 belong in the §11 audit log event set once implemented.

@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from "hono";
-import { generateRequestId } from "@avenor/observability";
+import { generateRequestId } from "@calder/observability";
 
 export const requestIdMiddleware: MiddlewareHandler = async (c, next) => {
   const incoming = c.req.header("x-request-id");

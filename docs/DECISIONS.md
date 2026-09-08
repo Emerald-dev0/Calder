@@ -7,7 +7,7 @@ Record any decision that (a) reverses something already built, or (b) a reasonab
 ## ADR-001: PostgreSQL is the source of truth
 
 **Status:** Accepted
-**Decision:** PostgreSQL is Avenor's single authoritative datastore.
+**Decision:** PostgreSQL is Calder's single authoritative datastore.
 **Why:** relational consistency, transactional support, fits multi-tenant + billing + event data.
 **Alternatives considered:** MongoDB, DynamoDB — rejected for weaker consistency guarantees.
 
@@ -40,7 +40,7 @@ Record any decision that (a) reverses something already built, or (b) a reasonab
 
 **Status:** Open problem
 **Context:** verifying `*.vercel.app` project control doesn't satisfy SPF/DKIM/DMARC on a zone the developer doesn't own.
-**Options:** send via an Avenor-managed subdomain mapped to the verified project; investigate Vercel DNS delegation; restrict to informational verification until a mechanism is validated.
+**Options:** send via an Calder-managed subdomain mapped to the verified project; investigate Vercel DNS delegation; restrict to informational verification until a mechanism is validated.
 **Must be resolved with a working prototype before shipping past MVP-adjacent status.**
 
 ---
@@ -64,8 +64,8 @@ Record any decision that (a) reverses something already built, or (b) a reasonab
 ## ADR-008: Editorial Infrastructure as the locked design direction
 
 **Status:** Accepted
-**Decision:** Avenor's visual identity sits between Linear/Stripe-style technical precision and high-end editorial/Awwwards-level art direction — never a generic purple-gradient SaaS look.
-**Why:** design is treated as a differentiator (per PRD §13), not decoration; a distinctive visual identity is one of Avenor's few defensible moats against feature-parity competitors.
+**Decision:** Calder's visual identity sits between Linear/Stripe-style technical precision and high-end editorial/Awwwards-level art direction — never a generic purple-gradient SaaS look.
+**Why:** design is treated as a differentiator (per PRD §13), not decoration; a distinctive visual identity is one of Calder's few defensible moats against feature-parity competitors.
 **Enforcement:** `docs/DESIGN.md` is authoritative; any UI PR requires the visual QA loop in `AGENTS.md` (render → screenshot → self-review against the checklist → iterate → attach evidence) before merge, specifically to catch cases where a color or layout is technically correct but reads wrong once actually rendered.
 
 ---
@@ -118,7 +118,7 @@ Record any decision that (a) reverses something already built, or (b) a reasonab
 **Status:** Accepted (topology: gateway process TBD — see open points)
 **Decisions:**
 
-1. Avenor supports SMTP alongside REST because beginners and existing stacks
+1. Calder supports SMTP alongside REST because beginners and existing stacks
    (WordPress, Laravel, Django, Nodemailer/smtplib users) already speak it —
    meeting them at their protocol beats teaching an abstraction. No invented
    SMTP extensions; standard AUTH/STARTTLS/MAIL/RCPT/DATA/MIME only.
@@ -139,7 +139,7 @@ Record any decision that (a) reverses something already built, or (b) a reasonab
    **Why:** SMTP is the migration path and the beginner path; one pipeline keeps
    billing, events, and guarantees coherent across interfaces.
    **Open (must validate before GA):** managed TCP-LB provider choice; cert rotation
-   mechanism; attachment size caps; `X-Avenor-*` extension header set.
+   mechanism; attachment size caps; `X-Calder-*` extension header set.
 
 ---
 
@@ -154,3 +154,57 @@ isolation gain. Enforcement lives in the helper (seal + expiry + revocation +
 project scoping), and middleware is documented as presence-check only.
 **Constraint:** every new dashboard query must go through the helper —
 raw `getDb()` in a page without tenant scoping is a bug.
+
+---
+
+## ADR-016: Avenor → Calder rebrand with compat shims
+
+**Status:** Accepted
+**Decision:** Full rename (packages `@calder/*`, display, metadata, examples,
+`calder_sk_` issuance, `calder_verify_` tokens, `calder_*` cookies). Preserved:
+`org_avenor`/`proj_website` seed IDs (persisted, invisible), `avenor_sk_` key
+verification (hashing is prefix-agnostic — old keys work forever),
+`avenor_verify_` DNS acceptance, old migrations byte-identical. Board-approved
+mark system adopted as canonical; prior exploration retained as process history.
+Accent Blue `#3D5AFE` adopted as `signal` token; `#1E3A8A` stays for light-surface interaction.
+**Why:** a name change must never break a customer, a migration chain, or a
+verified domain. Compat costs nothing here, so we pay it everywhere.
+
+---
+
+## ADR-017: Transport abstraction with per-project defaults
+
+**Status:** Accepted
+**Decision:** `EmailTransport extends EmailProvider` (+ capabilities, health);
+worker resolves each job's transport via pure `pickDefaultTransport()` —
+active default wins, suspended/revoked fail closed, absent falls back to global
+SES/mock. Graduation is a row update, never a reintegration.
+**Why:** beginners (Gmail) and production (SES/managed) share one pipeline,
+one event model, one meter. Alternatives (per-transport pipelines, provider
+branching in handlers) were rejected as the two-systems trap.
+
+---
+
+## ADR-018: Gmail via OAuth, minimum scope, encrypted tokens
+
+**Status:** Accepted
+**Decision:** Gmail Quickstart uses Google OAuth with `openid + email +
+gmail.send` only — never passwords. Refresh tokens AES-256-GCM encrypted
+(context-separated), decrypted in-memory at send time. Conservative caps
+(400/day default) enforced pre-send; revocation (ours or Google's) surfaces as
+explicit permanent errors. No bulk mail through Gmail, by design and by cap.
+**Why:** the beginner funnel (no domain, no budget) without becoming a spam
+relay or a credential honeypot. Requires Google Cloud OAuth consent setup
+(external config — see report).
+
+---
+
+## ADR-019: NGN-first pricing hypothesis, gated by unit economics
+
+**Status:** Proposed (hypothesis, not promise)
+**Decision:** Free ₦0/3k; Builder ≈₦3,500/25k; Pro ≈₦7,500/75k; Scale
+≈₦20,000/250k. NGN leads, USD equivalents set at launch parity review. No value
+hardcoded outside plan-configuration tables. Nothing ships commercially until
+`docs/PRICING.md` unit-economics model clears.
+**Why:** Nigeria-first accessibility without fake precision — FX volatility makes
+premature dollar figures dishonest, and hardcoded prices become lies at scale.

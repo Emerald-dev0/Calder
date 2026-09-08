@@ -3,8 +3,8 @@ import Link from "next/link";
 import { CodeBlock } from "../../../../components/code";
 
 export const metadata: Metadata = {
-  title: "Quickstart: Go — Avenor Docs",
-  description: "Send your first Avenor email from Go with the standard library. Zero dependencies.",
+  title: "Quickstart: Go — Calder Docs",
+  description: "Send your first Calder email from Go with the standard library. Zero dependencies.",
 };
 
 const CODE = `package main
@@ -22,11 +22,11 @@ func main() {
 	body, _ := json.Marshal(map[string]string{
 		"from":    "app@acme.com",
 		"to":      "you@example.com",
-		"subject": "Hello from Avenor",
+		"subject": "Hello from Calder",
 		"text":    "It works.",
 	})
-	req, _ := http.NewRequest("POST", "https://api.avenor.com/v1/emails", bytes.NewReader(body))
-	req.Header.Set("Authorization", "Bearer avenor_sk_test_…")
+	req, _ := http.NewRequest("POST", "https://api.calder.com/v1/emails", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer calder_sk_test_…")
 	req.Header.Set("Idempotency-Key", uuid.NewString())
 	req.Header.Set("Content-Type", "application/json")
 

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../app.js";
-import { createWebhookSchema } from "@avenor/validation";
+import { createWebhookSchema } from "@calder/validation";
 import { authMiddleware } from "../middleware/auth.js";
 import { AppError } from "../errors/index.js";
 
@@ -15,7 +15,7 @@ webhooks.post("/", authMiddleware, async (c) => {
     throw new AppError("validation_error", "Invalid webhook", 400, parsed.error.flatten());
 
   try {
-    const { getDb, webhooks: webhooksTable } = await import("@avenor/db");
+    const { getDb, webhooks: webhooksTable } = await import("@calder/db");
     const { randomUUID } = await import("node:crypto");
     const { createHash } = await import("node:crypto");
     const db = getDb();
@@ -41,7 +41,7 @@ webhooks.post("/", authMiddleware, async (c) => {
 webhooks.get("/", authMiddleware, async (c) => {
   const auth = c.get("auth" as never) as { projectId: string };
   try {
-    const { getDb, webhooks: webhooksTable } = await import("@avenor/db");
+    const { getDb, webhooks: webhooksTable } = await import("@calder/db");
     const { eq } = await import("drizzle-orm");
     const db = getDb();
     const rows = await db

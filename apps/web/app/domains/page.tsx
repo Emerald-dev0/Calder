@@ -7,7 +7,7 @@ import { CodeBlock } from "../../components/code";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
-  title: "Domains — Avenor",
+  title: "Domains — Calder",
   description:
     "Verify sending domains with DNS, protect your reputation with SPF, DKIM, and DMARC, and monitor domain health.",
 };

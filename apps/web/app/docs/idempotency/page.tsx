@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Idempotency — Avenor Docs",
+  title: "Idempotency — Calder Docs",
   description: "How Idempotency-Key works, when to use it, and how long keys are honored.",
 };
 

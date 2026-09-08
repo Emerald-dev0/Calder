@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../app.js";
-import { sendEmailSchema } from "@avenor/validation";
+import { sendEmailSchema } from "@calder/validation";
 import { AppError, validationError } from "../errors/index.js";
 import { handleSendEmail } from "../services/email-service.js";
 import { authMiddleware } from "../middleware/auth.js";
@@ -53,7 +53,7 @@ emails.get("/:id", authMiddleware, async (c) => {
 
   // Lazy DB fetch with tenant scoping
   try {
-    const { getDb, emails: emailsTable } = await import("@avenor/db");
+    const { getDb, emails: emailsTable } = await import("@calder/db");
     const { eq, and } = await import("drizzle-orm");
     const db = getDb();
     const rows = await db
@@ -77,7 +77,7 @@ emails.get("/", authMiddleware, async (c) => {
   const perPage = Math.min(Number.parseInt(c.req.query("per_page") ?? "20", 10), 100);
 
   try {
-    const { getDb, emails: emailsTable } = await import("@avenor/db");
+    const { getDb, emails: emailsTable } = await import("@calder/db");
     const { eq, desc } = await import("drizzle-orm");
     const db = getDb();
     const rows = await db

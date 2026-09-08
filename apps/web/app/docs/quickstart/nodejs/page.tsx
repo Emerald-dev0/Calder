@@ -3,21 +3,21 @@ import Link from "next/link";
 import { CodeBlock } from "../../../../components/code";
 
 export const metadata: Metadata = {
-  title: "Quickstart: Node.js — Avenor Docs",
-  description: "Send your first Avenor email from Node.js with fetch. No SDK required.",
+  title: "Quickstart: Node.js — Calder Docs",
+  description: "Send your first Calder email from Node.js with fetch. No SDK required.",
 };
 
-const CODE = `const res = await fetch("https://api.avenor.com/v1/emails", {
+const CODE = `const res = await fetch("https://api.calder.com/v1/emails", {
   method: "POST",
   headers: {
-    Authorization: "Bearer avenor_sk_test_…",
+    Authorization: "Bearer calder_sk_test_…",
     "Idempotency-Key": crypto.randomUUID(),
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
     from: "app@acme.com",
     to: "you@example.com",
-    subject: "Hello from Avenor",
+    subject: "Hello from Calder",
     text: "It works.",
   }),
 });
@@ -37,7 +37,7 @@ export default function NodeQuickstart() {
         <span className="tok-key">const</span> <span className="tok-path">res</span>{" "}
         <span className="tok-dim">=</span> <span className="tok-key">await</span>{" "}
         <span className="tok-method">fetch</span>(
-        <span className="tok-str">&quot;https://api.avenor.com/v1/emails&quot;</span>,{" "}
+        <span className="tok-str">&quot;https://api.calder.com/v1/emails&quot;</span>,{" "}
         <span className="tok-punct">{"{"}</span>
         {"\n"}
         &nbsp;&nbsp;<span className="tok-key">method</span>:{" "}
@@ -46,7 +46,7 @@ export default function NodeQuickstart() {
         <span className="tok-punct">{"{"}</span>
         {"\n"}
         &nbsp;&nbsp;&nbsp;&nbsp;<span className="tok-key">Authorization</span>:{" "}
-        <span className="tok-str">&quot;Bearer avenor_sk_test_…&quot;</span>,{"\n"}
+        <span className="tok-str">&quot;Bearer calder_sk_test_…&quot;</span>,{"\n"}
         &nbsp;&nbsp;&nbsp;&nbsp;<span className="tok-str">&quot;Idempotency-Key&quot;</span>:{" "}
         <span className="tok-path">crypto.randomUUID</span>(),
         {"\n"}
@@ -61,7 +61,7 @@ export default function NodeQuickstart() {
         &nbsp;&nbsp;&nbsp;&nbsp;<span className="tok-key">to</span>:{" "}
         <span className="tok-str">&quot;you@example.com&quot;</span>,{"\n"}
         &nbsp;&nbsp;&nbsp;&nbsp;<span className="tok-key">subject</span>:{" "}
-        <span className="tok-str">&quot;Hello from Avenor&quot;</span>,{"\n"}
+        <span className="tok-str">&quot;Hello from Calder&quot;</span>,{"\n"}
         &nbsp;&nbsp;&nbsp;&nbsp;<span className="tok-key">text</span>:{" "}
         <span className="tok-str">&quot;It works.&quot;</span>,{"\n"}
         &nbsp;&nbsp;<span className="tok-punct">{"}"}</span>),

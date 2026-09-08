@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from "hono";
-import { getRateLimiter, rateLimitPresets } from "@avenor/rate-limit";
+import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { AppError } from "../errors/index.js";
 
 export function rateLimitMiddleware(preset: keyof typeof rateLimitPresets): MiddlewareHandler {

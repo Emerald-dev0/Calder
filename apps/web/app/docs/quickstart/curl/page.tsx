@@ -3,18 +3,18 @@ import Link from "next/link";
 import { CodeBlock } from "../../../../components/code";
 
 export const metadata: Metadata = {
-  title: "Quickstart: cURL — Avenor Docs",
-  description: "Send your first Avenor email with raw HTTP and cURL.",
+  title: "Quickstart: cURL — Calder Docs",
+  description: "Send your first Calder email with raw HTTP and cURL.",
 };
 
-const CODE = `curl https://api.avenor.com/v1/emails \\
-  -H "Authorization: Bearer avenor_sk_test_…" \\
+const CODE = `curl https://api.calder.com/v1/emails \\
+  -H "Authorization: Bearer calder_sk_test_…" \\
   -H "Idempotency-Key: hello-001" \\
   -H "Content-Type: application/json" \\
   -d '{
     "from": "app@acme.com",
     "to": "you@example.com",
-    "subject": "Hello from Avenor",
+    "subject": "Hello from Calder",
     "text": "It works."
   }'`;
 
@@ -27,11 +27,11 @@ export default function CurlQuickstart() {
       </p>
       <CodeBlock title="terminal" copyText={CODE}>
         <span className="tok-dim">$</span> <span className="tok-key">curl</span>{" "}
-        <span className="tok-path">https://api.avenor.com/v1/emails</span>{" "}
+        <span className="tok-path">https://api.calder.com/v1/emails</span>{" "}
         <span className="tok-dim">\</span>
         {"\n"}
         &nbsp;&nbsp;<span className="tok-dim">-H</span>{" "}
-        <span className="tok-str">&quot;Authorization: Bearer avenor_sk_test_…&quot;</span>{" "}
+        <span className="tok-str">&quot;Authorization: Bearer calder_sk_test_…&quot;</span>{" "}
         <span className="tok-dim">\</span>
         {"\n"}
         &nbsp;&nbsp;<span className="tok-dim">-H</span>{" "}

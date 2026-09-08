@@ -5,9 +5,9 @@ import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
-  title: "Status — Avenor",
+  title: "Status — Calder",
   description:
-    "Live operational status of the Avenor platform: API, workers, providers, and webhooks.",
+    "Live operational status of the Calder platform: API, workers, providers, and webhooks.",
 };
 
 const COMPONENTS = [
@@ -15,7 +15,7 @@ const COMPONENTS = [
   { name: "Workers", desc: "Send execution, retries, webhooks" },
   { name: "Email delivery (SES)", desc: "Provider acceptance and sending" },
   { name: "Webhooks", desc: "Event fan-out and retries" },
-  { name: "Dashboard", desc: "app.avenor.com" },
+  { name: "Dashboard", desc: "app.calder.com" },
 ] as const;
 
 export default function StatusPage() {

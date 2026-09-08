@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { EmailProvider, EmailMessage, ProviderSendResult } from "@avenor/email";
+import type { EmailProvider, EmailMessage, ProviderSendResult } from "@calder/email";
 
 /**
- * Avenor Email Provider — reserved seam for dogfooding.
+ * Calder Email Provider — reserved seam for dogfooding.
  *
  * Architectural rule (see docs/SYSTEM-EXPLAINED.md "Dogfooding doctrine"):
  * internal sends enter at ENQUEUE time through the same code path as the API,
@@ -14,12 +14,12 @@ import type { EmailProvider, EmailMessage, ProviderSendResult } from "@avenor/em
  * Status: NOT IMPLEMENTED. Instantiating is fine; calling send() throws until
  * the direct-enqueue path it must delegate to exists.
  */
-export class AvenorEmailProvider implements EmailProvider {
-  readonly name = "avenor";
+export class CalderEmailProvider implements EmailProvider {
+  readonly name = "calder";
 
   async send(_message: EmailMessage): Promise<ProviderSendResult> {
     throw new Error(
-      "AvenorEmailProvider.send() is not implemented: internal mail must enqueue " +
+      "CalderEmailProvider.send() is not implemented: internal mail must enqueue " +
         "directly via the shared email service, never loop through a provider. " +
         "See docs/SYSTEM-EXPLAINED.md."
     );
@@ -27,10 +27,10 @@ export class AvenorEmailProvider implements EmailProvider {
 
   /** Stable internal message id shape for future use (no network involved). */
   static internalMessageId(): string {
-    return `avenor_${randomUUID().replace(/-/g, "")}`;
+    return `calder_${randomUUID().replace(/-/g, "")}`;
   }
 }
 
-export function createAvenorProvider(): AvenorEmailProvider {
-  return new AvenorEmailProvider();
+export function createCalderProvider(): CalderEmailProvider {
+  return new CalderEmailProvider();
 }

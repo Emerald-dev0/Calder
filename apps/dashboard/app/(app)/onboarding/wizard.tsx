@@ -222,7 +222,7 @@ export function OnboardingWizard({
               ))}
             </select>
           </Field>
-          <Field label="How did you hear about Avenor?">
+          <Field label="How did you hear about Calder?">
             <select
               value={referralSource}
               onChange={(e) => setReferralSource(e.target.value)}

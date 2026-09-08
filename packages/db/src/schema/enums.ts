@@ -62,3 +62,5 @@ export const suppressionReasonEnum = pgEnum("suppression_reason", [
   "manual",
 ]);
 export const otpPurposeEnum = pgEnum("otp_purpose", ["verification", "login", "reset"]);
+export const transportTypeEnum = pgEnum("transport_type", ["gmail", "ses", "managed"]);
+export const transportStatusEnum = pgEnum("transport_status", ["active", "suspended", "revoked"]);

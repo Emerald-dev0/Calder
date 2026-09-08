@@ -1,4 +1,4 @@
-# AVENOR ENGINEERING ROADMAP
+# CALDER ENGINEERING ROADMAP
 
 Status: Proposed execution plan (v1). Authoritative for _sequencing and scope only_.
 Product scope: `PRD.md`. System design: `ARCHITECTURE.md`. Security: `SECURITY.md`.
@@ -6,7 +6,7 @@ If this file ever contradicts those, they win — see § Document Conflict Regis
 
 ## Executive Summary
 
-Avenor is ~40% toward a production MVP, not at zero. The scaffold already delivers:
+Calder is ~40% toward a production MVP, not at zero. The scaffold already delivers:
 monorepo + CI, Drizzle schema + initial migration, Hono API (validate → persist →
 enqueue → 202), worker (retry/backoff, dead-letter), SES provider behind an
 abstraction, API-key auth, idempotency, rate limiting, billing abstraction, landing
@@ -40,7 +40,7 @@ deployable, one worker deployable. No Kubernetes, no Kafka, no service mesh in M
 | C1  | This directive §4 asks for "service-oriented / microservices architecture" evaluation. `ARCHITECTURE.md` §14 + ADR-007 (Accepted) mandate a **modular monolith** and require any new service to cite a split trigger. | **ARCHITECTURE.md wins.** Roadmap plans the modular monolith; § Service Boundaries lists split _candidates with triggers_, not services to build.                                              |
 | C2  | Directive §3 requires Google/GitHub OAuth. No doc currently specifies the identity method (`SECURITY.md` says only "standard, non-custom session/token mechanisms").                                                  | No contradiction — OAuth _is_ the standard mechanism. Phase 2 implements it. Recommend appending OAuth provider choice to `SECURITY.md` §4 after Phase 2 (not before; avoid speculative spec). |
 | C3  | Directive suggests phases for "Email Ingestion / Processing" as separate services.                                                                                                                                    | Folded into API + worker deployables per C1. Documented as future split candidates only.                                                                                                       |
-| C4  | `docs/API.md` shows `avenor_pk_test_…` publishable keys; implementation has `sk` only.                                                                                                                                | Open item, out of roadmap scope. Tracked for the API-keys task (Phase 3): either implement `pk` or correct `docs/API.md`.                                                                      |
+| C4  | `docs/API.md` shows `calder_pk_test_…` publishable keys; implementation has `sk` only.                                                                                                                                | Open item, out of roadmap scope. Tracked for the API-keys task (Phase 3): either implement `pk` or correct `docs/API.md`.                                                                      |
 
 ## Current-State Audit (what exists, graded)
 
@@ -136,7 +136,7 @@ External identity providers, never custom passwords. Supported: Google, GitHub
 - Logout destroys server session; session expiry: 30d idle, absolute 90d (tune post-launch).
 - Secrets: OAuth client IDs/secrets per environment via secret manager, never in repo.
 - AuthN answers "who"; membership + project scoping answers "what allowed" — enforced
-  at data-access layer (existing `@avenor/auth` authorization helpers extended, not replaced).
+  at data-access layer (existing `@calder/auth` authorization helpers extended, not replaced).
 
 ## Data Architecture
 
@@ -226,7 +226,7 @@ can diverge; no billing-critical reads served from cache alone.
   don't double-count; permanent failures still count the accepted send (it was processed).
 - Plans: free/starter/pro/scale, NGN+USD (per PRD). Hard limits, no overages in MVP.
 - Provider: validate Bachs integration surface first (no fabricated endpoints — follow
-  the existing abstraction discipline); Avenor owns subscription state via webhooks.
+  the existing abstraction discipline); Calder owns subscription state via webhooks.
 - Dunning: past-due grace (7d) → sending paused, data retained; cancel anytime, export first.
 
 ## Development Phases
@@ -246,7 +246,7 @@ Objective: remove every scaffold fallback between the request path and reliabili
 Dependencies: Phase 0. Tasks: Redis-backed `Queue<T>` implementation (keep
 InMemory for tests; fail closed if prod resolves to it); Redis rate-limiter
 backend; `db:migrate` production runbook + staging dry-run; enforce
-`@avenor/config` validation at startup (crash on invalid env); delete API/worker
+`@calder/config` validation at startup (crash on invalid env); delete API/worker
 in-memory email stores. Parallel: dashboard shell polish, docs-site content.
 Deliverables: queue/rate-limit Redis adapters, migration runbook, no in-memory
 fallback in prod paths. Testing: adapter unit tests, fallback-removal grep test,
@@ -273,7 +273,7 @@ Exit: login/logout/linking/expiry all green in staging; C2 doc update filed.
 Objective: the tenant model enforced end-to-end. Dependencies: Phase 2. Tasks:
 org CRUD + membership roles (owner/admin/member); project CRUD; API key lifecycle
 (create-once secret, rotate, revoke, `pk`/`sk` decision per C4); extend
-`@avenor/auth` to session+key contexts; tenant-scope audit on every new query;
+`@calder/auth` to session+key contexts; tenant-scope audit on every new query;
 audit-log writes for membership/key/project events. Parallel: dashboard org/project
 screens against these APIs. Deliverables: enforced multi-tenancy + audit trail.
 Testing: cross-tenant access matrix (every resource × every role → 403/200),
@@ -329,8 +329,14 @@ rotation, revocation, last-used); `apps/smtp-gateway` (AUTH PLAIN/LOGIN, STARTTL
 MIME→Email normalization, sender-auth + suppression checks, shared enqueue);
 TCP-LB pass-through + cert runbook; dashboard SMTP setup UI (host/port/user/secret,
 rotation, Nodemailer/smtplib copy-paste); `docs/SMTP.md` + site quickstart.
+Gmail Quickstart track (same phase): Connect OAuth flow (dashboard routes +
+callback), credential CRUD endpoints, transport picker in onboarding
+("Connect Gmail" vs "Add a domain"), graduation prompts at cap approach,
+`smtp.calder.com` vs Gmail-path docs split. Transport backend
+(`project_transports`, `EmailTransport`, `GmailTransport`, worker routing) is
+built — remaining is connect UI + live Google testing (needs Cloud console setup).
 Parallel: abuse-monitor tuning, migration guide from Gmail-SMTP DIY. Deliverables:
-working `smtp.avenor.email:587` in staging. Testing: protocol tests (incl.
+working `smtp.calder.com:587` in staging. Testing: protocol tests (incl.
 open-relay attempts, plaintext-AUTH rejection), auth/rotation/revocation tests,
 TLS tests, Nodemailer + smtplib + PHPMailer interop tests, failure tests.
 Validation: send via three real clients; revoke mid-flight; leak drill. Risks:
@@ -356,7 +362,7 @@ Objective: trustworthy money. Dependencies: Phase 7 (events durable). Tasks:
 **first validate Bachs surface** (real endpoints/SDK/webhook shapes — no fabrication);
 aggregation cron (durable rows → `usage_records`, idempotent reruns); quota
 enforcement (hard limits, clear errors); subscription lifecycle via provider
-webhooks (Avenor owns state); dunning (7d grace → pause); NGN+USD plans/prices
+webhooks (Calder owns state); dunning (7d grace → pause); NGN+USD plans/prices
 seed. Parallel: billing UI against mocked service. Deliverables: metered, gated,
 billed. Testing: aggregation idempotency, replay-no-double-meter, dispute drill
 (invoice vs dashboard vs raw rows — must match). Validation: euro... dollar and
@@ -438,6 +444,10 @@ OTP decision, multi-provider failover, enterprise controls.
 4. Batch/scheduled sending + suppression-management UI.
 5. Second provider + failover (only after SES path is boring).
 6. Analytics depth, second SDK wave (Go, PHP), SSO/roles, regional presence.
+7. Campaign architecture (audiences, contacts, consent/unsubscribe, scheduling,
+   batching, campaign analytics) — designed as separate tables/pools from day
+   one of the design, never bolted onto transactional sends. No bulk mail
+   through Gmail, ever; campaigns require verified domains + managed transport.
 
 ## Scaling Roadmap
 

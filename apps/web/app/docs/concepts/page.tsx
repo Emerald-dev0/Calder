@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Core concepts — Avenor Docs",
+  title: "Core concepts — Calder Docs",
   description:
-    "The ideas behind Avenor: lifecycle, async delivery, idempotency, events, and suppression.",
+    "The ideas behind Calder: lifecycle, async delivery, idempotency, events, and suppression.",
 };
 
 export default function Concepts() {
@@ -12,7 +12,7 @@ export default function Concepts() {
     <>
       <h1>Core concepts</h1>
       <p className="docs-lede">
-        Five ideas explain nearly everything Avenor does. Learn them once and the whole platform —
+        Five ideas explain nearly everything Calder does. Learn them once and the whole platform —
         API, dashboard, webhooks — reads like one coherent system.
       </p>
 

@@ -7,7 +7,7 @@ import { CodeBlock } from "../../components/code";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
-  title: "Templates — Avenor",
+  title: "Templates — Calder",
   description:
     "Versioned email templates with variables, previews, and safe publishing. In development now — send any HTML today.",
 };
@@ -60,10 +60,10 @@ export default function TemplatesPage() {
               <Reveal delay={120}>
                 <CodeBlock
                   title="works today — POST /v1/emails"
-                  copyText={`curl https://api.avenor.com/v1/emails -H "Authorization: Bearer avenor_sk_live_…" -d '{"from":"app@acme.com","to":"ada@example.com","subject":"Receipt","html":"<p>…</p>"}'`}
+                  copyText={`curl https://api.calder.com/v1/emails -H "Authorization: Bearer calder_sk_live_…" -d '{"from":"app@acme.com","to":"ada@example.com","subject":"Receipt","html":"<p>…</p>"}'`}
                 >
                   <span className="tok-dim">$</span> <span className="tok-key">curl</span>{" "}
-                  <span className="tok-path">https://api.avenor.com/v1/emails</span>
+                  <span className="tok-path">https://api.calder.com/v1/emails</span>
                   {"\n"}
                   &nbsp;&nbsp;<span className="tok-dim">-d</span>{" "}
                   <span className="tok-str">

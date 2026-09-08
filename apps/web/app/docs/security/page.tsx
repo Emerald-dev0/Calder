@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Security — Avenor Docs",
-  description: "How Avenor handles keys, secrets, and webhook signatures. Developer's-eye view.",
+  title: "Security — Calder Docs",
+  description: "How Calder handles keys, secrets, and webhook signatures. Developer's-eye view.",
 };
 
 export default function SecurityDoc() {
@@ -33,7 +33,7 @@ export default function SecurityDoc() {
 
       <h2>Reporting issues</h2>
       <p>
-        Found something? Write to <b className="mono">support@avenor.com</b> with
+        Found something? Write to <b className="mono">support@calder.com</b> with
         &ldquo;security&rdquo; in the subject. We triage the same day and will keep you posted
         through the fix.
       </p>

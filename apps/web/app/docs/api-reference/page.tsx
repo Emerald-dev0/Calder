@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "API reference — Avenor Docs",
+  title: "API reference — Calder Docs",
   description:
-    "Endpoints, authentication, idempotency, errors, and rate limits for the Avenor v1 API.",
+    "Endpoints, authentication, idempotency, errors, and rate limits for the Calder v1 API.",
 };
 
 const ENDPOINTS = [
@@ -28,7 +28,7 @@ export default function ApiReference() {
 
       <h2>Authentication</h2>
       <p>
-        <span className="mono">Authorization: Bearer avenor_sk_live_…</span> Test keys (
+        <span className="mono">Authorization: Bearer calder_sk_live_…</span> Test keys (
         <span className="mono">…_test_…</span>) simulate everything and deliver nothing. Keys are
         scoped to one project and one environment, hashed at rest, revocable anytime.
       </p>

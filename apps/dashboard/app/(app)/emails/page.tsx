@@ -1,5 +1,5 @@
 import { desc, eq, count } from "drizzle-orm";
-import { getDb, emails, emailEvents } from "@avenor/db";
+import { getDb, emails, emailEvents } from "@calder/db";
 import { getTenantContext, resolveProject } from "../../../lib/auth";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -48,7 +48,7 @@ export default async function EmailsPage({ searchParams }: { searchParams: { pro
         </span>
       </div>
       <p style={{ color: "#737373", margin: "0 0 20px", fontSize: 14 }}>
-        Every send under this project — including mail Avenor sends to itself.
+        Every send under this project — including mail Calder sends to itself.
       </p>
       {ctx.memberships.flatMap((m) =>
         m.projects.map((p) => (

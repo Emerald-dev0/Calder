@@ -82,7 +82,7 @@ export function Developers() {
                 <span className="keyline">
                   Errors — {"{ error: { code, message, request_id } }"}
                 </span>
-                <span className="keyline">Keys — avenor_sk_test_… never leaves the sandbox</span>
+                <span className="keyline">Keys — calder_sk_test_… never leaves the sandbox</span>
               </div>
             </Reveal>
           </div>

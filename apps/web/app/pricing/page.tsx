@@ -6,7 +6,7 @@ import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
-  title: "Pricing — Avenor",
+  title: "Pricing — Calder",
   description:
     "Simple, predictable email infrastructure pricing in NGN and USD. Hard limits, no surprise overages, metered from durable records.",
 };
@@ -22,7 +22,7 @@ const FAQS = [
   },
   {
     q: "Why both NGN and USD?",
-    a: "Avenor is built for developers everywhere, including home. Pay in naira by transfer or card, or in dollars — the quota is identical either way.",
+    a: "Calder is built for developers everywhere, including home. Pay in naira by transfer or card, or in dollars — the quota is identical either way.",
   },
   {
     q: "Is there really a free tier?",

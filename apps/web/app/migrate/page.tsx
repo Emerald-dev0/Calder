@@ -7,9 +7,9 @@ import { CodeBlock } from "../../components/code";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
-  title: "Migrate from Resend — Avenor",
+  title: "Migrate from Resend — Calder",
   description:
-    "Move transactional sending from Resend to Avenor in an afternoon. Honest differences, mechanical steps.",
+    "Move transactional sending from Resend to Calder in an afternoon. Honest differences, mechanical steps.",
 };
 
 const DIFFERENCES = [
@@ -43,7 +43,7 @@ export default function MigratePage() {
                   <tr>
                     <th>Concern</th>
                     <th>Resend</th>
-                    <th>Avenor</th>
+                    <th>Calder</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -64,7 +64,7 @@ export default function MigratePage() {
                 <div className="ed-index">The move</div>
                 <h3>Three steps, zero downtime</h3>
                 <p>
-                  Run both providers in parallel: new sends go to Avenor with a fresh idempotency
+                  Run both providers in parallel: new sends go to Calder with a fresh idempotency
                   scheme while history drains from Resend. Verify your domain here (same DNS
                   records, new values), flip traffic project by project, then cancel.
                 </p>
@@ -86,7 +86,7 @@ export default function MigratePage() {
                   <span className="tok-dim">{"// after"}</span>
                   {"\n"}
                   <span className="tok-key">await</span> <span className="tok-method">fetch</span>(
-                  <span className="tok-str">&quot;https://api.avenor.com/v1/emails&quot;</span>,{" "}
+                  <span className="tok-str">&quot;https://api.calder.com/v1/emails&quot;</span>,{" "}
                   <span className="tok-punct">{"{"}</span>
                   {"\n"}
                   &nbsp;&nbsp;<span className="tok-key">method</span>:{" "}

@@ -2,20 +2,20 @@ import type { Metadata } from "next";
 import { CodeBlock } from "../../../components/code";
 
 export const metadata: Metadata = {
-  title: "SMTP — Avenor Docs",
+  title: "SMTP — Calder Docs",
   description:
-    "Send through Avenor with any SMTP client: host, port, credentials, and copy-paste examples.",
+    "Send through Calder with any SMTP client: host, port, credentials, and copy-paste examples.",
 };
 
 const NODemailer = `import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.avenor.email",
+  host: "smtp.calder.com",
   port: 587,
   secure: false, // STARTTLS — upgraded automatically
   auth: {
-    user: process.env.AVENOR_SMTP_USER, // project SMTP username
-    pass: process.env.AVENOR_SMTP_PASSWORD, // generated secret, shown once
+    user: process.env.CALDER_SMTP_USER, // project SMTP username
+    pass: process.env.CALDER_SMTP_PASSWORD, // generated secret, shown once
   },
 });
 
@@ -35,7 +35,7 @@ msg["To"] = "ada@example.com"
 msg["Subject"] = "Verify your email"
 msg.set_content("Your code is 482 915")
 
-with smtplib.SMTP("smtp.avenor.email", 587) as s:
+with smtplib.SMTP("smtp.calder.com", 587) as s:
     s.starttls()  # mandatory — plaintext auth is rejected
     s.login("project-smtp-username", "generated-secret")
     s.send_message(msg)`;
@@ -45,7 +45,7 @@ export default function SmtpGuide() {
     <>
       <h1>SMTP</h1>
       <p className="docs-lede">
-        Already speak SMTP? Keep your libraries. Point them at Avenor and get the same pipeline —
+        Already speak SMTP? Keep your libraries. Point them at Calder and get the same pipeline —
         queue, retries, events, webhooks — as the REST API.
       </p>
 
@@ -68,7 +68,7 @@ export default function SmtpGuide() {
             <td>
               <b style={{ color: "var(--ink)" }}>Host</b>
             </td>
-            <td className="mono">smtp.avenor.email</td>
+            <td className="mono">smtp.calder.com</td>
           </tr>
           <tr>
             <td>
@@ -102,7 +102,7 @@ export default function SmtpGuide() {
         <span className="tok-punct">{"{"}</span>
         {"\n"}
         &nbsp;&nbsp;<span className="tok-key">host</span>:{" "}
-        <span className="tok-str">&quot;smtp.avenor.email&quot;</span>,{"\n"}
+        <span className="tok-str">&quot;smtp.calder.com&quot;</span>,{"\n"}
         &nbsp;&nbsp;<span className="tok-key">port</span>: <span className="tok-num">587</span>,
         {"\n"}
         &nbsp;&nbsp;<span className="tok-key">secure</span>: <span className="tok-key">false</span>,{" "}
@@ -136,7 +136,7 @@ export default function SmtpGuide() {
         <span className="tok-dim"># …To, Subject, set_content…</span>
         {"\n\n"}
         <span className="tok-key">with</span> <span className="tok-path">smtplib.SMTP</span>(
-        <span className="tok-str">&quot;smtp.avenor.email&quot;</span>,{" "}
+        <span className="tok-str">&quot;smtp.calder.com&quot;</span>,{" "}
         <span className="tok-num">587</span>) <span className="tok-key">as</span>{" "}
         <span className="tok-path">s</span>:{"\n"}
         &nbsp;&nbsp;&nbsp;&nbsp;<span className="tok-path">s.starttls</span>(){" "}

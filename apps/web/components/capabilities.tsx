@@ -2,7 +2,7 @@ import { Reveal } from "./reveal";
 import { DomainScene } from "./product-scenes";
 
 /**
- * Why Avenor — five numbered reasons, editorial rows, no bullet lists.
+ * Why Calder — five numbered reasons, editorial rows, no bullet lists.
  * Visuals carry the detail the prose deliberately skips.
  */
 export function Capabilities() {
@@ -10,7 +10,7 @@ export function Capabilities() {
     <section className="section" id="capabilities" style={{ paddingTop: 0 }}>
       <div className="wrap">
         <Reveal>
-          <p className="eyebrow">Why Avenor</p>
+          <p className="eyebrow">Why Calder</p>
           <h2 className="h2">
             Sending an email is easy. Sending it exactly once, knowing it arrived, and proving it
             later — that&rsquo;s the actual job.
@@ -191,7 +191,7 @@ export function Capabilities() {
             </Reveal>
           </div>
 
-          {/* TODO(emerald): one-line founder reason for building Avenor — first person,
+          {/* TODO(emerald): one-line founder reason for building Calder — first person,
               real, no marketing speak. Fill in before this ships. */}
         </div>
       </div>

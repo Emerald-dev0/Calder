@@ -1,5 +1,5 @@
 {
-  "name": "@avenor/providers",
+  "name": "@calder/providers",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,8 +16,10 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@avenor/email": "workspace:*",
     "@aws-sdk/client-sesv2": "^3.600.0",
+    "@calder/auth": "workspace:^",
+    "@calder/config": "workspace:^",
+    "@calder/email": "workspace:*",
     "zod": "^3.23.8"
   },
   "devDependencies": {

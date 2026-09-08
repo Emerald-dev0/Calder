@@ -1,5 +1,5 @@
 import { desc, eq } from "drizzle-orm";
-import { getDb, domains } from "@avenor/db";
+import { getDb, domains } from "@calder/db";
 import { getTenantContext, resolveProject } from "../../../lib/auth";
 import { ProjectPicker } from "../project-picker";
 import { DomainAdder, DomainRow } from "./manager";

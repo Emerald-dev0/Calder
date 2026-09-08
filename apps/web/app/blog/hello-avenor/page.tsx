@@ -5,11 +5,11 @@ import { Footer } from "../../../components/closing";
 import { Reveal } from "../../../components/reveal";
 
 export const metadata: Metadata = {
-  title: "Hello, Avenor — Avenor Blog",
+  title: "Hello, Calder — Calder Blog",
   description: "Why transactional email deserves its own infrastructure company.",
 };
 
-export default function HelloAvenor() {
+export default function HelloCalder() {
   return (
     <>
       <Navigation />
@@ -19,7 +19,7 @@ export default function HelloAvenor() {
             <Reveal>
               <p className="eyebrow">September 2026 · 4 min</p>
               <h1 className="display" style={{ fontSize: "clamp(2.2rem, 5vw, 3.6rem)" }}>
-                Hello, Avenor: why transactional email <em>deserves its own company.</em>
+                Hello, Calder: why transactional email <em>deserves its own company.</em>
               </h1>
             </Reveal>
             <Reveal delay={100}>
@@ -30,7 +30,7 @@ export default function HelloAvenor() {
                   account. And yet the tooling treats these the same as Tuesday&rsquo;s newsletter
                   blast.
                 </p>
-                <p>That mismatch is the entire reason Avenor exists.</p>
+                <p>That mismatch is the entire reason Calder exists.</p>
                 <h2>Delivery is the product</h2>
                 <p>
                   Ask a developer what their email provider does and they&rsquo;ll say &ldquo;sends

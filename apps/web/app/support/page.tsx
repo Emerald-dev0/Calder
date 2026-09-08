@@ -6,8 +6,8 @@ import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
-  title: "Support — Avenor",
-  description: "Get help with Avenor: docs, status, and how to reach a human.",
+  title: "Support — Calder",
+  description: "Get help with Calder: docs, status, and how to reach a human.",
 };
 
 const TOPICS: Array<{ title: string; body: string; href: string }> = [
@@ -74,7 +74,7 @@ export default function SupportPage() {
               <div className="pipeline" style={{ marginTop: "2rem" }}>
                 <p className="eyebrow">Still stuck</p>
                 <p className="lede" style={{ fontSize: "1.05rem" }}>
-                  Write to <b className="mono">support@avenor.com</b> with your{" "}
+                  Write to <b className="mono">support@calder.com</b> with your{" "}
                   <span className="mono">request_id</span> or email id. Migrations from other
                   providers get white-glove help — see{" "}
                   <Link href="/migrate" style={{ color: "var(--accent)" }}>

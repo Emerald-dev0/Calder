@@ -1,10 +1,81 @@
-import { createQueue, type QueueJob } from "@avenor/queue";
-import { isTransientError, getRetryDelay } from "@avenor/queue";
-import { MockEmailProvider } from "@avenor/email";
-import { createEmailService } from "@avenor/email";
-import { SesEmailProvider } from "@avenor/providers";
-import { logger } from "@avenor/observability";
+import { createQueue, type QueueJob } from "@calder/queue";
+import { isTransientError, getRetryDelay } from "@calder/queue";
+import { MockEmailProvider, pickDefaultTransport, GMAIL_FREE_DAILY_CAP } from "@calder/email";
+import { createEmailService, type EmailService } from "@calder/email";
+import { SesEmailProvider, GmailTransport } from "@calder/providers";
+import { getGmailRefreshToken } from "@calder/auth";
+import { logger, type Logger } from "@calder/observability";
 import { randomUUID } from "node:crypto";
+
+/**
+ * Per-job transport resolution. A project's active default transport
+ * (e.g. connected Gmail) moves its mail; everything else uses the global
+ * default service. Gmail sends are capped per UTC day and fail closed with a
+ * permanent, explainable error — never silently, never over Google's limits.
+ */
+async function resolveEmailService(
+  projectId: string,
+  jobLogger: Logger
+): Promise<{ service: EmailService; transport: string }> {
+  const fallback = { service: createEmailService(getProvider()), transport: "default" };
+  try {
+    const { getDb, projectTransports } = await import("@calder/db");
+    const { eq } = await import("drizzle-orm");
+    const db = getDb();
+    const rows = await db
+      .select()
+      .from(projectTransports)
+      .where(eq(projectTransports.projectId, projectId));
+    const chosen = pickDefaultTransport(
+      rows.map((r) => ({
+        id: r.id,
+        projectId: r.projectId,
+        type: r.type,
+        status: r.status,
+        label: r.label,
+        encryptedCredentials: r.encryptedCredentials,
+        dailyCap: r.dailyCap,
+        isDefault: r.isDefault,
+      }))
+    );
+    if (!chosen || chosen.type !== "gmail" || !chosen.encryptedCredentials) return fallback;
+
+    // Daily cap: count today's sends for this project (conservative — any transport).
+    const cap = chosen.dailyCap ?? GMAIL_FREE_DAILY_CAP;
+    const { emails } = await import("@calder/db");
+    const { gte, and, count } = await import("drizzle-orm");
+    const dayStart = new Date();
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const sent = await db
+      .select({ value: count() })
+      .from(emails)
+      .where(and(eq(emails.projectId, projectId), gte(emails.createdAt, dayStart)));
+    const today = sent[0]?.value ?? 0;
+    if (today >= cap) {
+      throw Object.assign(
+        new Error(
+          `Gmail daily cap reached (${today}/${cap}). Add a domain to graduate to production infrastructure.`
+        ),
+        { code: "gmail_cap", transient: false, statusCode: 429 }
+      );
+    }
+
+    const refreshToken = getGmailRefreshToken(chosen.encryptedCredentials);
+    const gmail = new GmailTransport({ refreshToken, senderEmail: chosen.label }, chosen.dailyCap);
+    jobLogger.info(
+      { transport: "gmail", sender: chosen.label },
+      "Routing via connected Gmail transport"
+    );
+    return { service: createEmailService(gmail), transport: "gmail" };
+  } catch (err) {
+    // Cap rejections and explicit denials must surface, not silently fall back.
+    if (err instanceof Error && (err as { code?: string }).code === "gmail_cap") {
+      throw err;
+    }
+    jobLogger.warn({ err }, "Transport resolution failed — using default provider");
+    return fallback;
+  }
+}
 
 interface EmailJobData {
   emailId: string;
@@ -25,8 +96,7 @@ function getProvider() {
 }
 
 export async function startWorker() {
-  const provider = getProvider();
-  const emailService = createEmailService(provider);
+  const defaultService = createEmailService(getProvider());
 
   // Shared queue — InMemory for scaffold; RedisQueue in production
   const queue = createQueue<EmailJobData>("email:send", { maxAttempts: 5 });
@@ -55,7 +125,7 @@ export async function startWorker() {
       } | null = null;
 
       try {
-        const { getDb, emails } = await import("@avenor/db");
+        const { getDb, emails } = await import("@calder/db");
         const { eq, and } = await import("drizzle-orm");
         const db = getDb();
         const rows = await db
@@ -88,17 +158,24 @@ export async function startWorker() {
         // Create a synthetic email for mock provider to process — not persisted
         email = {
           id: emailId,
-          from: "scaffold@avenor.dev",
+          from: "scaffold@calder.dev",
           to: "test@example.com",
           subject: "Scaffold test email",
-          html: "<p>Hello from Avenor scaffold</p>",
-          text: "Hello from Avenor scaffold",
+          html: "<p>Hello from Calder scaffold</p>",
+          text: "Hello from Calder scaffold",
           status: "queued",
         };
         // Try to persist a fallback event anyway
       }
 
-      // ── Send via provider ─────────────────────────────────
+      // ── Resolve transport, then send ───────────────────────
+      // Project default transport wins (Gmail graduation path); otherwise the
+      // global default service (SES if creds, else mock). Same events, same
+      // meter, whichever moves the message.
+      const { service: emailService, transport: transportName } = await resolveEmailService(
+        projectId,
+        jobLogger
+      );
       const result = await emailService.send({
         from: email.from,
         to: email.to,
@@ -108,13 +185,17 @@ export async function startWorker() {
       });
 
       jobLogger.info(
-        { providerMessageId: result.providerMessageId, provider: result.provider },
+        {
+          providerMessageId: result.providerMessageId,
+          provider: result.provider,
+          transport: transportName,
+        },
         "Email sent via provider"
       );
 
       // ── Persist success event + update email status ─────────
       try {
-        const { getDb, emails, emailEvents } = await import("@avenor/db");
+        const { getDb, emails, emailEvents } = await import("@calder/db");
         const { eq } = await import("drizzle-orm");
         const db = getDb();
         await db
@@ -155,7 +236,7 @@ export async function startWorker() {
       if (!transient) {
         // Permanent failure — mark as failed, emit webhook, don't retry indefinitely
         try {
-          const { getDb, emails, emailEvents } = await import("@avenor/db");
+          const { getDb, emails, emailEvents } = await import("@calder/db");
           const { eq } = await import("drizzle-orm");
           const db = getDb();
           await db
@@ -195,7 +276,7 @@ export async function startWorker() {
         "Email job exhausted — moving to dead-letter"
       );
       try {
-        const { getDb, emails, emailEvents } = await import("@avenor/db");
+        const { getDb, emails, emailEvents } = await import("@calder/db");
         const { eq } = await import("drizzle-orm");
         const db = getDb();
         await db
@@ -230,7 +311,7 @@ async function enqueueWebhookDelivery(
   data: Record<string, unknown>
 ) {
   try {
-    const { createQueue } = await import("@avenor/queue");
+    const { createQueue } = await import("@calder/queue");
     const q = createQueue("webhook:deliver", { maxAttempts: 8 });
     await q.enqueue("deliver-webhook", { projectId, emailId, event, data });
   } catch {

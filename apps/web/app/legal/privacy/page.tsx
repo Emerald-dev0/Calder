@@ -4,8 +4,8 @@ import { Footer } from "../../../components/closing";
 import { PageHero } from "../../../components/page-hero";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Avenor",
-  description: "How Avenor collects, uses, and protects your data.",
+  title: "Privacy Policy — Calder",
+  description: "How Calder collects, uses, and protects your data.",
 };
 
 export default function PrivacyPage() {

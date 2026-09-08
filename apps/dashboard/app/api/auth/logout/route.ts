@@ -5,7 +5,7 @@ import {
   revokeSession,
   clearSessionCookieHeader,
   SESSION_COOKIE,
-} from "@avenor/auth";
+} from "@calder/auth";
 
 export async function POST(req: Request): Promise<Response> {
   const store = cookies();

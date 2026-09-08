@@ -1,7 +1,7 @@
 import { randomInt } from "node:crypto";
 import { Hono } from "hono";
-import { getDb, waitlistSignups } from "@avenor/db";
-import { joinWaitlistSchema } from "@avenor/validation";
+import { getDb, waitlistSignups } from "@calder/db";
+import { joinWaitlistSchema } from "@calder/validation";
 import { eq, lte, count } from "drizzle-orm";
 import type { Env } from "../app.js";
 import { AppError, validationError } from "../errors/index.js";
@@ -146,14 +146,14 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
     const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
     await sendInternalEmail({
       to: email,
-      subject: `You're #${ticket.position} in line — welcome to Avenor`,
-      html: `<p>You're <b>#${ticket.position}</b> in line for Avenor early access.</p><p>Your referral code: <b>${ticket.referralCode}</b></p><p>Share it: <a href="${appUrl}/waitlist?ref=${ticket.referralCode}">${appUrl}/waitlist?ref=${ticket.referralCode}</a> — friends join behind you.</p><p>We'll email you from this address when your batch opens.</p>`,
-      text: `You're #${ticket.position} in line for Avenor early access. Referral code: ${ticket.referralCode}. Share: ${appUrl}/waitlist?ref=${ticket.referralCode}`,
+      subject: `You're #${ticket.position} in line — welcome to Calder`,
+      html: `<p>You're <b>#${ticket.position}</b> in line for Calder early access.</p><p>Your referral code: <b>${ticket.referralCode}</b></p><p>Share it: <a href="${appUrl}/waitlist?ref=${ticket.referralCode}">${appUrl}/waitlist?ref=${ticket.referralCode}</a> — friends join behind you.</p><p>We'll email you from this address when your batch opens.</p>`,
+      text: `You're #${ticket.position} in line for Calder early access. Referral code: ${ticket.referralCode}. Share: ${appUrl}/waitlist?ref=${ticket.referralCode}`,
       idempotencyKey: `waitlist-confirm:${email}`,
       requestId: c.get("requestId"),
     });
   } catch (err) {
-    const { logger } = await import("@avenor/observability");
+    const { logger } = await import("@calder/observability");
     logger.error({ err, email }, "Waitlist confirmation failed to enqueue (signup kept)");
   }
 
