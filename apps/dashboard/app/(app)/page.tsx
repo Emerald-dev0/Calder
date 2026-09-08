@@ -1,4 +1,4 @@
-import { desc, eq, inArray, count } from "drizzle-orm";
+import { desc, inArray, count } from "drizzle-orm";
 import { getDb, emails } from "@avenor/db";
 import { getTenantContext } from "../../lib/auth";
 

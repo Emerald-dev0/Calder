@@ -440,6 +440,16 @@ export function OnboardingWizard({
               </span>
             </div>
           )}
+          {keys.length > 0 && (
+            <div style={{ marginTop: 14, fontSize: 13, color: "#737373" }}>
+              Existing keys:{" "}
+              {keys.map((k) => (
+                <span key={k.id} className="mono" style={{ marginRight: 10 }}>
+                  {k.name} ({k.prefix}…){k.revokedAt ? " [revoked]" : ""}
+                </span>
+              ))}
+            </div>
+          )}
           <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
             <button style={btnSecondary} onClick={() => setStep(2)}>
               ← Back
