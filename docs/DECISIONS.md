@@ -208,3 +208,22 @@ hardcoded outside plan-configuration tables. Nothing ships commercially until
 `docs/PRICING.md` unit-economics model clears.
 **Why:** Nigeria-first accessibility without fake precision — FX volatility makes
 premature dollar figures dishonest, and hardcoded prices become lies at scale.
+
+---
+
+## ADR-020: One-time purchases via credits ledger; no API cloning for migration
+
+**Status:** Accepted (specified; build with billing)
+**Decisions:**
+
+1. Prepaid email packs + add-ons are funded through a `credit_ledger` consumed
+   by the same aggregation cron as subscriptions — one meter, two funding
+   sources, auditable, never negative.
+2. Migration tooling is mapping guides + codemods, never API-compatible
+   emulation of a competitor's SDK. Guides lower switching cost without legal
+   exposure; cloning a proprietary API surface invites it.
+3. Queued-but-unsent emails are cancellable (remove from queue + `canceled`
+   status + event) — the only honest scope of "cancellation." Once accepted by
+   a provider, mail cannot be un-sent, and we say so.
+   **Why:** card-scarce markets need non-subscription revenue; trust-first
+   migration beats compatibility-theater migration.

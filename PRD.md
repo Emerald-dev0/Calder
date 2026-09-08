@@ -40,7 +40,7 @@ Email API, **SMTP gateway (same pipeline, project-scoped credentials)**, **trans
 
 ## 6. Post-MVP
 
-Templates, OTP infrastructure, advanced analytics, scheduling, batch sending, suppression management UI, domain health dashboard, Vercel hosted-domain verification, additional SDKs, campaign architecture (audiences, consent, scheduling — designed, not built; see §18).
+Templates (+ playground: pick welcome/OTP/receipt → preview → test → publish → copy code), OTP infrastructure, advanced analytics, scheduling, batch sending, suppression management UI, domain health dashboard, Vercel hosted-domain verification, additional SDKs, campaign architecture (audiences, consent, scheduling — designed, not built; see §18), automations (event → condition → delay → email; priced separately), inbound email (user → Calder → app webhook), CLI (`calder doctor` diagnostics first), MCP server for coding agents, migration assistant (Resend/Postmark mapping guides + codemod — guides, never API cloning), Email Debugger (per-email trace view), "why didn't it arrive" explainer.
 
 ## 7. Later
 
@@ -92,6 +92,15 @@ Sending flows through per-project **transports** (`project_transports`): Gmail (
 ## 19. Abuse posture (new)
 
 Per-account/project/transport limits, rate limiting, suppression, bounce/complaint tracking, throttling, suspension + revocation + audit trails. Gmail-connected accounts get the most conservative limits in the system. Calder must never become a spam relay — see `SECURITY.md` §14 and `ARCHITECTURE.md` §5b.
+
+## 20. One-time purchases & credits (new)
+
+Subscriptions aren't the only way to pay — critical where cards are scarce:
+
+- **Email packs** (e.g. 10k sends, no expiry for 12 months): consumed after plan quota. Prepaid via bank transfer or card. The core NGN-friendly mechanic.
+- **Domain slots** beyond plan limits, **extended log retention**, **priority support incidents** — small, legible, one-click.
+- **Credits ledger** (specified, built with billing): purchase → ledger credit → consumed by metered sends → auditable. Never negative, never estimated; reconciliation identical to subscriptions.
+- Never: ads in emails, selling data, throttling free into uselessness to force upgrades.
 
 ## 13. Design & brand direction
 

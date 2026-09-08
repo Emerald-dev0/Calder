@@ -40,7 +40,22 @@ Per-email fully-loaded cost = sum of:
 - Free tier: Gmail-transport default, strictest caps, tightest abuse monitoring.
 - Reprice triggers (FX drift, SES price change) are calendar-reviewed quarterly.
 
-## 4. Open pricing questions
+## 4. One-time purchases & credits ledger (specified)
+
+For card-scarce markets, subscriptions can't be the only way to pay:
+
+- **Email packs** (e.g. 10k sends, 12-month expiry): consumed after plan quota.
+  Prepaid by bank transfer or card — no subscription required.
+- **Domain slots, extended retention, priority support** — one-click add-ons.
+- **Ledger spec** (build with billing, not before): `credit_ledger`
+  `(id, organization_id, type[pack|slot|retention|support], quantity_total,
+quantity_used, purchased_at, expires_at)` + `credit_consumption`
+  `(id, ledger_id, email_id, consumed_at)`. Consumption joins the same
+  aggregation cron as subscriptions — one meter, two funding sources.
+  Ledger never goes negative; expiry sweeps are idempotent cron.
+- Forbidden revenue: ads in emails, selling data, degrading free to force upgrades.
+
+## 5. Open pricing questions
 
 USD equivalents and exact kobo/cent values; Builder/Pro/Scale quota confirmation
 against the model; overage-vs-hard-limit posture post-MVP; annual billing.

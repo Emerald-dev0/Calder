@@ -448,6 +448,12 @@ OTP decision, multi-provider failover, enterprise controls.
    batching, campaign analytics) — designed as separate tables/pools from day
    one of the design, never bolted onto transactional sends. No bulk mail
    through Gmail, ever; campaigns require verified domains + managed transport.
+8. Developer surfaces: CLI (`calder doctor` diagnostics first), MCP server,
+   migration assistant (mapping guides + codemod — guides, never API cloning),
+   template playground, Email Debugger trace view + "why didn't it arrive"
+   explainer, inbound email (user → Calder → app webhook).
+9. One-time purchases: credits ledger + email packs + domain slots (see
+   `docs/PRICING.md`), built with billing — prepaid-first for card-scarce markets.
 
 ## Scaling Roadmap
 

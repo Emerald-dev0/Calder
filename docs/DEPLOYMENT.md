@@ -9,7 +9,17 @@ Status: not finalized — placeholder pending decisions in `docs/DECISIONS.md` (
 ## Planned deployment shape
 
 - `apps/web`, `apps/dashboard` — Vercel (or equivalent) for web-facing surfaces, deployed via the `vercel` CLI (see `AGENTS.md` CLI-first tooling)
-- `apps/api`, `apps/worker` — managed infra, provider TBD, must remain portable
+- `apps/api`, `apps/worker` — managed infra, provider TBD, must remain portable.
+  Staging candidate: Pxxl (Nigerian, Africa-first deploy platform — GitHub-push
+  deploys, managed databases, custom domains, NGN-friendly pricing). Pilot
+  staging there first; production only after observed uptime justifies it —
+  their stated 98.9% (~3.3 days/yr downtime) is not yet infrastructure-grade,
+  and our status promises must exceed our host's. Frontend stays Vercel unless
+  Pxxl proves equal or better. Cloudflare free tier adopted for: our own DNS
+  (fast TXT management for verification/SPF/DKIM/DMARC), recommended customer
+  DNS, and Email Routing for our inbound (support@, hello@). Cloudflare does
+  not send mail — delivery stays SES; sending from dedicated subdomains
+  (e.g. mail.&lt;domain&gt;) protects root-domain reputation.
 - Database — managed PostgreSQL
 - Queue/cache — managed Redis-compatible service
 
