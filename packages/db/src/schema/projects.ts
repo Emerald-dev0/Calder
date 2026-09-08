@@ -1,5 +1,11 @@
-import { pgTable, text, timestamp, varchar, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, varchar, index, jsonb } from "drizzle-orm/pg-core";
 import { organizations } from "./organizations";
+
+export interface ProjectMetadata {
+  environment?: "production" | "staging" | "development";
+  useCases?: string[];
+  monthlyVolume?: string;
+}
 
 export const projects = pgTable(
   "projects",
@@ -10,6 +16,7 @@ export const projects = pgTable(
       .references(() => organizations.id, { onDelete: "cascade" }),
     name: varchar("name", { length: 255 }).notNull(),
     slug: varchar("slug", { length: 100 }).notNull(),
+    metadata: jsonb("metadata").$type<ProjectMetadata>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

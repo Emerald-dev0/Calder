@@ -163,7 +163,20 @@ API would add latency and a second auth mechanism for zero isolation benefit
 (the tenant helper IS the enforcement point). Mutations stay in server actions
 with the same helper. Middleware checks cookie presence only (fast path).
 
+## 8c. Onboarding wizard (`/onboarding`)
+
+Five steps, each unlocking the next because the data model requires it:
+organization → project (+environment, use-cases, volume stored in
+`projects.metadata`) → test key (secret shown once) → first send (via the
+public API with the fresh key, status polled until terminal, arrival animation
+on success) → domain (real records, real DNS check via `resolveTxt`, honest
+pending state). Progress is derived from data, not stored separately —
+re-runnable, resumable. Server actions enforce membership on every step.
+
 ## 9. Changelog (newest first)
+
+- **Onboarding wizard:** org → project (+metadata via 0003) → test key → first
+  real send → domain with live DNS verification.
 
 - **Dogfood loop live:** waitlist confirmations send through the pipeline under
   `org_avenor/proj_website`, visible in the dashboard emails list; founder

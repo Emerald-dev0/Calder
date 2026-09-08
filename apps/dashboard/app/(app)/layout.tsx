@@ -3,6 +3,7 @@ import { getTenantContext } from "../../lib/auth";
 
 const NAV = [
   { label: "Overview", href: "/" },
+  { label: "Onboarding", href: "/onboarding" },
   { label: "Emails", href: "/emails" },
   { label: "Domains", href: null },
   { label: "API Keys", href: null },
