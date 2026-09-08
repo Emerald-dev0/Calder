@@ -14,6 +14,7 @@ const SECTIONS: Array<{ title: string; links: Array<{ label: string; href: strin
       { label: "Quickstart: Ruby", href: "/docs/quickstart/ruby" },
       { label: "Quickstart: cURL", href: "/docs/quickstart/curl" },
       { label: "Quickstart: Shell", href: "/docs/quickstart/cli" },
+      { label: "Gmail Quickstart", href: "/docs/gmail-quickstart" },
     ],
   },
   {

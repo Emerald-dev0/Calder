@@ -12,6 +12,7 @@
 - Quickstart Ruby: /docs/quickstart/ruby
 - Quickstart cURL: /docs/quickstart/curl
 - Quickstart Shell: /docs/quickstart/cli
+- Gmail Quickstart (no domain needed): /docs/gmail-quickstart
 
 ## Learn
 - Sending: /docs/sending

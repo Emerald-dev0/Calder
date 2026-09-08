@@ -55,6 +55,12 @@ const INDEX: Entry[] = [
     keywords: "cli shell bash jq scripting automation",
   },
   {
+    title: "Gmail Quickstart",
+    href: "/docs/gmail-quickstart",
+    section: "Quickstart",
+    keywords: "gmail no domain beginner oauth start sending graduate",
+  },
+  {
     title: "Sending",
     href: "/docs/sending",
     section: "Learn",

@@ -103,12 +103,18 @@ export function Hero() {
               it?&rdquo; — OTPs, verification links, password resets, receipts. One endpoint, or
               plain SMTP if that&rsquo;s your world. Honest statuses, and every event on the record.
             </p>
+            <p style={{ marginTop: "1rem", fontSize: "0.95rem", color: "var(--muted)" }}>
+              No domain? No problem — start with Gmail, graduate when you grow.
+            </p>
             <div className="hero-ctas">
               <a className="btn btn-primary" href="/waitlist">
                 Get an API key{" "}
                 <span className="arrow" aria-hidden="true">
                   →
                 </span>
+              </a>
+              <a className="btn btn-secondary" href="/docs/gmail-quickstart">
+                Connect Gmail
               </a>
               <a className="btn btn-secondary" href="#developers">
                 <span className="mono" style={{ fontSize: "0.85em" }}>

@@ -82,11 +82,24 @@ export function BeginnerSection() {
               </div>
               <p className="caption" style={{ marginTop: "1rem" }}>
                 Gmail sending is capped and rate-limited on purpose — it&rsquo;s the on-ramp, not
-                bulk infrastructure. Limits are always visible before you hit them.
+                bulk infrastructure. Limits are always visible before you hit them. Full
+                walkthrough:{" "}
+                <a href="/docs/gmail-quickstart" style={{ color: "var(--accent)" }}>
+                  Gmail Quickstart →
+                </a>
               </p>
             </div>
           </Reveal>
         </div>
+        <Reveal delay={80}>
+          <div className="pipeline-return" style={{ marginTop: "2rem" }}>
+            <span>No domain →</span>
+            <span className="event-pill">Connect Gmail</span>
+            <span>→ build → grow →</span>
+            <span className="event-pill">Verify domain</span>
+            <span>→ production infrastructure. Same key throughout.</span>
+          </div>
+        </Reveal>
       </div>
     </section>
   );
