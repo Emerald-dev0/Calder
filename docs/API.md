@@ -11,8 +11,8 @@ Conventions only — endpoint-level detail lives in generated docs/SDK types, wh
 `Authorization: Bearer <api_key>` — prefixed by environment/type:
 
 ```
-avenor_pk_test_...   avenor_sk_test_...
-avenor_pk_live_...   avenor_sk_live_...
+calder_pk_test_...   calder_sk_test_...
+calder_pk_live_...   calder_sk_live_...
 ```
 
 ## Idempotency
@@ -38,6 +38,17 @@ Per API key, project, and organization; different limits for sending vs. verific
 ## Sandbox / test mode
 
 `test` keys never trigger real external delivery — simulated events and webhook deliveries only.
+
+## Sender rules (`from`)
+
+The `from` address must resolve to an identity the project's active transport owns:
+
+- **Verified domain** (SES/managed transports): any address on the domain.
+- **Connected Gmail** (gmail transport): exactly the connected address — the
+  transport pins the sender, spoofing is structurally impossible.
+
+Unowned senders fail closed (`domain_not_verified` / `550`) with an explanation
+pointing at verification or graduation — never silent, never delivered anyway.
 
 ## SMTP (not REST — see docs/SMTP.md)
 

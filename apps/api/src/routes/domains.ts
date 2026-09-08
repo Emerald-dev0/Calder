@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../app.js";
-import { createDomainSchema } from "@avenor/validation";
+import { createDomainSchema } from "@calder/validation";
 import { authMiddleware } from "../middleware/auth.js";
 import { AppError, validationError } from "../errors/index.js";
 
@@ -16,11 +16,11 @@ domains.post("/", authMiddleware, async (c) => {
 
   // Scaffold: create in-memory or DB
   try {
-    const { getDb, domains: domainsTable } = await import("@avenor/db");
+    const { getDb, domains: domainsTable } = await import("@calder/db");
     const { randomUUID } = await import("node:crypto");
     const db = getDb();
     const id = `dom_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
-    const token = `avenor_verify_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
+    const token = `calder_verify_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
     await db.insert(domainsTable).values({
       id,
       projectId: auth.projectId,
@@ -52,7 +52,7 @@ domains.post("/", authMiddleware, async (c) => {
 domains.get("/", authMiddleware, async (c) => {
   const auth = c.get("auth" as never) as { projectId: string };
   try {
-    const { getDb, domains: domainsTable } = await import("@avenor/db");
+    const { getDb, domains: domainsTable } = await import("@calder/db");
     const { eq } = await import("drizzle-orm");
     const db = getDb();
     const rows = await db
@@ -69,7 +69,7 @@ domains.post("/:id/verify", authMiddleware, async (c) => {
   const id = c.req.param("id");
   // Scaffold verification — just mark verified for demo
   try {
-    const { getDb, domains: domainsTable } = await import("@avenor/db");
+    const { getDb, domains: domainsTable } = await import("@calder/db");
     const { eq, and } = await import("drizzle-orm");
     const auth = c.get("auth" as never) as { projectId: string };
     const { now } = { now: new Date() };

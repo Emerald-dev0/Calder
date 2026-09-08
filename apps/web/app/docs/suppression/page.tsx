@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Suppression — Avenor Docs",
+  title: "Suppression — Calder Docs",
   description: "How bounce and complaint suppression works, and why a send might be blocked.",
 };
 

@@ -1,4 +1,4 @@
-# Avenor — Design System & Art Direction
+# Calder — Design System & Art Direction
 
 Read before touching any visible UI: marketing site, dashboard, email templates, or shared components in `packages/ui`.
 
@@ -52,17 +52,17 @@ Surface #FFFFFF   (cards/panels on Paper)
 Muted   #737373   (secondary text)
 ```
 
-**One accent** — sophisticated electric blue/cobalt ("Avenor Blue"), exact hex not yet locked. Used sparingly.
+**One accent** — sophisticated electric blue/cobalt ("Calder Blue"), exact hex not yet locked. Used sparingly.
 
 **The rule: the accent is a signal, not wallpaper.** Never let the accent dominate a full section — it marks state, action, or emphasis, not decoration.
 
-**No purple-gradient startup palette** (`#7C3AED` / `#8B5CF6` / `#6366F1` territory) — this is explicitly the look Avenor is differentiating away from.
+**No purple-gradient startup palette** (`#7C3AED` / `#8B5CF6` / `#6366F1` territory) — this is explicitly the look Calder is differentiating away from.
 
 **Rendered-pixel check, not just token check:** a color can be "correct" by hex value and still read as too loud, too saturated, or too AI-startup once actually rendered (font weight, surrounding whitespace, and adjacent colors all affect perceived intensity). The visual QA loop in `AGENTS.md` exists specifically to catch this — judge screenshots, not just CSS values.
 
 ## 4. Imagery
 
-Avenor pages should never feel visually empty just because it's a developer product — but imagery requires art direction, not filler.
+Calder pages should never feel visually empty just because it's a developer product — but imagery requires art direction, not filler.
 
 **Avoid:** programmer-typing-on-laptop stock photos, server rooms, smiling-startup-team photos, generic abstract purple blobs.
 
@@ -72,18 +72,18 @@ Formats: WebP/AVIF for raster, SVG for scalable illustration.
 
 ## 5. Illustration system
 
-Avenor's own illustration language, not assets from three different unrelated sources:
+Calder's own illustration language, not assets from three different unrelated sources:
 
 ```
 thin geometric lines + technical diagrams + small human elements
 + controlled (single-accent) color + large negative space
 ```
 
-Example concept: an application → Avenor → OTP/Email/Events fan-out, rendered as an editorial technical illustration rather than a literal flowchart.
+Example concept: an application → Calder → OTP/Email/Events fan-out, rendered as an editorial technical illustration rather than a literal flowchart.
 
-## 6. The Avenor Signal
+## 6. The Calder Signal
 
-One recurring abstract visual object representing a message moving through infrastructure — appears in favicon, loading states, hero, docs, empty states, diagrams, social graphics, 404, onboarding. Gives Avenor a recognizable identity independent of the wordmark. Exact form TBD at brand-identity phase.
+One recurring abstract visual object representing a message moving through infrastructure — appears in favicon, loading states, hero, docs, empty states, diagrams, social graphics, 404, onboarding. Gives Calder a recognizable identity independent of the wordmark. Exact form TBD at brand-identity phase.
 
 ## 7. Layout & composition
 
@@ -104,7 +104,7 @@ Use editorial composition — asymmetric layouts, large type moments, product sc
 **Motion must communicate**, not decorate:
 
 - **State** (queued → processing → accepted → delivered)
-- **Relationship** (Application → Avenor → Provider → Recipient)
+- **Relationship** (Application → Calder → Provider → Recipient)
 - **Progression** (Problem → Infrastructure → Delivery → Observability)
 
 **Rules:**
@@ -118,7 +118,7 @@ Use editorial composition — asymmetric layouts, large type moments, product sc
 
 Used by both humans and agents per the loop defined in `AGENTS.md`. Check the actual rendered screenshot against:
 
-- [ ] Does this look like Avenor, or could it be any SaaS product? (generic-template smell test)
+- [ ] Does this look like Calder, or could it be any SaaS product? (generic-template smell test)
 - [ ] Is there a maximum of two type families in use, roles applied consistently?
 - [ ] Is the accent color used as a signal (states, actions, emphasis) rather than as background/wallpaper?
 - [ ] Does any color, once actually rendered, look more saturated/intense than the base palette implies? If so, pull back hue/saturation/lightness rather than accepting the raw token value.
@@ -142,7 +142,7 @@ cinematic                    functional
 Dashboard example feel:
 
 ```
-Avenor
+Calder
 ──────────────────────────
 Overview
 
@@ -162,7 +162,7 @@ Minimal decoration — density made beautiful through typography, spacing, and h
 ## 11. Design system layers
 
 ```
-                    AVENOR
+                    CALDER
                        │
         ┌──────────────┼──────────────┐
         │              │              │

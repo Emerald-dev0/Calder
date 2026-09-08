@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { CodeBlock } from "../../../components/code";
 
 export const metadata: Metadata = {
-  title: "Webhooks — Avenor Docs",
-  description: "Receive, verify, and handle Avenor event webhooks reliably.",
+  title: "Webhooks — Calder Docs",
+  description: "Receive, verify, and handle Calder event webhooks reliably.",
 };
 
 export default function WebhooksGuide() {
@@ -18,14 +18,14 @@ export default function WebhooksGuide() {
       <h2>1. Register an endpoint</h2>
       <CodeBlock
         title="register"
-        copyText={`curl https://api.avenor.com/v1/webhooks -H "Authorization: Bearer avenor_sk_live_…" -d '{"url":"https://acme.com/hooks/avenor","events":["email.delivered","email.bounced"]}'`}
+        copyText={`curl https://api.calder.com/v1/webhooks -H "Authorization: Bearer calder_sk_live_…" -d '{"url":"https://acme.com/hooks/calder","events":["email.delivered","email.bounced"]}'`}
       >
         <span className="tok-dim">$</span> <span className="tok-key">curl</span>{" "}
-        <span className="tok-path">https://api.avenor.com/v1/webhooks</span>
+        <span className="tok-path">https://api.calder.com/v1/webhooks</span>
         {"\n"}
         &nbsp;&nbsp;<span className="tok-dim">-d</span>{" "}
         <span className="tok-str">
-          &apos;{"{"}&quot;url&quot;:&quot;https://acme.com/hooks/avenor&quot;,…{"}"}&apos;
+          &apos;{"{"}&quot;url&quot;:&quot;https://acme.com/hooks/calder&quot;,…{"}"}&apos;
         </span>
       </CodeBlock>
       <p>You&rsquo;ll get a signing secret. Store it — it&rsquo;s shown once.</p>

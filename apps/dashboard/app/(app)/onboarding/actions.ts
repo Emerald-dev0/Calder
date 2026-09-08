@@ -13,9 +13,9 @@ import {
   emails,
   users,
   type ProjectMetadata,
-} from "@avenor/db";
-import { generateApiKey } from "@avenor/auth";
-import { getConfig } from "@avenor/config";
+} from "@calder/db";
+import { generateApiKey } from "@calder/auth";
+import { getConfig } from "@calder/config";
 import { getTenantContext } from "../../../lib/auth";
 import { slugify, type Environment } from "../../../lib/onboarding";
 
@@ -205,9 +205,9 @@ export async function sendFirstEmail(input: { projectId: string; keySecret: stri
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "welcome@avenor.com",
+      from: "welcome@calder.com",
       to: input.to,
-      subject: "Your first Avenor email worked",
+      subject: "Your first Calder email worked",
       text: "If you're reading this, your pipeline is live: validated, queued, sent, delivered.",
     }),
   });
@@ -267,20 +267,20 @@ export async function addDomain(projectId: string, domain: string) {
   const records: DnsRecord[] = [
     {
       type: "TXT",
-      host: `_avenor.${clean}`,
-      value: `avenor_verify_${token}`,
+      host: `_calder.${clean}`,
+      value: `calder_verify_${token}`,
       purpose: "Proves you control the domain",
     },
     {
       type: "TXT",
       host: clean,
-      value: "v=spf1 include:_spf.avenor.com ~all",
-      purpose: "Authorizes Avenor to send",
+      value: "v=spf1 include:_spf.calder.com ~all",
+      purpose: "Authorizes Calder to send",
     },
     {
       type: "TXT",
       host: `_dmarc.${clean}`,
-      value: "v=DMARC1; p=none; rua=mailto:dmarc@avenor.com",
+      value: "v=DMARC1; p=none; rua=mailto:dmarc@calder.com",
       purpose: "Abuse reporting policy",
     },
   ];
@@ -295,14 +295,24 @@ export async function checkDomainDns(domainId: string) {
   const row = rows[0];
   if (!row || !projectIds.has(row.projectId)) throw new Error("Domain not found.");
   if (!row.verificationToken) throw new Error("No verification token on this domain.");
-  let records: string[][] = [];
-  try {
-    records = await resolveTxt(`_avenor.${row.domain}`);
-  } catch {
+  // Check current host first, then the pre-rebrand legacy host — tokens issued
+  // under either prefix verify forever.
+  let flat = "";
+  for (const host of [`_calder.${row.domain}`, `_avenor.${row.domain}`]) {
+    try {
+      const records: string[][] = await resolveTxt(host);
+      flat += records.flat().join(" ");
+    } catch {
+      // No record at this host — try the next.
+    }
+  }
+  if (!flat) {
     return { verified: false, detail: "No TXT record found yet — DNS may still be propagating." };
   }
-  const flat = records.flat().join(" ");
-  if (flat.includes(`avenor_verify_${row.verificationToken}`)) {
+  if (
+    flat.includes(`calder_verify_${row.verificationToken}`) ||
+    flat.includes(`avenor_verify_${row.verificationToken}`)
+  ) {
     await db
       .update(domains)
       .set({ status: "verified", verifiedAt: new Date() })

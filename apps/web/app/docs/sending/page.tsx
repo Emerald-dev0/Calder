@@ -3,8 +3,8 @@ import Link from "next/link";
 import { CodeBlock } from "../../../components/code";
 
 export const metadata: Metadata = {
-  title: "Sending — Avenor Docs",
-  description: "How the Avenor email API works end to end: request, response, and idempotency.",
+  title: "Sending — Calder Docs",
+  description: "How the Calder email API works end to end: request, response, and idempotency.",
 };
 
 export default function Sending() {

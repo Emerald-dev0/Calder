@@ -1,7 +1,7 @@
 import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
-import { getConfig } from "@avenor/config";
-import { logger } from "@avenor/observability";
+import { getConfig } from "@calder/config";
+import { logger } from "@calder/observability";
 
 const config = getConfig();
 const app = createApp();

@@ -16,14 +16,14 @@ Status: not finalized — placeholder pending decisions in `docs/DECISIONS.md` (
 ## Domains
 
 ```
-avenor.com              marketing
-app.avenor.com           dashboard
-api.avenor.com           public API
-docs.avenor.com          documentation
-status.avenor.com        status page
+calder.com              marketing
+app.calder.com           dashboard
+api.calder.com           public API
+docs.calder.com          documentation
+status.calder.com        status page
 ```
 
-Internal services never exposed publicly. A provider-generated URL (`avenor.vercel.app`) is a preview address, never canonical product identity.
+Internal services never exposed publicly. A provider-generated URL (`calder.vercel.app`) is a preview address, never canonical product identity.
 
 ## Performance targets (for design/motion decisions)
 

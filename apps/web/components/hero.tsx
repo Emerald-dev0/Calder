@@ -99,7 +99,7 @@ export function Hero() {
         <div className="hero-split">
           <div data-intro>
             <p className="lede" style={{ marginTop: "1.6rem" }}>
-              Avenor is the email layer for apps that can&rsquo;t afford &ldquo;did they get
+              Calder is the email layer for apps that can&rsquo;t afford &ldquo;did they get
               it?&rdquo; — OTPs, verification links, password resets, receipts. One endpoint, or
               plain SMTP if that&rsquo;s your world. Honest statuses, and every event on the record.
             </p>
@@ -139,7 +139,7 @@ export function Hero() {
           <div
             className="send-visual"
             role="img"
-            aria-label="Animation of an email moving from queued to delivered through Avenor"
+            aria-label="Animation of an email moving from queued to delivered through Calder"
           >
             <div className="send-visual-bar">
               <span className="traffic" aria-hidden="true">

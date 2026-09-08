@@ -2,7 +2,7 @@ import { Reveal } from "./reveal";
 import { TemplateScene, DomainScene, MeterScene } from "./product-scenes";
 
 /**
- * The actual offering: what life inside Avenor looks like day to day.
+ * The actual offering: what life inside Calder looks like day to day.
  * Templates is post-MVP per the PRD, so it wears an honest "Soon" tag
  * instead of pretending to ship today.
  */
@@ -64,7 +64,7 @@ export function ProductTour() {
               </div>
               <dl className="kv">
                 <dt>keys</dt>
-                <dd>avenor_sk_test_… · avenor_sk_live_… — hashed, revocable</dd>
+                <dd>calder_sk_test_… · calder_sk_live_… — hashed, revocable</dd>
                 <dt>isolation</dt>
                 <dd>every query scoped to its project, always</dd>
               </dl>

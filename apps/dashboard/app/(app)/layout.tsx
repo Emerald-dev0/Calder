@@ -20,7 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <aside
         style={{ width: 240, borderRight: "1px solid #E5E5E5", padding: 24, background: "#fff" }}
       >
-        <p style={{ fontWeight: 700, fontSize: 18, margin: "0 0 4px" }}>Avenor</p>
+        <p style={{ fontWeight: 700, fontSize: 18, margin: "0 0 4px" }}>Calder</p>
         <p
           className="mono"
           style={{

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Templates — Avenor Docs",
+  title: "Templates — Calder Docs",
   description: "Versioned email templates (in development). Send any HTML today.",
 };
 

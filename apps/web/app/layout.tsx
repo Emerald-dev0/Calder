@@ -3,12 +3,12 @@ import { SmoothScroll } from "../components/smooth";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Avenor — Communication infrastructure that gets out of your way",
+  title: "Calder — Communication infrastructure that gets out of your way",
   description:
     "Developer-first transactional email infrastructure. OTP, verification, receipts, and notifications through one API — observable from queued to delivered.",
   icons: { icon: "/favicon.svg" },
   openGraph: {
-    title: "Avenor — Communication infrastructure that gets out of your way",
+    title: "Calder — Communication infrastructure that gets out of your way",
     description:
       "Transactional email for modern applications. One API, predictable delivery, every event observable.",
     type: "website",

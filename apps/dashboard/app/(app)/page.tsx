@@ -1,5 +1,5 @@
 import { desc, inArray, count } from "drizzle-orm";
-import { getDb, emails } from "@avenor/db";
+import { getDb, emails } from "@calder/db";
 import { getTenantContext } from "../../lib/auth";
 
 export default async function OverviewPage() {

@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Migrate from Resend — Avenor Docs",
-  description: "Concept mapping and migration steps from Resend to Avenor.",
+  title: "Migrate from Resend — Calder Docs",
+  description: "Concept mapping and migration steps from Resend to Calder.",
 };
 
 const ROWS = [
-  ["API key", "re_… secret", "avenor_sk_live_… — same Bearer pattern"],
+  ["API key", "re_… secret", "calder_sk_live_… — same Bearer pattern"],
   ["Send", "resend.emails.send()", "POST /v1/emails — same fields, 202 instead of 200"],
   ["Response id", "data.id (uuid)", "id (em_…) — track it the same way"],
   ["Test mode", "test API keys", "test keys — same idea, full simulation"],
@@ -30,7 +30,7 @@ export default function MigrateResend() {
           <tr>
             <th>Concern</th>
             <th>Resend</th>
-            <th>Avenor</th>
+            <th>Calder</th>
           </tr>
         </thead>
         <tbody>

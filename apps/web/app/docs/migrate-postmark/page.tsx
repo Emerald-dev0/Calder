@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Migrate from Postmark — Avenor Docs",
-  description: "Concept mapping and migration steps from Postmark to Avenor.",
+  title: "Migrate from Postmark — Calder Docs",
+  description: "Concept mapping and migration steps from Postmark to Calder.",
 };
 
 const ROWS = [
-  ["Auth", "X-Postmark-Server-Token header", "Authorization: Bearer avenor_sk_live_…"],
+  ["Auth", "X-Postmark-Server-Token header", "Authorization: Bearer calder_sk_live_…"],
   [
     "Send",
     "POST /email with From/To/Subject",
@@ -37,7 +37,7 @@ export default function MigratePostmark() {
           <tr>
             <th>Concern</th>
             <th>Postmark</th>
-            <th>Avenor</th>
+            <th>Calder</th>
           </tr>
         </thead>
         <tbody>

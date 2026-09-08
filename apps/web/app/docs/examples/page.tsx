@@ -3,7 +3,7 @@ import Link from "next/link";
 import { CodeBlock } from "../../../components/code";
 
 export const metadata: Metadata = {
-  title: "Examples — Avenor Docs",
+  title: "Examples — Calder Docs",
   description: "Real integration examples: Next.js, Express, Hono, and Remix patterns.",
 };
 
@@ -21,10 +21,10 @@ export default function Examples() {
         copyText={`import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   const { email } = await req.json();
-  const res = await fetch("https://api.avenor.com/v1/emails", {
+  const res = await fetch("https://api.calder.com/v1/emails", {
     method: "POST",
     headers: {
-      Authorization: \`Bearer \${process.env.AVENOR_API_KEY}\`,
+      Authorization: \`Bearer \${process.env.CALDER_API_KEY}\`,
       "Idempotency-Key": \`invite-\${email}\`,
       "Content-Type": "application/json",
     },
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
         <span className="tok-method">POST</span>(<span className="tok-path">req</span>:{" "}
         <span className="tok-path">Request</span>) <span className="tok-punct">{"{"}</span>
         {"\n"}
-        &nbsp;&nbsp;<span className="tok-dim">// validate input, then POST to Avenor with an</span>
+        &nbsp;&nbsp;<span className="tok-dim">// validate input, then POST to Calder with an</span>
         {"\n"}
         &nbsp;&nbsp;<span className="tok-dim">// Idempotency-Key derived from the recipient.</span>
         {"\n"}
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       <h2>Express middleware pattern</h2>
       <p>
         Send inside the request handler but never <span className="mono">await</span> delivery —
-        Avenor&rsquo;s <span className="mono">202</span> returns in milliseconds, so awaiting the
+        Calder&rsquo;s <span className="mono">202</span> returns in milliseconds, so awaiting the
         POST is safe. Put it after your database write, inside the same logical operation, keyed
         idempotently on the record id.
       </p>
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
 
       <h2>Remix action</h2>
       <p>
-        Same shape as Next.js: validate with your schema library, POST to Avenor in the action,
+        Same shape as Next.js: validate with your schema library, POST to Calder in the action,
         return the email id to the client for status polling — or better, skip polling and listen
         for the <Link href="/docs/webhooks">webhook</Link>.
       </p>

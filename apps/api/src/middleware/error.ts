@@ -1,6 +1,6 @@
 import type { ErrorHandler } from "hono";
 import { AppError, toPublicError } from "../errors/index.js";
-import { logger } from "@avenor/observability";
+import { logger } from "@calder/observability";
 
 export const errorMiddleware: ErrorHandler = (err, c) => {
   const requestId = c.get("requestId") ?? "unknown";

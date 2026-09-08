@@ -3,22 +3,22 @@ import Link from "next/link";
 import { CodeBlock } from "../../../../components/code";
 
 export const metadata: Metadata = {
-  title: "Quickstart: Ruby — Avenor Docs",
-  description: "Send your first Avenor email from Ruby with net/http from the standard library.",
+  title: "Quickstart: Ruby — Calder Docs",
+  description: "Send your first Calder email from Ruby with net/http from the standard library.",
 };
 
 const CODE = `require "net/http"
 require "json"
 require "securerandom"
 
-uri = URI("https://api.avenor.com/v1/emails")
+uri = URI("https://api.calder.com/v1/emails")
 res = Net::HTTP.post(uri, {
   from: "app@acme.com",
   to: "you@example.com",
-  subject: "Hello from Avenor",
+  subject: "Hello from Calder",
   text: "It works.",
 }.to_json, {
-  "Authorization" => "Bearer avenor_sk_test_…",
+  "Authorization" => "Bearer calder_sk_test_…",
   "Idempotency-Key" => SecureRandom.uuid,
   "Content-Type" => "application/json",
 })
@@ -44,14 +44,14 @@ export default function RubyQuickstart() {
         {"\n\n"}
         <span className="tok-path">uri</span> <span className="tok-dim">=</span>{" "}
         <span className="tok-path">URI</span>(
-        <span className="tok-str">&quot;https://api.avenor.com/v1/emails&quot;</span>){"\n"}
+        <span className="tok-str">&quot;https://api.calder.com/v1/emails&quot;</span>){"\n"}
         <span className="tok-path">res</span> <span className="tok-dim">=</span>{" "}
         <span className="tok-path">Net::HTTP.post</span>(<span className="tok-path">uri</span>,{" "}
         <span className="tok-dim">{/* payload */}</span>, <span className="tok-punct">{"{"}</span>
         {"\n"}
         &nbsp;&nbsp;<span className="tok-str">&quot;Authorization&quot;</span>{" "}
         <span className="tok-dim">=&gt;</span>{" "}
-        <span className="tok-str">&quot;Bearer avenor_sk_test_…&quot;</span>,{"\n"}
+        <span className="tok-str">&quot;Bearer calder_sk_test_…&quot;</span>,{"\n"}
         &nbsp;&nbsp;<span className="tok-str">&quot;Idempotency-Key&quot;</span>{" "}
         <span className="tok-dim">=&gt;</span> <span className="tok-path">SecureRandom.uuid</span>,
         {"\n"}

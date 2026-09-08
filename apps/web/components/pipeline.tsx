@@ -1,7 +1,7 @@
 import { Reveal } from "./reveal";
 
 /**
- * "Make the invisible visible" — the real Avenor flow from ARCHITECTURE.md:
+ * "Make the invisible visible" — the real Calder flow from ARCHITECTURE.md:
  * Client → API (validate → persist → enqueue → 202) → Worker → SES → events → webhooks.
  */
 export function Pipeline() {
@@ -29,7 +29,7 @@ export function Pipeline() {
               </div>
               <div className="plink" aria-hidden="true" />
               <div className="pnode hero-node">
-                <div className="pnode-kicker">02 · Avenor API</div>
+                <div className="pnode-kicker">02 · Calder API</div>
                 <div className="pnode-title">Validate → persist → enqueue</div>
                 <div className="pnode-sub">Responds 202 Accepted. Nothing blocks on delivery.</div>
               </div>
@@ -81,7 +81,7 @@ const STACK = [
 export function StackStrip() {
   const items = [...STACK, ...STACK];
   return (
-    <div className="stack-strip" aria-label="Avenor platform stack">
+    <div className="stack-strip" aria-label="Calder platform stack">
       <div className="stack-track" aria-hidden="true">
         {items.map(([k, v], i) => (
           <span key={i}>

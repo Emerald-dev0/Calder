@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from "hono";
-import { hashApiKey } from "@avenor/auth";
+import { hashApiKey } from "@calder/auth";
 import { authenticationError } from "../errors/index.js";
 
 /**
@@ -42,8 +42,8 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
 
   // Try DB lookup — lazy import to avoid circular deps
   try {
-    const { getDb } = await import("@avenor/db");
-    const { apiKeys } = await import("@avenor/db");
+    const { getDb } = await import("@calder/db");
+    const { apiKeys } = await import("@calder/db");
     const { eq } = await import("drizzle-orm");
     const db = getDb();
     const rows = await db.select().from(apiKeys).where(eq(apiKeys.keyHash, hash)).limit(1);
@@ -52,7 +52,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
       throw authenticationError("Invalid or revoked API key");
     }
     // Need project -> org lookup for tenant scope
-    const { projects } = await import("@avenor/db");
+    const { projects } = await import("@calder/db");
     const projRows = await db
       .select()
       .from(projects)

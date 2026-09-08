@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { SendEmailInput } from "@avenor/validation";
-import { createQueue } from "@avenor/queue";
-import { logger } from "@avenor/observability";
-import { getConfig } from "@avenor/config";
+import type { SendEmailInput } from "@calder/validation";
+import { createQueue } from "@calder/queue";
+import { logger } from "@calder/observability";
+import { getConfig } from "@calder/config";
 import { AppError } from "../errors/index.js";
 
 /**
@@ -76,7 +76,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
 
   let persisted = false;
   try {
-    const { getDb, emails, emailEvents } = await import("@avenor/db");
+    const { getDb, emails, emailEvents } = await import("@calder/db");
     const db = getDb();
     await db.insert(emails).values({
       id: emailRecord.id,
@@ -105,7 +105,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
 
     // Also persist idempotency record if key provided
     if (idempotencyKey) {
-      const { idempotencyKeys } = await import("@avenor/db");
+      const { idempotencyKeys } = await import("@calder/db");
       const responseBody = { id: emailId, status: "queued", message: "Email queued for delivery" };
       await db
         .insert(idempotencyKeys)
@@ -171,7 +171,7 @@ async function lookupIdempotency(
   if (mem) return { responseBody: mem.body };
 
   try {
-    const { getDb, idempotencyKeys } = await import("@avenor/db");
+    const { getDb, idempotencyKeys } = await import("@calder/db");
     const { and, eq } = await import("drizzle-orm");
     const db = getDb();
     const rows = await db
@@ -197,13 +197,13 @@ export function getSharedEmailQueue() {
 }
 
 // ── Internal (dogfood) sends ─────────────────────────────────────
-// Avenor's own mail enters through this function — the same persist +
+// Calder's own mail enters through this function — the same persist +
 // enqueue path as customer sends, under the founder-owned tenant below.
 // No HTTP loop, no special bypass, no separate provider. See
 // docs/SYSTEM-EXPLAINED.md §5.
 export const INTERNAL_ORG_ID = "org_avenor";
 export const INTERNAL_PROJECT_ID = "proj_website";
-export const INTERNAL_FROM = "Avenor <hello@avenor.com>";
+export const INTERNAL_FROM = "Calder <hello@calder.com>";
 
 export interface InternalEmailParams {
   to: string;
@@ -217,7 +217,7 @@ export interface InternalEmailParams {
 export async function sendInternalEmail(
   params: InternalEmailParams
 ): Promise<{ id: string; replay: boolean }> {
-  const { getDb, organizations, projects } = await import("@avenor/db");
+  const { getDb, organizations, projects } = await import("@calder/db");
   const { eq } = await import("drizzle-orm");
   const db = getDb();
   const org = await db
@@ -233,7 +233,7 @@ export async function sendInternalEmail(
   if (!org[0] || !proj[0]) {
     throw new AppError(
       "internal_error",
-      "Internal tenant not seeded — run: pnpm --filter @avenor/db db:seed.",
+      "Internal tenant not seeded — run: pnpm --filter @calder/db db:seed.",
       500
     );
   }

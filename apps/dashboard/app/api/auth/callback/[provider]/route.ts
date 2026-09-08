@@ -5,7 +5,7 @@ import {
   sealSessionCookie,
   sessionCookieHeader,
   type OAuthProvider,
-} from "@avenor/auth";
+} from "@calder/auth";
 
 /** OAuth landing: validate, link-or-create user, seal session, enter app. */
 export async function GET(
@@ -21,8 +21,8 @@ export async function GET(
   }
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  const storedState = store.get("avenor_oauth_state")?.value ?? null;
-  const codeVerifier = store.get("avenor_oauth_verifier")?.value ?? null;
+  const storedState = store.get("calder_oauth_state")?.value ?? null;
+  const codeVerifier = store.get("calder_oauth_verifier")?.value ?? null;
 
   if (!code || !state) {
     return NextResponse.redirect(new URL("/login?error=denied", url.origin));
@@ -34,11 +34,11 @@ export async function GET(
     res.headers.append("Set-Cookie", sessionCookieHeader(sealed, 30 * 24 * 60 * 60));
     res.headers.append(
       "Set-Cookie",
-      "avenor_oauth_state=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax"
+      "calder_oauth_state=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax"
     );
     res.headers.append(
       "Set-Cookie",
-      "avenor_oauth_verifier=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax"
+      "calder_oauth_verifier=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax"
     );
     return res;
   } catch {

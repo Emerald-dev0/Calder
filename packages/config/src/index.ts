@@ -14,7 +14,7 @@ const envSchema = z.object({
   API_URL: z.string().url().default("http://localhost:3002"),
 
   // Database
-  DATABASE_URL: z.string().min(1).default("postgresql://avenor:avenor@localhost:5432/avenor"),
+  DATABASE_URL: z.string().min(1).default("postgresql://calder:calder@localhost:5432/calder"),
 
   // Redis
   REDIS_URL: z.string().min(1).default("redis://localhost:6379"),

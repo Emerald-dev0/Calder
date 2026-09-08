@@ -10,7 +10,7 @@ export const apiKeys = pgTable(
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
     name: varchar("name", { length: 255 }).notNull(),
-    // prefix like avenor_sk_test_ / avenor_pk_live_ prefix fragment for identification
+    // prefix like calder_sk_test_ / calder_pk_live_ prefix fragment for identification
     keyPrefix: varchar("key_prefix", { length: 32 }).notNull(),
     // hashed secret using SHA-256 hex (or bcrypt variant) — never raw
     keyHash: varchar("key_hash", { length: 255 }).notNull().unique(),

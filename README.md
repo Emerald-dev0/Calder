@@ -1,8 +1,8 @@
-# Avenor
+# Calder
 
 Developer-first communication infrastructure. Transactional email is the first primitive.
 
-> Application → Avenor → User
+> Application → Calder → User
 
 ## Status
 
@@ -12,7 +12,7 @@ Foundation scaffold complete (v0.1). API → queue → worker → provider → e
 
 Read in this order before touching code:
 
-1. `PRD.md` — what Avenor is, who it's for, what's in/out of scope
+1. `PRD.md` — what Calder is, who it's for, what's in/out of scope
 2. `ARCHITECTURE.md` — how the system is put together
 3. `SECURITY.md` — required before touching auth, secrets, payments, or tenant isolation
 4. `docs/DESIGN.md` — required before touching any UI, marketing surface, or dashboard visual work
@@ -22,7 +22,7 @@ Read in this order before touching code:
 ## Project structure
 
 ```text
-avenor/
+calder/
 ├── apps/
 │   ├── web/          # marketing site — editorial/expressive
 │   ├── dashboard/     # customer-facing app — precise/dense/functional
@@ -54,7 +54,7 @@ Next.js, TypeScript, Tailwind (frontend) · Lenis (smooth scroll) · Hono (API) 
 
 ## Tooling philosophy: CLI-first
 
-Wherever a CLI exists for a tool Avenor depends on, prefer it over the web dashboard — for humans and especially for AI agents, since it's scriptable, reviewable, and reproducible. See `AGENTS.md` § "CLI-first tooling" for the concrete rules and the list of CLIs in use (GitHub CLI, Vercel CLI, database/migration CLIs, etc.).
+Wherever a CLI exists for a tool Calder depends on, prefer it over the web dashboard — for humans and especially for AI agents, since it's scriptable, reviewable, and reproducible. See `AGENTS.md` § "CLI-first tooling" for the concrete rules and the list of CLIs in use (GitHub CLI, Vercel CLI, database/migration CLIs, etc.).
 
 ## Getting started
 

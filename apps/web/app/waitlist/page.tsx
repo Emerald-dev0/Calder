@@ -6,9 +6,9 @@ import { WaitlistForm } from "../../components/waitlist-form";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
-  title: "Waitlist — Avenor",
+  title: "Waitlist — Calder",
   description:
-    "Join the Avenor early-access waitlist. Take a number, bring your friends, get your API key first.",
+    "Join the Calder early-access waitlist. Take a number, bring your friends, get your API key first.",
 };
 
 const NEXT_STEPS = [
@@ -38,7 +38,7 @@ export default function WaitlistPage() {
               Skip the line <em>by joining it.</em>
             </>
           }
-          lede="Avenor opens in position order. Take a number now and you'll get test keys the moment your batch opens — plus a direct line to the people building it."
+          lede="Calder opens in position order. Take a number now and you'll get test keys the moment your batch opens — plus a direct line to the people building it."
         />
         <section className="section" style={{ paddingTop: 0 }}>
           <div className="wrap">

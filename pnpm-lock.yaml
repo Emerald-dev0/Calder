@@ -41,34 +41,34 @@ importers:
 
   apps/api:
     dependencies:
-      '@avenor/auth':
+      '@calder/auth':
         specifier: workspace:*
         version: link:../../packages/auth
-      '@avenor/billing':
+      '@calder/billing':
         specifier: workspace:*
         version: link:../../packages/billing
-      '@avenor/config':
+      '@calder/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@avenor/db':
+      '@calder/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@avenor/email':
+      '@calder/email':
         specifier: workspace:*
         version: link:../../packages/email
-      '@avenor/observability':
+      '@calder/observability':
         specifier: workspace:*
         version: link:../../packages/observability
-      '@avenor/providers':
+      '@calder/providers':
         specifier: workspace:*
         version: link:../../packages/providers
-      '@avenor/queue':
+      '@calder/queue':
         specifier: workspace:*
         version: link:../../packages/queue
-      '@avenor/rate-limit':
+      '@calder/rate-limit':
         specifier: workspace:*
         version: link:../../packages/rate-limit
-      '@avenor/validation':
+      '@calder/validation':
         specifier: workspace:*
         version: link:../../packages/validation
       '@hono/node-server':
@@ -99,16 +99,16 @@ importers:
 
   apps/dashboard:
     dependencies:
-      '@avenor/auth':
+      '@calder/auth':
         specifier: workspace:^
         version: link:../../packages/auth
-      '@avenor/config':
+      '@calder/config':
         specifier: workspace:^
         version: link:../../packages/config
-      '@avenor/db':
+      '@calder/db':
         specifier: workspace:^
         version: link:../../packages/db
-      '@avenor/ui':
+      '@calder/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       drizzle-orm:
@@ -142,7 +142,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@avenor/ui':
+      '@calder/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       gsap:
@@ -179,22 +179,25 @@ importers:
 
   apps/worker:
     dependencies:
-      '@avenor/config':
+      '@calder/auth':
+        specifier: workspace:^
+        version: link:../../packages/auth
+      '@calder/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@avenor/db':
+      '@calder/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@avenor/email':
+      '@calder/email':
         specifier: workspace:*
         version: link:../../packages/email
-      '@avenor/observability':
+      '@calder/observability':
         specifier: workspace:*
         version: link:../../packages/observability
-      '@avenor/providers':
+      '@calder/providers':
         specifier: workspace:*
         version: link:../../packages/providers
-      '@avenor/queue':
+      '@calder/queue':
         specifier: workspace:*
         version: link:../../packages/queue
       drizzle-orm:
@@ -219,10 +222,10 @@ importers:
 
   packages/auth:
     dependencies:
-      '@avenor/config':
+      '@calder/config':
         specifier: workspace:^
         version: link:../config
-      '@avenor/db':
+      '@calder/db':
         specifier: workspace:^
         version: link:../db
       arctic:
@@ -348,12 +351,18 @@ importers:
 
   packages/providers:
     dependencies:
-      '@avenor/email':
-        specifier: workspace:*
-        version: link:../email
       '@aws-sdk/client-sesv2':
         specifier: ^3.600.0
         version: 3.1127.0
+      '@calder/auth':
+        specifier: workspace:^
+        version: link:../auth
+      '@calder/config':
+        specifier: workspace:^
+        version: link:../config
+      '@calder/email':
+        specifier: workspace:*
+        version: link:../email
       zod:
         specifier: ^3.23.8
         version: 3.25.76

@@ -5,8 +5,8 @@ import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
-  title: "About — Avenor",
-  description: "Why Avenor exists: communication infrastructure that gets out of your way.",
+  title: "About — Calder",
+  description: "Why Calder exists: communication infrastructure that gets out of your way.",
 };
 
 const PRINCIPLES = [
@@ -44,7 +44,7 @@ export default function AboutPage() {
               Infrastructure that <em>gets out of your way.</em>
             </>
           }
-          lede="Avenor started from a simple frustration: sending an email from an application should be one API call, but doing it well means providers, DNS, queues, retries, webhooks, suppression, and billing — fragmented across six vendors. We're assembling it into one coherent system."
+          lede="Calder started from a simple frustration: sending an email from an application should be one API call, but doing it well means providers, DNS, queues, retries, webhooks, suppression, and billing — fragmented across six vendors. We're assembling it into one coherent system."
         />
         <section className="section" style={{ paddingTop: 0 }}>
           <div className="wrap">

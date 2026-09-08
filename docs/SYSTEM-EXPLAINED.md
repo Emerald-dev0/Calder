@@ -1,4 +1,4 @@
-# Avenor — How the System Works
+# Calder — How the System Works
 
 > **Living document. Rule: every backend change updates this file in the same
 > commit.** If code and this file disagree, the code is right and this file is
@@ -61,7 +61,7 @@ organizationId, env }`. No key → 401. Wrong project → 403.
 
 ## 3. Auth: two doors, one building
 
-- **API keys** (`packages/auth/src/api-keys.ts`): `avenor_sk_{test,live}_` +
+- **API keys** (`packages/auth/src/api-keys.ts`): `calder_sk_{test,live}_` +
   48 hex chars of `randomBytes`. Stored as SHA-256 hex (not bcrypt — verified
   per-request, must be fast), compared with `timingSafeEqual`. Prefix stored
   for identification. Rotation = create new + revoke old; revocation is immediate.
@@ -92,11 +92,11 @@ organizationId, env }`. No key → 401. Wrong project → 403.
 Our own mail goes through the same persist → enqueue → worker → event path as
 customer mail, via `sendInternalEmail()` (`apps/api/src/services/email-service.ts`)
 under the founder-owned tenant (`org_avenor` / `proj_website`, seeded by
-`pnpm --filter @avenor/db db:seed`). First live consumer: waitlist confirmations
+`pnpm --filter @calder/db db:seed`). First live consumer: waitlist confirmations
 (position + referral code, idempotency key `waitlist-confirm:<email>` so replays
 never duplicate; signup succeeds even if the confirmation fails). There is no
 special bypass and no self-calling provider: a previous iteration
-(`AvenorEmailProvider` HTTP-looping worker→API→queue→worker) was removed because
+(`CalderEmailProvider` HTTP-looping worker→API→queue→worker) was removed because
 it recursed and faked `accepted: true`, corrupting the event trail the whole
 system exists to keep honest. The stub class remains as a seam that throws; the
 worker selects only SES/mock as last-mile providers. Verified live: waitlist join
@@ -131,7 +131,7 @@ claims the account by signing in with an email listed in `FOUNDER_EMAILS`
 docker compose up -d            # Postgres :5432, Redis :6379
 cp .env.example .env            # then set AUTH_SECRET (32+ chars)
 pnpm install
-pnpm --filter @avenor/db db:migrate
+pnpm --filter @calder/db db:migrate
 pnpm dev                        # api :3002, worker, web :3000, dashboard :3001
 ```
 
@@ -140,7 +140,7 @@ pnpm dev                        # api :3002, worker, web :3000, dashboard :3001
 ```bash
 # 1. Seed one org/project/key directly (no signup UI yet):
 psql $DATABASE_URL -c "INSERT INTO organizations(id,name,slug) VALUES ('org_demo','Demo','demo')"
-#    … projects, api_keys (hash via node -e using @avenor/auth hashApiKey)
+#    … projects, api_keys (hash via node -e using @calder/auth hashApiKey)
 # 2. Send:
 curl -X POST localhost:3002/v1/emails -H "Authorization: Bearer <key>" \
   -H "Idempotency-Key: demo-1" -H "Content-Type: application/json" \

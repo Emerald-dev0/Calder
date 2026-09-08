@@ -2,8 +2,8 @@
 
 import { randomUUID } from "node:crypto";
 import { eq, and, isNull } from "drizzle-orm";
-import { getDb, apiKeys } from "@avenor/db";
-import { generateApiKey } from "@avenor/auth";
+import { getDb, apiKeys } from "@calder/db";
+import { generateApiKey } from "@calder/auth";
 import { getTenantContext } from "../../../lib/auth";
 
 function rid(prefix: string): string {

@@ -8,6 +8,17 @@ export {
 } from "./provider";
 export { createEmailService, type EmailService } from "./service";
 export {
+  type EmailTransport,
+  type TransportType,
+  type TransportCapabilities,
+  type TransportHealth,
+  type TransportRecord,
+  pickDefaultTransport,
+  transportResult,
+  GMAIL_FREE_DAILY_CAP,
+  GMAIL_WORKSPACE_DAILY_CAP,
+} from "./transport";
+export {
   type DomainVerificationProvider,
   type VerificationResult,
   DnsVerificationProvider,

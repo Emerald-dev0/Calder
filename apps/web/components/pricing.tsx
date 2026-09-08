@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Reveal } from "./reveal";
 
-/** Real pricing hypothesis from PRD.md §11, in both launch currencies. */
+/** Pricing hypothesis from PRD.md §11 — NGN leads, USD set at launch parity review. */
 const PLANS = [
   {
     tier: "Free",
@@ -11,48 +11,53 @@ const PLANS = [
     usd: "$0",
     quota: "3,000 emails / mo",
     features: [
-      "Test + live API keys",
-      "Full event lifecycle",
-      "Signed webhooks",
-      "Community support",
+      "Gmail connection for beginners",
+      "1 custom domain",
+      "API + SMTP + SDK",
+      "Templates + basic logs + 1 webhook",
     ],
     cta: "Start free",
     featured: false,
   },
   {
-    tier: "Starter",
-    ngn: "₦5,000",
-    usd: "$7 / mo",
-    quota: "25,000 emails / mo",
+    tier: "Builder",
+    ngn: "≈ ₦3,500",
+    usd: "TBD",
+    quota: "~25,000 emails / mo",
     features: [
       "Everything in Free",
-      "Custom sending domains",
-      "Domain health dashboard",
-      "Email support",
+      "5 domains + campaigns",
+      "Multiple webhooks",
+      "Better retention",
     ],
-    cta: "Choose Starter",
-    featured: false,
-  },
-  {
-    tier: "Pro",
-    ngn: "₦12,000",
-    usd: "$15 / mo",
-    quota: "100,000 emails / mo",
-    features: [
-      "Everything in Starter",
-      "Higher rate limits",
-      "Webhook retry history",
-      "Priority support",
-    ],
-    cta: "Choose Pro",
+    cta: "Choose Builder",
     featured: true,
   },
   {
+    tier: "Pro",
+    ngn: "≈ ₦7,500",
+    usd: "TBD",
+    quota: "~75,000 emails / mo",
+    features: [
+      "Everything in Builder",
+      "20 domains + improved analytics",
+      "Larger retention",
+      "Team functionality",
+    ],
+    cta: "Choose Pro",
+    featured: false,
+  },
+  {
     tier: "Scale",
-    ngn: "₦45,000",
-    usd: "$50 / mo",
-    quota: "500,000 emails / mo",
-    features: ["Everything in Pro", "Dedicated guidance", "Usage exports", "Slack support"],
+    ngn: "≈ ₦20,000",
+    usd: "TBD",
+    quota: "~250,000 emails / mo",
+    features: [
+      "Everything in Pro",
+      "Significantly higher limits",
+      "Advanced analytics",
+      "Priority support",
+    ],
     cta: "Talk to us",
     featured: false,
   },
@@ -67,14 +72,15 @@ export function Pricing() {
     <section className="section" id="pricing" style={{ paddingTop: 0 }}>
       <div className="wrap">
         <Reveal>
-          <p className="eyebrow">Pricing</p>
+          <p className="eyebrow">Pricing · hypothesis, not promise</p>
           <h2 className="h2">
-            Pricing you can explain <em>to your cofounder.</em>
+            Priced for where <em>you build.</em>
           </h2>
           <p className="lede" style={{ marginTop: "1.2rem" }}>
-            Four tiers, two currencies from day one, no per-seat arithmetic. Usage is metered from
-            the same durable records as everything else — so the invoice always matches what you saw
-            in the dashboard.
+            Naira-first plans a Nigerian builder can actually pay — no per-seat arithmetic, no
+            overage traps. Usage is metered from the same durable records as everything else, so the
+            invoice always matches your dashboard. Final numbers lock after our unit-economics
+            review.
           </p>
         </Reveal>
         <Reveal delay={80}>
@@ -116,8 +122,8 @@ export function Pricing() {
         </div>
         <Reveal delay={100}>
           <p className="caption" style={{ marginTop: "1.4rem", textAlign: "center" }}>
-            Early pricing hypothesis — locked plans publish at launch. Hard limits, no surprise
-            overages.
+            Hypothesis under unit-economics review (docs/PRICING.md) — locked plans publish at
+            launch. Hard limits, no surprise overages. USD equivalents set at launch parity.
           </p>
         </Reveal>
       </div>

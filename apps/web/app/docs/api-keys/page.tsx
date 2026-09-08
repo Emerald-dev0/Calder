@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "API Keys — Avenor Docs",
+  title: "API Keys — Calder Docs",
   description: "Test vs live keys, creation, rotation, and revocation.",
 };
 
@@ -12,14 +12,14 @@ export default function ApiKeys() {
       <h1>API Keys</h1>
       <p className="docs-lede">
         Scoped to one project and one environment, hashed at rest, revocable in one click. Treat
-        them like passwords that happen to start with <span className="mono">avenor_sk_</span>.
+        them like passwords that happen to start with <span className="mono">calder_sk_</span>.
       </p>
 
       <h2>Test vs. live</h2>
       <p>
-        Test keys (<span className="mono">avenor_sk_test_…</span>) run the entire pipeline —
+        Test keys (<span className="mono">calder_sk_test_…</span>) run the entire pipeline —
         validation, queue, provider simulation, events, webhooks — without delivering anything real
-        or metering anything. Live keys (<span className="mono">avenor_sk_live_…</span>) deliver for
+        or metering anything. Live keys (<span className="mono">calder_sk_live_…</span>) deliver for
         real. Same code, different key, zero surprises.
       </p>
 

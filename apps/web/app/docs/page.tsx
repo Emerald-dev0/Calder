@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Documentation — Avenor",
-  description: "Guides and references for the Avenor transactional email API.",
+  title: "Documentation — Calder",
+  description: "Guides and references for the Calder transactional email API.",
 };
 
 const QUICKSTARTS = [
@@ -29,7 +29,7 @@ export default function DocsIndex() {
     <>
       <h1>Documentation</h1>
       <p className="docs-lede">
-        Avenor is transactional email infrastructure: one endpoint in, delivered events out.
+        Calder is transactional email infrastructure: one endpoint in, delivered events out.
       </p>
 
       <h2>Before you start</h2>

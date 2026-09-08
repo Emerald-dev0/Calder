@@ -37,7 +37,7 @@ export function createLogger(options?: pino.LoggerOptions & { name?: string }): 
 /**
  * Global logger. Prefer createLogger({ name }) per module in production code.
  */
-export const logger = createLogger({ name: "avenor" });
+export const logger = createLogger({ name: "calder" });
 
 /**
  * Create a child logger with request-scoped context.

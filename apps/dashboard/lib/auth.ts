@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { eq } from "drizzle-orm";
-import { getSessionUser, SESSION_COOKIE, type SessionUser } from "@avenor/auth";
+import { getSessionUser, SESSION_COOKIE, type SessionUser } from "@calder/auth";
 import {
   getDb,
   organizationMembers,
@@ -10,7 +10,7 @@ import {
   projects,
   type Organization,
   type Project,
-} from "@avenor/db";
+} from "@calder/db";
 
 export interface TenantContext {
   user: SessionUser;

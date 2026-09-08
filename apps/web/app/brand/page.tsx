@@ -6,8 +6,8 @@ import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
-  title: "Brand — Avenor",
-  description: "The Avenor visual identity: logo, colors, typography, and usage.",
+  title: "Brand — Calder",
+  description: "The Calder visual identity: logo, colors, typography, and usage.",
 };
 
 const COLORS = [
@@ -15,7 +15,7 @@ const COLORS = [
   ["Paper", "#F5F4EF", "Warm off-white background"],
   ["Surface", "#FFFFFF", "Cards and panels"],
   ["Muted", "#737373", "Secondary text"],
-  ["Avenor Blue", "#1E3A8A", "Interactive accents on light"],
+  ["Calder Blue", "#1E3A8A", "Interactive accents on light"],
   ["Signal Blue", "#3D5AFE", "The mark's dot, dark surfaces"],
 ] as const;
 
@@ -49,8 +49,8 @@ export default function BrandPage() {
             <Reveal delay={100}>
               <div className="pipeline" style={{ marginTop: "2rem", textAlign: "center" }}>
                 <Image
-                  src="/assets/brand/avenor-logo-primary.png"
-                  alt="Avenor primary logo lockup"
+                  src="/assets/brand/calder-logo-primary.png"
+                  alt="Calder primary logo lockup"
                   width={1200}
                   height={630}
                   style={{ maxWidth: 640, width: "100%", height: "auto" }}
@@ -66,28 +66,28 @@ export default function BrandPage() {
                 >
                   <a
                     className="btn btn-secondary btn-sm"
-                    href="/assets/brand/final/avenor-lockup.svg"
+                    href="/assets/brand/final/calder-lockup.svg"
                     download
                   >
                     Lockup (SVG)
                   </a>
                   <a
                     className="btn btn-secondary btn-sm"
-                    href="/assets/brand/final/avenor-lockup-dark.svg"
+                    href="/assets/brand/final/calder-lockup-dark.svg"
                     download
                   >
                     Lockup dark (SVG)
                   </a>
                   <a
                     className="btn btn-secondary btn-sm"
-                    href="/assets/brand/final/avenor-symbol.svg"
+                    href="/assets/brand/final/calder-symbol.svg"
                     download
                   >
                     Symbol (SVG)
                   </a>
                   <a
                     className="btn btn-secondary btn-sm"
-                    href="/assets/brand/final/avenor-wordmark.svg"
+                    href="/assets/brand/final/calder-wordmark.svg"
                     download
                   >
                     Wordmark (SVG)

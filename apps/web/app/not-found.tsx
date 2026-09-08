@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AvenorSignal } from "@avenor/ui";
+import { CalderSignal } from "@calder/ui";
 import { Logo } from "../components/logo";
 
 /**
@@ -11,7 +11,7 @@ export default function NotFound() {
     <main className="lost">
       <div className="wrap">
         <div className="lost-top">
-          <Link href="/" aria-label="Avenor home">
+          <Link href="/" aria-label="Calder home">
             <Logo />
           </Link>
         </div>
@@ -19,7 +19,7 @@ export default function NotFound() {
           <span className="lost-ghost" aria-hidden="true">
             404
           </span>
-          <AvenorSignal size={76} className="lost-signal" />
+          <CalderSignal size={76} className="lost-signal" />
           <p className="eyebrow">404 — undeliverable</p>
           <h1 className="display">
             This page never got <em>delivered.</em>

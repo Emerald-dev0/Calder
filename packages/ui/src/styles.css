@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Avenor Editorial Infrastructure — base layer */
+/* Calder Editorial Infrastructure — base layer */
 @layer base {
   :root {
     --color-ink: #0b0c0e;

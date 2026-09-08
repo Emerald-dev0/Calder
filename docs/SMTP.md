@@ -1,4 +1,4 @@
-# Avenor SMTP Gateway — Protocol & Implementation Spec
+# Calder SMTP Gateway — Protocol & Implementation Spec
 
 Status: specified, not yet implemented. Architecture: `ARCHITECTURE.md` §5b.
 Security: `SECURITY.md` §14. Operations: `docs/OPERATIONS.md` (SMTP sections).
@@ -8,7 +8,7 @@ Decision record: ADR-014.
 
 | Setting                       | Value                                    |
 | ----------------------------- | ---------------------------------------- |
-| Host                          | `smtp.avenor.email`                      |
+| Host                          | `smtp.calder.com`                        |
 | Port (STARTTLS, recommended)  | `587`                                    |
 | Port (implicit TLS, reserved) | `465`                                    |
 | Auth                          | `AUTH PLAIN`, `AUTH LOGIN` over TLS only |
@@ -48,7 +48,7 @@ documented as best-effort, unlike REST keys. Clients needing guarantees use the 
 ## 4. Sender authorization
 
 Envelope-from must resolve to a verified identity of the credential's project:
-the project's own verified domain, or the Avenor-managed onboarding identity.
+the project's own verified domain, or the Calder-managed onboarding identity.
 Anything else → `550` + logged rejection. This is the anti-spoofing core.
 
 ## 5. Errors (protocol → developer meaning)
@@ -71,7 +71,7 @@ recipients, message size. Redis-backed counters; revocation bypasses cache.
 
 ## 7. Observability mapping
 
-Connection → auth outcome → SMTP code → Avenor message ID → queue job →
+Connection → auth outcome → SMTP code → Calder message ID → queue job →
 provider ID → delivery event. Every hop logged with correlation; dashboard shows
 the trace end to end.
 
@@ -88,5 +88,5 @@ the trace end to end.
 ## 9. Out of scope
 
 Automating personal Gmail accounts (explicitly not the product — see PRD).
-Inbound/MX receiving. Custom protocol extensions (optional `X-Avenor-*` headers
+Inbound/MX receiving. Custom protocol extensions (optional `X-Calder-*` headers
 only, documented as extensions).

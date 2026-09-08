@@ -7,9 +7,9 @@ import { CodeBlock } from "../../components/code";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
-  title: "Developers — Avenor",
+  title: "Developers — Calder",
   description:
-    "The Avenor developer platform: versioned REST API, SDKs, idempotency, test keys, predictable errors, and rate limits.",
+    "The Calder developer platform: versioned REST API, SDKs, idempotency, test keys, predictable errors, and rate limits.",
 };
 
 const LIMITS = [

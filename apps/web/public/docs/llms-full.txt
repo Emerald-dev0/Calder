@@ -1,11 +1,11 @@
-Avenor — full documentation for LLMs. Mirrors /docs. Regenerate by hand when docs change.
+Calder — full documentation for LLMs. Mirrors /docs. Regenerate by hand when docs change.
 
-WHAT AVENOR IS
+WHAT CALDER IS
 Transactional email infrastructure: one endpoint in, delivered events out.
-Base URL: https://api.avenor.com. Versioned: /v1/….
+Base URL: https://api.calder.com. Versioned: /v1/….
 
 QUICKSTART (all languages, same call)
-POST /v1/emails, headers Authorization: Bearer avenor_sk_test_… and
+POST /v1/emails, headers Authorization: Bearer calder_sk_test_… and
 Idempotency-Key: <uuid>, JSON body {from, to, subject, html|text}.
 Response 202: {id, status: "queued"}. Test keys simulate; live keys deliver.
 Node: fetch. Python: requests (pip install requests). Go: net/http stdlib
@@ -20,10 +20,10 @@ DOMAINS
 POST /v1/domains {domain} → token + records. Create SPF/DKIM/DMARC TXT records,
 POST /v1/domains/:id/verify (polls with backoff, specific failure reasons).
 Continuous re-verification. Hosted (Vercel etc.) verification maps to an
-Avenor-managed subdomain — project ownership, not DNS control.
+Calder-managed subdomain — project ownership, not DNS control.
 
 API KEYS
-avenor_sk_test_… (simulate, unmetered) vs avenor_sk_live_… (deliver, metered).
+calder_sk_test_… (simulate, unmetered) vs calder_sk_live_… (deliver, metered).
 Scoped per project+env, hashed at rest, shown once. Rotate by overlap;
 revoke → immediate fail-closed.
 
@@ -71,4 +71,4 @@ streams unnecessary (single reputation pool).
 SECURITY (developer summary)
 Env/secret-manager keys, never client/git. Test/live cryptographically distinct.
 HMAC-verify webhooks. Full policy: SECURITY.md; posture: /security.
-Report: support@avenor.com, subject "security".
+Report: support@calder.com, subject "security".

@@ -5,9 +5,9 @@ import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
-  title: "Security — Avenor",
+  title: "Security — Calder",
   description:
-    "How Avenor protects your data: key hashing, tenant isolation, webhook signing, and an honest certification roadmap.",
+    "How Calder protects your data: key hashing, tenant isolation, webhook signing, and an honest certification roadmap.",
 };
 
 const PRACTICES = [

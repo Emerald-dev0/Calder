@@ -57,7 +57,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
     <div className="docs-shell">
       <header className="docs-top">
         <div className="wrap docs-top-inner">
-          <Link href="/" aria-label="Avenor home">
+          <Link href="/" aria-label="Calder home">
             <Logo />
           </Link>
           <nav className="docs-tabs" aria-label="Documentation sections">

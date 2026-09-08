@@ -3,7 +3,7 @@
 import * as React from "react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3002";
-const STORAGE_KEY = "avenor-waitlist-email";
+const STORAGE_KEY = "calder-waitlist-email";
 
 interface Ticket {
   email: string;
@@ -76,7 +76,7 @@ function TicketCard({ ticket, fresh }: { ticket: Ticket; fresh: boolean }) {
   return (
     <div className={`ticket${fresh ? "ticket-in" : ""}`}>
       <div className="ticket-head mono">
-        <span>AVENOR · EARLY ACCESS</span>
+        <span>CALDER · EARLY ACCESS</span>
         <span>№ {ticket.referralCode}</span>
       </div>
       <div className="ticket-position">

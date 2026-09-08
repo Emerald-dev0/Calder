@@ -1,8 +1,8 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { Google, GitHub, generateState, generateCodeVerifier } from "arctic";
 import { eq, and } from "drizzle-orm";
-import { getDb, users, oauthAccounts, organizations, organizationMembers } from "@avenor/db";
-import { getConfig } from "@avenor/config";
+import { getDb, users, oauthAccounts, organizations, organizationMembers } from "@calder/db";
+import { getConfig } from "@calder/config";
 import { createSession } from "./session";
 
 export type OAuthProvider = "google" | "github";
@@ -200,8 +200,8 @@ export async function completeOAuth(
 
 /**
  * Founder bootstrap: emails listed in FOUNDER_EMAILS are granted owner of the
- * internal Avenor org on first login — this is how the founder claims control
- * of Avenor's own account (org_avenor) and sees its mail in the dashboard.
+ * internal Calder org on first login — this is how the founder claims control
+ * of Calder's own account (org_avenor) and sees its mail in the dashboard.
  * No-ops for everyone else. Never grants anything beyond org_avenor.
  */
 async function ensureFounderAccess(
@@ -217,7 +217,7 @@ async function ensureFounderAccess(
 
   await db
     .insert(organizations)
-    .values({ id: "org_avenor", name: "Avenor", slug: "avenor" })
+    .values({ id: "org_avenor", name: "Calder", slug: "calder" })
     .onConflictDoNothing();
   const existing = await db
     .select({ id: organizationMembers.id })

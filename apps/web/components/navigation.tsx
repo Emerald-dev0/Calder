@@ -18,7 +18,7 @@ export function Navigation() {
   return (
     <header className="nav">
       <div className="nav-inner">
-        <a href="/" aria-label="Avenor home">
+        <a href="/" aria-label="Calder home">
           <Logo />
         </a>
         <nav className={`nav-links${open ? "open" : ""}`} aria-label="Primary">

@@ -1,5 +1,5 @@
 {
-  "name": "@avenor/auth",
+  "name": "@calder/auth",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,8 +16,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@avenor/config": "workspace:^",
-    "@avenor/db": "workspace:^",
+    "@calder/config": "workspace:^",
+    "@calder/db": "workspace:^",
     "arctic": "^3.7.0",
     "drizzle-orm": "^0.38.0",
     "iron-session": "^9.0.1",

@@ -8,7 +8,7 @@ let dbInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;
 export type DbClient = ReturnType<typeof drizzle<typeof schema>>;
 
 function getConnectionString(): string {
-  return process.env.DATABASE_URL ?? "postgresql://avenor:avenor@localhost:5432/avenor";
+  return process.env.DATABASE_URL ?? "postgresql://calder:calder@localhost:5432/calder";
 }
 
 export function getDb(): DbClient {

@@ -1,6 +1,6 @@
 /**
- * Avenor Design Tokens — Editorial Infrastructure
- * Base: Ink/Paper/Surface/Muted + Avenor Blue accent (signal, not wallpaper)
+ * Calder Design Tokens — Editorial Infrastructure
+ * Base: Ink/Paper/Surface/Muted + Calder Blue accent (signal, not wallpaper)
  */
 
 export const colors = {
@@ -8,10 +8,10 @@ export const colors = {
   paper: "#F5F4EF",
   surface: "#FFFFFF",
   muted: "#737373",
-  // Avenor Blue — sophisticated cobalt, used sparingly
-  avenorBlue: "#1E3A8A",
-  avenorBlueLight: "#3B82F6",
-  avenorBlueMuted: "#DBEAFE",
+  // Calder Blue — sophisticated cobalt, used sparingly
+  calderBlue: "#1E3A8A",
+  calderBlueLight: "#3B82F6",
+  calderBlueMuted: "#DBEAFE",
   // Signal Blue — canonical brand accent per the identity board
   // (docs/brand-board.png). Reserved for the mark's dot and dark-surface accents.
   signal: "#3D5AFE",

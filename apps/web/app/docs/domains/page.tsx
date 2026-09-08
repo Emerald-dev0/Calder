@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Domains — Avenor Docs",
+  title: "Domains — Calder Docs",
   description:
     "Verify sending domains with DNS, understand hosted verification, and monitor domain health.",
 };
@@ -41,7 +41,7 @@ export default function DomainsGuide() {
       <h2>Hosted domains (Vercel and friends)</h2>
       <p>
         Proving you control a <span className="mono">*.vercel.app</span> project doesn&rsquo;t prove
-        anything about DNS — so hosted verification maps sending to an Avenor-managed subdomain
+        anything about DNS — so hosted verification maps sending to an Calder-managed subdomain
         instead of pretending otherwise. Honest mechanism, same deliverability. Vercel first;
         Netlify, Cloudflare Pages, and GitHub Pages adapters follow the same interface.
       </p>

@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { getDb, users } from "@avenor/db";
+import { getDb, users } from "@calder/db";
 import { getTenantContext } from "../../../lib/auth";
 import { OnboardingWizard } from "./wizard";
 

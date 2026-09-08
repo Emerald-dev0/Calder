@@ -1,5 +1,5 @@
 import { desc, inArray } from "drizzle-orm";
-import { getDb, emails, usageRecords, plans, planPrices } from "@avenor/db";
+import { getDb, emails, usageRecords, plans, planPrices } from "@calder/db";
 import { getTenantContext } from "../../../lib/auth";
 
 const PLAN_QUOTAS: Record<string, number> = {

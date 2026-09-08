@@ -128,10 +128,10 @@ export function Footer() {
           ))}
         </div>
         <div className="footer-giant" aria-hidden="true" data-parallax="0.05">
-          Avenor
+          Calder
         </div>
         <div className="footer-bottom">
-          <span>© 2026 Avenor — communication infrastructure that gets out of your way.</span>
+          <span>© 2026 Calder — communication infrastructure that gets out of your way.</span>
           <span style={{ display: "inline-flex", gap: "1rem" }}>
             <a href="/legal/privacy">Privacy</a>
             <a href="/legal/terms">Terms</a>

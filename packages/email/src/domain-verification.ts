@@ -21,7 +21,7 @@ export class DnsVerificationProvider implements DomainVerificationProvider {
   readonly method = "dns";
 
   async verify(domain: string, token: string): Promise<VerificationResult> {
-    // In production: DNS lookup for TXT record at `_avenor.${domain}`
+    // In production: DNS lookup for TXT record at `_calder.${domain}`
     // For scaffold: simulate — token "verified" passes, else pending
     if (token === "verified" || process.env.NODE_ENV === "test") {
       return { verified: true, method: this.method, details: `TXT record found for ${domain}` };
@@ -33,7 +33,7 @@ export class DnsVerificationProvider implements DomainVerificationProvider {
 /**
  * Vercel verification — proves control of Vercel project (not DNS zone).
  * Per ADR-005 open problem: this does NOT authorize sending FROM the hosted domain;
- * Avenor would map to a managed subdomain.
+ * Calder would map to a managed subdomain.
  */
 export class VercelVerificationProvider implements DomainVerificationProvider {
   readonly method = "vercel";
@@ -45,7 +45,7 @@ export class VercelVerificationProvider implements DomainVerificationProvider {
       return {
         verified: true,
         method: this.method,
-        details: `Vercel project verified for ${domain} (sending via Avenor-managed subdomain)`,
+        details: `Vercel project verified for ${domain} (sending via Calder-managed subdomain)`,
       };
     }
     return { verified: false, method: this.method, details: "Vercel project not verified" };
