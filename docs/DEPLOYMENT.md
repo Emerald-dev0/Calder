@@ -19,7 +19,9 @@ Status: not finalized — placeholder pending decisions in `docs/DECISIONS.md` (
   (fast TXT management for verification/SPF/DKIM/DMARC), recommended customer
   DNS, and Email Routing for our inbound (support@, hello@). Cloudflare does
   not send mail — delivery stays SES; sending from dedicated subdomains
-  (e.g. mail.&lt;domain&gt;) protects root-domain reputation.
+  (e.g. mail.&lt;domain&gt;) protects root-domain reputation. Note: Email
+  Routing requires Cloudflare nameservers, is forwarding-only (not mailboxes),
+  and pairs with Gmail Send-As for a $0 professional setup.
 - Database — managed PostgreSQL
 - Queue/cache — managed Redis-compatible service
 
