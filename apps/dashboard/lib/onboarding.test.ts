@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { slugify, isValidSlug, USE_CASES } from "./onboarding";
+import { slugify, isValidSlug, isValidUsername, USE_CASES } from "./onboarding";
 
 describe("slugify", () => {
   it("lowercases and hyphenates", () => {
@@ -20,6 +20,18 @@ describe("isValidSlug", () => {
   it("rejects uppercase, spaces, empty", () => {
     expect(isValidSlug("Acme Prod")).toBe(false);
     expect(isValidSlug("")).toBe(false);
+  });
+});
+
+describe("isValidUsername", () => {
+  it("accepts github-style handles", () => {
+    expect(isValidUsername("ada-99")).toBe(true);
+  });
+  it("rejects uppercase, spaces, edge hyphens, empties", () => {
+    expect(isValidUsername("Ada")).toBe(false);
+    expect(isValidUsername("ada 99")).toBe(false);
+    expect(isValidUsername("-ada")).toBe(false);
+    expect(isValidUsername("")).toBe(false);
   });
 });
 

@@ -29,3 +29,20 @@ export type Environment = (typeof ENVIRONMENTS)[number];
 export function isValidSlug(slug: string): boolean {
   return /^[a-z0-9-]{1,100}$/.test(slug);
 }
+
+export const ROLES = ["Developer", "Designer", "Founder", "Marketer", "Student", "Other"] as const;
+
+export const REFERRAL_SOURCES = [
+  "Search",
+  "X (Twitter)",
+  "GitHub",
+  "A friend",
+  "Blog post",
+  "Product Hunt",
+  "Other",
+] as const;
+
+/** GitHub-style handles: lowercase alphanumerics + hyphens, max 39. */
+export function isValidUsername(username: string): boolean {
+  return /^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/.test(username);
+}
