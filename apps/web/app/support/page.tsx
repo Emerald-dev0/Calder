@@ -74,7 +74,7 @@ export default function SupportPage() {
               <div className="pipeline" style={{ marginTop: "2rem" }}>
                 <p className="eyebrow">Still stuck</p>
                 <p className="lede" style={{ fontSize: "1.05rem" }}>
-                  Write to <b className="mono">support@calder.com</b> with your{" "}
+                  Write to <b className="mono">support@calderapp.click</b> with your{" "}
                   <span className="mono">request_id</span> or email id. Migrations from other
                   providers get white-glove help — see{" "}
                   <Link href="/migrate" style={{ color: "var(--accent)" }}>

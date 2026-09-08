@@ -33,7 +33,7 @@ export default function SecurityDoc() {
 
       <h2>Reporting issues</h2>
       <p>
-        Found something? Write to <b className="mono">support@calder.com</b> with
+        Found something? Write to <b className="mono">support@calderapp.click</b> with
         &ldquo;security&rdquo; in the subject. We triage the same day and will keep you posted
         through the fix.
       </p>
