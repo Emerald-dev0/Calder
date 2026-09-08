@@ -36,3 +36,4 @@ export {
   SESSION_COOKIE,
   type SessionUser,
 } from "./session";
+export { signUnsubscribeToken, verifyUnsubscribeToken } from "./unsubscribe";

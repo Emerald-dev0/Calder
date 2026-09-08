@@ -17,6 +17,7 @@ export const sendEmailSchema = z
       .max(20)
       .optional(),
     metadata: z.record(z.unknown()).optional(),
+    headers: z.record(z.string().max(2000)).optional(),
   })
   .refine((d) => d.html !== undefined || d.text !== undefined, {
     message: "Either html or text must be provided",

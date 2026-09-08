@@ -26,6 +26,8 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GITHUB_CLIENT_ID: z.string().optional(),
   GITHUB_CLIENT_SECRET: z.string().optional(),
+  // Admin operations (broadcasts, manual interventions). Unset = admin routes disabled.
+  ADMIN_API_KEY: z.string().min(16).optional(),
   // Founder bootstrap: comma-separated emails auto-granted owner of org_avenor on first login
   FOUNDER_EMAILS: z.string().optional(),
 

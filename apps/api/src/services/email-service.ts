@@ -57,6 +57,10 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
   // ── Persist email (durable record) ─────────────────────────
   const emailId = `em_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
 
+  // Custom headers ride in metadata (no schema change) and are allowlisted
+  // below — envelope fields (From/To/Subject/Content-*/Received-*) can never
+  // be smuggled through. Only List-Unsubscribe(-Post) and X-* pass.
+  const safeHeaders = sanitizeHeaders(input.headers);
   const emailRecord = {
     id: emailId,
     projectId,
@@ -69,7 +73,10 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
     subject: input.subject,
     html: input.html ?? null,
     text: input.text ?? null,
-    metadata: input.metadata ?? {},
+    metadata: {
+      ...((input.metadata as Record<string, unknown> | undefined) ?? {}),
+      ...(Object.keys(safeHeaders).length > 0 ? { headers: safeHeaders } : {}),
+    },
     status: "queued" as const,
     attemptCount: 0,
   };
@@ -205,11 +212,31 @@ export const INTERNAL_ORG_ID = "org_avenor";
 export const INTERNAL_PROJECT_ID = "proj_website";
 export const INTERNAL_FROM = "Calder <hello@calder.com>";
 
+/**
+ * Allowlisted custom headers. Everything else (envelope fields, Content-*,
+ * Received-*, or anything not matching) is dropped silently — the send
+ * proceeds, the smuggling attempt does not.
+ */
+export function sanitizeHeaders(
+  headers: Record<string, string> | undefined
+): Record<string, string> {
+  if (!headers) return {};
+  const out: Record<string, string> = {};
+  for (const [name, value] of Object.entries(headers)) {
+    if (typeof value !== "string" || value.length === 0 || value.length > 2000) continue;
+    if (/^(list-unsubscribe(-post)?|x-[a-z0-9-]+)$/i.test(name.trim())) {
+      out[name.trim()] = value;
+    }
+  }
+  return out;
+}
+
 export interface InternalEmailParams {
   to: string;
   subject: string;
   html: string;
   text: string;
+  headers?: Record<string, string>;
   idempotencyKey: string;
   requestId: string;
 }
@@ -251,6 +278,7 @@ export async function sendInternalEmail(
       subject: params.subject,
       html: params.html,
       text: params.text,
+      headers: params.headers,
     },
   });
   return { id: result.response.id, replay: result.idempotentReplay };

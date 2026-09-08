@@ -211,3 +211,16 @@ re-runnable, resumable. Server actions enforce membership on every step.
 - **Dogfood correction:** removed worker self-provider switch; documented doctrine (§5).
 - **Auth backend:** OAuth + sessions + migrations (see §3).
 - **Waitlist:** public signup with durable idempotent tickets (see API route).
+- **Bulk doctrine (waitlist nurture):** custom headers ride in `metadata.headers`,
+  allowlisted in `sanitizeHeaders` (List-Unsubscribe(-Post), X-* only — envelope
+  smuggling impossible); worker threads them to the provider (SES maps them).
+  Signed one-click unsubscribe (`GET` page + RFC 8058 `POST`), suppressions
+  scoped per project. Admin broadcast (`ADMIN_API_KEY` bearer, unset = 503)
+  skips suppressed addresses, per-recipient idempotency keys
+  (`broadcast:<campaign>:<email>`), rendered `{{placeholders}}`, versioned
+  campaign content in `apps/api/src/campaigns/`. Verified live: 4 queued +
+  1 skipped, all sent, re-run added zero rows.
+- **Local infra note:** compose now declares `calder` PG creds but the existing
+  volume was initialized as `avenor` — running services must match the volume
+  (`DATABASE_URL=postgresql://avenor:avenor@…`) until someone recreates it
+  (`docker compose down -v`, destroys dev data).
