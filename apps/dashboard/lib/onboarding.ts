@@ -27,7 +27,7 @@ export type Environment = (typeof ENVIRONMENTS)[number];
 
 /** A project is "live-ready" once it has a verified domain. */
 export function isValidSlug(slug: string): boolean {
-  return /^[a-z0-9-]{1, 100}$/.test(slug);
+  return /^[a-z0-9-]{1,100}$/.test(slug);
 }
 
 export const ROLES = ["Developer", "Designer", "Founder", "Marketer", "Student", "Other"] as const;
@@ -44,5 +44,5 @@ export const REFERRAL_SOURCES = [
 
 /** GitHub-style handles: lowercase alphanumerics + hyphens, max 39. */
 export function isValidUsername(username: string): boolean {
-  return /^[a-z0-9](?:[a-z0-9-]{0, 37}[a-z0-9])?$/.test(username);
+  return /^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/.test(username);
 }

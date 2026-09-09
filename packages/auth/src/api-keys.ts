@@ -65,5 +65,5 @@ export function extractKeyPrefix(secret: string): string {
  * Legacy `avenor_sk_` keys verify forever, hashing is prefix-agnostic.
  */
 export function isValidKeyFormat(key: string): boolean {
-  return /^(calder|avenor)_sk_(test|live)_[a-f0-9]{32, }$/.test(key);
+  return /^(calder|avenor)_sk_(test|live)_[a-f0-9]{32,}$/.test(key);
 }

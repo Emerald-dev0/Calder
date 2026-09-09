@@ -78,7 +78,7 @@ export const joinWaitlistSchema = z.object({
     .transform((v) => v.toLowerCase().trim()),
   ref: z
     .string()
-    .regex(/^[A-Za-z0-9]{6, 16}$/, "Invalid referral code")
+    .regex(/^[A-Za-z0-9]{6,16}$/, "Invalid referral code")
     .optional(),
 });
 

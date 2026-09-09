@@ -30,7 +30,7 @@ const broadcastSchema = z.object({
   text: z.string().min(1).max(1_000_000),
   campaign: z
     .string()
-    .regex(/^[a-z0-9-]{1, 64}$/, "Campaign key: lowercase, numbers, hyphens.")
+    .regex(/^[a-z0-9-]{1,64}$/, "Campaign key: lowercase, numbers, hyphens.")
     .optional(),
   from: z.string().email().max(320).optional(),
 });

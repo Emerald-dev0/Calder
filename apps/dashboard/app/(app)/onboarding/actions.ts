@@ -36,7 +36,7 @@ export async function saveProfile(input: ProfileInput) {
   const name = input.name.trim().slice(0, 100);
   const username = input.username.toLowerCase().trim();
   if (name.length < 2) throw new Error("Tell us your name (2+ characters).");
-  if (!/^[a-z0-9](?:[a-z0-9-]{0, 37}[a-z0-9])?$/.test(username)) {
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/.test(username)) {
     throw new Error("Username: lowercase letters, numbers, hyphens (max 39).");
   }
   const db = getDb();
