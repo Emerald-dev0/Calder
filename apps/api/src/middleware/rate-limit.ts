@@ -5,7 +5,7 @@ import { AppError } from "../errors/index.js";
 export function rateLimitMiddleware(preset: keyof typeof rateLimitPresets): MiddlewareHandler {
   return async (c, next) => {
     const limiter = getRateLimiter();
-    const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    const ip = c.req.header("x-forwarded-for")?.split(", ")[0]?.trim() ?? "unknown";
     const auth = c.get("auth" as never) as
       { apiKeyId?: string; projectId?: string; organizationId?: string } | undefined;
     const key = [

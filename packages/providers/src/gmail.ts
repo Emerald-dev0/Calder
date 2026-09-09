@@ -14,7 +14,7 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 
 export interface GmailCredentials {
   /**
-   * Decrypted OAuth refresh token — in-memory only, held for the life of one
+   * Decrypted OAuth refresh token, in-memory only, held for the life of one
    * send. Decrypt at the call site (auth.getGmailRefreshToken); this class
    * never touches storage, so a heap dump can't yield anything reusable
    * beyond the token's own lifetime.
@@ -98,9 +98,9 @@ function providerError(message: string, statusCode: number, code: string): Error
 }
 
 /**
- * Gmail transport — delivers through a user-connected Gmail account via the
+ * Gmail transport, delivers through a user-connected Gmail account via the
  * Gmail API. Intended for development, prototypes, and small apps; conservative
- * caps keep it off bulk-mail duty. Never collects passwords — OAuth refresh
+ * caps keep it off bulk-mail duty. Never collects passwords, OAuth refresh
  * tokens only, encrypted at rest, minimum scope (gmail.send).
  */
 export class GmailTransport implements EmailTransport {
@@ -125,7 +125,7 @@ export class GmailTransport implements EmailTransport {
       supportsTracking: false,
       supportsTemplates: false,
       notes: [
-        "Development and small-app sending — not bulk infrastructure.",
+        "Development and small-app sending, not bulk infrastructure.",
         "Daily sending cap enforced before delivery.",
         "Sender must be the connected Gmail address.",
       ],
@@ -169,7 +169,7 @@ export class GmailTransport implements EmailTransport {
       const revoked = res.status === 400 || res.status === 401;
       throw providerError(
         revoked
-          ? "Gmail authorization was revoked — reconnect the account."
+          ? "Gmail authorization was revoked, reconnect the account."
           : `Gmail token refresh failed (HTTP ${res.status}).`,
         revoked ? 401 : res.status,
         revoked ? "gmail_revoked" : "gmail_token_error"
@@ -200,10 +200,10 @@ export class GmailTransport implements EmailTransport {
     });
     if (!res.ok) {
       if (res.status === 401) {
-        // Token may have been revoked mid-flight — drop cache, surface clearly.
+        // Token may have been revoked mid-flight, drop cache, surface clearly.
         this.accessToken = null;
         throw providerError(
-          "Gmail authorization was revoked — reconnect the account.",
+          "Gmail authorization was revoked, reconnect the account.",
           401,
           "gmail_revoked"
         );

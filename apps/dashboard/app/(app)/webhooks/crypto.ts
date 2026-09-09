@@ -3,7 +3,7 @@ import { getConfig } from "@calder/config";
 
 /**
  * Webhook signing secrets must be recoverable (HMAC needs the raw secret),
- * so they are AES-256-GCM encrypted — never plaintext, never one-way hashed.
+ * so they are AES-256-GCM encrypted, never plaintext, never one-way hashed.
  */
 function encKey(): Buffer {
   const secret = getConfig().AUTH_SECRET;

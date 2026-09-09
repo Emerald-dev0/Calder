@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 /**
  * Single source of SEO truth. Every public page builds metadata through
- * pageMeta() — title, description, canonical, OG, Twitter. No page hand-rolls
+ * pageMeta(), title, description, canonical, OG, Twitter. No page hand-rolls
  * tags; no generic descriptions.
  */
 export const SITE_URL = "https://calder.click";
@@ -29,11 +29,11 @@ interface PageMetaInput {
 export function pageMeta({ title, description, path, image, noindex }: PageMetaInput): Metadata {
   const url = `${SITE_URL}${path}`;
   return {
-    title: `${title} — ${SITE_NAME}`,
+    title: `${title}, ${SITE_NAME}`,
     description,
     alternates: { canonical: url },
     openGraph: {
-      title: `${title} — ${SITE_NAME}`,
+      title: `${title}, ${SITE_NAME}`,
       description,
       url,
       siteName: SITE_NAME,
@@ -42,7 +42,7 @@ export function pageMeta({ title, description, path, image, noindex }: PageMetaI
     },
     twitter: {
       card: "summary_large_image",
-      title: `${title} — ${SITE_NAME}`,
+      title: `${title}, ${SITE_NAME}`,
       description,
       images: [image ?? OG_IMAGE],
     },
@@ -57,7 +57,7 @@ export function orgJsonLd(): Record<string, unknown> {
     name: "Calder",
     url: SITE_URL,
     description:
-      "Developer-first transactional email infrastructure. One API for OTPs, verification, receipts, and notifications — observable from queued to delivered.",
+      "Developer-first transactional email infrastructure. One API for OTPs, verification, receipts, and notifications, observable from queued to delivered.",
     foundingDate: "2026",
     areaServed: ["NG", "Worldwide"],
     sameAs: [] as string[],

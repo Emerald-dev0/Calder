@@ -1,7 +1,7 @@
 import { RedisQueue } from "./redis";
 
 /**
- * Queue abstraction — all enqueue/dequeue goes through this interface.
+ * Queue abstraction, all enqueue/dequeue goes through this interface.
  * Implementations: InMemoryQueue (tests, single-process dev), RedisQueue (production via BullMQ/IORedis)
  */
 
@@ -95,7 +95,7 @@ export class InMemoryQueue<T = unknown> implements Queue<T> {
           job.delayUntil = Date.now() + backoff;
           this.jobs.push(job);
         } else {
-          // dead-letter — log and drop (worker will persist dead-letter state)
+          // dead-letter, log and drop (worker will persist dead-letter state)
           console.error(
             `[queue:${this.name}] job ${job.id} exhausted after ${job.attempts} attempts`,
             err
@@ -135,7 +135,7 @@ export class InMemoryQueue<T = unknown> implements Queue<T> {
         if (job.attempts < job.maxAttempts) {
           pending.push(job);
         }
-        // else: exhausted — dropped, mirroring tryProcess dead-letter behavior
+        // else: exhausted, dropped, mirroring tryProcess dead-letter behavior
       }
     }
   }
@@ -159,7 +159,7 @@ const redisInstances = new Map<string, RedisQueue<unknown>>();
 
 /**
  * Shared Redis instances per queue name. A new BullMQ Queue object opens its
- * own connection — call sites like per-job webhook enqueueing must reuse
+ * own connection, call sites like per-job webhook enqueueing must reuse
  * instances, never mint connections per call.
  */
 function sharedRedisQueue<T>(name: string, redisUrl: string, maxAttempts?: number): Queue<T> {
@@ -179,7 +179,7 @@ export function createQueue<T>(
   name: string,
   opts?: { maxAttempts?: number; redisUrl?: string }
 ): Queue<T> {
-  // Redis when a URL is present (explicit opt or env) — this is what connects
+  // Redis when a URL is present (explicit opt or env), this is what connects
   // the API process to the worker process. Without it, InMemory (same-process
   // only: tests, single-process dev). To enforce the abstraction boundary at
   // compile time, we return Queue<T>.

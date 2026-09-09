@@ -13,7 +13,7 @@ function createPinoOptions(level: string = process.env.LOG_LEVEL ?? "info") {
         options: {
           colorize: true,
           translateTime: "SYS:standard",
-          ignore: "pid,hostname",
+          ignore: "pid, hostname",
         },
       },
     } as pino.LoggerOptions;

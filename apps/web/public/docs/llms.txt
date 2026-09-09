@@ -1,4 +1,4 @@
-# Calder — transactional email infrastructure for developers
+# Calder, transactional email infrastructure for developers
 # One endpoint in (POST /v1/emails → 202), delivered events out (signed webhooks).
 # Test keys simulate everything; live keys deliver. NGN + USD pricing, hard limits.
 # Full content: /docs/llms-full.txt
@@ -41,4 +41,4 @@
 - Support: /support
 
 # Note: maintained by hand alongside the docs. If a page exists here but not
-# above, trust the site nav — then tell us.
+# above, trust the site nav, then tell us.

@@ -4,9 +4,10 @@ import { createQueue } from "@calder/queue";
 import { logger } from "@calder/observability";
 import { getConfig } from "@calder/config";
 import { AppError } from "../errors/index.js";
+import type { DbClient } from "@calder/db";
 
 /**
- * Thin service layer — business logic outside HTTP handlers.
+ * Thin service layer, business logic outside HTTP handlers.
  * Implements: validate → authorize → idempotency → persist → enqueue → return
  */
 
@@ -58,7 +59,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
   const emailId = `em_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
 
   // Custom headers ride in metadata (no schema change) and are allowlisted
-  // below — envelope fields (From/To/Subject/Content-*/Received-*) can never
+  // below, envelope fields (From/To/Subject/Content-*/Received-*) can never
   // be smuggled through. Only List-Unsubscribe(-Post) and X-* pass.
   const safeHeaders = sanitizeHeaders(input.headers);
   const emailRecord = {
@@ -193,7 +194,7 @@ async function lookupIdempotency(
       return { responseBody: row.responseBody };
     }
   } catch {
-    // DB unavailable — fallback to memory only
+    // DB unavailable, fallback to memory only
   }
   return null;
 }
@@ -204,7 +205,7 @@ export function getSharedEmailQueue() {
 }
 
 // ── Internal (dogfood) sends ─────────────────────────────────────
-// Calder's own mail enters through this function — the same persist +
+// Calder's own mail enters through this function, the same persist +
 // enqueue path as customer sends, under the founder-owned tenant below.
 // No HTTP loop, no special bypass, no separate provider. See
 // docs/SYSTEM-EXPLAINED.md §5.
@@ -214,7 +215,7 @@ export const INTERNAL_FROM = "Calder <hello@calder.click>";
 
 /**
  * Allowlisted custom headers. Everything else (envelope fields, Content-*,
- * Received-*, or anything not matching) is dropped silently — the send
+ * Received-*, or anything not matching) is dropped silently, the send
  * proceeds, the smuggling attempt does not.
  */
 export function sanitizeHeaders(
@@ -237,8 +238,41 @@ export interface InternalEmailParams {
   html: string;
   text: string;
   headers?: Record<string, string>;
+  /** Sender override. Defaults to INTERNAL_FROM. Anything else must be an
+ active Gmail transport label of the internal project, enforced below. */
+  from?: string;
+  /** When provided, branded footer links here for one-click unsubscribe. */
+  unsubscribeUrl?: string;
   idempotencyKey: string;
   requestId: string;
+}
+
+/** Resolve a requested sender against what this project may actually send as. */
+async function resolveInternalSender(db: DbClient, requested?: string): Promise<string> {
+  if (!requested || requested === INTERNAL_FROM) return INTERNAL_FROM;
+  const { projectTransports } = await import("@calder/db");
+  const { eq, and } = await import("drizzle-orm");
+  const rows = await db
+    .select()
+    .from(projectTransports)
+    .where(
+      and(
+        eq(projectTransports.projectId, INTERNAL_PROJECT_ID),
+        eq(projectTransports.status, "active")
+      )
+    )
+    .limit(20);
+  const match = rows.find(
+    (r) => r.type === "gmail" && r.label.toLowerCase() === requested.toLowerCase()
+  );
+  if (!match) {
+    throw new AppError(
+      "validation_error",
+      `Sender not authorized for this project. Use ${INTERNAL_FROM} or a connected Gmail address.`,
+      400
+    );
+  }
+  return match.label;
 }
 
 export async function sendInternalEmail(
@@ -260,11 +294,13 @@ export async function sendInternalEmail(
   if (!org[0] || !proj[0]) {
     throw new AppError(
       "internal_error",
-      "Internal tenant not seeded — run: pnpm --filter @calder/db db:seed.",
+      "Internal tenant not seeded, run: pnpm --filter @calder/db db:seed.",
       500
     );
   }
   const env = getConfig().NODE_ENV === "production" ? ("live" as const) : ("test" as const);
+  // Compulsory branding: every internal mail ships inside the Calder layout.
+  const { brandEmail } = await import("@calder/email");
   const result = await handleSendEmail({
     projectId: INTERNAL_PROJECT_ID,
     organizationId: INTERNAL_ORG_ID,
@@ -273,10 +309,13 @@ export async function sendInternalEmail(
     requestId: params.requestId,
     idempotencyKey: params.idempotencyKey,
     input: {
-      from: INTERNAL_FROM,
+      from: await resolveInternalSender(db, params.from),
       to: params.to,
       subject: params.subject,
-      html: params.html,
+      html: brandEmail(params.html, {
+        unsubscribeUrl: params.unsubscribeUrl,
+        preheader: params.subject,
+      }),
       text: params.text,
       headers: params.headers,
     },

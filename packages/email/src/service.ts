@@ -1,7 +1,7 @@
 import type { EmailProvider, EmailMessage, ProviderSendResult } from "./provider";
 
 /**
- * EmailService — thin orchestrator around provider abstraction.
+ * EmailService, thin orchestrator around provider abstraction.
  * API / Worker depend on this, NOT directly on SES.
  */
 export interface EmailService {

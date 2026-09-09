@@ -1,5 +1,5 @@
 /**
- * Centralized rate limiting — supports IP, user, org, project, apiKey, endpoint dimensions.
+ * Centralized rate limiting, supports IP, user, org, project, apiKey, endpoint dimensions.
  * Abstraction over Redis-compatible store; InMemory fallback for dev/test.
  */
 
@@ -23,7 +23,7 @@ export interface RateLimiter {
 }
 
 /**
- * In-memory sliding window counter. NOT for production multi-instance use — replace with Redis.
+ * In-memory sliding window counter. NOT for production multi-instance use, replace with Redis.
  */
 export class InMemoryRateLimiter implements RateLimiter {
   private store = new Map<string, { count: number; windowStart: number }>();

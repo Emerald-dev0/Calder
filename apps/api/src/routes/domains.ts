@@ -67,7 +67,7 @@ domains.get("/", authMiddleware, async (c) => {
 
 domains.post("/:id/verify", authMiddleware, async (c) => {
   const id = c.req.param("id");
-  // Scaffold verification — just mark verified for demo
+  // Scaffold verification, just mark verified for demo
   try {
     const { getDb, domains: domainsTable } = await import("@calder/db");
     const { eq, and } = await import("drizzle-orm");

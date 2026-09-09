@@ -1,16 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 82"><rect width="330" height="82" fill="#FFFFFF"/>
-  <g transform="translate(0 1) scale(.82)" fill="#FFFFFF">
-    <circle cx="18" cy="50" r="9"/>
-    <path d="M31 18C34 12 39 9 46 9h7c5 0 8 3 11 9l27 52H72L51 31c-2-4-5-6-9-6h-4c-3 0-5 2-7 6l-5 9-9-9z"/>
-  </g>
-  <g transform="translate(105 15) scale(.94)" fill="#FFFFFF" fill-rule="evenodd">
-    
-    <path d="M4 42L18 10l14 32h-6.5l-3-7h-9l-3 7H4zm11.5-13h5L18 22z"/>
-    <path d="M35 10h6.5L48 34l6.5-24H61L51.5 42h-7z"/>
-    <path d="M64 10h24v6H70.5v6.5H85V28H70.5v8H88v6H64z"/>
-    <path d="M92 42V10h6l15 20V10h6v32h-6L98 22v20z"/>
-    <path d="M124 26c0-11 6-17 17-17s17 6 17 17-6 17-17 17-17-6-17-17zm7 0c0 7 3 11 10 11s10-4 10-11-3-11-10-11-10 4-10 11z"/>
-    <path d="M163 42V10h14c9 0 14 4 14 11 0 5-3 8-8 9l10 12h-8l-9-11h-5.5v11zm7.5-17h6c4.5 0 7-1 7-4s-2.5-5-7-5h-6z"/>
-  
-  </g>
+ <g transform="translate(0 1) scale(.82)" fill="#FFFFFF">
+ <circle cx="18" cy="50" r="9"/>
+ <path d="M31 18C34 12 39 9 46 9h7c5 0 8 3 11 9l27 52H72L51 31c-2-4-5-6-9-6h-4c-3 0-5 2-7 6l-5 9-9-9z"/>
+ </g>
+ <g transform="translate(105 15) scale(.94)" fill="#FFFFFF" fill-rule="evenodd">
+ 
+ <path d="M4 42L18 10l14 32h-6.5l-3-7h-9l-3 7H4zm11.5-13h5L18 22z"/>
+ <path d="M35 10h6.5L48 34l6.5-24H61L51.5 42h-7z"/>
+ <path d="M64 10h24v6H70.5v6.5H85V28H70.5v8H88v6H64z"/>
+ <path d="M92 42V10h6l15 20V10h6v32h-6L98 22v20z"/>
+ <path d="M124 26c0-11 6-17 17-17s17 6 17 17-6 17-17 17-17-6-17-17zm7 0c0 7 3 11 10 11s10-4 10-11-3-11-10-11-10 4-10 11z"/>
+ <path d="M163 42V10h14c9 0 14 4 14 11 0 5-3 8-8 9l10 12h-8l-9-11h-5.5v11zm7.5-17h6c4.5 0 7-1 7-4s-2.5-5-7-5h-6z"/>
+ 
+ </g>
 </svg>

@@ -109,7 +109,7 @@ export async function inviteMember(orgId: string, email: string, role: Role) {
   const clean = email.toLowerCase().trim();
   if (!clean.includes("@")) throw new Error("Enter a valid email address.");
   if (role !== "admin" && role !== "member") {
-    throw new Error("New invites are member or admin only — ownership transfers separately.");
+    throw new Error("New invites are member or admin only, ownership transfers separately.");
   }
   const db = getDb();
   // Already a member? Say so instead of double-inviting.
@@ -160,7 +160,7 @@ export async function updateMemberRole(orgId: string, membershipId: string, role
     throw new Error("Invalid role.");
   }
   const db = getDb();
-  // Never demote/remove the last owner — an org without an owner is orphaned.
+  // Never demote/remove the last owner, an org without an owner is orphaned.
   if (role !== "owner") {
     const owners = await db
       .select({ id: organizationMembers.id, userId: organizationMembers.userId })
@@ -174,7 +174,7 @@ export async function updateMemberRole(orgId: string, membershipId: string, role
       .where(eq(organizationMembers.id, membershipId))
       .limit(1);
     if (target[0]?.organizationId === orgId && target[0]?.role === "owner" && owners.length <= 1) {
-      throw new Error("Cannot demote the last owner — transfer ownership first.");
+      throw new Error("Cannot demote the last owner, transfer ownership first.");
     }
   }
   await db
@@ -214,7 +214,7 @@ export async function removeMember(orgId: string, membershipId: string) {
     if (owners.length <= 1) throw new Error("Cannot remove the last owner.");
   }
   if (target[0].userId === ctx.user.userId) {
-    throw new Error("You can't remove yourself — ask another owner.");
+    throw new Error("You can't remove yourself, ask another owner.");
   }
   await db.delete(organizationMembers).where(eq(organizationMembers.id, membershipId));
   await audit(db, {

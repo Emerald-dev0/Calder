@@ -12,34 +12,34 @@ Foundation scaffold complete (v0.1). API → queue → worker → provider → e
 
 Read in this order before touching code:
 
-1. `PRD.md` — what Calder is, who it's for, what's in/out of scope
-2. `ARCHITECTURE.md` — how the system is put together
-3. `SECURITY.md` — required before touching auth, secrets, payments, or tenant isolation
-4. `docs/DESIGN.md` — required before touching any UI, marketing surface, or dashboard visual work
-5. `docs/DECISIONS.md` — why specific choices were made (don't "fix" these without reading first)
-6. `AGENTS.md` — rules for AI coding agents working in this repo
+1. `PRD.md`, what Calder is, who it's for, what's in/out of scope
+2. `ARCHITECTURE.md`, how the system is put together
+3. `SECURITY.md`, required before touching auth, secrets, payments, or tenant isolation
+4. `docs/DESIGN.md`, required before touching any UI, marketing surface, or dashboard visual work
+5. `docs/DECISIONS.md`, why specific choices were made (don't "fix" these without reading first)
+6. `AGENTS.md`, rules for AI coding agents working in this repo
 
 ## Project structure
 
 ```text
 calder/
 ├── apps/
-│   ├── web/          # marketing site — editorial/expressive
-│   ├── dashboard/     # customer-facing app — precise/dense/functional
-│   ├── api/           # public REST API
-│   └── worker/        # async job processing (email sending, retries, cron)
+│ ├── web/ # marketing site, editorial/expressive
+│ ├── dashboard/ # customer-facing app, precise/dense/functional
+│ ├── api/ # public REST API
+│ └── worker/ # async job processing (email sending, retries, cron)
 ├── packages/
-│   ├── db/
-│   ├── auth/
-│   ├── config/
-│   ├── email/
-│   ├── providers/     # SES + future provider adapters
-│   ├── queue/
-│   ├── billing/       # Bachs adapter
-│   ├── rate-limit/
-│   ├── validation/
-│   ├── observability/
-│   └── ui/             # shared design system components
+│ ├── db/
+│ ├── auth/
+│ ├── config/
+│ ├── email/
+│ ├── providers/ # SES + future provider adapters
+│ ├── queue/
+│ ├── billing/ # Bachs adapter
+│ ├── rate-limit/
+│ ├── validation/
+│ ├── observability/
+│ └── ui/ # shared design system components
 ├── docs/
 ├── AGENTS.md
 ├── PRD.md
@@ -54,7 +54,7 @@ Next.js, TypeScript, Tailwind (frontend) · Lenis (smooth scroll) · Hono (API) 
 
 ## Tooling philosophy: CLI-first
 
-Wherever a CLI exists for a tool Calder depends on, prefer it over the web dashboard — for humans and especially for AI agents, since it's scriptable, reviewable, and reproducible. See `AGENTS.md` § "CLI-first tooling" for the concrete rules and the list of CLIs in use (GitHub CLI, Vercel CLI, database/migration CLIs, etc.).
+Wherever a CLI exists for a tool Calder depends on, prefer it over the web dashboard, for humans and especially for AI agents, since it's scriptable, reviewable, and reproducible. See `AGENTS.md` § "CLI-first tooling" for the concrete rules and the list of CLIs in use (GitHub CLI, Vercel CLI, database/migration CLIs, etc.).
 
 ## Getting started
 
@@ -78,30 +78,30 @@ pnpm dev
 
 **Services:**
 
-| Service          | URL                   | Description              |
+| Service | URL | Description |
 | ---------------- | --------------------- | ------------------------ |
-| `apps/web`       | http://localhost:3000 | Marketing site           |
-| `apps/dashboard` | http://localhost:3001 | Customer dashboard       |
-| `apps/api`       | http://localhost:3002 | REST API                 |
-| `apps/worker`    | health :3003          | Background job processor |
+| `apps/web` | http://localhost:3000 | Marketing site |
+| `apps/dashboard` | http://localhost:3001 | Customer dashboard |
+| `apps/api` | http://localhost:3002 | REST API |
+| `apps/worker` | health :3003 | Background job processor |
 
 **Infrastructure:**
 
-| Service    | URL            |
+| Service | URL |
 | ---------- | -------------- |
 | PostgreSQL | localhost:5432 |
-| Redis      | localhost:6379 |
+| Redis | localhost:6379 |
 
 **Key commands:**
 
 ```bash
-pnpm dev              # Start all apps + worker
-pnpm build            # Build all packages + apps
-pnpm lint             # Lint all packages
-pnpm typecheck        # Type-check all packages
-pnpm test             # Run all tests
-pnpm format           # Format with Prettier
-pnpm db:studio        # Open Drizzle Studio
+pnpm dev # Start all apps + worker
+pnpm build # Build all packages + apps
+pnpm lint # Lint all packages
+pnpm typecheck # Type-check all packages
+pnpm test # Run all tests
+pnpm format # Format with Prettier
+pnpm db:studio # Open Drizzle Studio
 ```
 
 ## Git workflow & pull requests
@@ -110,7 +110,7 @@ pnpm db:studio        # Open Drizzle Studio
 
 - `main` is always deployable.
 - Feature branches: `feat/<short-description>`, fixes: `fix/<short-description>`, chores: `chore/<short-description>`.
-- No direct commits to `main` — everything goes through a PR, including agent-authored changes.
+- No direct commits to `main`, everything goes through a PR, including agent-authored changes.
 
 **Commits**
 
@@ -119,7 +119,7 @@ pnpm db:studio        # Open Drizzle Studio
 
 **Pull requests**
 
-- Opened and managed via `gh pr create` / `gh pr view` / `gh pr checks` (GitHub CLI) rather than the web UI where practical — see `AGENTS.md`.
+- Opened and managed via `gh pr create` / `gh pr view` / `gh pr checks` (GitHub CLI) rather than the web UI where practical, see `AGENTS.md`.
 - PR description states: what changed, why, and which doc (if any) it required updating.
 - PRs touching the sending path confirm the sending-path checklist in `AGENTS.md`.
 - PRs touching auth, secrets, payments, or tenant-scoped queries confirm the tenant-isolation invariant in `SECURITY.md`.

@@ -40,7 +40,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
     return;
   }
 
-  // Try DB lookup — lazy import to avoid circular deps
+  // Try DB lookup, lazy import to avoid circular deps
   try {
     const { getDb } = await import("@calder/db");
     const { apiKeys } = await import("@calder/db");
@@ -79,7 +79,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
 };
 
 /**
- * Optional auth — does not throw if missing (for preview routes).
+ * Optional auth, does not throw if missing (for preview routes).
  */
 export const optionalAuthMiddleware: MiddlewareHandler = async (c, next) => {
   const auth = c.req.header("authorization");

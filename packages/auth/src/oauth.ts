@@ -105,7 +105,7 @@ async function fetchGithubProfile(accessToken: string): Promise<OAuthProfile> {
   const me = (await meRes.json()) as { id: number; name?: string; email?: string | null };
   let email = me.email ?? null;
   let verified = false;
-  // Primary email may be private — ask the emails endpoint.
+  // Primary email may be private, ask the emails endpoint.
   const emailsRes = await fetch("https://api.github.com/user/emails", { headers });
   if (emailsRes.ok) {
     const list = (await emailsRes.json()) as Array<{
@@ -241,7 +241,7 @@ export async function acceptPendingInvites(
 
 /**
  * Founder bootstrap: emails listed in FOUNDER_EMAILS are granted owner of the
- * internal Calder org on first login — this is how the founder claims control
+ * internal Calder org on first login, this is how the founder claims control
  * of Calder's own account (org_avenor) and sees its mail in the dashboard.
  * No-ops for everyone else. Never grants anything beyond org_avenor.
  */
@@ -251,7 +251,7 @@ export async function ensureFounderAccess(
   email: string
 ): Promise<void> {
   const founders = (getConfig().FOUNDER_EMAILS ?? "")
-    .split(",")
+    .split(", ")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
   if (!founders.includes(email.toLowerCase())) return;

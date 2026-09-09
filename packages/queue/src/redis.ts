@@ -7,7 +7,7 @@ import type { Queue, QueueJob, QueueOptions, JobHandler } from "./queue";
  *
  * Retry contract (shared with InMemoryQueue): the handler decides. It rethrows
  * transient errors while attempts remain; BullMQ redelivers with exponential
- * backoff and increments attemptsMade, which surfaces as job.attempts — so
+ * backoff and increments attemptsMade, which surfaces as job.attempts, so
  * existing worker logic (transient/permanent/exhausted branches) works unchanged.
  * Permanent failures return normally after persisting failed state.
  */
@@ -24,7 +24,7 @@ export class RedisQueue<T = unknown> implements Queue<T> {
     redisUrl: string,
     opts?: { maxAttempts?: number; concurrency?: number }
   ) {
-    // BullMQ forbids ":" in queue names — sanitize for the backend only.
+    // BullMQ forbids ":" in queue names, sanitize for the backend only.
     // The logical Queue.name (used in logs/ids) keeps the canonical form.
     const backendName = name.replace(/:/g, "-");
     this.name = name;

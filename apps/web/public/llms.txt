@@ -1,4 +1,4 @@
-# Calder — developer-first transactional email infrastructure
+# Calder, developer-first transactional email infrastructure
 
 Calder is transactional email infrastructure: one API endpoint in, delivered
 events out. Test keys simulate everything; live keys deliver. NGN-first pricing

@@ -8,7 +8,7 @@ import { rateLimitMiddleware } from "../middleware/rate-limit.js";
 
 const emails = new Hono<Env>();
 
-// POST /v1/emails — send email (async via queue)
+// POST /v1/emails, send email (async via queue)
 emails.post("/", authMiddleware, rateLimitMiddleware("sending"), async (c) => {
   const requestId = c.get("requestId");
   const auth = c.get("auth" as never) as {
@@ -38,7 +38,7 @@ emails.post("/", authMiddleware, rateLimitMiddleware("sending"), async (c) => {
     input: parsed.data,
   });
 
-  // Idempotent replay — return original response
+  // Idempotent replay, return original response
   if (result.idempotentReplay) {
     return c.json(result.response, 200 as never);
   }
@@ -46,7 +46,7 @@ emails.post("/", authMiddleware, rateLimitMiddleware("sending"), async (c) => {
   return c.json(result.response, 202 as never);
 });
 
-// GET /v1/emails/:id — fetch email status (tenant-scoped)
+// GET /v1/emails/:id, fetch email status (tenant-scoped)
 emails.get("/:id", authMiddleware, async (c) => {
   const auth = c.get("auth" as never) as { projectId: string };
   const id = c.req.param("id");
@@ -70,7 +70,7 @@ emails.get("/:id", authMiddleware, async (c) => {
   }
 });
 
-// GET /v1/emails — list recent emails (tenant-scoped, paginated)
+// GET /v1/emails, list recent emails (tenant-scoped, paginated)
 emails.get("/", authMiddleware, async (c) => {
   const auth = c.get("auth" as never) as { projectId: string };
   const page = Number.parseInt(c.req.query("page") ?? "1", 10);

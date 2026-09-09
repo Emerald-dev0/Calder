@@ -6,7 +6,7 @@ describe("slugify", () => {
     expect(slugify("Acme Inc")).toBe("acme-inc");
   });
   it("strips special chars and edge hyphens", () => {
-    expect(slugify("  Hello, World!  ")).toBe("hello-world");
+    expect(slugify(" Hello, World! ")).toBe("hello-world");
   });
   it("caps at 100 chars", () => {
     expect(slugify("a".repeat(150)).length).toBeLessThanOrEqual(100);

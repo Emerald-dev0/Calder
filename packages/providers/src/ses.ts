@@ -2,7 +2,7 @@ import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import type { EmailProvider, EmailMessage, ProviderSendResult, ProviderError } from "@calder/email";
 
 /**
- * AWS SES provider — initial production provider.
+ * AWS SES provider, initial production provider.
  * Isolated behind EmailProvider interface so API/worker never import AWS SDK directly.
  */
 export class SesEmailProvider implements EmailProvider {

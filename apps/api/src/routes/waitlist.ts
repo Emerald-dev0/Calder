@@ -1,6 +1,8 @@
 import { randomInt } from "node:crypto";
 import { Hono } from "hono";
 import { getDb, waitlistSignups } from "@calder/db";
+import { getConfig } from "@calder/config";
+import { INTERNAL_PROJECT_ID } from "../services/email-service.js";
 import { joinWaitlistSchema } from "@calder/validation";
 import { eq, lte, count } from "drizzle-orm";
 import type { Env } from "../app.js";
@@ -9,7 +11,7 @@ import { rateLimitMiddleware } from "../middleware/rate-limit.js";
 
 const waitlist = new Hono<Env>();
 
-/** Unambiguous alphabet — no 0/O, 1/l confusion on a ticket. */
+/** Unambiguous alphabet, no 0/O, 1/l confusion on a ticket. */
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
 export function generateReferralCode(length = 8): string {
@@ -82,7 +84,7 @@ async function buildTicket(db: ReturnType<typeof getDb>, email: string): Promise
   };
 }
 
-// POST /v1/waitlist — join (or re-fetch your ticket if already joined)
+// POST /v1/waitlist, join (or re-fetch your ticket if already joined)
 waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body) throw validationError("Invalid JSON body");
@@ -113,7 +115,7 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
 
   const code = await uniqueReferralCode(db);
   // Set createdAt explicitly (ms precision) instead of DB now(): Postgres stores
-  // microseconds, but the driver round-trips milliseconds — comparing a re-read
+  // microseconds, but the driver round-trips milliseconds, comparing a re-read
   // timestamp against stored values then misses by fractions of a millisecond
   // (position computed as 0). Exact-ms values compare exactly.
   const now = new Date();
@@ -140,15 +142,18 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
 
   // Dogfood: confirm through our own pipeline under the founder-owned tenant.
   // Same idempotency key every time, so replays never duplicate. A failure here
-  // must never fail the signup — log loudly, deliverability is retried by design.
+  // must never fail the signup, log loudly, deliverability is retried by design.
   try {
     const { sendInternalEmail } = await import("../services/email-service.js");
     const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+    const { signUnsubscribeToken: signToken } = await import("@calder/auth");
+    const confirmUnsub = `${getConfig().API_URL.replace(/\/$/, "")}/v1/unsubscribe?token=${signToken(INTERNAL_PROJECT_ID, email)}`;
     await sendInternalEmail({
       to: email,
-      subject: `You're #${ticket.position} in line — welcome to Calder`,
-      html: `<p>You're <b>#${ticket.position}</b> in line for Calder early access.</p><p>Your referral code: <b>${ticket.referralCode}</b></p><p>Share it: <a href="${appUrl}/waitlist?ref=${ticket.referralCode}">${appUrl}/waitlist?ref=${ticket.referralCode}</a> — friends join behind you.</p><p>We'll email you from this address when your batch opens.</p>`,
-      text: `You're #${ticket.position} in line for Calder early access. Referral code: ${ticket.referralCode}. Share: ${appUrl}/waitlist?ref=${ticket.referralCode}`,
+      subject: `You're in, welcome to Calder early access`,
+      unsubscribeUrl: confirmUnsub,
+      html: `<p>You're on the list, and this email proves our pipeline works end to end.</p><p>Over the coming weeks we'll send you updates as we build: Gmail Quickstart for junior developers, a CLI that explains itself, deliverability you can actually watch.</p><p>If this landed in spam, please move it to Primary so you don't miss out.</p><p>The Calder team<br><a href="${appUrl}/waitlist">calder.click</a></p>`,
+      text: `You're on the list, and this email proves our pipeline works end to end.\n\nOver the coming weeks we'll send updates as we build: Gmail Quickstart, a CLI that explains itself, deliverability you can watch.\n\nIf this landed in spam, please move it to Primary so you don't miss out.\n\nThe Calder team`,
       idempotencyKey: `waitlist-confirm:${email}`,
       requestId: c.get("requestId"),
     });
@@ -160,7 +165,7 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
   return c.json({ data: { ...ticket, joined: true } }, 201);
 });
 
-// GET /v1/waitlist/position?email= — returning visitor ticket lookup
+// GET /v1/waitlist/position?email=, returning visitor ticket lookup
 waitlist.get("/position", rateLimitMiddleware("waitlist"), async (c) => {
   const email = (c.req.query("email") ?? "").toLowerCase().trim();
   if (!email || !email.includes("@")) throw validationError("Provide a valid ?email= address.");
@@ -175,7 +180,7 @@ waitlist.get("/position", rateLimitMiddleware("waitlist"), async (c) => {
   return c.json({ data: { ...ticket, joined: false } });
 });
 
-// GET /v1/waitlist/count — public total for the landing page
+// GET /v1/waitlist/count, public total for the landing page
 waitlist.get("/count", rateLimitMiddleware("waitlist"), async (c) => {
   let db: ReturnType<typeof getDb>;
   try {

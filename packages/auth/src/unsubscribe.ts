@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { getConfig } from "@calder/config";
 
 /**
- * One-click unsubscribe tokens. HMAC-SHA256 over (projectId, email) — no
+ * One-click unsubscribe tokens. HMAC-SHA256 over (projectId, email), no
  * expiry (revocation IS the suppression row; once suppressed the token is
  * moot). Tamper-evident: any altered token fails verification.
  */

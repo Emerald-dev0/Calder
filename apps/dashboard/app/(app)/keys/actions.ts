@@ -53,7 +53,7 @@ export async function createKey(projectId: string, name: string, env: "test" | "
     keyHash: generated.hash,
     env,
   });
-  // Secret returned ONCE — the page must display and discard it.
+  // Secret returned ONCE, the page must display and discard it.
   return { id, secret: generated.secret, prefix: generated.prefix };
 }
 

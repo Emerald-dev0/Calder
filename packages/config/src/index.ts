@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /**
  * Centralized, validated environment configuration.
- * Single source of truth for env access — do NOT read process.env elsewhere.
+ * Single source of truth for env access, do NOT read process.env elsewhere.
  */
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -31,13 +31,13 @@ const envSchema = z.object({
   // Founder bootstrap: comma-separated emails auto-granted owner of org_avenor on first login
   FOUNDER_EMAILS: z.string().optional(),
 
-  // Email Provider — optional in dev (mock provider used)
+  // Email Provider, optional in dev (mock provider used)
   AWS_REGION: z.string().default("us-east-1"),
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
   SES_FROM_DOMAIN: z.string().optional(),
 
-  // Billing (Bachs) — optional until integration validated
+  // Billing (Bachs), optional until integration validated
   BACHS_API_KEY: z.string().optional(),
   BACHS_WEBHOOK_SECRET: z.string().optional(),
   BACHS_API_URL: z.string().url().optional(),
@@ -63,7 +63,7 @@ export function getConfig(): Env {
   const parsed = envSchema.safeParse(process.env);
   if (!parsed.success) {
     const formatted = parsed.error.issues
-      .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
+      .map((i) => ` - ${i.path.join(".")}: ${i.message}`)
       .join("\n");
     throw new Error(`Invalid environment configuration:\n${formatted}`);
   }

@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Concept E: Negative A">
-  <!-- Solid mass with an A-shaped counter: the system, with the message carved out -->
-  <path fill="#0B0C0E" fill-rule="evenodd" stroke="#0B0C0E" stroke-width="4" stroke-linejoin="round"
-    d="M32 6 L58 58 H6 Z
-       M32 22 L43 48 H21 Z
-       M25 40 H39 V45 H25 Z"/>
+ <!-- Solid mass with an A-shaped counter: the system, with the message carved out -->
+ <path fill="#0B0C0E" fill-rule="evenodd" stroke="#0B0C0E" stroke-width="4" stroke-linejoin="round"
+ d="M32 6 L58 58 H6 Z
+ M32 22 L43 48 H21 Z
+ M25 40 H39 V45 H25 Z"/>
 </svg>

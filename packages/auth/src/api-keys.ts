@@ -1,7 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 export interface GeneratedApiKey {
-  /** Full secret — show ONCE at creation, never stored raw */
+  /** Full secret, show ONCE at creation, never stored raw */
   secret: string;
   /** Hash to store in DB */
   hash: string;
@@ -62,7 +62,7 @@ export function extractKeyPrefix(secret: string): string {
 
 /**
  * Validate key format (basic). Real validation is hash lookup.
- * Legacy `avenor_sk_` keys verify forever — hashing is prefix-agnostic.
+ * Legacy `avenor_sk_` keys verify forever, hashing is prefix-agnostic.
  */
 export function isValidKeyFormat(key: string): boolean {
   return /^(calder|avenor)_sk_(test|live)_[a-f0-9]{32,}$/.test(key);

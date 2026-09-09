@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { EmailProvider, EmailMessage, ProviderSendResult } from "@calder/email";
 
 /**
- * Calder Email Provider — reserved seam for dogfooding.
+ * Calder Email Provider, reserved seam for dogfooding.
  *
  * Architectural rule (see docs/SYSTEM-EXPLAINED.md "Dogfooding doctrine"):
  * internal sends enter at ENQUEUE time through the same code path as the API,

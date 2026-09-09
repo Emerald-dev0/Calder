@@ -15,7 +15,7 @@ import { projects } from "./projects";
 /**
  * Sending transports per project. A project delivers through its default
  * ACTIVE transport; the API key, logs, templates, and events never change
- * when the transport does — that is the graduation path (Gmail → domain →
+ * when the transport does, that is the graduation path (Gmail → domain →
  * managed infrastructure) made concrete.
  *
  * Credentials are AES-256-GCM encrypted JSON (e.g. Gmail refresh token);

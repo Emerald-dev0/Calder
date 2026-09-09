@@ -1,5 +1,5 @@
 /**
- * Retry semantics — distinguish transient vs permanent failures.
+ * Retry semantics, distinguish transient vs permanent failures.
  */
 
 export interface RetryOptions {

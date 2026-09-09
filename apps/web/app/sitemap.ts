@@ -5,7 +5,7 @@ import { POSTS } from "./blog/posts";
 /**
  * Sitemap: canonical, indexable, public URLs only. Never dashboard, login,
  * API, invite, or auth routes. lastmod = content change date (update the row
- * when the page meaningfully changes — never the deploy date).
+ * when the page meaningfully changes, never the deploy date).
  */
 interface Entry {
   path: string;

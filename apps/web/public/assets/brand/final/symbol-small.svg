@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Avenor symbol, small sizes">
-  <title>Avenor — small-size version: heavier legs, straight bar, dot retained</title>
-  <!-- Use at 16-24px. The pulse kink is removed; the dot carries the identity. -->
-  <path d="M10 55 L26 9 L42 55" fill="none" stroke="#0B0C0E" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M17 41 H38" fill="none" stroke="#0B0C0E" stroke-width="6" stroke-linecap="round"/>
-  <circle cx="44" cy="41" r="5.5" fill="#0B0C0E"/>
+ <title>Avenor, small-size version: heavier legs, straight bar, dot retained</title>
+ <!-- Use at 16-24px. The pulse kink is removed; the dot carries the identity. -->
+ <path d="M10 55 L26 9 L42 55" fill="none" stroke="#0B0C0E" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+ <path d="M17 41 H38" fill="none" stroke="#0B0C0E" stroke-width="6" stroke-linecap="round"/>
+ <circle cx="44" cy="41" r="5.5" fill="#0B0C0E"/>
 </svg>

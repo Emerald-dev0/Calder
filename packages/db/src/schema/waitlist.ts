@@ -1,7 +1,7 @@
 import { pgTable, text, timestamp, varchar, index } from "drizzle-orm/pg-core";
 
 /**
- * Early-access waitlist. Public signup — no tenant ownership by design
+ * Early-access waitlist. Public signup, no tenant ownership by design
  * (there is no organization yet). Email unique: one seat per address.
  * referralCode is shown to the user; referredBy stores the code that
  * brought them here. Position is computed, never stored.

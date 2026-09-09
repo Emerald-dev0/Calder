@@ -1,6 +1,6 @@
 # API Conventions
 
-Conventions only — endpoint-level detail lives in generated docs/SDK types, which are the source of truth.
+Conventions only, endpoint-level detail lives in generated docs/SDK types, which are the source of truth.
 
 ## Versioning
 
@@ -8,11 +8,11 @@ Conventions only — endpoint-level detail lives in generated docs/SDK types, wh
 
 ## Authentication
 
-`Authorization: Bearer <api_key>` — prefixed by environment/type:
+`Authorization: Bearer <api_key>`, prefixed by environment/type:
 
 ```
-calder_pk_test_...   calder_sk_test_...
-calder_pk_live_...   calder_sk_live_...
+calder_pk_test_... calder_sk_test_...
+calder_pk_live_... calder_sk_live_...
 ```
 
 ## Idempotency
@@ -23,11 +23,11 @@ calder_pk_live_...   calder_sk_live_...
 
 ```json
 {
-  "error": {
-    "code": "domain_not_verified",
-    "message": "The sending domain has not been verified.",
-    "request_id": "req_..."
-  }
+ "error": {
+ "code": "domain_not_verified",
+ "message": "The sending domain has not been verified.",
+ "request_id": "req_..."
+ }
 }
 ```
 
@@ -37,22 +37,22 @@ Per API key, project, and organization; different limits for sending vs. verific
 
 ## Sandbox / test mode
 
-`test` keys never trigger real external delivery — simulated events and webhook deliveries only.
+`test` keys never trigger real external delivery, simulated events and webhook deliveries only.
 
 ## Sender rules (`from`)
 
 The `from` address must resolve to an identity the project's active transport owns:
 
 - **Verified domain** (SES/managed transports): any address on the domain.
-- **Connected Gmail** (gmail transport): exactly the connected address — the
-  transport pins the sender, spoofing is structurally impossible.
+- **Connected Gmail** (gmail transport): exactly the connected address, the
+ transport pins the sender, spoofing is structurally impossible.
 
 Unowned senders fail closed (`domain_not_verified` / `550`) with an explanation
-pointing at verification or graduation — never silent, never delivered anyway.
+pointing at verification or graduation, never silent, never delivered anyway.
 
-## SMTP (not REST — see docs/SMTP.md)
+## SMTP (not REST, see docs/SMTP.md)
 
 The SMTP gateway is a separate interface, not part of this REST surface. SMTP
 credential management endpoints (create/rotate/revoke per project) will be
-specified alongside gateway implementation — no paths are stable yet, so none
+specified alongside gateway implementation, no paths are stable yet, so none
 are listed here. Protocol behavior, normalization, and limits: `docs/SMTP.md`.

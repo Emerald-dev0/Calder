@@ -82,7 +82,7 @@ export const suppressions = pgTable(
   (t) => [index("suppressions_project_email_idx").on(t.projectId, t.email)]
 );
 
-// Idempotency keys — durable, not in-memory
+// Idempotency keys, durable, not in-memory
 export const idempotencyKeys = pgTable(
   "idempotency_keys",
   {

@@ -14,7 +14,7 @@ import {
 /**
  * DEV-ONLY login bypass so the founder can preview the dashboard before
  * OAuth provider credentials exist. Fails closed: 403 unless BOTH
- * NODE_ENV=development AND ALLOW_DEV_LOGIN=true. Never enable in production —
+ * NODE_ENV=development AND ALLOW_DEV_LOGIN=true. Never enable in production,
  * this route creates sessions for any email address.
  */
 export async function POST(req: Request): Promise<Response> {

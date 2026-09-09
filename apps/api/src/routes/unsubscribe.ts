@@ -27,10 +27,10 @@ async function suppress(projectId: string, email: string): Promise<{ already: bo
 }
 
 function confirmationPage(message: string): string {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unsubscribed — Calder</title></head><body style="font-family:system-ui,sans-serif;background:#F5F4EF;color:#0B0C0E;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0"><main style="text-align:center;max-width:24rem;padding:2rem"><h1 style="font-size:1.5rem">Done.</h1><p style="color:#52525b">${message}</p></main></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Unsubscribed, Calder</title></head><body style="font-family:system-ui, sans-serif;background:#F5F4EF;color:#0B0C0E;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0"><main style="text-align:center;max-width:24rem;padding:2rem"><h1 style="font-size:1.5rem">Done.</h1><p style="color:#52525b">${message}</p></main></body></html>`;
 }
 
-// GET — browser click from an email footer. Verifies, suppresses, confirms.
+// GET, browser click from an email footer. Verifies, suppresses, confirms.
 unsubscribe.get("/", rateLimitMiddleware("otp"), async (c) => {
   const token = c.req.query("token") ?? "";
   if (!token) throw validationError("Missing unsubscribe token.");
@@ -46,13 +46,13 @@ unsubscribe.get("/", rateLimitMiddleware("otp"), async (c) => {
   return c.html(
     confirmationPage(
       already
-        ? "You were already unsubscribed — nothing else will arrive."
+        ? "You were already unsubscribed, nothing else will arrive."
         : "Unsubscribed. You won't hear from this list again."
     )
   );
 });
 
-// POST — RFC 8058 one-click (List-Unsubscribe-Post: List-Unsubscribe=One-Click).
+// POST, RFC 8058 one-click (List-Unsubscribe-Post: List-Unsubscribe=One-Click).
 unsubscribe.post("/", rateLimitMiddleware("otp"), async (c) => {
   const body = await c.req.parseBody().catch(() => ({}));
   const token =

@@ -7,6 +7,7 @@ export {
   isProviderError,
 } from "./provider";
 export { createEmailService, type EmailService } from "./service";
+export { brandEmail, type BrandOptions } from "./brand";
 export {
   type EmailTransport,
   type TransportType,

@@ -2,7 +2,7 @@ import type { AuthContext } from "./types";
 
 /**
  * Centralized authorization helpers.
- * Every data access must be scoped through these — not just route middleware.
+ * Every data access must be scoped through these, not just route middleware.
  */
 
 export class AuthorizationError extends Error {
@@ -49,7 +49,7 @@ export function requireOrgAccess(ctx: AuthContext, organizationId: string): void
 }
 
 /**
- * Generic tenant scope assertion — ensures resource owner matches context.
+ * Generic tenant scope assertion, ensures resource owner matches context.
  * Call at data-access layer before returning any tenant data.
  */
 export function assertTenantScope(

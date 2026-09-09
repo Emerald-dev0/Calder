@@ -1,6 +1,6 @@
 /**
- * Billing provider abstraction — Bachs is initial candidate, pending validation.
- * No fabricated Bachs API calls — interface only, mock for scaffold.
+ * Billing provider abstraction, Bachs is initial candidate, pending validation.
+ * No fabricated Bachs API calls, interface only, mock for scaffold.
  */
 
 export interface CheckoutSession {
@@ -73,7 +73,7 @@ export class MockBillingProvider implements BillingProvider {
   }
 
   async cancelSubscription(_subscriptionId: string): Promise<void> {
-    // mock — no-op
+    // mock, no-op
   }
 
   verifyWebhookSignature(payload: string, signature: string, secret: string): boolean {

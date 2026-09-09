@@ -12,7 +12,7 @@ export const apiKeys = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     // prefix like calder_sk_test_ / calder_pk_live_ prefix fragment for identification
     keyPrefix: varchar("key_prefix", { length: 32 }).notNull(),
-    // hashed secret using SHA-256 hex (or bcrypt variant) — never raw
+    // hashed secret using SHA-256 hex (or bcrypt variant), never raw
     keyHash: varchar("key_hash", { length: 255 }).notNull().unique(),
     env: apiKeyEnvEnum("env").notNull(),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),

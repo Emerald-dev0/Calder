@@ -1,5 +1,5 @@
 /**
- * Email provider abstraction — all sending goes through this interface.
+ * Email provider abstraction, all sending goes through this interface.
  * AWS SES is initial implementation; mock for dev/test.
  */
 
@@ -44,7 +44,7 @@ export interface EmailProvider {
 }
 
 /**
- * Mock provider — simulates delivery without external calls.
+ * Mock provider, simulates delivery without external calls.
  * Used in development, test keys, and CI.
  */
 export class MockEmailProvider implements EmailProvider {

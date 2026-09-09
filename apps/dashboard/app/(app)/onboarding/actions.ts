@@ -46,7 +46,7 @@ export async function saveProfile(input: ProfileInput) {
     .where(eq(users.username, username))
     .limit(1);
   if (taken[0] && taken[0].id !== ctx.user.userId) {
-    throw new Error("That username is taken — try another.");
+    throw new Error("That username is taken, try another.");
   }
   await db
     .update(users)
@@ -173,7 +173,7 @@ export async function createTestKey(projectId: string, name: string) {
     keyHash: generated.hash,
     env: "test",
   });
-  // Secret returned ONCE — caller must display and discard.
+  // Secret returned ONCE, caller must display and discard.
   return { id, secret: generated.secret, prefix: generated.prefix };
 }
 
@@ -295,7 +295,7 @@ export async function checkDomainDns(domainId: string) {
   const row = rows[0];
   if (!row || !projectIds.has(row.projectId)) throw new Error("Domain not found.");
   if (!row.verificationToken) throw new Error("No verification token on this domain.");
-  // Check current host first, then the pre-rebrand legacy host — tokens issued
+  // Check current host first, then the pre-rebrand legacy host, tokens issued
   // under either prefix verify forever.
   let flat = "";
   for (const host of [`_calder.${row.domain}`, `_avenor.${row.domain}`]) {
@@ -303,11 +303,11 @@ export async function checkDomainDns(domainId: string) {
       const records: string[][] = await resolveTxt(host);
       flat += records.flat().join(" ");
     } catch {
-      // No record at this host — try the next.
+      // No record at this host, try the next.
     }
   }
   if (!flat) {
-    return { verified: false, detail: "No TXT record found yet — DNS may still be propagating." };
+    return { verified: false, detail: "No TXT record found yet, DNS may still be propagating." };
   }
   if (
     flat.includes(`calder_verify_${row.verificationToken}`) ||

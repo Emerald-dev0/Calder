@@ -1,4 +1,4 @@
-# Calder — Security
+# Calder, Security
 
 Read before touching authentication, authorization, secrets, payments, email sending, or tenant isolation.
 
@@ -8,7 +8,7 @@ Credentials, email addresses, domains, application data, potentially email conte
 
 ## 2. Secrets
 
-No raw secret keys stored — API keys hashed at rest, only a prefix kept for identification. Webhook signing secrets and payment credentials never logged or exposed to clients. Managed through dedicated secret management, never hardcoded or committed. This includes CLI credentials (`gh auth`, `vercel login`, database connection strings) — see `AGENTS.md` CLI-first tooling.
+No raw secret keys stored, API keys hashed at rest, only a prefix kept for identification. Webhook signing secrets and payment credentials never logged or exposed to clients. Managed through dedicated secret management, never hardcoded or committed. This includes CLI credentials (`gh auth`, `vercel login`, database connection strings), see `AGENTS.md` CLI-first tooling.
 
 ## 3. API keys
 
@@ -28,7 +28,7 @@ Outgoing webhooks are signed. Incoming webhooks (payment/email provider) are ver
 
 ## 7. Abuse prevention
 
-Mandatory. New accounts progress: limited sending → domain verification → reputation checks → full production sending. Continuously monitor bounce rate, complaint rate, sending velocity, account behavior — Calder's own SES reputation depends on this.
+Mandatory. New accounts progress: limited sending → domain verification → reputation checks → full production sending. Continuously monitor bounce rate, complaint rate, sending velocity, account behavior, Calder's own SES reputation depends on this.
 
 ## 8. Input handling
 
@@ -46,7 +46,7 @@ Dependency scanning in CI. No dependency added without stated justification (see
 
 Immutable-from-UI records for: `organization.created`, `member.invited`, `api_key.created`, `api_key.revoked`, `domain.added`, `domain.verified`, `template.published`, `subscription.changed`, `project.created`.
 
-## 12. Visual QA tooling — security note
+## 12. Visual QA tooling, security note
 
 Screenshot/preview tooling used for the `docs/DESIGN.md` visual QA loop must run against local or staging environments only, and must never capture or embed real customer data, live API keys, or production email content in a screenshot that gets attached to a PR.
 
@@ -60,41 +60,41 @@ The SMTP ingress is abuse-sensitive by nature and gets its own controls on top o
 everything above:
 
 - **No open relay, ever.** Every submission requires AUTH + TLS; unauthenticated
-  `MAIL FROM` is rejected before DATA. Anonymous relay is impossible by construction,
-  and covered by protocol tests that attempt it.
+ `MAIL FROM` is rejected before DATA. Anonymous relay is impossible by construction,
+ and covered by protocol tests that attempt it.
 - **Credentials:** per-project secrets, shown once, hashed at rest, rotatable and
-  revocable with immediate effect. Revocation must bypass all caches — a revoked
-  credential authenticates nowhere, even within a TTL window.
+ revocable with immediate effect. Revocation must bypass all caches, a revoked
+ credential authenticates nowhere, even within a TTL window.
 - **Transport:** STARTTLS on 587 required; plaintext AUTH rejected. Certificates
-  managed with rotation runbook; expiry monitored with alerts.
+ managed with rotation runbook; expiry monitored with alerts.
 - **Limits:** per-IP connection caps, per-credential/project/org message and
-  recipient limits, message-size caps — all through the central rate limiter.
+ recipient limits, message-size caps, all through the central rate limiter.
 - **Abuse detection:** auth-failure monitoring (credential stuffing), velocity
-  anomalies, bounce/complaint monitoring shared with the API path, project
-  suspension with appeal.
+ anomalies, bounce/complaint monitoring shared with the API path, project
+ suspension with appeal.
 - **Sender authorization:** envelope-from must map to a verified project identity;
-  cross-project and foreign-domain spoofing fails closed and is logged.
+ cross-project and foreign-domain spoofing fails closed and is logged.
 - **Leak response:** suspected credential leak → revoke → rotate → audit sends made
-  with the credential → notify the project owner. Runbooked, drilled.
+ with the credential → notify the project owner. Runbooked, drilled.
 - **Logging:** SMTP codes and auth outcomes logged; secrets and message bodies never logged.
 
 ## 15. Gmail transport security
 
-Connected Gmail accounts are user credentials held in trust — stricter rules apply:
+Connected Gmail accounts are user credentials held in trust, stricter rules apply:
 
 - **OAuth only, minimum scope** (`gmail.send` + identity). Passwords are never
-  requested, never accepted, never stored. If Google stops returning refresh
-  tokens, the flow errors loudly instead of degrading silently.
+ requested, never accepted, never stored. If Google stops returning refresh
+ tokens, the flow errors loudly instead of degrading silently.
 - **Encrypted at rest** (AES-256-GCM, context-separated keys), decrypted only
-  in-memory at send time. Dashboard and API never return token material.
+ in-memory at send time. Dashboard and API never return token material.
 - **Revocation is user-controlled first:** disconnecting in the dashboard marks the
-  transport revoked immediately; Google-side revocation surfaces as an explicit
-  `gmail_revoked` error (permanent, explainable), never a silent stall.
+ transport revoked immediately; Google-side revocation surfaces as an explicit
+ `gmail_revoked` error (permanent, explainable), never a silent stall.
 - **Conservative caps** (default 400/day) enforced pre-send; over-cap fails closed
-  pointing at graduation. Gmail-connected projects get the strictest abuse
-  monitoring in the system — unusual velocity pages before Google notices.
+ pointing at graduation. Gmail-connected projects get the strictest abuse
+ monitoring in the system, unusual velocity pages before Google notices.
 - **Sender pinning:** Gmail sends only as the connected address. Spoofing another
-  sender through this path is impossible by construction, not by policy.
+ sender through this path is impossible by construction, not by policy.
 
 SMTP credential lifecycle events (`smtp_credential.created`, `.rotated`, `.revoked`)
 belong in the §11 audit log event set once implemented.

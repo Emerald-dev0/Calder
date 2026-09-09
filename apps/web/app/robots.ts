@@ -14,7 +14,7 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/api/", "/login", "/_next/", "/invite/"],
       },
       {
-        // AI/search crawlers required for discovery — same content as humans.
+        // AI/search crawlers required for discovery, same content as humans.
         userAgent: ["OAI-SearchBot", "Bingbot", "Googlebot"],
         allow: "/",
         disallow: ["/api/", "/login", "/invite/"],

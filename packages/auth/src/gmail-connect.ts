@@ -7,7 +7,7 @@ import { encryptSecret, decryptSecret } from "./crypto";
 
 /**
  * Gmail Quickstart connect flow. Minimum scope (openid + email identity +
- * gmail.send) — never passwords, never broad mailbox access. Refresh tokens
+ * gmail.send), never passwords, never broad mailbox access. Refresh tokens
  * are AES-GCM encrypted before storage; clients only ever see the address.
  */
 
@@ -103,7 +103,7 @@ export async function completeGmailConnect(
   if (!me.emailAddress) throw new Error("Gmail profile has no address.");
   if (!tokens.refresh_token) {
     throw new Error(
-      "Google did not return a refresh token — reconnect with consent (prompt=consent)."
+      "Google did not return a refresh token, reconnect with consent (prompt=consent)."
     );
   }
   return { senderEmail: me.emailAddress.toLowerCase(), refreshToken: tokens.refresh_token };

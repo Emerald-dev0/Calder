@@ -23,7 +23,7 @@ export const POSTS: PostMeta[] = [
     published: "2026-09-06",
     readTime: "4 min",
     excerpt:
-      "Sending an email is easy. Knowing it arrived is the whole business — and why we said no to newsletters, yes to idempotency, and maybe to naira pricing.",
+      "Sending an email is easy. Knowing it arrived is the whole business, and why we said no to newsletters, yes to idempotency, and maybe to naira pricing.",
   },
 ];
 

@@ -1,5 +1,5 @@
 /**
- * Tenant scoping helpers — ensure every query is project/organization scoped.
+ * Tenant scoping helpers, ensure every query is project/organization scoped.
  * Use these at the data-access layer, not just middleware.
  */
 

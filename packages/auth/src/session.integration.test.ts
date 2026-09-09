@@ -151,7 +151,7 @@ gate("auth integration (live Postgres)", async () => {
       .where(eq(organizationMembers.userId, inviteUserId));
     expect(membership.some((m) => m.organizationId === orgId && m.role === "admin")).toBe(true);
 
-    // Re-run is idempotent — no duplicate membership.
+    // Re-run is idempotent, no duplicate membership.
     await acceptPendingInvites(db, inviteUserId, inviteEmail);
     const again = await db
       .select()

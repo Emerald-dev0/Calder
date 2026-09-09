@@ -1,5 +1,5 @@
 /**
- * Domain verification abstraction — supports DNS, Vercel, and future hosted providers.
+ * Domain verification abstraction, supports DNS, Vercel, and future hosted providers.
  * See ADR-005: hosted-domain verification proves project ownership, not sending authorization.
  */
 
@@ -15,14 +15,14 @@ export interface DomainVerificationProvider {
 }
 
 /**
- * DNS verification — checks TXT record (stub for scaffold; real impl does DNS lookup).
+ * DNS verification, checks TXT record (stub for scaffold; real impl does DNS lookup).
  */
 export class DnsVerificationProvider implements DomainVerificationProvider {
   readonly method = "dns";
 
   async verify(domain: string, token: string): Promise<VerificationResult> {
     // In production: DNS lookup for TXT record at `_calder.${domain}`
-    // For scaffold: simulate — token "verified" passes, else pending
+    // For scaffold: simulate, token "verified" passes, else pending
     if (token === "verified" || process.env.NODE_ENV === "test") {
       return { verified: true, method: this.method, details: `TXT record found for ${domain}` };
     }
@@ -31,7 +31,7 @@ export class DnsVerificationProvider implements DomainVerificationProvider {
 }
 
 /**
- * Vercel verification — proves control of Vercel project (not DNS zone).
+ * Vercel verification, proves control of Vercel project (not DNS zone).
  * Per ADR-005 open problem: this does NOT authorize sending FROM the hosted domain;
  * Calder would map to a managed subdomain.
  */
@@ -53,7 +53,7 @@ export class VercelVerificationProvider implements DomainVerificationProvider {
 }
 
 /**
- * Composite — tries providers in order.
+ * Composite, tries providers in order.
  */
 export class CompositeVerificationProvider implements DomainVerificationProvider {
   readonly method = "composite";

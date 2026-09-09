@@ -11,7 +11,7 @@ import { randomUUID } from "node:crypto";
  * Per-job transport resolution. A project's active default transport
  * (e.g. connected Gmail) moves its mail; everything else uses the global
  * default service. Gmail sends are capped per UTC day and fail closed with a
- * permanent, explainable error — never silently, never over Google's limits.
+ * permanent, explainable error, never silently, never over Google's limits.
  */
 async function resolveEmailService(
   projectId: string,
@@ -40,7 +40,7 @@ async function resolveEmailService(
     );
     if (!chosen || chosen.type !== "gmail" || !chosen.encryptedCredentials) return fallback;
 
-    // Daily cap: count today's sends for this project (conservative — any transport).
+    // Daily cap: count today's sends for this project (conservative, any transport).
     const cap = chosen.dailyCap ?? GMAIL_FREE_DAILY_CAP;
     const { emails } = await import("@calder/db");
     const { gte, and, count } = await import("drizzle-orm");
@@ -72,7 +72,7 @@ async function resolveEmailService(
     if (err instanceof Error && (err as { code?: string }).code === "gmail_cap") {
       throw err;
     }
-    jobLogger.warn({ err }, "Transport resolution failed — using default provider");
+    jobLogger.warn({ err }, "Transport resolution failed, using default provider");
     return fallback;
   }
 }
@@ -84,7 +84,7 @@ interface EmailJobData {
 
 function getProvider() {
   // Last-mile providers only. Internal (dogfood) mail enters upstream at
-  // enqueue time — routing ALL jobs through a self-calling provider here
+  // enqueue time, routing ALL jobs through a self-calling provider here
   // would recurse (worker → API → queue → worker). See docs/SYSTEM-EXPLAINED.md.
   // Use SES if AWS creds are present, otherwise mock
   if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
@@ -98,7 +98,7 @@ function getProvider() {
 export async function startWorker() {
   const defaultService = createEmailService(getProvider());
 
-  // Shared queue — InMemory for scaffold; RedisQueue in production
+  // Shared queue, InMemory for scaffold; RedisQueue in production
   const queue = createQueue<EmailJobData>("email:send", { maxAttempts: 5 });
 
   queue.process(async (job: QueueJob<EmailJobData>) => {
@@ -159,10 +159,10 @@ export async function startWorker() {
       // In-memory fallback for scaffold without DB (API's memoryEmails not shared across processes;
       // for single-process dev where API and worker share queue, we need to fetch via HTTP or shared store.
       // For scaffold vertical slice, if email not found in DB, we simulate with job data.
-      // In production, email MUST exist in DB — this is a scaffold resilience fallback.
+      // In production, email MUST exist in DB, this is a scaffold resilience fallback.
       if (!email) {
         jobLogger.warn("Email record not found in DB; using job data as fallback (scaffold mode)");
-        // Create a synthetic email for mock provider to process — not persisted
+        // Create a synthetic email for mock provider to process, not persisted
         email = {
           id: emailId,
           from: "scaffold@calder.dev",
@@ -230,9 +230,9 @@ export async function startWorker() {
       } catch (persistErr) {
         jobLogger.error(
           { err: persistErr },
-          "Failed to persist sent event — email was sent but event not recorded"
+          "Failed to persist sent event, email was sent but event not recorded"
         );
-        // Don't throw — provider succeeded; we log and continue. Event persistence will be retried via reconciliation.
+        // Don't throw, provider succeeded; we log and continue. Event persistence will be retried via reconciliation.
       }
     } catch (err) {
       const transient = isTransientError(err);
@@ -243,7 +243,7 @@ export async function startWorker() {
       );
 
       if (!transient) {
-        // Permanent failure — mark as failed, emit webhook, don't retry indefinitely
+        // Permanent failure, mark as failed, emit webhook, don't retry indefinitely
         try {
           const { getDb, emails, emailEvents } = await import("@calder/db");
           const { eq } = await import("drizzle-orm");
@@ -266,10 +266,10 @@ export async function startWorker() {
         } catch (persistErr) {
           logger.error({ err: persistErr }, "Failed to persist failed event");
         }
-        return; // don't rethrow — permanent failure handled
+        return; // don't rethrow, permanent failure handled
       }
 
-      // Transient — if attempts remain, rethrow to trigger retry with backoff
+      // Transient, if attempts remain, rethrow to trigger retry with backoff
       if (job.attempts + 1 < job.maxAttempts) {
         const delay = getRetryDelay(job.attempts);
         logger.info(
@@ -279,10 +279,10 @@ export async function startWorker() {
         throw err; // queue will re-enqueue with backoff
       }
 
-      // Exhausted — dead-letter
+      // Exhausted, dead-letter
       logger.error(
         { emailId, attempts: job.maxAttempts },
-        "Email job exhausted — moving to dead-letter"
+        "Email job exhausted, moving to dead-letter"
       );
       try {
         const { getDb, emails, emailEvents } = await import("@calder/db");

@@ -1,5 +1,5 @@
 /**
- * Application error model — consistent public API error shape.
+ * Application error model, consistent public API error shape.
  * Never expose stack traces or provider secrets.
  */
 

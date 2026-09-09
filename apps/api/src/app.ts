@@ -30,7 +30,7 @@ export interface Env {
 export function createApp() {
   const app = new Hono<Env>();
 
-  // Global middleware — order matters
+  // Global middleware, order matters
   app.use("*", securityHeaders);
   app.use("*", requestIdMiddleware);
   app.use("*", loggerMiddleware);

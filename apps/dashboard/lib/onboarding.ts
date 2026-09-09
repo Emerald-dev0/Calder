@@ -14,7 +14,7 @@ export const USE_CASES = [
   "Receipts & invoices",
   "Notifications",
   "Invitations",
-  "Marketing (don't — we're transactional-only)",
+  "Marketing (don't, we're transactional-only)",
 ] as const;
 
 export type UseCase = (typeof USE_CASES)[number];

@@ -12,7 +12,7 @@ health.get("/ready", async (c) => {
   const checks: Record<string, string> = {};
   let ready = true;
 
-  // DB check — try to query if DATABASE_URL available and not in test mock bypass
+  // DB check, try to query if DATABASE_URL available and not in test mock bypass
   try {
     if (process.env.DATABASE_URL) {
       // Lightweight check: we don't actually connect in scaffold if no DB

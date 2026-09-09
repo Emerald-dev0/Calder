@@ -1,7 +1,7 @@
 import type { EmailProvider, ProviderSendResult } from "./provider";
 
 /**
- * EmailTransport — what actually moves a message toward an inbox.
+ * EmailTransport, what actually moves a message toward an inbox.
  *
  * Extends EmailProvider (same send contract, so transports stay drop-in
  * compatible with the existing pipeline) with the metadata the system needs
@@ -38,7 +38,7 @@ export interface EmailTransport extends EmailProvider {
 }
 
 /** Conservative Gmail caps: free accounts allow 500/day, Workspace 2000/day.
- *  We stay well under both — Gmail is the on-ramp, not bulk infrastructure. */
+ * We stay well under both, Gmail is the on-ramp, not bulk infrastructure. */
 export const GMAIL_FREE_DAILY_CAP = 400;
 export const GMAIL_WORKSPACE_DAILY_CAP = 1500;
 
@@ -57,7 +57,7 @@ export interface TransportRecord {
 /**
  * Pure selection: the active default wins; otherwise no transport (caller
  * falls back to the global SES/mock provider). Suspended/revoked rows never
- * send, even if marked default — fail closed.
+ * send, even if marked default, fail closed.
  */
 export function pickDefaultTransport(rows: TransportRecord[]): TransportRecord | null {
   const active = rows.filter((r) => r.status === "active");

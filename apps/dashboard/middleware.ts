@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // Mirrors SESSION_COOKIE from @calder/auth. Deliberately not imported: the
 // barrel pulls node:crypto (via api-keys) which cannot bundle for the Edge
-// runtime this middleware runs on. Keep in sync by hand — it changes never.
+// runtime this middleware runs on. Keep in sync by hand, it changes never.
 const SESSION_COOKIE = "calder_session";
 
 /**

@@ -1,5 +1,5 @@
 /**
- * Calder Design Tokens — Editorial Infrastructure
+ * Calder Design Tokens, Editorial Infrastructure
  * Base: Ink/Paper/Surface/Muted + Calder Blue accent (signal, not wallpaper)
  */
 
@@ -8,11 +8,11 @@ export const colors = {
   paper: "#F5F4EF",
   surface: "#FFFFFF",
   muted: "#737373",
-  // Calder Blue — sophisticated cobalt, used sparingly
+  // Calder Blue, sophisticated cobalt, used sparingly
   calderBlue: "#1E3A8A",
   calderBlueLight: "#3B82F6",
   calderBlueMuted: "#DBEAFE",
-  // Signal Blue — canonical brand accent per the identity board
+  // Signal Blue, canonical brand accent per the identity board
   // (docs/brand-board.png). Reserved for the mark's dot and dark-surface accents.
   signal: "#3D5AFE",
   border: "#E5E5E5",
