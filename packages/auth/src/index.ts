@@ -19,7 +19,7 @@ export {
   type GmailConnectStart,
   type GmailConnectTokens,
 } from "./gmail-connect";
-export { ensureFounderAccess } from "./oauth";
+export { ensureFounderAccess, acceptPendingInvites } from "./oauth";
 export {
   startOAuth,
   completeOAuth,
