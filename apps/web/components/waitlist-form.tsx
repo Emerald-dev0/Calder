@@ -92,8 +92,8 @@ function TicketCard({ ticket, fresh }: { ticket: Ticket; fresh: boolean }) {
         <div>
           <p className="caption" style={{ margin: "0 0 4px" }}>
             {ticket.referrals === 0
-              ? "Friends who join with your link jump behind you — everyone they bring jumps behind them."
-              : `${ticket.referrals} ${ticket.referrals === 1 ? "friend" : "friends"} joined with your link.`}
+              ? "Anyone who joins with your link queues behind you — and everyone they bring queues behind them."
+              : `${ticket.referrals} ${ticket.referrals === 1 ? "person" : "people"} joined with your link.`}
           </p>
           <p className="mono ticket-link">{referralLink}</p>
         </div>

@@ -1,5 +1,5 @@
 import { randomBytes, createCipheriv, createDecipheriv, createHash } from "node:crypto";
-import { getConfig } from "@avenor/config";
+import { getConfig } from "@calder/config";
 
 /**
  * Envelope encryption for recoverable secrets (webhook signing secrets,

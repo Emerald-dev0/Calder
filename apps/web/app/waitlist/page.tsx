@@ -8,7 +8,7 @@ import { Reveal } from "../../components/reveal";
 export const metadata: Metadata = {
   title: "Waitlist — Calder",
   description:
-    "Join the Calder early-access waitlist. Take a number, bring your friends, get your API key first.",
+    "Join the Calder early-access waitlist. Take a number, share your link, get your API key first.",
 };
 
 const NEXT_STEPS = [
@@ -17,8 +17,8 @@ const NEXT_STEPS = [
     "One email, one seat. Your position is computed live from real signups — no vanity numbers.",
   ],
   [
-    "Bring your friends",
-    "Every friend who joins with your link queues behind you. Early users shape the API.",
+    "Share your link",
+    "Everyone who joins with your link queues behind you. Early users shape the API.",
   ],
   [
     "Get your key first",
