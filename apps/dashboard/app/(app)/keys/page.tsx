@@ -38,7 +38,10 @@ export default async function KeysPage({ searchParams }: { searchParams: { proje
         }}
       >
         {keys.length === 0 && (
-          <p style={{ padding: 20, color: "#737373", fontSize: 14, margin: 0 }}>No keys yet.</p>
+          <p style={{ padding: 20, color: "#737373", fontSize: 14, margin: 0 }}>
+            No keys yet. Create a test key above — it runs the full pipeline with nothing actually
+            delivered.
+          </p>
         )}
         {keys.map((k, i) => (
           <div

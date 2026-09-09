@@ -8,18 +8,23 @@ export const metadata: Metadata = {
     "Send your first Calder email with no domain: connect Gmail via OAuth and use the same API as everyone else.",
 };
 
-const CODE = `npm install calder
-
-import { Calder } from "calder";
-
-const calder = new Calder(process.env.CALDER_API_KEY);
-
-await calder.emails.send({
-  from: "myproject@gmail.com", // your connected address
-  to: "customer@example.com",
-  subject: "Welcome!",
-  html: "<h1>Welcome!</h1>",
-});`;
+const CODE = `// Node 18+, no dependencies
+const res = await fetch("https://api.calder.com/v1/emails", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer calder_sk_test_…",
+    "Idempotency-Key": crypto.randomUUID(),
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    from: "myproject@gmail.com", // your connected address
+    to: "customer@example.com",
+    subject: "Welcome!",
+    html: "<h1>Welcome!</h1>",
+  }),
+});
+console.log(res.status); // 202 — queued
+// SDKs (npm install calder) land with v1; this API is stable now.`;
 
 export default function GmailQuickstart() {
   return (
@@ -32,38 +37,44 @@ export default function GmailQuickstart() {
 
       <h2>1. Connect Gmail</h2>
       <p>
-        In your project dashboard, choose <b>Connect Gmail</b>. Google asks for one permission —
-        sending mail on your behalf — and nothing else. We never see, ask for, or store your Google
-        password; the authorization token is encrypted at rest and you can revoke it anytime from
-        either side.
+        In your project dashboard, choose <b>Connect Gmail</b> (rolling out to early access projects
+        now). Google asks for one permission — sending mail on your behalf — and nothing else. We
+        never see, ask for, or store your Google password; the authorization token is encrypted at
+        rest and you can revoke it anytime from either side.
       </p>
 
       <h2>2. Send exactly like everyone else</h2>
       <CodeBlock title="send.mjs" copyText={CODE}>
-        <span className="tok-dim">$</span> <span className="tok-key">npm install calder</span>
-        {"\n\n"}
-        <span className="tok-key">import</span> <span className="tok-punct">{"{ Calder }"}</span>{" "}
-        <span className="tok-key">from</span> <span className="tok-str">&quot;calder&quot;</span>;
+        <span className="tok-dim">{"// Node 18+, no dependencies"}</span>
         {"\n"}
-        <span className="tok-key">const</span> <span className="tok-path">calder</span>{" "}
-        <span className="tok-dim">=</span> <span className="tok-key">new</span>{" "}
-        <span className="tok-path">Calder</span>(
-        <span className="tok-path">process.env.CALDER_API_KEY</span>);
-        {"\n\n"}
-        <span className="tok-key">await</span> <span className="tok-path">calder.emails.send</span>(
+        <span className="tok-key">const</span> <span className="tok-path">res</span>{" "}
+        <span className="tok-dim">=</span> <span className="tok-key">await</span>{" "}
+        <span className="tok-method">fetch</span>(
+        <span className="tok-str">&quot;https://api.calder.com/v1/emails&quot;</span>,{" "}
         <span className="tok-punct">{"{"}</span>
         {"\n"}
-        &nbsp;&nbsp;<span className="tok-key">from</span>:{" "}
+        &nbsp;&nbsp;<span className="tok-key">method</span>:{" "}
+        <span className="tok-str">&quot;POST&quot;</span>,{"\n"}
+        &nbsp;&nbsp;<span className="tok-key">headers</span>:{" "}
+        <span className="tok-punct">{"{"}</span>{" "}
+        <span className="tok-dim">{"/* key + Idempotency-Key */"}</span>{" "}
+        <span className="tok-punct">{"}"}</span>,{"\n"}
+        &nbsp;&nbsp;<span className="tok-key">body</span>:{" "}
+        <span className="tok-method">JSON.stringify</span>(<span className="tok-punct">{"{"}</span>
+        {"\n"}
+        &nbsp;&nbsp;&nbsp;&nbsp;<span className="tok-key">from</span>:{" "}
         <span className="tok-str">&quot;myproject@gmail.com&quot;</span>,{" "}
         <span className="tok-dim">{"// your connected address"}</span>
         {"\n"}
-        &nbsp;&nbsp;<span className="tok-key">to</span>:{" "}
-        <span className="tok-str">&quot;customer@example.com&quot;</span>,{"\n"}
-        &nbsp;&nbsp;<span className="tok-key">subject</span>:{" "}
-        <span className="tok-str">&quot;Welcome!&quot;</span>,{"\n"}
-        &nbsp;&nbsp;<span className="tok-key">html</span>:{" "}
-        <span className="tok-str">&quot;&lt;h1&gt;Welcome!&lt;/h1&gt;&quot;</span>,{"\n"}
+        &nbsp;&nbsp;&nbsp;&nbsp;<span className="tok-key">to</span>:{" "}
+        <span className="tok-str">&quot;customer@example.com&quot;</span>,{" "}
+        <span className="tok-dim">{"/* subject, html */"}</span>
+        {"\n"}
+        &nbsp;&nbsp;<span className="tok-punct">{"}"}</span>),
+        {"\n"}
         <span className="tok-punct">{"}"}</span>);
+        {"\n"}
+        <span className="tok-dim">{"// 202 — queued. SDKs land with v1."}</span>
       </CodeBlock>
 
       <h2>3. Know the limits (they&rsquo;re the point)</h2>

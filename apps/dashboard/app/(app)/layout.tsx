@@ -28,51 +28,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const showAdmin = isFounder(ctx.user.email);
   const visibleNav = NAV.filter((item) => !("founder" in item) || showAdmin);
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
-      <aside
-        style={{ width: 240, borderRight: "1px solid #E5E5E5", padding: 24, background: "#fff" }}
-      >
+    <div className="dash-shell">
+      <aside className="dash-sidebar">
         <p style={{ fontWeight: 700, fontSize: 18, margin: "0 0 4px" }}>Calder</p>
-        <p
-          className="mono"
-          style={{
-            fontSize: 11,
-            color: "#737373",
-            margin: "0 0 20px",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-          title={ctx.user.email}
-        >
+        <p className="mono dash-email" title={ctx.user.email}>
           {ctx.user.email}
         </p>
-        <nav style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 14 }}>
+        <nav aria-label="Dashboard" className="dash-nav">
           {visibleNav.map((item) =>
             item.href ? (
-              <Link
-                key={item.label}
-                href={item.href}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 6,
-                  textDecoration: "none",
-                  color: "#0B0C0E",
-                }}
-              >
+              <Link key={item.label} href={item.href} className="dash-link">
                 {item.label}
               </Link>
             ) : (
-              <span
-                key={item.label}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 6,
-                  color: "#B5B5B5",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
+              <span key={item.label} className="dash-link dash-soon">
                 {item.label}
                 <span className="mono" style={{ fontSize: 10 }}>
                   soon
@@ -82,22 +51,46 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           )}
         </nav>
         <form action="/api/auth/logout" method="POST" style={{ marginTop: 24 }}>
-          <button
-            type="submit"
-            style={{
-              background: "none",
-              border: "none",
-              padding: "8px 12px",
-              fontSize: 14,
-              color: "#737373",
-              cursor: "pointer",
-            }}
-          >
+          <button type="submit" className="dash-signout">
             Sign out
           </button>
         </form>
       </aside>
-      <main style={{ flex: 1, padding: 32 }}>{children}</main>
+      <div className="dash-main-col">
+        <header className="dash-topbar">
+          <span style={{ fontWeight: 700 }}>Calder</span>
+          <span className="mono dash-topbar-email" title={ctx.user.email}>
+            {ctx.user.email}
+          </span>
+          <form action="/api/auth/logout" method="POST">
+            <button type="submit" className="dash-logout dash-logout-compact" aria-label="Sign out">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path
+                  d="M6 3H3v10h3M10 5l3 3-3 3M13 8H6"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </form>
+        </header>
+        <nav aria-label="Dashboard" className="dash-tabs">
+          {visibleNav.map((item) =>
+            item.href ? (
+              <Link key={item.label} href={item.href} className="dash-tab">
+                {item.label}
+              </Link>
+            ) : (
+              <span key={item.label} className="dash-tab dash-soon">
+                {item.label}
+              </span>
+            )
+          )}
+        </nav>
+        <main className="dash-main">{children}</main>
+      </div>
     </div>
   );
 }

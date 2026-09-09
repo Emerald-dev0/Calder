@@ -64,7 +64,7 @@ a {
 /* ── Type roles ─────────────────────────────────────────────── */
 
 .display {
-  font-size: clamp(2.9rem, 7vw, 5.4rem);
+  font-size: clamp(2.55rem, 7vw, 5.4rem);
   line-height: 1.02;
   letter-spacing: -0.032em;
   font-weight: 700;
@@ -242,8 +242,8 @@ a {
     background: none;
     border: 1px solid var(--border);
     border-radius: 8px;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     align-items: center;
     justify-content: center;
     cursor: pointer;
@@ -802,6 +802,14 @@ a {
   border-radius: 18px;
   padding: 1.4rem;
   min-height: 220px;
+  min-width: 0;
+}
+
+/* Inline scene illustrations fill their panel at every size. */
+.ed-visual > svg {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 @media (max-width: 860px) {
@@ -1767,6 +1775,52 @@ a {
   border-collapse: collapse;
   margin: 1.2rem 0;
   font-size: 0.9rem;
+}
+
+/* Wide comparison/reference tables scroll inside their container instead of
+   breaking page width. Cell-only borders keep rendering intact. */
+.docs-table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 640px) {
+  .docs-table {
+    font-size: 0.8rem;
+  }
+  .docs-table th,
+  .docs-table td {
+    padding: 0.5rem 0.6rem;
+  }
+  .minilog-row .time {
+    display: none;
+  }
+  .price-card {
+    padding: 1.4rem 1.2rem;
+  }
+  .send-states,
+  .send-request {
+    padding: 1.1rem;
+  }
+  .pipeline {
+    padding: 1.25rem;
+  }
+  .waitlist-row {
+    flex-direction: column;
+  }
+  .waitlist-row .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .docs-top-links > a:not(.btn) {
+    display: none;
+  }
+  .hero-ctas .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
 }
 
 .docs-table th,

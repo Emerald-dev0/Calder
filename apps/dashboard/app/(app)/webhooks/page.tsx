@@ -43,7 +43,8 @@ export default async function WebhooksPage({
       >
         {hooks.length === 0 && (
           <p style={{ padding: 20, color: "#737373", fontSize: 14, margin: 0 }}>
-            No endpoints yet.
+            No endpoints yet. Add your URL above — deliveries, bounces, and opens will start
+            arriving as signed events.
           </p>
         )}
         {hooks.map((w, i) => (

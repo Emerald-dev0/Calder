@@ -17,7 +17,8 @@ export function ProductTour() {
           </h2>
           <p className="lede" style={{ marginTop: "1.2rem" }}>
             Providers, DNS, queues, retries, webhooks, suppression, billing — the fragmented mess
-            the PRD people complain about, already assembled into one dashboard and one API.
+            scattered across providers, DNS consoles, queues you built yourself, and billing
+            spreadsheets — already assembled into one dashboard and one API.
           </p>
         </Reveal>
 
