@@ -200,6 +200,10 @@ re-runnable, resumable. Server actions enforce membership on every step.
   org settings page (invite with shareable link, role changes, removal, last-
   owner guards) + public `/invite/[token]` accept page. Invite email delivery
   rides the next campaign or manual share — no separate mailer yet.
+- **Admin analytics v2:** zero-dependency SVG charts (30-day sends line,
+  cumulative waitlist line, events-by-type bars) + audit-trail feed (team
+  actions now write `audit_logs`; feed honestly empty-states otherwise).
+  Verified rendered live (200, SVGs present). Founder gate + hidden nav.
 - **Admin analytics** (`/admin`, founder-only via `FOUNDER_EMAILS` + hidden nav
   for others): live platform totals (emails, users, paid subs, waitlist),
   delivery-health failure feed, waitlist table. Crash reporting (Sentry) still
