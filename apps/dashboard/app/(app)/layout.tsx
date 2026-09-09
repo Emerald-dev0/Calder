@@ -1,5 +1,14 @@
 import Link from "next/link";
+import { getConfig } from "@calder/config";
 import { getTenantContext } from "../../lib/auth";
+
+function isFounder(email: string): boolean {
+  const founders = (getConfig().FOUNDER_EMAILS ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return founders.includes(email.toLowerCase());
+}
 
 const NAV = [
   { label: "Overview", href: "/" },
@@ -10,11 +19,14 @@ const NAV = [
   { label: "Webhooks", href: "/webhooks" },
   { label: "Usage", href: "/usage" },
   { label: "Billing", href: null },
-  { label: "Settings", href: null },
+  { label: "Settings", href: "/settings" },
+  { label: "Admin", href: "/admin", founder: true },
 ] as const;
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getTenantContext();
+  const showAdmin = isFounder(ctx.user.email);
+  const visibleNav = NAV.filter((item) => !("founder" in item) || showAdmin);
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <aside
@@ -35,7 +47,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {ctx.user.email}
         </p>
         <nav style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 14 }}>
-          {NAV.map((item) =>
+          {visibleNav.map((item) =>
             item.href ? (
               <Link
                 key={item.label}

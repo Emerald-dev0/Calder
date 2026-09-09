@@ -1,7 +1,14 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { Google, GitHub, generateState, generateCodeVerifier } from "arctic";
 import { eq, and } from "drizzle-orm";
-import { getDb, users, oauthAccounts, organizations, organizationMembers } from "@calder/db";
+import {
+  getDb,
+  users,
+  oauthAccounts,
+  organizations,
+  organizationMembers,
+  orgInvitations,
+} from "@calder/db";
 import { getConfig } from "@calder/config";
 import { createSession } from "./session";
 
@@ -194,8 +201,42 @@ export async function completeOAuth(
   }
 
   await ensureFounderAccess(db, userId, profile.email);
+  await acceptPendingInvites(db, userId, profile.email);
 
   return createSession(userId);
+}
+
+/**
+ * Invite auto-accept: any pending, unexpired invitation matching this email
+ * becomes a membership on login/signup. Idempotent (unique index guards
+ * double-accept); expired or already-accepted rows are ignored.
+ */
+export async function acceptPendingInvites(
+  db: ReturnType<typeof getDb>,
+  userId: string,
+  email: string
+): Promise<string[]> {
+  const now = new Date();
+  const pending = await db
+    .select()
+    .from(orgInvitations)
+    .where(eq(orgInvitations.email, email.toLowerCase()));
+  const accepted: string[] = [];
+  for (const inv of pending) {
+    if (inv.acceptedAt || inv.expiresAt < now) continue;
+    await db
+      .insert(organizationMembers)
+      .values({
+        id: newId("orgm"),
+        organizationId: inv.organizationId,
+        userId,
+        role: inv.role,
+      })
+      .onConflictDoNothing();
+    await db.update(orgInvitations).set({ acceptedAt: now }).where(eq(orgInvitations.id, inv.id));
+    accepted.push(inv.organizationId);
+  }
+  return accepted;
 }
 
 /**

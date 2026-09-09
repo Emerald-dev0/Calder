@@ -195,6 +195,16 @@ re-runnable, resumable. Server actions enforce membership on every step.
 - **Blog is MDX-driven:** registry (`posts.ts`) + one `.mdx` per post + dynamic
   `[slug]` route (+ redirect for the old slug). New post → registry entry +
   file, then notify waitlist via the admin broadcast (manual, founder-curated).
+- **Team features:** `org_invitations` (migration 0006, email-first, hashed
+  tokens, 7-day expiry) + auto-accept on any login email match (idempotent) +
+  org settings page (invite with shareable link, role changes, removal, last-
+  owner guards) + public `/invite/[token]` accept page. Invite email delivery
+  rides the next campaign or manual share — no separate mailer yet.
+- **Admin analytics** (`/admin`, founder-only via `FOUNDER_EMAILS` + hidden nav
+  for others): live platform totals (emails, users, paid subs, waitlist),
+  delivery-health failure feed, waitlist table. Crash reporting (Sentry) still
+  pending — stated on the page, not faked. Founder `oluwadare458@gmail.com`
+  claimed owner of org `avenor` live in dev.
   Requires `@next/mdx@14` + `@mdx-js/{loader,react}` + `@types/mdx` (pinned to
   Next 14 — latest `@next/mdx` targets Next 16 and breaks the build).
 - **Resend parity note:** Resend login = Google + GitHub + email/password

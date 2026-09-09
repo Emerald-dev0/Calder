@@ -14,6 +14,7 @@ export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (
     pathname.startsWith("/login") ||
+    pathname.startsWith("/invite/") ||
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/_next/") ||
     pathname === "/favicon.svg" ||

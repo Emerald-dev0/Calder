@@ -19,11 +19,18 @@ async function reachable(): Promise<boolean> {
 }
 
 gate("auth integration (live Postgres)", async () => {
-  const { randomBytes } = await import("node:crypto");
-  const { getDb, users, sessions, organizationMembers } = await import("@calder/db");
+  const { randomBytes, createHash } = await import("node:crypto");
+  const { getDb, users, sessions, organizationMembers, organizations, orgInvitations } =
+    await import("@calder/db");
   const { eq } = await import("drizzle-orm");
-  const { createSession, getSessionUser, revokeSession, sealSessionCookie, ensureFounderAccess } =
-    await import("./index");
+  const {
+    createSession,
+    getSessionUser,
+    revokeSession,
+    sealSessionCookie,
+    ensureFounderAccess,
+    acceptPendingInvites,
+  } = await import("./index");
 
   const email = `itest-${randomBytes(4).toString("hex")}@test.test`;
   const founderEmail = `founder-${randomBytes(4).toString("hex")}@test.test`;
@@ -106,5 +113,60 @@ gate("auth integration (live Postgres)", async () => {
       .from(organizationMembers)
       .where(eq(organizationMembers.userId, userId));
     expect(plain.some((r) => r.organizationId === "org_avenor")).toBe(false);
+  });
+
+  it("accepts pending invites on login email match, ignores the rest", async () => {
+    if (!(await reachable())) return;
+    const db = getDb();
+    const orgId = `org_itest_${randomBytes(4).toString("hex")}`;
+    await db
+      .insert(organizations)
+      .values({ id: orgId, name: "Invite Test", slug: `itest-${randomBytes(4).toString("hex")}` });
+    const inviteEmail = `invited-${randomBytes(4).toString("hex")}@test.test`;
+    const inviteUserId = `usr_itest_${randomBytes(4).toString("hex")}`;
+    await db.insert(users).values({ id: inviteUserId, email: inviteEmail });
+    await db.insert(orgInvitations).values({
+      id: `inv_itest_${randomBytes(4).toString("hex")}`,
+      organizationId: orgId,
+      email: inviteEmail,
+      role: "admin",
+      tokenHash: createHash("sha256").update("test-token").digest("hex"),
+      expiresAt: new Date(Date.now() + 3600_000),
+    });
+    // Stale invite for someone else must not attach.
+    await db.insert(orgInvitations).values({
+      id: `inv_itest_${randomBytes(4).toString("hex")}`,
+      organizationId: orgId,
+      email: `stranger-${randomBytes(4).toString("hex")}@test.test`,
+      role: "member",
+      tokenHash: createHash("sha256").update("other-token").digest("hex"),
+      expiresAt: new Date(Date.now() + 3600_000),
+    });
+
+    const accepted = await acceptPendingInvites(db, inviteUserId, inviteEmail);
+    expect(accepted).toEqual([orgId]);
+    const membership = await db
+      .select()
+      .from(organizationMembers)
+      .where(eq(organizationMembers.userId, inviteUserId));
+    expect(membership.some((m) => m.organizationId === orgId && m.role === "admin")).toBe(true);
+
+    // Re-run is idempotent — no duplicate membership.
+    await acceptPendingInvites(db, inviteUserId, inviteEmail);
+    const again = await db
+      .select()
+      .from(organizationMembers)
+      .where(eq(organizationMembers.userId, inviteUserId));
+    expect(again.filter((m) => m.organizationId === orgId)).toHaveLength(1);
+
+    // Cleanup (org cascade clears members + invites).
+    await db
+      .delete(users)
+      .where(eq(users.id, inviteUserId))
+      .catch(() => {});
+    await db
+      .delete(organizations)
+      .where(eq(organizations.id, orgId))
+      .catch(() => {});
   });
 });

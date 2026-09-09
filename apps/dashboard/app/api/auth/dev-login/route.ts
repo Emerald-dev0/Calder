@@ -6,6 +6,7 @@ import { getConfig } from "@calder/config";
 import {
   createSession,
   ensureFounderAccess,
+  acceptPendingInvites,
   sealSessionCookie,
   sessionCookieHeader,
 } from "@calder/auth";
@@ -44,6 +45,7 @@ export async function POST(req: Request): Promise<Response> {
     await db.insert(users).values({ id: userId, email, emailVerifiedAt: new Date() });
   }
   await ensureFounderAccess(db, userId, email);
+  await acceptPendingInvites(db, userId, email);
 
   const sessionId = await createSession(userId);
   const sealed = await sealSessionCookie(sessionId);
