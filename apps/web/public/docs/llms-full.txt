@@ -1,4 +1,4 @@
-Calder — full documentation for LLMs. Mirrors /docs. Regenerate by hand when docs change.
+Calder, full documentation for LLMs. Mirrors /docs. Regenerate by hand when docs change.
 
 WHAT CALDER IS
 Transactional email infrastructure: one endpoint in, delivered events out.
@@ -20,7 +20,7 @@ DOMAINS
 POST /v1/domains {domain} → token + records. Create SPF/DKIM/DMARC TXT records,
 POST /v1/domains/:id/verify (polls with backoff, specific failure reasons).
 Continuous re-verification. Hosted (Vercel etc.) verification maps to an
-Calder-managed subdomain — project ownership, not DNS control.
+Calder-managed subdomain, project ownership, not DNS control.
 
 API KEYS
 calder_sk_test_… (simulate, unmetered) vs calder_sk_live_… (deliver, metered).
@@ -45,8 +45,8 @@ entries supported, reversible, audited.
 
 USAGE & BILLING
 Billable = one 202. Webhooks/reads/retries/test traffic free. Aggregated from
-durable records. Plans: Free 3,000/mo; Starter ₦5,000/$7 25,000; Pro
-₦12,000/$15 100,000; Scale ₦45,000/$50 500,000. Hard limits, no overages.
+durable records. Plans: Free 3, 000/mo; Starter ₦5, 000/$7 25, 000; Pro
+₦12, 000/$15 100, 000; Scale ₦45, 000/$50 500, 000. Hard limits, no overages.
 
 TEMPLATES (soon) / OTP (soon)
 Not shipped. Templates: versioned, variables, previews (planned). OTP: managed
@@ -67,7 +67,7 @@ Same concepts, mechanical steps: provider.emails.send() → POST /v1/emails
 (same fields, 202 + {id, status} instead of 200 + {id}); add Idempotency-Key
 on the move; re-register webhook endpoints + secrets; export suppression lists
 and re-import; run both providers in parallel, flip per project, then cancel.
-Broadcast suites have no equivalent — transactional only, by design.
+Broadcast suites have no equivalent, transactional only, by design.
 
 SECURITY (developer summary)
 Env/secret-manager keys, never client/git. Test/live cryptographically distinct.

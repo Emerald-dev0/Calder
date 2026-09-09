@@ -5,5 +5,5 @@ import type { MDXComponents } from "mdx/types";
  * so blog posts inherit the same typography as the rest of the site.
  */
 export function useMDXComponents(components: MDXComponents): MDXComponents {
-  return { ...components };
+ return { ...components };
 }

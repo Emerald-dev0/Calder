@@ -1,23 +1,23 @@
-# Calder — Design System & Art Direction
+# Calder, Design System & Art Direction
 
 Read before touching any visible UI: marketing site, dashboard, email templates, or shared components in `packages/ui`.
 
 ## 0. Design principle (locked)
 
-**Editorial Infrastructure** — technical precision with restrained, cinematic art direction.
+**Editorial Infrastructure**, technical precision with restrained, cinematic art direction.
 
 The feeling: _"This is serious infrastructure, but someone with exceptional taste designed it."_
 Not: _"This is another developer SaaS dashboard."_
 
 Every page must have an articulable visual idea. "It's just a dashboard" is not sufficient.
 
-| Surface     | Visual idea                                         |
+| Surface | Visual idea |
 | ----------- | --------------------------------------------------- |
-| Homepage    | Invisible communication infrastructure made visible |
-| Pricing     | Simple, predictable infrastructure economics        |
-| Docs        | Clarity and speed                                   |
-| Status page | Trust through transparency                          |
-| Onboarding  | From zero to first successful delivery              |
+| Homepage | Invisible communication infrastructure made visible |
+| Pricing | Simple, predictable infrastructure economics |
+| Docs | Clarity and speed |
+| Status page | Trust through transparency |
+| Onboarding | From zero to first successful delivery |
 
 ## 1. Personality
 
@@ -32,13 +32,13 @@ Restraint + strong concept + meaningful motion over decoration.
 Maximum two primary typefaces, plus an optional monospace for technical metadata only.
 
 ```
-DISPLAY  → distinctive (modern grotesk, or grotesk + restrained serif accent)
-BODY     → extremely readable
-MONO     → technical metadata only (IDs, timestamps, keys)
+DISPLAY → distinctive (modern grotesk, or grotesk + restrained serif accent)
+BODY → extremely readable
+MONO → technical metadata only (IDs, timestamps, keys)
 ```
 
 - Fluid typography (scales with viewport, not fixed breakpoints jumps).
-- Establish semantic type roles (`display`, `heading`, `body`, `caption`, `mono`) as design tokens — components reference roles, not raw font sizes.
+- Establish semantic type roles (`display`, `heading`, `body`, `caption`, `mono`) as design tokens, components reference roles, not raw font sizes.
 - No arbitrary font choices outside the locked type system.
 
 ## 3. Color
@@ -46,27 +46,27 @@ MONO     → technical metadata only (IDs, timestamps, keys)
 **Base palette:**
 
 ```
-Ink     #0B0C0E   (primary text / dark surfaces)
-Paper   #F5F4EF   (warm off-white background)
-Surface #FFFFFF   (cards/panels on Paper)
-Muted   #737373   (secondary text)
+Ink #0B0C0E (primary text / dark surfaces)
+Paper #F5F4EF (warm off-white background)
+Surface #FFFFFF (cards/panels on Paper)
+Muted #737373 (secondary text)
 ```
 
-**One accent** — sophisticated electric blue/cobalt ("Calder Blue"), exact hex not yet locked. Used sparingly.
+**One accent**, sophisticated electric blue/cobalt ("Calder Blue"), exact hex not yet locked. Used sparingly.
 
-**The rule: the accent is a signal, not wallpaper.** Never let the accent dominate a full section — it marks state, action, or emphasis, not decoration.
+**The rule: the accent is a signal, not wallpaper.** Never let the accent dominate a full section, it marks state, action, or emphasis, not decoration.
 
-**No purple-gradient startup palette** (`#7C3AED` / `#8B5CF6` / `#6366F1` territory) — this is explicitly the look Calder is differentiating away from.
+**No purple-gradient startup palette** (`#7C3AED` / `#8B5CF6` / `#6366F1` territory), this is explicitly the look Calder is differentiating away from.
 
-**Rendered-pixel check, not just token check:** a color can be "correct" by hex value and still read as too loud, too saturated, or too AI-startup once actually rendered (font weight, surrounding whitespace, and adjacent colors all affect perceived intensity). The visual QA loop in `AGENTS.md` exists specifically to catch this — judge screenshots, not just CSS values.
+**Rendered-pixel check, not just token check:** a color can be "correct" by hex value and still read as too loud, too saturated, or too AI-startup once actually rendered (font weight, surrounding whitespace, and adjacent colors all affect perceived intensity). The visual QA loop in `AGENTS.md` exists specifically to catch this, judge screenshots, not just CSS values.
 
 ## 4. Imagery
 
-Calder pages should never feel visually empty just because it's a developer product — but imagery requires art direction, not filler.
+Calder pages should never feel visually empty just because it's a developer product, but imagery requires art direction, not filler.
 
 **Avoid:** programmer-typing-on-laptop stock photos, server rooms, smiling-startup-team photos, generic abstract purple blobs.
 
-**Prefer:** conceptual imagery communicating movement → connection → delivery → reliability → systems. Every major image supports the page's narrative — never "find a picture to fill whitespace."
+**Prefer:** conceptual imagery communicating movement → connection → delivery → reliability → systems. Every major image supports the page's narrative, never "find a picture to fill whitespace."
 
 Formats: WebP/AVIF for raster, SVG for scalable illustration.
 
@@ -83,7 +83,7 @@ Example concept: an application → Calder → OTP/Email/Events fan-out, rendere
 
 ## 6. The Calder Signal
 
-One recurring abstract visual object representing a message moving through infrastructure — appears in favicon, loading states, hero, docs, empty states, diagrams, social graphics, 404, onboarding. Gives Calder a recognizable identity independent of the wordmark. Exact form TBD at brand-identity phase.
+One recurring abstract visual object representing a message moving through infrastructure, appears in favicon, loading states, hero, docs, empty states, diagrams, social graphics, 404, onboarding. Gives Calder a recognizable identity independent of the wordmark. Exact form TBD at brand-identity phase.
 
 ## 7. Layout & composition
 
@@ -93,9 +93,9 @@ Avoid the repeating template:
 [centered container] → [headline] → [paragraph] → [three cards] → [pricing] → [FAQ]
 ```
 
-Use editorial composition — asymmetric layouts, large type moments, product screenshots treated as artwork (not generic dashboard screenshots dropped in), progressive reveal on scroll.
+Use editorial composition, asymmetric layouts, large type moments, product screenshots treated as artwork (not generic dashboard screenshots dropped in), progressive reveal on scroll.
 
-**Visual primitives vary by content** — not everything is a rounded card with a shadow. Use flat sections, thin bordered panels, editorial text blocks, large image panels, technical diagrams, small rounded controls, and cards only where a card is actually the right shape.
+**Visual primitives vary by content**, not everything is a rounded card with a shadow. Use flat sections, thin bordered panels, editorial text blocks, large image panels, technical diagrams, small rounded controls, and cards only where a card is actually the right shape.
 
 ## 8. Motion
 
@@ -109,7 +109,7 @@ Use editorial composition — asymmetric layouts, large type moments, product sc
 
 **Rules:**
 
-- Always respect `prefers-reduced-motion` — Lenis and scroll-triggered animation degrade to instant/native behavior.
+- Always respect `prefers-reduced-motion`, Lenis and scroll-triggered animation degrade to instant/native behavior.
 - Never sacrifice performance for a visual effect.
 - Avoid scroll-jacking that fights the user's intent.
 - Keep animation GPU-friendly (transform/opacity, not layout-triggering properties).
@@ -133,10 +133,10 @@ Used by both humans and agents per the loop defined in `AGENTS.md`. Check the ac
 Same universe, different register:
 
 ```
-MARKETING (apps/web)        DASHBOARD (apps/dashboard)
-editorial                    precise
-expressive                   dense
-cinematic                    functional
+MARKETING (apps/web) DASHBOARD (apps/dashboard)
+editorial precise
+expressive dense
+cinematic functional
 ```
 
 Dashboard example feel:
@@ -146,31 +146,31 @@ Calder
 ──────────────────────────
 Overview
 
-98.92%          42,891         1.02s
-Delivery rate   Emails sent    Avg processing
+98.92% 42, 891 1.02s
+Delivery rate Emails sent Avg processing
 
 Recent activity
 ──────────────────────────
-✓ Delivered     welcome@example.com
-✓ Delivered     verification@example.com
-↻ Processing    receipt@example.com
-✕ Bounced       test@example.com
+✓ Delivered welcome@example.com
+✓ Delivered verification@example.com
+↻ Processing receipt@example.com
+✕ Bounced test@example.com
 ```
 
-Minimal decoration — density made beautiful through typography, spacing, and hierarchy, not through ornament.
+Minimal decoration, density made beautiful through typography, spacing, and hierarchy, not through ornament.
 
 ## 11. Design system layers
 
 ```
-                    CALDER
-                       │
-        ┌──────────────┼──────────────┐
-        │              │              │
-   DESIGN SYSTEM   ART DIRECTION   MOTION
-   typography       imagery         transitions (Lenis)
-   spacing          illustration    scroll
-   colors           composition     microinteraction
-   components       photography     state
+ CALDER
+ │
+ ┌──────────────┼──────────────┐
+ │ │ │
+ DESIGN SYSTEM ART DIRECTION MOTION
+ typography imagery transitions (Lenis)
+ spacing illustration scroll
+ colors composition microinteraction
+ components photography state
 ```
 
 Design system tokens live in `packages/ui` and are shared; art direction and motion choices can vary more freely by surface as long as they stay within this system.
