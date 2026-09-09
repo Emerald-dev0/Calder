@@ -30,13 +30,7 @@ const STATIC: Entry[] = [
   { path: "/status", lastmod: "2026-09-06", changeFrequency: "weekly", priority: 0.5 },
   { path: "/support", lastmod: "2026-09-06", changeFrequency: "monthly", priority: 0.5 },
   { path: "/brand", lastmod: "2026-09-06", changeFrequency: "yearly", priority: 0.4 },
-  { path: "/migrate", lastmod: "2026-09-06", changeFrequency: "monthly", priority: 0.6 },
-  {
-    path: "/alternatives/resend",
-    lastmod: "2026-09-08",
-    changeFrequency: "monthly",
-    priority: 0.8,
-  },
+  { path: "/migrate", lastmod: "2026-09-08", changeFrequency: "monthly", priority: 0.6 },
   { path: "/resources/glossary", lastmod: "2026-09-08", changeFrequency: "monthly", priority: 0.6 },
   { path: "/docs", lastmod: "2026-09-06", changeFrequency: "weekly", priority: 0.8 },
   {
@@ -104,18 +98,6 @@ const STATIC: Entry[] = [
   },
   { path: "/docs/examples", lastmod: "2026-09-06", changeFrequency: "monthly", priority: 0.5 },
   { path: "/docs/security", lastmod: "2026-09-06", changeFrequency: "monthly", priority: 0.5 },
-  {
-    path: "/docs/migrate-resend",
-    lastmod: "2026-09-06",
-    changeFrequency: "monthly",
-    priority: 0.6,
-  },
-  {
-    path: "/docs/migrate-postmark",
-    lastmod: "2026-09-06",
-    changeFrequency: "monthly",
-    priority: 0.5,
-  },
   {
     path: "/resources/glossary/email-api",
     lastmod: "2026-09-08",

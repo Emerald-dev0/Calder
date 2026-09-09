@@ -15,19 +15,22 @@ Canonical domain: **https://calder.click** (no www, https only, no trailing slas
 
 ## URL design
 
-Lowercase, hyphenated, stable: `/docs/smtp`, `/alternatives/resend`, `/resources/glossary/dkim`.
+Lowercase, hyphenated, stable: `/docs/smtp`, `/migrate`, `/resources/glossary/dkim`.
 Old blog slug (`hello-avenor`) 301s to the new one — see Redirect registry below.
 
 ## Redirect registry
 
-| From                            | To                   | Why          |
-| ------------------------------- | -------------------- | ------------ |
-| `/blog/hello-avenor`            | `/blog/hello-calder` | Rebrand slug |
-| _(add rows here, never chains)_ |                      |              |
+| From                            | To                   | Why                     |
+| ------------------------------- | -------------------- | ----------------------- |
+| `/blog/hello-avenor`            | `/blog/hello-calder` | Rebrand slug            |
+| `/alternatives/resend`          | `/migrate`           | Competitor-name removal |
+| `/docs/migrate-resend`          | `/migrate`           | Competitor-name removal |
+| `/docs/migrate-postmark`        | `/migrate`           | Competitor-name removal |
+| _(add rows here, never chains)_ |                      |                         |
 
 ## Internal linking
 
-Homepage → product → docs → glossary → comparisons → signup. Every pillar links
+Homepage → product → docs → glossary → switching guide → signup. Every pillar links
 down to guides; every guide links up to its pillar and sideways to siblings.
 Glossary terms link back into docs usage. No stuffed footer links.
 
@@ -36,7 +39,7 @@ Glossary terms link back into docs usage. No stuffed footer links.
 - **Brand:** `/`, `/about`, `/what-is-calder`, `/brand`, `/blog`, `/changelog`, `/status`
 - **Product:** `/pricing`, `/templates`, `/webhooks`, `/domains`, `/developers`, `/product/*` (as built)
 - **Docs (rank-eligible):** `/docs/*` quickstarts + guides
-- **Comparisons:** `/alternatives/resend` (honest, dated; more only with real research)
+- **Switching:** `/migrate` is provider-agnostic by policy — no named-competitor comparison pages while competitors dwarf us. Revisit only from a position of strength.
 - **Glossary:** `/resources/glossary/*` (6 terms; expand only with original definitions)
 - **Tools:** none yet — pricing calculator + DNS checker specced as next builds (real tools only)
 
@@ -50,11 +53,11 @@ humans and crawlers) + `/what-is-calder` as the canonical answer +
 ## Measurement (needs human)
 
 Claim Search Console + Bing Webmaster Tools, submit sitemap, watch: branded vs
-non-branded impressions, comparison-page traffic, docs traffic, signup
+non-branded impressions, switching-guide traffic, docs traffic, signup
 attribution. Monthly report cadence once data exists. Verification meta slots
 live in `lib/seo.ts` (`verification` field) — paste tokens, never commit secrets.
 
 ## Sitemap index (future)
 
 Single `sitemap.xml` until ~500 URLs, then split: pages/docs/blog/guides/
-glossary/tools/comparisons/alternatives. Only canonical, indexable, public URLs.
+glossary/tools. Only canonical, indexable, public URLs.

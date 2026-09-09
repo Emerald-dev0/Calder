@@ -151,16 +151,10 @@ const INDEX: Entry[] = [
     keywords: "security keys secrets signatures",
   },
   {
-    title: "Migrate from Resend",
-    href: "/docs/migrate-resend",
+    title: "Switch to Calder",
+    href: "/migrate",
     section: "Resources",
-    keywords: "migrate resend switch",
-  },
-  {
-    title: "Migrate from Postmark",
-    href: "/docs/migrate-postmark",
-    section: "Resources",
-    keywords: "migrate postmark switch server token",
+    keywords: "migrate switch move provider zero downtime",
   },
   {
     title: "Changelog",

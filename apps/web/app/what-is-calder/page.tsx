@@ -77,8 +77,8 @@ export default function WhatIsCalder() {
                     →
                   </span>
                 </Link>
-                <Link className="btn btn-secondary" href="/alternatives/resend">
-                  Compare with Resend
+                <Link className="btn btn-secondary" href="/migrate">
+                  Switch to Calder
                 </Link>
                 <Link className="btn btn-secondary" href="/pricing">
                   See pricing

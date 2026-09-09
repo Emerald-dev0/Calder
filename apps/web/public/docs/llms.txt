@@ -30,8 +30,7 @@
 ## Resources
 - Examples: /docs/examples
 - Security: /docs/security
-- Migrate from Resend: /docs/migrate-resend
-- Migrate from Postmark: /docs/migrate-postmark
+- Switch to Calder: /migrate
 - API reference: /docs/api-reference
 - Deliverability: /docs/deliverability
 

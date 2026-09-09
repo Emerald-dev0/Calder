@@ -14,9 +14,7 @@ with hard limits. Nigeria-first wedge, global ambition.
 - SMTP: https://calder.click/docs/smtp
 - Webhooks: https://calder.click/docs/webhooks
 - Deliverability: https://calder.click/docs/deliverability
-- Migrate from Resend: https://calder.click/docs/migrate-resend
-- Migrate from Postmark: https://calder.click/docs/migrate-postmark
-- Resend alternative: https://calder.click/alternatives/resend
+- Switch to Calder: https://calder.click/migrate
 - Glossary: https://calder.click/resources/glossary
 - Status: https://calder.click/status
 - Changelog: https://calder.click/changelog

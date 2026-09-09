@@ -38,8 +38,7 @@ const SECTIONS: Array<{ title: string; links: Array<{ label: string; href: strin
     links: [
       { label: "Examples", href: "/docs/examples" },
       { label: "Security", href: "/docs/security" },
-      { label: "Migrate from Resend", href: "/docs/migrate-resend" },
-      { label: "Migrate from Postmark", href: "/docs/migrate-postmark" },
+      { label: "Switch to Calder", href: "/migrate" },
       { label: "API reference", href: "/docs/api-reference" },
       { label: "Deliverability", href: "/docs/deliverability" },
       { label: "Glossary", href: "/resources/glossary" },

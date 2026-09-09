@@ -214,6 +214,10 @@ re-runnable, resumable. Server actions enforce membership on every step.
 - **Resend parity note:** Resend login = Google + GitHub + email/password
   (verified). GitHub OAuth stays: our users authenticate with GitHub daily and
   it yields verified developer emails.
+- **No-competitor-names policy:** public surface names no competitors — the
+  comparison page, provider-named migration guides, and all references were
+  removed and 301'd to the provider-agnostic `/migrate`. Internal strategy docs
+  may discuss the market; public pages never punch up by name.
 - **SEO foundation:** `docs/SEO.md` + `SEO_AUDIT.md`, `robots.ts`, `sitemap.ts`
   (53 URLs), `lib/seo.ts` (canonical/OG/Twitter helper + JSON-LD), root
   `llms.txt`, generated `og-image.png`, `scripts/seo-check.mjs` gate.

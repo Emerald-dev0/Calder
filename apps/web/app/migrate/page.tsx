@@ -5,19 +5,21 @@ import { FinalCta, Footer } from "../../components/closing";
 import { PageHero } from "../../components/page-hero";
 import { CodeBlock } from "../../components/code";
 import { Reveal } from "../../components/reveal";
+import { pageMeta } from "../../lib/seo";
 
-export const metadata: Metadata = {
-  title: "Migrate from Resend — Calder",
+export const metadata: Metadata = pageMeta({
+  title: "Switch to Calder",
   description:
-    "Move transactional sending from Resend to Calder in an afternoon. Honest differences, mechanical steps.",
-};
+    "Move transactional sending to Calder in an afternoon. Same concepts, mechanical steps, zero downtime.",
+  path: "/migrate",
+});
 
 const DIFFERENCES = [
-  ["Sends", "resend.emails.send()", "POST /v1/emails — same fields, different envelope"],
+  ["Sends", "provider.emails.send()", "POST /v1/emails — same fields, different envelope"],
   ["Response", "200 + { id }", "202 + { id, status } — async by design, not by accident"],
   ["Retries", "Your code, your problem", "Idempotency-Key — retry freely, send once"],
-  ["Webhooks", "Modular events", "Same events, plus visible retries and replay"],
-  ["Broadcasts", "Built in", "Not built, on purpose — transactional only"],
+  ["Webhooks", "Fire-and-forget events", "Same events, plus visible retries and replay"],
+  ["Broadcasts", "Often bundled in", "Not built, on purpose — transactional only"],
   ["Pricing", "USD, overages", "NGN + USD, hard limits, no surprise bills"],
 ] as const;
 
@@ -27,10 +29,10 @@ export default function MigratePage() {
       <Navigation />
       <main>
         <PageHero
-          eyebrow="Migrate"
+          eyebrow="Switch"
           title={
             <>
-              Leave Resend <em>in an afternoon.</em>
+              Move over <em>in an afternoon.</em>
             </>
           }
           lede="Same concepts, mechanical changes. Below is the honest mapping — what transfers directly, what's better here, and the one thing we deliberately don't do."
@@ -42,7 +44,7 @@ export default function MigratePage() {
                 <thead>
                   <tr>
                     <th>Concern</th>
-                    <th>Resend</th>
+                    <th>Typical provider</th>
                     <th>Calder</th>
                   </tr>
                 </thead>
@@ -65,7 +67,7 @@ export default function MigratePage() {
                 <h3>Three steps, zero downtime</h3>
                 <p>
                   Run both providers in parallel: new sends go to Calder with a fresh idempotency
-                  scheme while history drains from Resend. Verify your domain here (same DNS
+                  scheme while history drains from the old one. Verify your domain here (same DNS
                   records, new values), flip traffic project by project, then cancel.
                 </p>
                 <ul className="ed-list">
@@ -79,7 +81,7 @@ export default function MigratePage() {
                   <span className="tok-dim">{"// before"}</span>
                   {"\n"}
                   <span className="tok-key">await</span>{" "}
-                  <span className="tok-path">resend.emails.send</span>(
+                  <span className="tok-path">provider.emails.send</span>(
                   <span className="tok-punct">{"{"}</span> <span className="tok-dim">/* … */</span>{" "}
                   <span className="tok-punct">{"}"}</span>);
                   {"\n\n"}

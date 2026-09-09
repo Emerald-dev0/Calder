@@ -62,13 +62,14 @@ RATE LIMITS
 Sending 100/min, verification 10/min, auth 20/min, OTP 5/min. 429s carry
 limit/remaining/reset/Retry-After.
 
-MIGRATION
-Resend: resend.emails.send() → POST /v1/emails; 200+{id} → 202+{id,status};
-add Idempotency-Key; broadcasts have no equivalent (transactional-only).
-Postmark: X-Postmark-Server-Token → Bearer key; /email fields map near-1:1;
-streams unnecessary (single reputation pool).
+MIGRATION (/migrate)
+Same concepts, mechanical steps: provider.emails.send() → POST /v1/emails
+(same fields, 202 + {id, status} instead of 200 + {id}); add Idempotency-Key
+on the move; re-register webhook endpoints + secrets; export suppression lists
+and re-import; run both providers in parallel, flip per project, then cancel.
+Broadcast suites have no equivalent — transactional only, by design.
 
 SECURITY (developer summary)
 Env/secret-manager keys, never client/git. Test/live cryptographically distinct.
 HMAC-verify webhooks. Full policy: SECURITY.md; posture: /security.
-Report: support@calder.com, subject "security".
+Report: support@calder.click, subject "security".
