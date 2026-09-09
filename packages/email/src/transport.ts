@@ -12,29 +12,29 @@ import type { EmailProvider, ProviderSendResult } from "./provider";
 export type TransportType = "gmail" | "ses" | "managed" | "mock";
 
 export interface TransportCapabilities {
- /** Max sends per UTC day enforced before handing to the provider. Null = provider default. */
- dailyLimit: number | null;
- /** Max bytes per message accepted. */
- maxMessageBytes: number;
- /** Whether open/click tracking is available on this transport. */
- supportsTracking: boolean;
- /** Whether template rendering is available on this transport. */
- supportsTemplates: boolean;
- /** Human-readable constraints, shown in dashboard/docs. */
- notes: string[];
+  /** Max sends per UTC day enforced before handing to the provider. Null = provider default. */
+  dailyLimit: number | null;
+  /** Max bytes per message accepted. */
+  maxMessageBytes: number;
+  /** Whether open/click tracking is available on this transport. */
+  supportsTracking: boolean;
+  /** Whether template rendering is available on this transport. */
+  supportsTemplates: boolean;
+  /** Human-readable constraints, shown in dashboard/docs. */
+  notes: string[];
 }
 
 export interface TransportHealth {
- healthy: boolean;
- latencyMs?: number;
- detail?: string;
- checkedAt: Date;
+  healthy: boolean;
+  latencyMs?: number;
+  detail?: string;
+  checkedAt: Date;
 }
 
 export interface EmailTransport extends EmailProvider {
- readonly transportType: TransportType;
- getCapabilities(): TransportCapabilities;
- healthCheck(): Promise<TransportHealth>;
+  readonly transportType: TransportType;
+  getCapabilities(): TransportCapabilities;
+  healthCheck(): Promise<TransportHealth>;
 }
 
 /** Conservative Gmail caps: free accounts allow 500/day, Workspace 2000/day.
@@ -44,14 +44,14 @@ export const GMAIL_WORKSPACE_DAILY_CAP = 1500;
 
 /** Minimal shape the worker needs to route. Mirrors project_transports rows. */
 export interface TransportRecord {
- id: string;
- projectId: string;
- type: string;
- status: string;
- label: string;
- encryptedCredentials: { iv: string; ciphertext: string; tag: string } | null;
- dailyCap: number | null;
- isDefault: boolean;
+  id: string;
+  projectId: string;
+  type: string;
+  status: string;
+  label: string;
+  encryptedCredentials: { iv: string; ciphertext: string; tag: string } | null;
+  dailyCap: number | null;
+  isDefault: boolean;
 }
 
 /**
@@ -60,10 +60,10 @@ export interface TransportRecord {
  * send, even if marked default, fail closed.
  */
 export function pickDefaultTransport(rows: TransportRecord[]): TransportRecord | null {
- const active = rows.filter((r) => r.status === "active");
- return active.find((r) => r.isDefault) ?? null;
+  const active = rows.filter((r) => r.status === "active");
+  return active.find((r) => r.isDefault) ?? null;
 }
 
 export function transportResult(providerMessageId: string, provider: string): ProviderSendResult {
- return { providerMessageId, provider, accepted: true };
+  return { providerMessageId, provider, accepted: true };
 }
