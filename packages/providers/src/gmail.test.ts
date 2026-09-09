@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { buildGmailMime, base64UrlEncode, GmailTransport } from "./gmail.js";
+import { buildGmailMime, base64UrlEncode, GmailTransport } from "./gmail";
 
 // GmailTransport reads OAuth client config lazily — stub it for tests.
 process.env.GOOGLE_CLIENT_ID = "test-client-id";

@@ -9,8 +9,8 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { transportTypeEnum, transportStatusEnum } from "./enums.js";
-import { projects } from "./projects.js";
+import { transportTypeEnum, transportStatusEnum } from "./enums";
+import { projects } from "./projects";
 
 /**
  * Sending transports per project. A project delivers through its default

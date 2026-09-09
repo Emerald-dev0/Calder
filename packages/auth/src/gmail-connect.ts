@@ -3,7 +3,7 @@ import { Google, generateState, generateCodeVerifier } from "arctic";
 import { eq, and } from "drizzle-orm";
 import { getDb, organizationMembers, projects, projectTransports } from "@calder/db";
 import { getConfig } from "@calder/config";
-import { encryptSecret, decryptSecret } from "./crypto.js";
+import { encryptSecret, decryptSecret } from "./crypto";
 
 /**
  * Gmail Quickstart connect flow. Minimum scope (openid + email identity +

@@ -4,6 +4,7 @@ import { Navigation } from "../../components/navigation";
 import { Footer } from "../../components/closing";
 import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
+import { POSTS } from "./posts";
 
 export const metadata: Metadata = {
   title: "Blog — Calder",
@@ -26,26 +27,32 @@ export default function BlogIndex() {
         />
         <section className="section" style={{ paddingTop: 0 }}>
           <div className="wrap">
-            <Reveal>
-              <Link href="/blog/hello-calder" style={{ textDecoration: "none", display: "block" }}>
-                <div className="pipeline">
-                  <p className="eyebrow">September 2026 · 4 min</p>
-                  <h2 className="h2" style={{ fontSize: "clamp(1.5rem, 3vw, 2.2rem)" }}>
-                    Hello, Calder: why transactional email deserves its own company
-                  </h2>
-                  <p className="lede" style={{ marginTop: "1rem", fontSize: "1.05rem" }}>
-                    Sending an email is easy. Knowing it arrived is the whole business — and why we
-                    said no to newsletters, yes to idempotency, and maybe to naira pricing.
-                  </p>
-                  <span className="btn btn-secondary btn-sm" style={{ marginTop: "1.2rem" }}>
-                    Read the post{" "}
-                    <span className="arrow" aria-hidden="true">
-                      →
+            {POSTS.map((post, i) => (
+              <Reveal key={post.slug} delay={i === 0 ? 0 : 120}>
+                <Link
+                  href={`/blog/${post.slug}`}
+                  style={{ textDecoration: "none", display: "block", marginBottom: "1.5rem" }}
+                >
+                  <div className="pipeline">
+                    <p className="eyebrow">
+                      {post.date} · {post.readTime}
+                    </p>
+                    <h2 className="h2" style={{ fontSize: "clamp(1.5rem, 3vw, 2.2rem)" }}>
+                      {post.title}
+                    </h2>
+                    <p className="lede" style={{ marginTop: "1rem", fontSize: "1.05rem" }}>
+                      {post.excerpt}
+                    </p>
+                    <span className="btn btn-secondary btn-sm" style={{ marginTop: "1.2rem" }}>
+                      Read the post{" "}
+                      <span className="arrow" aria-hidden="true">
+                        →
+                      </span>
                     </span>
-                  </span>
-                </div>
-              </Link>
-            </Reveal>
+                  </div>
+                </Link>
+              </Reveal>
+            ))}
             <Reveal delay={120}>
               <div
                 style={{
