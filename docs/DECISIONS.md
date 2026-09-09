@@ -227,3 +227,14 @@ premature dollar figures dishonest, and hardcoded prices become lies at scale.
  a provider, mail cannot be un-sent, and we say so.
  **Why:** card-scarce markets need non-subscription revenue; trust-first
  migration beats compatibility-theater migration.
+
+## ADR-021: Magic-link auth mail sends synchronously (queue exception)
+
+**Status:** Accepted
+**Decision:** The magic-link request route sends its one email via the provider
+ abstraction inline instead of the job queue. Tokens are 256-bit random,
+ sha256-hashed at rest, single-use, 15-minute expiry, rate-limited 5/min per
+ IP and per email, no account enumeration.
+**Why:** login must not depend on worker liveness; one transactional email is
+ the same latency class as the OAuth code exchange. Bulk and tenant mail stay
+ on the queue per ADR-002.

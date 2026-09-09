@@ -42,3 +42,22 @@ export const sessions = pgTable(
 
 export type OAuthAccount = typeof oauthAccounts.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
+
+/**
+ * Magic-link tokens. Only the sha256 hash is stored; the raw token exists
+ * solely inside the emailed URL. Single-use (consumed_at), short-lived.
+ */
+export const magicLinkTokens = pgTable(
+  "magic_link_tokens",
+  {
+    id: text("id").primaryKey(),
+    email: varchar("email", { length: 320 }).notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("magic_link_email_idx").on(t.email)]
+);
+
+export type MagicLinkToken = typeof magicLinkTokens.$inferSelect;

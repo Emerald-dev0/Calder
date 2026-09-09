@@ -39,3 +39,14 @@ export {
   type SessionUser,
 } from "./session";
 export { signUnsubscribeToken, verifyUnsubscribeToken } from "./unsubscribe";
+export {
+  requestMagicLink,
+  consumeMagicLink,
+  normalizeEmail,
+  isPlausibleEmail,
+  hashMagicToken,
+  magicLinkExpiry,
+  isMagicTokenLive,
+  MAGIC_LINK_TTL_MINUTES,
+  MAGIC_LINK_FROM,
+} from "./magic-link";

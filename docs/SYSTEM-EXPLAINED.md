@@ -184,6 +184,12 @@ re-runnable, resumable. Server actions enforce membership on every step.
 
 ## 9. Changelog (newest first)
 
+- **Magic-link signup (manual path, like competitors):** email form on `/login`,
+ `POST /api/auth/magic-link` (rate-limited, non-enumerating, branded mail via
+ Mock dev / SES prod) + callback that consumes the single-use 15-min token,
+ links-or-creates the user, seals the session. Proven live: request, redeem,
+ reuse-rejected, session cookie set, users verified. Migration
+ `0007_magic_links`. Queue exception documented in ADR-021.
 - **Branded internal mail + sender choice + plan management:** all internal
  mail wraps in `brandEmail` (`packages/email/src/brand.ts`); broadcast accepts
  optional `from`, validated against `INTERNAL_FROM` + active Gmail transports;

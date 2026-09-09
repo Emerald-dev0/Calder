@@ -108,6 +108,18 @@ importers:
       '@calder/db':
         specifier: workspace:^
         version: link:../../packages/db
+      '@calder/email':
+        specifier: workspace:^
+        version: link:../../packages/email
+      '@calder/observability':
+        specifier: workspace:^
+        version: link:../../packages/observability
+      '@calder/providers':
+        specifier: workspace:^
+        version: link:../../packages/providers
+      '@calder/rate-limit':
+        specifier: workspace:^
+        version: link:../../packages/rate-limit
       '@calder/ui':
         specifier: workspace:*
         version: link:../../packages/ui
