@@ -218,6 +218,11 @@ re-runnable, resumable. Server actions enforce membership on every step.
   comparison page, provider-named migration guides, and all references were
   removed and 301'd to the provider-agnostic `/migrate`. Internal strategy docs
   may discuss the market; public pages never punch up by name.
+- **Polish pass:** dashboard shell rebuilt mobile-first (sidebar → topbar +
+  scroll tabs under 860px, previously unstyled class names actually missing
+  their CSS); scene SVGs fill panels instead of 300px defaults; tables scroll
+  instead of breaking layout; nonexistent-SDK code samples replaced with real
+  fetch snippets; internal jargon removed from public changelog.
 - **SEO foundation:** `docs/SEO.md` + `SEO_AUDIT.md`, `robots.ts`, `sitemap.ts`
   (53 URLs), `lib/seo.ts` (canonical/OG/Twitter helper + JSON-LD), root
   `llms.txt`, generated `og-image.png`, `scripts/seo-check.mjs` gate.

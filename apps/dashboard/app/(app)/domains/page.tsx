@@ -48,7 +48,10 @@ export default async function DomainsPage({
         }}
       >
         {rows.length === 0 && (
-          <p style={{ padding: 20, color: "#737373", fontSize: 14, margin: 0 }}>No domains yet.</p>
+          <p style={{ padding: 20, color: "#737373", fontSize: 14, margin: 0 }}>
+            No domains yet. Add yours above, paste the three DNS records, and you can send as
+            you@yourproduct.com.
+          </p>
         )}
         {rows.map((d, i) => (
           <div key={d.id} style={{ borderTop: i === 0 ? "none" : "1px solid #F0F0F0" }}>

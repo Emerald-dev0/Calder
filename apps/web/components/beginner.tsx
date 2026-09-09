@@ -26,32 +26,26 @@ export function BeginnerSection() {
           <Reveal>
             <CodeBlock
               title="gmail quickstart — same Calder API"
-              copyText={`npm install calder\n\nimport { Calder } from "calder";\nconst calder = new Calder(process.env.CALDER_API_KEY);\nawait calder.emails.send({\n  from: "myproject@gmail.com",\n  to: "customer@example.com",\n  subject: "Welcome!",\n  html: "<h1>Welcome!</h1>",\n});`}
+              copyText={`curl https://api.calder.com/v1/emails -H "Authorization: Bearer calder_sk_test_…" -d '{"from":"myproject@gmail.com","to":"customer@example.com","subject":"Welcome!","html":"<h1>Welcome!</h1>"}'`}
             >
-              <span className="tok-dim">$</span> <span className="tok-key">npm install calder</span>
-              {"\n\n"}
-              <span className="tok-key">import</span>{" "}
-              <span className="tok-punct">{"{ Calder }"}</span>{" "}
-              <span className="tok-key">from</span>{" "}
-              <span className="tok-str">&quot;calder&quot;</span>;{"\n"}
-              <span className="tok-key">const</span> <span className="tok-path">calder</span>{" "}
-              <span className="tok-dim">=</span> <span className="tok-key">new</span>{" "}
-              <span className="tok-path">Calder</span>(
-              <span className="tok-path">process.env.CALDER_API_KEY</span>);
-              {"\n\n"}
-              <span className="tok-key">await</span>{" "}
-              <span className="tok-path">calder.emails.send</span>(
-              <span className="tok-punct">{"{"}</span>
+              <span className="tok-dim">$</span> <span className="tok-key">curl</span>{" "}
+              <span className="tok-path">https://api.calder.com/v1/emails</span>{" "}
+              <span className="tok-dim">\</span>
               {"\n"}
-              &nbsp;&nbsp;<span className="tok-key">from</span>:{" "}
-              <span className="tok-str">&quot;myproject@gmail.com&quot;</span>,{"\n"}
-              &nbsp;&nbsp;<span className="tok-key">to</span>:{" "}
-              <span className="tok-str">&quot;customer@example.com&quot;</span>,{"\n"}
-              &nbsp;&nbsp;<span className="tok-key">subject</span>:{" "}
-              <span className="tok-str">&quot;Welcome!&quot;</span>,{"\n"}
-              &nbsp;&nbsp;<span className="tok-key">html</span>:{" "}
-              <span className="tok-str">&quot;&lt;h1&gt;Welcome!&lt;/h1&gt;&quot;</span>,{"\n"}
-              <span className="tok-punct">{"}"}</span>);
+              &nbsp;&nbsp;<span className="tok-dim">-H</span>{" "}
+              <span className="tok-str">&quot;Authorization: Bearer calder_sk_test_…&quot;</span>{" "}
+              <span className="tok-dim">\</span>
+              {"\n"}
+              &nbsp;&nbsp;<span className="tok-dim">-d</span>{" "}
+              <span className="tok-str">
+                &apos;{"{"}
+                &quot;from&quot;:&quot;myproject@gmail.com&quot;,&quot;to&quot;:&quot;customer@example.com&quot;,&quot;subject&quot;:&quot;Welcome!&quot;,&quot;html&quot;:&quot;&lt;h1&gt;Welcome!&lt;/h1&gt;&quot;
+                {"}"}&apos;
+              </span>
+              {"\n\n"}
+              <span className="tok-dim">
+                {"// SDKs (npm install calder) land with v1 — the API above is stable now."}
+              </span>
             </CodeBlock>
           </Reveal>
           <Reveal delay={120}>
