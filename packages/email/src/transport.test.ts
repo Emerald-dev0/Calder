@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pickDefaultTransport, type TransportRecord } from "./transport.js";
+import { pickDefaultTransport, type TransportRecord } from "./transport";
 
 function row(overrides: Partial<TransportRecord>): TransportRecord {
   return {

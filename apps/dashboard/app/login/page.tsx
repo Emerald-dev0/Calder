@@ -5,6 +5,7 @@ const LABELS = { google: "Continue with Google", github: "Continue with GitHub" 
 
 export default function LoginPage() {
   const providers = configuredProviders();
+  const devLogin = process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_LOGIN === "true";
   return (
     <div style={{ maxWidth: 420, margin: "12vh auto", padding: 24 }}>
       <p style={{ fontWeight: 700, fontSize: 22, margin: "0 0 6px" }}>Calder</p>
@@ -57,6 +58,54 @@ export default function LoginPage() {
         New here? Signing in creates your account automatically — founders listed in{" "}
         <span className="mono">FOUNDER_EMAILS</span> are granted the Calder org on first login.
       </p>
+      {devLogin && (
+        <form
+          action="/api/auth/dev-login"
+          method="POST"
+          style={{
+            marginTop: 20,
+            border: "1px dashed #CA8A04",
+            borderRadius: 12,
+            padding: 16,
+            background: "#FFFBEB",
+          }}
+        >
+          <p style={{ fontSize: 13, fontWeight: 600, margin: "0 0 8px" }}>
+            Dev login (local only — disabled in production)
+          </p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              name="email"
+              type="email"
+              required
+              placeholder="you@example.com"
+              style={{
+                flex: 1,
+                height: 40,
+                border: "1px solid #D4D4D4",
+                borderRadius: 8,
+                padding: "0 12px",
+                fontSize: 14,
+              }}
+            />
+            <button
+              type="submit"
+              style={{
+                background: "#0B0C0E",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                padding: "0 16px",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Enter
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }

@@ -1,0 +1,17 @@
+Every application sends email. Password resets, receipts, one-time codes — messages where failure isn't an analytics dip but a user locked out of their account. And yet the tooling treats these the same as Tuesday's newsletter blast.
+
+That mismatch is the entire reason Calder exists.
+
+## Delivery is the product
+
+Ask a developer what their email provider does and they'll say "sends email." Ask what keeps them up and it's never the sending — it's the not-knowing. Did it arrive? Did it bounce? Why did this one fail? A provider that answers those questions precisely is worth more than one that sends 4% cheaper.
+
+## What we said no to
+
+No broadcasts, no audiences, no marketing automation. Every bulk-sending feature we skip is reputation we don't share with spammers and focus we keep for the OTP that must arrive in ten seconds. Constraints are features when you pick them deliberately.
+
+## What we said yes to
+
+Idempotency keys on every send, because networks fail mid-request. Dead-letter queues you can inspect, because silent loss is unacceptable. Naira pricing alongside dollars, because great developers don't all live in San Francisco. And design you can feel, because infrastructure doesn't have to look like punishment.
+
+This blog will document the building — the deliverability lessons, the architecture calls, the incidents (with postmortems).

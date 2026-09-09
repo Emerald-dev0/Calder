@@ -184,6 +184,22 @@ re-runnable, resumable. Server actions enforce membership on every step.
 
 ## 9. Changelog (newest first)
 
+- **Auth proven without provider creds:** `session.integration.test.ts`
+  (`RUN_INTEGRATION_TESTS=1`) covers seal→validate→revoke→expired + founder
+  bootstrap grant/no-op against live Postgres (9/9 green). Only the OAuth
+  redirect dance itself still needs console creds.
+- **Dev-login backdoor** (`POST /api/auth/dev-login` + login-page form):
+  dev-only (`NODE_ENV!=production` AND `ALLOW_DEV_LOGIN=true`), creates/finds
+  user + runs founder bootstrap. Proven live: dev 307 → dashboard renders founder
+  org (owner of `avenor`); production build returns 403. Never enable in prod.
+- **Blog is MDX-driven:** registry (`posts.ts`) + one `.mdx` per post + dynamic
+  `[slug]` route (+ redirect for the old slug). New post → registry entry +
+  file, then notify waitlist via the admin broadcast (manual, founder-curated).
+  Requires `@next/mdx@14` + `@mdx-js/{loader,react}` + `@types/mdx` (pinned to
+  Next 14 — latest `@next/mdx` targets Next 16 and breaks the build).
+- **Resend parity note:** Resend login = Google + GitHub + email/password
+  (verified). GitHub OAuth stays: our users authenticate with GitHub daily and
+  it yields verified developer emails.
 - **Onboarding wizard:** org → project (+metadata via 0003) → test key → first
   real send → domain with live DNS verification.
 - **Dashboard data pages:** domains (add + live DNS check), API keys (create

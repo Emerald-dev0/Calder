@@ -204,7 +204,7 @@ export async function completeOAuth(
  * of Calder's own account (org_avenor) and sees its mail in the dashboard.
  * No-ops for everyone else. Never grants anything beyond org_avenor.
  */
-async function ensureFounderAccess(
+export async function ensureFounderAccess(
   db: ReturnType<typeof getDb>,
   userId: string,
   email: string
