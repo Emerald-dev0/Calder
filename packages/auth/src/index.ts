@@ -34,6 +34,7 @@ export {
   sealSessionCookie,
   sessionCookieHeader,
   clearSessionCookieHeader,
+  secureFlag,
   SESSION_COOKIE,
   type SessionUser,
 } from "./session";

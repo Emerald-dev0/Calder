@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 const CODE = `import requests, uuid
 
 res = requests.post(
-    "https://api.calder.com/v1/emails",
+    "https://api.calder.click/v1/emails",
     headers={
         "Authorization": "Bearer calder_sk_test_…",
         "Idempotency-Key": str(uuid.uuid4()),
@@ -39,7 +39,7 @@ export default function PythonQuickstart() {
         <span className="tok-path">res</span> <span className="tok-dim">=</span>{" "}
         <span className="tok-path">requests.post</span>({"\n"}
         &nbsp;&nbsp;&nbsp;&nbsp;
-        <span className="tok-str">&quot;https://api.calder.com/v1/emails&quot;</span>,{"\n"}
+        <span className="tok-str">&quot;https://api.calder.click/v1/emails&quot;</span>,{"\n"}
         &nbsp;&nbsp;&nbsp;&nbsp;<span className="tok-key">headers</span>
         <span className="tok-dim">=</span>
         <span className="tok-punct">{"{"}</span>

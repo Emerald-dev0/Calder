@@ -332,11 +332,11 @@ rotation, Nodemailer/smtplib copy-paste); `docs/SMTP.md` + site quickstart.
 Gmail Quickstart track (same phase): Connect OAuth flow (dashboard routes +
 callback), credential CRUD endpoints, transport picker in onboarding
 ("Connect Gmail" vs "Add a domain"), graduation prompts at cap approach,
-`smtp.calder.com` vs Gmail-path docs split. Transport backend
+`smtp.calder.click` vs Gmail-path docs split. Transport backend
 (`project_transports`, `EmailTransport`, `GmailTransport`, worker routing) is
 built — remaining is connect UI + live Google testing (needs Cloud console setup).
 Parallel: abuse-monitor tuning, migration guide from Gmail-SMTP DIY. Deliverables:
-working `smtp.calder.com:587` in staging. Testing: protocol tests (incl.
+working `smtp.calder.click:587` in staging. Testing: protocol tests (incl.
 open-relay attempts, plaintext-AUTH rejection), auth/rotation/revocation tests,
 TLS tests, Nodemailer + smtplib + PHPMailer interop tests, failure tests.
 Validation: send via three real clients; revoke mid-flight; leak drill. Risks:

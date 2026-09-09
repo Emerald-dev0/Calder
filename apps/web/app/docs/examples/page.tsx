@@ -21,7 +21,7 @@ export default function Examples() {
         copyText={`import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   const { email } = await req.json();
-  const res = await fetch("https://api.calder.com/v1/emails", {
+  const res = await fetch("https://api.calder.click/v1/emails", {
     method: "POST",
     headers: {
       Authorization: \`Bearer \${process.env.CALDER_API_KEY}\`,

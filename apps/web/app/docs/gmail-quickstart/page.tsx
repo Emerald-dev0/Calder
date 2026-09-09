@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 const CODE = `// Node 18+, no dependencies
-const res = await fetch("https://api.calder.com/v1/emails", {
+const res = await fetch("https://api.calder.click/v1/emails", {
   method: "POST",
   headers: {
     Authorization: "Bearer calder_sk_test_…",
@@ -50,7 +50,7 @@ export default function GmailQuickstart() {
         <span className="tok-key">const</span> <span className="tok-path">res</span>{" "}
         <span className="tok-dim">=</span> <span className="tok-key">await</span>{" "}
         <span className="tok-method">fetch</span>(
-        <span className="tok-str">&quot;https://api.calder.com/v1/emails&quot;</span>,{" "}
+        <span className="tok-str">&quot;https://api.calder.click/v1/emails&quot;</span>,{" "}
         <span className="tok-punct">{"{"}</span>
         {"\n"}
         &nbsp;&nbsp;<span className="tok-key">method</span>:{" "}

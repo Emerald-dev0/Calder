@@ -26,10 +26,10 @@ export function BeginnerSection() {
           <Reveal>
             <CodeBlock
               title="gmail quickstart — same Calder API"
-              copyText={`curl https://api.calder.com/v1/emails -H "Authorization: Bearer calder_sk_test_…" -d '{"from":"myproject@gmail.com","to":"customer@example.com","subject":"Welcome!","html":"<h1>Welcome!</h1>"}'`}
+              copyText={`curl https://api.calder.click/v1/emails -H "Authorization: Bearer calder_sk_test_…" -d '{"from":"myproject@gmail.com","to":"customer@example.com","subject":"Welcome!","html":"<h1>Welcome!</h1>"}'`}
             >
               <span className="tok-dim">$</span> <span className="tok-key">curl</span>{" "}
-              <span className="tok-path">https://api.calder.com/v1/emails</span>{" "}
+              <span className="tok-path">https://api.calder.click/v1/emails</span>{" "}
               <span className="tok-dim">\</span>
               {"\n"}
               &nbsp;&nbsp;<span className="tok-dim">-H</span>{" "}

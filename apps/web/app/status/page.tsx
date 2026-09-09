@@ -15,7 +15,7 @@ const COMPONENTS = [
   { name: "Workers", desc: "Send execution, retries, webhooks" },
   { name: "Email delivery (SES)", desc: "Provider acceptance and sending" },
   { name: "Webhooks", desc: "Event fan-out and retries" },
-  { name: "Dashboard", desc: "app.calder.com" },
+  { name: "Dashboard", desc: "app.calder.click" },
 ] as const;
 
 export default function StatusPage() {

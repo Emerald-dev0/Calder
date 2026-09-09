@@ -6,7 +6,7 @@ import { CodeBlock } from "./code";
 const SNIPPETS = {
   cURL: {
     title: "request.sh — send an email",
-    copy: `curl https://api.calder.com/v1/emails \\
+    copy: `curl https://api.calder.click/v1/emails \\
   -H "Authorization: Bearer calder_sk_live_…" \\
   -H "Idempotency-Key: welcome-user-4815" \\
   -d '{
@@ -18,7 +18,7 @@ const SNIPPETS = {
     body: (
       <>
         <span className="tok-dim">$</span> <span className="tok-key">curl</span>{" "}
-        <span className="tok-path">https://api.calder.com/v1/emails</span>{" "}
+        <span className="tok-path">https://api.calder.click/v1/emails</span>{" "}
         <span className="tok-dim">\</span>
         {"\n"}
         &nbsp;&nbsp;<span className="tok-dim">-H</span>{" "}
@@ -46,7 +46,7 @@ const SNIPPETS = {
   },
   Node: {
     title: "send.js — same request in Node",
-    copy: `const res = await fetch("https://api.calder.com/v1/emails", {
+    copy: `const res = await fetch("https://api.calder.click/v1/emails", {
   method: "POST",
   headers: {
     "Authorization": "Bearer calder_sk_live_…",
@@ -66,7 +66,7 @@ const { id, status } = await res.json(); // em_9f2k41xq, "queued"`,
         <span className="tok-key">const</span> <span className="tok-path">res</span>{" "}
         <span className="tok-dim">=</span> <span className="tok-key">await</span>{" "}
         <span className="tok-method">fetch</span>(
-        <span className="tok-str">&quot;https://api.calder.com/v1/emails&quot;</span>,{" "}
+        <span className="tok-str">&quot;https://api.calder.click/v1/emails&quot;</span>,{" "}
         <span className="tok-punct">{"{"}</span>
         {"\n"}
         &nbsp;&nbsp;<span className="tok-key">method</span>:{" "}
@@ -98,7 +98,7 @@ const { id, status } = await res.json(); // em_9f2k41xq, "queued"`,
     copy: `import requests
 
 res = requests.post(
-    "https://api.calder.com/v1/emails",
+    "https://api.calder.click/v1/emails",
     headers={
         "Authorization": "Bearer calder_sk_live_…",
         "Idempotency-Key": "welcome-user-4815",
@@ -118,7 +118,7 @@ print(res.json()["id"])  # em_9f2k41xq`,
         <span className="tok-path">res</span> <span className="tok-dim">=</span>{" "}
         <span className="tok-path">requests.post</span>({"\n"}
         &nbsp;&nbsp;&nbsp;&nbsp;
-        <span className="tok-str">&quot;https://api.calder.com/v1/emails&quot;</span>,{"\n"}
+        <span className="tok-str">&quot;https://api.calder.click/v1/emails&quot;</span>,{"\n"}
         &nbsp;&nbsp;&nbsp;&nbsp;<span className="tok-key">headers</span>
         <span className="tok-dim">=</span>
         <span className="tok-punct">{"{"}</span>{" "}

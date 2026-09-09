@@ -14,10 +14,22 @@ function getConnectionString(): string {
 export function getDb(): DbClient {
   if (dbInstance) return dbInstance;
   const url = getConnectionString();
+  let hostname = "";
+  try {
+    hostname = new URL(url).hostname;
+  } catch {
+    hostname = "localhost";
+  }
+  const local = hostname === "localhost" || hostname === "127.0.0.1";
+  const max = Number.parseInt(process.env.DB_POOL_MAX ?? "10", 10) || 10;
   client = postgres(url, {
-    max: 10,
+    max,
     idle_timeout: 20,
     connect_timeout: 10,
+    // Managed providers require TLS; poolers (Neon pooled, Supabase, PgBouncer)
+    // require prepared statements off. Correctness over marginal perf.
+    ssl: local ? false : "require",
+    prepare: false,
   });
   dbInstance = drizzle(client, { schema });
   return dbInstance;

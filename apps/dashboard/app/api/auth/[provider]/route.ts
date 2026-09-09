@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { startOAuth, type OAuthProvider } from "@calder/auth";
+import { startOAuth, secureFlag, type OAuthProvider } from "@calder/auth";
 
-const COOKIE_OPTS = "Path=/; HttpOnly; Max-Age=600; SameSite=Lax";
+const COOKIE_OPTS = `Path=/; HttpOnly; Max-Age=600; SameSite=Lax${secureFlag()}`;
 
 /** Begin OAuth: stash state/verifier in short-lived cookies, redirect out. */
 export async function GET(

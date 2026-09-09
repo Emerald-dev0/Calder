@@ -25,7 +25,7 @@ func main() {
 		"subject": "Hello from Calder",
 		"text":    "It works.",
 	})
-	req, _ := http.NewRequest("POST", "https://api.calder.com/v1/emails", bytes.NewReader(body))
+	req, _ := http.NewRequest("POST", "https://api.calder.click/v1/emails", bytes.NewReader(body))
 	req.Header.Set("Authorization", "Bearer calder_sk_test_…")
 	req.Header.Set("Idempotency-Key", uuid.NewString())
 	req.Header.Set("Content-Type", "application/json")

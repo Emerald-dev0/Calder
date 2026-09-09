@@ -210,7 +210,7 @@ export function getSharedEmailQueue() {
 // docs/SYSTEM-EXPLAINED.md §5.
 export const INTERNAL_ORG_ID = "org_avenor";
 export const INTERNAL_PROJECT_ID = "proj_website";
-export const INTERNAL_FROM = "Calder <hello@calder.com>";
+export const INTERNAL_FROM = "Calder <hello@calder.click>";
 
 /**
  * Allowlisted custom headers. Everything else (envelope fields, Content-*,

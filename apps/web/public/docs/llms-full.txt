@@ -2,7 +2,7 @@ Calder — full documentation for LLMs. Mirrors /docs. Regenerate by hand when d
 
 WHAT CALDER IS
 Transactional email infrastructure: one endpoint in, delivered events out.
-Base URL: https://api.calder.com. Versioned: /v1/….
+Base URL: https://api.calder.click. Versioned: /v1/….
 
 QUICKSTART (all languages, same call)
 POST /v1/emails, headers Authorization: Bearer calder_sk_test_… and
