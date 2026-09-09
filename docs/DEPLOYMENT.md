@@ -10,7 +10,14 @@ marked otherwise.
 
 ## Planned deployment shape
 
-- `apps/web`, `apps/dashboard` — Vercel (or equivalent) for web-facing surfaces, deployed via the `vercel` CLI (see `AGENTS.md` CLI-first tooling)
+- `apps/web`, `apps/dashboard` — Vercel (or equivalent) for web-facing surfaces, deployed via the `vercel` CLI (see `AGENTS.md` CLI-first tooling).
+  Monorepo wiring: **one Vercel project per app**. When importing, set the
+  **Root Directory** to `apps/web` for the marketing site and `apps/dashboard`
+  for the app (framework preset: Next.js; build command and output left as
+  Vercel defaults). Connect both projects to the same GitHub repo (`Calder`);
+  production branches deploy `main`, previews deploy PRs. Environment variables
+  are set per project (see inventory below) — never shared blindly between web
+  and dashboard.
 - `apps/api`, `apps/worker` — managed infra, provider TBD, must remain portable.
   Staging candidate: Pxxl (Nigerian, Africa-first deploy platform — GitHub-push
   deploys, managed databases, custom domains, NGN-friendly pricing). Pilot
