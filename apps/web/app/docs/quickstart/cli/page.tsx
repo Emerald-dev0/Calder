@@ -12,7 +12,7 @@ set -euo pipefail
 KEY="calder_sk_test_…"
 
 # Send — the key makes this safe to re-run
-ID=$(curl -s https://api.calder.com/v1/emails \\
+ID=$(curl -s https://api.calder.click/v1/emails \\
   -H "Authorization: Bearer $KEY" \\
   -H "Idempotency-Key: deploy-notify-$(date +%F)" \\
   -H "Content-Type: application/json" \\
@@ -22,7 +22,7 @@ ID=$(curl -s https://api.calder.com/v1/emails \\
 
 # Poll until it leaves the queue
 for i in $(seq 1 10); do
-  STATUS=$(curl -s https://api.calder.com/v1/emails/$ID \\
+  STATUS=$(curl -s https://api.calder.click/v1/emails/$ID \\
     -H "Authorization: Bearer $KEY" \\
     | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['status'])")
   echo "status: $STATUS"
@@ -52,7 +52,7 @@ export default function CliQuickstart() {
         <span className="tok-path">ID</span>
         <span className="tok-dim">=$(</span>
         <span className="tok-key">curl</span> -s{" "}
-        <span className="tok-path">https://api.calder.com/v1/emails</span> …
+        <span className="tok-path">https://api.calder.click/v1/emails</span> …
         <span className="tok-dim">)</span>
         {"\n\n"}
         <span className="tok-dim"># Poll status until it leaves the queue.</span>

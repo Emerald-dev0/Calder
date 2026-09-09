@@ -11,7 +11,7 @@ const CODE = `require "net/http"
 require "json"
 require "securerandom"
 
-uri = URI("https://api.calder.com/v1/emails")
+uri = URI("https://api.calder.click/v1/emails")
 res = Net::HTTP.post(uri, {
   from: "app@acme.com",
   to: "you@example.com",
@@ -44,7 +44,7 @@ export default function RubyQuickstart() {
         {"\n\n"}
         <span className="tok-path">uri</span> <span className="tok-dim">=</span>{" "}
         <span className="tok-path">URI</span>(
-        <span className="tok-str">&quot;https://api.calder.com/v1/emails&quot;</span>){"\n"}
+        <span className="tok-str">&quot;https://api.calder.click/v1/emails&quot;</span>){"\n"}
         <span className="tok-path">res</span> <span className="tok-dim">=</span>{" "}
         <span className="tok-path">Net::HTTP.post</span>(<span className="tok-path">uri</span>,{" "}
         <span className="tok-dim">{/* payload */}</span>, <span className="tok-punct">{"{"}</span>

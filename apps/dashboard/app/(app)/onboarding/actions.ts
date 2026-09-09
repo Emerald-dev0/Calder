@@ -205,7 +205,7 @@ export async function sendFirstEmail(input: { projectId: string; keySecret: stri
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "welcome@calder.com",
+      from: "welcome@calder.click",
       to: input.to,
       subject: "Your first Calder email worked",
       text: "If you're reading this, your pipeline is live: validated, queued, sent, delivered.",
@@ -274,13 +274,13 @@ export async function addDomain(projectId: string, domain: string) {
     {
       type: "TXT",
       host: clean,
-      value: "v=spf1 include:_spf.calder.com ~all",
+      value: "v=spf1 include:_spf.calder.click ~all",
       purpose: "Authorizes Calder to send",
     },
     {
       type: "TXT",
       host: `_dmarc.${clean}`,
-      value: "v=DMARC1; p=none; rua=mailto:dmarc@calder.com",
+      value: "v=DMARC1; p=none; rua=mailto:dmarc@calder.click",
       purpose: "Abuse reporting policy",
     },
   ];

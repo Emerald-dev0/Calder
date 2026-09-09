@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "Send your first Calder email with raw HTTP and cURL.",
 };
 
-const CODE = `curl https://api.calder.com/v1/emails \\
+const CODE = `curl https://api.calder.click/v1/emails \\
   -H "Authorization: Bearer calder_sk_test_…" \\
   -H "Idempotency-Key: hello-001" \\
   -H "Content-Type: application/json" \\
@@ -27,7 +27,7 @@ export default function CurlQuickstart() {
       </p>
       <CodeBlock title="terminal" copyText={CODE}>
         <span className="tok-dim">$</span> <span className="tok-key">curl</span>{" "}
-        <span className="tok-path">https://api.calder.com/v1/emails</span>{" "}
+        <span className="tok-path">https://api.calder.click/v1/emails</span>{" "}
         <span className="tok-dim">\</span>
         {"\n"}
         &nbsp;&nbsp;<span className="tok-dim">-H</span>{" "}

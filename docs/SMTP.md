@@ -8,7 +8,7 @@ Decision record: ADR-014.
 
 | Setting                       | Value                                    |
 | ----------------------------- | ---------------------------------------- |
-| Host                          | `smtp.calder.com`                        |
+| Host                          | `smtp.calder.click`                      |
 | Port (STARTTLS, recommended)  | `587`                                    |
 | Port (implicit TLS, reserved) | `465`                                    |
 | Auth                          | `AUTH PLAIN`, `AUTH LOGIN` over TLS only |

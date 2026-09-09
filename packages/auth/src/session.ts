@@ -84,20 +84,21 @@ export async function revokeSession(sessionId: string): Promise<void> {
   await db.update(sessions).set({ revokedAt: new Date() }).where(eq(sessions.id, sessionId));
 }
 
+/** "; Secure" in production, empty locally (Secure cookies need HTTPS). */
+export function secureFlag(): string {
+  return getConfig().NODE_ENV === "production" ? "; Secure" : "";
+}
+
 export function sessionCookieHeader(sealed: string, maxAgeSec: number): string {
-  const secure = getConfig().NODE_ENV === "production";
   return [
     `${SESSION_COOKIE}=${sealed}`,
     "Path=/",
     "HttpOnly",
     `Max-Age=${maxAgeSec}`,
-    "SameSite=Lax",
-    secure ? "Secure" : "",
-  ]
-    .filter(Boolean)
-    .join("; ");
+    `SameSite=Lax${secureFlag()}`,
+  ].join("; ");
 }
 
 export function clearSessionCookieHeader(): string {
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax`;
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax${secureFlag()}`;
 }

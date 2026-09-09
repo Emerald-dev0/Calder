@@ -18,10 +18,10 @@ export default function WebhooksGuide() {
       <h2>1. Register an endpoint</h2>
       <CodeBlock
         title="register"
-        copyText={`curl https://api.calder.com/v1/webhooks -H "Authorization: Bearer calder_sk_live_…" -d '{"url":"https://acme.com/hooks/calder","events":["email.delivered","email.bounced"]}'`}
+        copyText={`curl https://api.calder.click/v1/webhooks -H "Authorization: Bearer calder_sk_live_…" -d '{"url":"https://acme.com/hooks/calder","events":["email.delivered","email.bounced"]}'`}
       >
         <span className="tok-dim">$</span> <span className="tok-key">curl</span>{" "}
-        <span className="tok-path">https://api.calder.com/v1/webhooks</span>
+        <span className="tok-path">https://api.calder.click/v1/webhooks</span>
         {"\n"}
         &nbsp;&nbsp;<span className="tok-dim">-d</span>{" "}
         <span className="tok-str">

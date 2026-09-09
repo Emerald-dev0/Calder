@@ -4,6 +4,7 @@ import {
   completeOAuth,
   sealSessionCookie,
   sessionCookieHeader,
+  secureFlag,
   type OAuthProvider,
 } from "@calder/auth";
 
@@ -32,14 +33,9 @@ export async function GET(
     const sealed = await sealSessionCookie(sessionId);
     const res = NextResponse.redirect(new URL("/", url.origin));
     res.headers.append("Set-Cookie", sessionCookieHeader(sealed, 30 * 24 * 60 * 60));
-    res.headers.append(
-      "Set-Cookie",
-      "calder_oauth_state=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax"
-    );
-    res.headers.append(
-      "Set-Cookie",
-      "calder_oauth_verifier=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax"
-    );
+    const clear = `Path=/; HttpOnly; Max-Age=0; SameSite=Lax${secureFlag()}`;
+    res.headers.append("Set-Cookie", `calder_oauth_state=; ${clear}`);
+    res.headers.append("Set-Cookie", `calder_oauth_verifier=; ${clear}`);
     return res;
   } catch {
     return NextResponse.redirect(new URL("/login?error=failed", url.origin));

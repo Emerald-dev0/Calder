@@ -88,7 +88,7 @@ export default function MigratePage() {
                   <span className="tok-dim">{"// after"}</span>
                   {"\n"}
                   <span className="tok-key">await</span> <span className="tok-method">fetch</span>(
-                  <span className="tok-str">&quot;https://api.calder.com/v1/emails&quot;</span>,{" "}
+                  <span className="tok-str">&quot;https://api.calder.click/v1/emails&quot;</span>,{" "}
                   <span className="tok-punct">{"{"}</span>
                   {"\n"}
                   &nbsp;&nbsp;<span className="tok-key">method</span>:{" "}

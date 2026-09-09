@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "Send your first Calder email from PHP with the cURL extension.",
 };
 
-const CODE = `$ch = curl_init("https://api.calder.com/v1/emails");
+const CODE = `$ch = curl_init("https://api.calder.click/v1/emails");
 curl_setopt_array($ch, [
     CURLOPT_POST => true,
     CURLOPT_RETURNTRANSFER => true,
@@ -37,7 +37,7 @@ export default function PhpQuickstart() {
       <CodeBlock title="send.php" copyText={CODE}>
         <span className="tok-path">$ch</span> <span className="tok-dim">=</span>{" "}
         <span className="tok-method">curl_init</span>(
-        <span className="tok-str">&quot;https://api.calder.com/v1/emails&quot;</span>);
+        <span className="tok-str">&quot;https://api.calder.click/v1/emails&quot;</span>);
         {"\n"}
         <span className="tok-method">curl_setopt_array</span>(<span className="tok-path">$ch</span>,
         [{"\n"}
