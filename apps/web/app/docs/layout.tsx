@@ -42,6 +42,7 @@ const SECTIONS: Array<{ title: string; links: Array<{ label: string; href: strin
       { label: "Migrate from Postmark", href: "/docs/migrate-postmark" },
       { label: "API reference", href: "/docs/api-reference" },
       { label: "Deliverability", href: "/docs/deliverability" },
+      { label: "Glossary", href: "/resources/glossary" },
     ],
   },
 ];

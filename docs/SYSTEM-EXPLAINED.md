@@ -214,6 +214,11 @@ re-runnable, resumable. Server actions enforce membership on every step.
 - **Resend parity note:** Resend login = Google + GitHub + email/password
   (verified). GitHub OAuth stays: our users authenticate with GitHub daily and
   it yields verified developer emails.
+- **SEO foundation:** `docs/SEO.md` + `SEO_AUDIT.md`, `robots.ts`, `sitemap.ts`
+  (53 URLs), `lib/seo.ts` (canonical/OG/Twitter helper + JSON-LD), root
+  `llms.txt`, generated `og-image.png`, `scripts/seo-check.mjs` gate.
+  Content: `/alternatives/resend` (honest, dated), `/what-is-calder` entity
+  page, data-driven glossary (10 terms). Canonical domain: calder.click.
 - **Onboarding wizard:** org → project (+metadata via 0003) → test key → first
   real send → domain with live DNS verification.
 - **Dashboard data pages:** domains (add + live DNS check), API keys (create

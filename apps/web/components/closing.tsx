@@ -85,6 +85,8 @@ const COLUMNS: Array<{ title: string; links: Array<{ label: string; href: string
       { label: "Quickstart", href: "/docs/quickstart" },
       { label: "API reference", href: "/docs/api-reference" },
       { label: "Migrate from Resend", href: "/migrate" },
+      { label: "Resend alternative", href: "/alternatives/resend" },
+      { label: "Glossary", href: "/resources/glossary" },
       { label: "Status", href: "/status" },
     ],
   },

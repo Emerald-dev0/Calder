@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { pageMeta } from "../../lib/seo";
 
-export const metadata: Metadata = {
-  title: "Documentation — Calder",
+export const metadata: Metadata = pageMeta({
+  title: "Documentation",
   description: "Guides and references for the Calder transactional email API.",
-};
+  path: "/docs",
+});
 
 const QUICKSTARTS = [
   { icon: "TS", title: "Node.js", desc: "fetch in minutes.", href: "/docs/quickstart/nodejs" },

@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
+import { pageMeta } from "../../lib/seo";
 import { Navigation } from "../../components/navigation";
 import { Pricing } from "../../components/pricing";
 import { FinalCta, Footer } from "../../components/closing";
 import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
 
-export const metadata: Metadata = {
-  title: "Pricing — Calder",
+export const metadata: Metadata = pageMeta({
+  title: "Pricing",
   description:
     "Simple, predictable email infrastructure pricing in NGN and USD. Hard limits, no surprise overages, metered from durable records.",
-};
+  path: "/pricing",
+});
 
 const FAQS = [
   {

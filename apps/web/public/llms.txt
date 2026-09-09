@@ -1,0 +1,26 @@
+# Calder — developer-first transactional email infrastructure
+
+Calder is transactional email infrastructure: one API endpoint in, delivered
+events out. Test keys simulate everything; live keys deliver. NGN-first pricing
+with hard limits. Nigeria-first wedge, global ambition.
+
+- Homepage: https://calder.click/
+- What is Calder: https://calder.click/what-is-calder
+- Pricing: https://calder.click/pricing
+- Developers: https://calder.click/developers
+- Documentation: https://calder.click/docs
+- API reference: https://calder.click/docs/api-reference
+- Gmail Quickstart (no domain needed): https://calder.click/docs/gmail-quickstart
+- SMTP: https://calder.click/docs/smtp
+- Webhooks: https://calder.click/docs/webhooks
+- Deliverability: https://calder.click/docs/deliverability
+- Migrate from Resend: https://calder.click/docs/migrate-resend
+- Migrate from Postmark: https://calder.click/docs/migrate-postmark
+- Resend alternative: https://calder.click/alternatives/resend
+- Glossary: https://calder.click/resources/glossary
+- Status: https://calder.click/status
+- Changelog: https://calder.click/changelog
+- Security: https://calder.click/security
+- Blog: https://calder.click/blog
+
+Full documentation dump: https://calder.click/docs/llms-full.txt

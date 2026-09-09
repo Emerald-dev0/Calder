@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Navigation } from "../../../components/navigation";
 import { Footer } from "../../../components/closing";
 import { Reveal } from "../../../components/reveal";
+import { pageMeta, articleJsonLd } from "../../../lib/seo";
 import { POSTS, getPost } from "../posts";
 
 export function generateStaticParams() {
@@ -17,7 +18,11 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const post = getPost(params.slug);
   if (!post) return {};
-  return { title: `${post.title} — Calder Blog`, description: post.description };
+  return pageMeta({
+    title: post.title,
+    description: post.description,
+    path: `/blog/${post.slug}`,
+  });
 }
 
 export default async function BlogPost({ params }: { params: { slug: string } }) {
@@ -26,8 +31,19 @@ export default async function BlogPost({ params }: { params: { slug: string } })
   // Registry-driven import: one MDX file per slug, same name as the folder entry.
   const { default: Body } = await import(`../posts/${post.slug}.mdx`);
 
+  const jsonLd = articleJsonLd({
+    title: post.title,
+    description: post.description,
+    path: `/blog/${post.slug}`,
+    datePublished: post.published,
+  });
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <Navigation />
       <main>
         <section className="section">

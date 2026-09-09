@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { pageMeta } from "../../lib/seo";
 import { Navigation } from "../../components/navigation";
 import { Footer } from "../../components/closing";
 import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
 import { POSTS } from "./posts";
 
-export const metadata: Metadata = {
-  title: "Blog — Calder",
+export const metadata: Metadata = pageMeta({
+  title: "Blog",
   description: "Notes on transactional email, deliverability, and building infrastructure.",
-};
+  path: "/blog",
+});
 
 export default function BlogIndex() {
   return (
