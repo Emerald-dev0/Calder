@@ -2,7 +2,39 @@
 
 import { randomBytes, createHash } from "node:crypto";
 import { eq, and } from "drizzle-orm";
-import { getDb, organizations, organizationMembers, orgInvitations, users } from "@calder/db";
+import {
+  getDb,
+  organizations,
+  organizationMembers,
+  orgInvitations,
+  users,
+  auditLogs,
+} from "@calder/db";
+
+/** Immutable audit trail for team lifecycle events. Fire-and-forget safe. */
+async function audit(
+  db: ReturnType<typeof getDb>,
+  entry: {
+    organizationId: string;
+    actorUserId?: string;
+    action: string;
+    targetType?: string;
+    targetId?: string;
+  }
+): Promise<void> {
+  try {
+    await db.insert(auditLogs).values({
+      id: rid("audit"),
+      organizationId: entry.organizationId,
+      actorUserId: entry.actorUserId,
+      action: entry.action,
+      targetType: entry.targetType,
+      targetId: entry.targetId,
+    });
+  } catch {
+    // Audit must never break the operation it records.
+  }
+}
 import { getTenantContext } from "../../../lib/auth";
 import { getConfig } from "@calder/config";
 
@@ -73,7 +105,7 @@ export async function getTeam(orgId: string) {
 }
 
 export async function inviteMember(orgId: string, email: string, role: Role) {
-  await requireManager(orgId);
+  const inviter = await requireManager(orgId);
   const clean = email.toLowerCase().trim();
   if (!clean.includes("@")) throw new Error("Enter a valid email address.");
   if (role !== "admin" && role !== "member") {
@@ -111,6 +143,12 @@ export async function inviteMember(orgId: string, email: string, role: Role) {
     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   });
   const appUrl = getConfig().APP_URL.replace(/\/$/, "");
+  await audit(db, {
+    organizationId: orgId,
+    actorUserId: inviter.user.userId,
+    action: "member.invited",
+    targetType: "invitation",
+  });
   return { inviteLink: `${appUrl}/invite/${rawToken}` };
 }
 
@@ -145,6 +183,13 @@ export async function updateMemberRole(orgId: string, membershipId: string, role
     .where(
       and(eq(organizationMembers.id, membershipId), eq(organizationMembers.organizationId, orgId))
     );
+  await audit(db, {
+    organizationId: orgId,
+    actorUserId: ctx.user.userId,
+    action: "member.role_changed",
+    targetType: "membership",
+    targetId: membershipId,
+  });
   return { ok: true as const };
 }
 
@@ -172,6 +217,13 @@ export async function removeMember(orgId: string, membershipId: string) {
     throw new Error("You can't remove yourself — ask another owner.");
   }
   await db.delete(organizationMembers).where(eq(organizationMembers.id, membershipId));
+  await audit(db, {
+    organizationId: orgId,
+    actorUserId: ctx.user.userId,
+    action: "member.removed",
+    targetType: "membership",
+    targetId: membershipId,
+  });
   return { ok: true as const };
 }
 
