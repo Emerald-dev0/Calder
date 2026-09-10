@@ -1,23 +1,22 @@
 import Image from "next/image";
 import { configuredProviders } from "@calder/auth";
-import { LoginForm } from "./login-form";
+import { SignupForm } from "./signup-form";
 
 export const metadata = {
-  title: "Sign in to Calder",
+  title: "Create your Calder account",
 };
 
-export default function LoginPage({ searchParams }: { searchParams?: { error?: string } }) {
+export default function SignupPage() {
   const providers = configuredProviders();
-  const devLogin = process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_LOGIN === "true";
 
   return (
     <div className="login-split">
       <div className="login-art" aria-hidden="true">
         <p className="login-art-brand">Calder</p>
-        <h2 className="login-art-headline">Every send, on the record.</h2>
+        <h2 className="login-art-headline">Reliable delivery, made legible.</h2>
         <p className="login-art-sub">
-          Sign in to watch your mail move: queued, sent, delivered, every event kept where you can
-          prove it.
+          One unified infrastructure for modern developers. Everything on the record:
+          queued, sent, delivered, with zero mystery.
         </p>
         <div className="login-art-stage">
           <Image
@@ -41,7 +40,7 @@ export default function LoginPage({ searchParams }: { searchParams?: { error?: s
 
       <div className="login-form-wrap">
         <div className="login-form">
-          <LoginForm providers={providers} initialError={searchParams?.error} devLogin={devLogin} />
+          <SignupForm providers={providers} />
         </div>
       </div>
     </div>

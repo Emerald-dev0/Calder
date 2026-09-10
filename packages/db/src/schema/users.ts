@@ -10,6 +10,7 @@ export const users = pgTable("users", {
   referralSource: varchar("referral_source", { length: 100 }),
   onboardingCompletedAt: timestamp("onboarding_completed_at", { withTimezone: true }),
   emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+  passwordHash: text("password_hash"),
   imageUrl: text("image_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

@@ -238,3 +238,20 @@ premature dollar figures dishonest, and hardcoded prices become lies at scale.
 **Why:** login must not depend on worker liveness; one transactional email is
  the same latency class as the OAuth code exchange. Bulk and tenant mail stay
  on the queue per ADR-002.
+
+## ADR-022: Password auth with scrypt + email OTP verification
+
+**Status:** Accepted
+**Decision:** Manual signup/sign-in is email + password (scrypt N=16384/r=8/p=1,
+per-user salt, timing-safe compare, dummy-hash fallback so unknown emails and
+wrong passwords are timing-indistinguishable), gated by a 6-digit email code:
+signup verifies before first session, login with an unverified account drops
+to the code step, resets burn the old password. Codes are sha256-hashed at
+rest, single-use, 10-minute expiry, 5 attempts max. Platform codes live in
+`email_code_challenges`, never in tenant `otp_challenges`.
+**Why:** market parity, every competitor offers a manual path and we were
+OAuth-only. Passwords over magic-links alone because users asked for
+Resend-style email + password; OTP instead of mailed reset links because
+receipt already proves ownership and there is nothing phishable to click
+later. Hashes never logged, never returned, reset marks the address
+verified.

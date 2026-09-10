@@ -50,3 +50,26 @@ export {
   MAGIC_LINK_TTL_MINUTES,
   MAGIC_LINK_FROM,
 } from "./magic-link";
+export {
+  issueEmailCode,
+  verifyEmailCode,
+  generateOtpCode,
+  hashCode as hashOtpCode,
+  EMAIL_CODE_TTL_MINUTES,
+  MAX_CODE_ATTEMPTS,
+  type EmailCodePurpose,
+  type IssueEmailCodeResult,
+} from "./email-code";
+export {
+  hashPassword,
+  verifyPassword,
+  validatePasswordStrength,
+  signupWithPassword,
+  loginWithPassword,
+  verifySignupCode,
+  resetPasswordWithCode,
+  MIN_PASSWORD_LEN,
+  MAX_PASSWORD_LEN,
+  type SignupWithPasswordResult,
+  type LoginWithPasswordResult,
+} from "./password";
