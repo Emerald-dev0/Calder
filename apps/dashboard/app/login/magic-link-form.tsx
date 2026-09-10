@@ -26,7 +26,7 @@ export function MagicLinkForm() {
       }}
       style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}
     >
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", gap: 8, minWidth: 0 }}>
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -36,6 +36,7 @@ export function MagicLinkForm() {
           aria-label="Email address"
           style={{
             flex: 1,
+            minWidth: 0,
             height: 44,
             border: "1px solid #D4D4D4",
             borderRadius: 10,

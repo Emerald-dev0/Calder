@@ -1,4 +1,12 @@
-import { pgTable, text, timestamp, varchar, index, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  timestamp,
+  varchar,
+  integer,
+  index,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { users } from "./users";
 
 /**
@@ -61,3 +69,27 @@ export const magicLinkTokens = pgTable(
 );
 
 export type MagicLinkToken = typeof magicLinkTokens.$inferSelect;
+
+/**
+ * Email OTP challenges for password signup verification and password reset.
+ * Platform-scoped (no project column), short-lived (10 min), max 5 attempts.
+ * Stored as sha256 hash of the 6-digit code.
+ */
+export const emailCodeChallenges = pgTable(
+  "email_code_challenges",
+  {
+    id: text("id").primaryKey(),
+    email: varchar("email", { length: 320 }).notNull(),
+    codeHash: text("code_hash").notNull(),
+    purpose: varchar("purpose", { length: 32 }).notNull(), // 'verification' | 'reset'
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(5),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("email_code_challenges_email_idx").on(t.email)]
+);
+
+export type EmailCodeChallenge = typeof emailCodeChallenges.$inferSelect;
+export type NewEmailCodeChallenge = typeof emailCodeChallenges.$inferInsert;

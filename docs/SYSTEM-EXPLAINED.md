@@ -184,6 +184,12 @@ re-runnable, resumable. Server actions enforce membership on every step.
 
 ## 9. Changelog (newest first)
 
+- **Password signup/sign-in with OTP verification:** dedicated `/signup`
+ (name/email/password, code step) + rebuilt `/login` (password primary,
+ magic-link + OAuth secondary, forgot-password flow). scrypt hashes,
+ enumeration-safe errors, platform-scoped `email_code_challenges`
+ (migration `0008`). Proven live: signup, verify, session, login,
+ indistinguishable rejects. ADR-022.
 - **Magic-link signup (manual path, like competitors):** email form on `/login`,
  `POST /api/auth/magic-link` (rate-limited, non-enumerating, branded mail via
  Mock dev / SES prod) + callback that consumes the single-use 15-min token,

@@ -57,6 +57,13 @@
       "when": 1788980000000,
       "tag": "0007_magic_links",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789037962448,
+      "tag": "0008_password_auth",
+      "breakpoints": true
     }
   ]
 }
