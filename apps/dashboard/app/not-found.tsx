@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { CalderLockup } from "@calder/ui";
 
 /**
  * Plain-English 404: say what happened, show the missing address,
@@ -25,9 +26,9 @@ export default function NotFound() {
       }}
     >
       <div style={{ maxWidth: 480, width: "100%" }}>
-        <p style={{ fontWeight: 700, fontSize: 20, margin: "0 0 24px", letterSpacing: "-0.01em" }}>
-          Calder
-        </p>
+        <div style={{ margin: "0 0 24px", display: "flex", justifyContent: "center" }}>
+          <CalderLockup size={22} />
+        </div>
 
         <div
           style={{

@@ -29,6 +29,30 @@ export interface ProfileInput {
   username: string;
   role: string;
   referralSource: string;
+  discoveryDetail?: string;
+  projectTypes?: string[];
+  primaryGoal?: string;
+}
+
+/** Onboarding milestone → audit trail. Funnel analytics without a vendor. */
+export async function recordMilestone(
+  db: ReturnType<typeof getDb>,
+  entry: { organizationId?: string | null; actorUserId?: string; action: string; targetId?: string }
+): Promise<void> {
+  try {
+    const { auditLogs } = await import("@calder/db");
+    const { randomUUID } = await import("node:crypto");
+    await db.insert(auditLogs).values({
+      id: `audit_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+      organizationId: entry.organizationId ?? null,
+      actorUserId: entry.actorUserId,
+      action: entry.action,
+      targetType: "onboarding",
+      targetId: entry.targetId,
+    });
+  } catch {
+    // Milestones must never break onboarding.
+  }
 }
 
 /** Step 0: who are you. Username unique (case-insensitive); returns field errors. */
@@ -56,9 +80,17 @@ export async function saveProfile(input: ProfileInput) {
       username,
       role: input.role.slice(0, 32),
       referralSource: input.referralSource.slice(0, 100),
+      discoveryDetail: (input.discoveryDetail ?? "").slice(0, 100) || null,
+      projectTypes: (input.projectTypes ?? []).slice(0, 9),
+      primaryGoal: (input.primaryGoal ?? "").slice(0, 50) || null,
+      onboardingState: "profile_in_progress",
       updatedAt: new Date(),
     })
     .where(eq(users.id, ctx.user.userId));
+  await recordMilestone(db, {
+    actorUserId: ctx.user.userId,
+    action: "onboarding.profile_completed",
+  });
   return { ok: true as const };
 }
 
@@ -68,8 +100,9 @@ export async function completeOnboarding() {
   const db = getDb();
   await db
     .update(users)
-    .set({ onboardingCompletedAt: new Date(), updatedAt: new Date() })
+    .set({ onboardingCompletedAt: new Date(), onboardingState: "completed", updatedAt: new Date() })
     .where(eq(users.id, ctx.user.userId));
+  await recordMilestone(db, { actorUserId: ctx.user.userId, action: "onboarding.completed" });
   return { ok: true as const };
 }
 
@@ -115,6 +148,16 @@ export async function createOrganization(name: string) {
     userId: ctx.user.userId,
     role: "owner",
   });
+  await db
+    .update(users)
+    .set({ onboardingState: "technical_in_progress", updatedAt: new Date() })
+    .where(eq(users.id, ctx.user.userId));
+  await recordMilestone(db, {
+    organizationId: orgId,
+    actorUserId: ctx.user.userId,
+    action: "onboarding.organization_created",
+    targetId: orgId,
+  });
   return { orgId, slug, name: clean };
 }
 
@@ -156,6 +199,12 @@ export async function createProject(input: {
     name: clean,
     slug,
     metadata,
+  });
+  await recordMilestone(db, {
+    organizationId: input.orgId,
+    actorUserId: ctx.user.userId,
+    action: "onboarding.project_created",
+    targetId: projectId,
   });
   return { projectId, slug, name: clean };
 }
@@ -239,6 +288,13 @@ export async function sendFirstEmail(input: { projectId: string; keySecret: stri
   if (!res.ok || !body?.id) {
     throw new Error(body?.error?.message ?? `Send failed (HTTP ${res.status}).`);
   }
+  const ctx = await getTenantContext();
+  const db = getDb();
+  await recordMilestone(db, {
+    actorUserId: ctx.user.userId,
+    action: "onboarding.first_send_accepted",
+    targetId: body.id,
+  });
   return { emailId: body.id };
 }
 
