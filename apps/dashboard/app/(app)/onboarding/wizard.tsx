@@ -12,6 +12,7 @@ import {
   checkDomainDns,
   saveProfile,
   completeOnboarding,
+  listTransports,
   type DnsRecord,
 } from "./actions";
 import {
@@ -96,12 +97,16 @@ export function OnboardingWizard({
   orgs,
   initialProfile,
   orgsWithDeliveries,
+  initialNotice,
 }: {
   orgs: Org[];
   initialProfile: InitialProfile;
   orgsWithDeliveries: string[];
+  initialNotice?: string;
 }) {
   const [step, setStep] = React.useState(0);
+  const [welcomed, setWelcomed] = React.useState(false);
+  const [notice, setNotice] = React.useState<string | null>(initialNotice ?? null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -165,7 +170,36 @@ export function OnboardingWizard({
     };
   }, [emailId, projectId, emailStatus]);
 
-  const steps = ["Profile", "Organization", "Project", "API key", "First send", "Domain"];
+  const steps = ["Profile", "Organization", "Project", "Sending", "API key", "First send", "Domain"];
+
+  type Transport = {
+    id: string;
+    type: string;
+    label: string;
+    status: string;
+    isDefault: boolean;
+    dailyCap: number | null;
+  };
+  const [transports, setTransports] = React.useState<Transport[]>([]);
+  const [transportsState, setTransportsState] = React.useState<"idle" | "loading" | "ready">(
+    "idle"
+  );
+
+  async function refreshTransports(pid: string) {
+    setTransportsState("loading");
+    try {
+      setTransports(await listTransports(pid));
+      setTransportsState("ready");
+    } catch {
+      setTransportsState("idle");
+    }
+  }
+
+  React.useEffect(() => {
+    if (step === 3 && projectId && transportsState === "idle") {
+      void refreshTransports(projectId);
+    }
+  });
 
   async function finish() {
     const r = await run(async () => {
@@ -175,8 +209,81 @@ export function OnboardingWizard({
     if (r) setDone(true);
   }
 
+  if (!welcomed) {
+    return (
+      <div style={{ maxWidth: 640 }}>
+        <p style={{ fontWeight: 700, fontSize: 20, margin: "0 0 8px" }}>Calder</p>
+        <h1 style={{ fontSize: 30, letterSpacing: "-0.02em", margin: "0 0 10px" }}>
+          Welcome. Let&rsquo;s get your first message out.
+        </h1>
+        <p style={{ color: "#737373", fontSize: 15, margin: "0 0 24px", lineHeight: 1.6 }}>
+          Communication infrastructure for your applications. Three short moves and
+          you&rsquo;ll have proof in your inbox.
+        </p>
+        <ol style={{ margin: "0 0 28px", paddingLeft: 20, fontSize: 14, lineHeight: 2 }}>
+          <li>
+            <b>Organization & project</b>
+            <span style={{ color: "#737373" }}> — who owns the mail, what sends it.</span>
+          </li>
+          <li>
+            <b>Sending setup</b>
+            <span style={{ color: "#737373" }}> — shared test sender, your Gmail, or your domain.</span>
+          </li>
+          <li>
+            <b>First send</b>
+            <span style={{ color: "#737373" }}> — a real delivery, on the record.</span>
+          </li>
+        </ol>
+        <button style={btnPrimary} onClick={() => setWelcomed(true)}>
+          Start setup →
+        </button>
+      </div>
+    );
+  }
+
+  const noticeText =
+    notice === "gmail-ok"
+      ? "Gmail connected — this project can now send from your address."
+      : notice === "gmail-failed"
+        ? "Gmail connect didn\u2019t finish. Try again, or continue with the test sender."
+        : notice?.startsWith("gmail-start:")
+          ? notice.slice("gmail-start:".length)
+          : null;
+
   return (
     <div style={{ maxWidth: 640 }}>
+      {noticeText && (
+        <p
+          style={{
+            fontSize: 13,
+            borderRadius: 10,
+            padding: "10px 14px",
+            margin: "0 0 16px",
+            color: notice === "gmail-ok" ? "#166534" : "#92400E",
+            background: notice === "gmail-ok" ? "#F0FDF4" : "#FFFBEB",
+            border:
+              notice === "gmail-ok" ? "1px solid #BBF7D0" : "1px solid #FDE68A",
+          }}
+        >
+          {noticeText}{" "}
+          {notice !== "gmail-ok" && (
+            <button
+              type="button"
+              onClick={() => setNotice(null)}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                fontSize: 12,
+                textDecoration: "underline",
+                color: "inherit",
+              }}
+            >
+              Dismiss
+            </button>
+          )}
+        </p>
+      )}
       <ol style={{ display: "flex", gap: 6, listStyle: "none", padding: 0, margin: "0 0 28px" }}>
         {steps.map((s, i) => (
           <li
@@ -383,6 +490,7 @@ export function OnboardingWizard({
                     volume,
                   });
                   setProjectId(p.projectId);
+                  setTransportsState("idle");
                   setStep(3);
                 })
               }
@@ -395,6 +503,80 @@ export function OnboardingWizard({
       )}
 
       {step === 3 && (
+        <div>
+          <h2 style={{ margin: "0 0 6px" }}>How should this project send?</h2>
+          <p style={{ color: "#737373", fontSize: 14, margin: "0 0 20px" }}>
+            Test sends ride Calder&rsquo;s shared sender. Anything real needs your own:
+            Gmail for now, your domain for production.
+          </p>
+          {transportsState === "ready" && transports.length > 0 && (
+            <div
+              style={{
+                background: "#fff",
+                border: "1px solid #E5E5E5",
+                borderRadius: 12,
+                padding: 16,
+                marginBottom: 16,
+              }}
+            >
+              {transports.map((t) => (
+                <p key={t.id} style={{ fontSize: 14, margin: "0 0 6px" }}>
+                  <b>{t.label}</b>{" "}
+                  <span style={{ color: "#737373", fontSize: 12 }}>
+                    · {t.type} · {t.status}
+                    {t.isDefault ? " · default" : ""}
+                    {t.dailyCap ? ` · ${t.dailyCap}/day cap` : ""}
+                  </span>
+                </p>
+              ))}
+              <button
+                type="button"
+                style={{ ...btnSecondary, marginTop: 8 }}
+                disabled={busy || !projectId}
+                onClick={() => projectId && void refreshTransports(projectId)}
+              >
+                Refresh status
+              </button>
+            </div>
+          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 440 }}>
+            <button
+              style={btnPrimary}
+              disabled={busy}
+              onClick={() => setStep(4)}
+            >
+              Continue with the test sender →
+            </button>
+            <a
+              href={projectId ? `/api/auth/gmail/connect?project=${projectId}` : "#"}
+              onClick={(e) => {
+                if (!projectId) e.preventDefault();
+              }}
+              style={{
+                ...btnSecondary,
+                textDecoration: "none",
+                textAlign: "center",
+                lineHeight: "44px",
+                opacity: projectId ? 1 : 0.5,
+              }}
+              aria-disabled={!projectId}
+            >
+              Connect Gmail
+            </a>
+            {!projectId && (
+              <p style={{ fontSize: 12, color: "#737373", margin: 0 }}>
+                Create the project first, Gmail connects to a specific project.
+              </p>
+            )}
+            <button style={btnSecondary} disabled={busy} onClick={() => setStep(6)}>
+              I have a domain, verify it
+            </button>
+          </div>
+          <Err message={error} />
+        </div>
+      )}
+
+      {step === 4 && (
         <div>
           <h2 style={{ margin: "0 0 6px" }}>Here&rsquo;s your test key</h2>
           <p style={{ color: "#737373", fontSize: 14, margin: "0 0 20px" }}>
@@ -456,7 +638,7 @@ export function OnboardingWizard({
             <button style={btnSecondary} onClick={() => setStep(2)}>
               ← Back
             </button>
-            <button style={btnPrimary} disabled={busy || !projectId} onClick={() => setStep(4)}>
+            <button style={btnPrimary} disabled={busy || !projectId} onClick={() => setStep(5)}>
               Continue to first send →
             </button>
           </div>
@@ -464,7 +646,7 @@ export function OnboardingWizard({
         </div>
       )}
 
-      {step === 4 && (
+      {step === 5 && (
         <div>
           <h2 style={{ margin: "0 0 6px" }}>Send one for real</h2>
           <p style={{ color: "#737373", fontSize: 14, margin: "0 0 20px" }}>
@@ -527,7 +709,7 @@ export function OnboardingWizard({
                 </p>
               )}
               <div style={{ marginTop: 16 }}>
-                <button style={btnPrimary} onClick={() => setStep(5)}>
+                <button style={btnPrimary} onClick={() => setStep(6)}>
                   Continue to domain →
                 </button>
               </div>
@@ -537,7 +719,7 @@ export function OnboardingWizard({
         </div>
       )}
 
-      {step === 5 && (
+      {step === 6 && (
         <div>
           <h2 style={{ margin: "0 0 6px" }}>Send from your own name</h2>
           <p style={{ color: "#737373", fontSize: 14, margin: "0 0 20px" }}>

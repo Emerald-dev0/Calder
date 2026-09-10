@@ -12,6 +12,7 @@ import {
   domains,
   emails,
   users,
+  projectTransports,
   type ProjectMetadata,
 } from "@calder/db";
 import { generateApiKey } from "@calder/auth";
@@ -81,7 +82,7 @@ async function membershipOrgIds(userId: string): Promise<Set<string>> {
   return new Set(rows.map((r) => r.orgId));
 }
 
-async function assertProjectAccess(projectId: string) {
+export async function assertProjectAccess(projectId: string) {
   const ctx = await getTenantContext();
   const projectIds = new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)));
   if (!projectIds.has(projectId)) throw new Error("Project not found.");
@@ -191,6 +192,26 @@ export async function listTestKeys(projectId: string) {
     .from(apiKeys)
     .where(eq(apiKeys.projectId, projectId));
   return rows.map((r) => ({ ...r, revokedAt: r.revokedAt?.toISOString() ?? null }));
+}
+
+/**
+ * Non-secret transport status for the sending-setup step. Never returns
+ * credentials; the worker decrypts at send time.
+ */
+export async function listTransports(projectId: string) {
+  await assertProjectAccess(projectId);
+  const db = getDb();
+  return db
+    .select({
+      id: projectTransports.id,
+      type: projectTransports.type,
+      label: projectTransports.label,
+      status: projectTransports.status,
+      isDefault: projectTransports.isDefault,
+      dailyCap: projectTransports.dailyCap,
+    })
+    .from(projectTransports)
+    .where(eq(projectTransports.projectId, projectId));
 }
 
 export async function sendFirstEmail(input: { projectId: string; keySecret: string; to: string }) {
