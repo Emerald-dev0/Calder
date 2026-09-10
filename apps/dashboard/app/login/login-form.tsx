@@ -23,9 +23,14 @@ export function LoginForm({ providers, initialError, devLogin }: LoginFormProps)
   const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(
-    initialError === "link" ? "That link is invalid, expired, or already used." : null
-  );
+  const OAUTH_ERRORS: Record<string, string> = {
+    link: "That link is invalid, expired, or already used.",
+    failed:
+      "Sign-in failed. If this keeps happening, the app's OAuth settings may be misconfigured — contact support.",
+    denied: "You declined the provider authorization. Try again and approve access.",
+    provider: "Unknown sign-in provider. Use Google or GitHub.",
+  };
+  const [error, setError] = useState<string | null>(OAUTH_ERRORS[initialError ?? ""] ?? null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
   // Resend countdown timer
