@@ -225,8 +225,18 @@ body {
 
 /* Letter layer only: off-frame left, flies home once. */
 .arrival-letter-group {
+  position: absolute;
+  left: 6%;
+  top: 32%;
+  width: 58%;
   opacity: 0;
   transform: translateX(-140px);
+}
+
+.arrival-letter-group .arrival-letter {
+  position: static;
+  width: 100%;
+  height: auto;
 }
 
 .arrival.is-arrived .arrival-letter-group {
