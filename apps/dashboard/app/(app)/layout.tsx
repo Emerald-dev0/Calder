@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getConfig } from "@calder/config";
 import { getTenantContext } from "../../lib/auth";
 import { ContextSwitcher } from "../../components/context-switcher";
+import { OnboardingGate } from "../../components/onboarding-gate";
 
 function isFounder(email: string): boolean {
   const founders = (getConfig().FOUNDER_EMAILS ?? "")
@@ -40,6 +41,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }));
   return (
     <div className="dash-shell">
+      <OnboardingGate orgCount={ctx.memberships.length} />
       <aside className="dash-sidebar">
         <p style={{ fontWeight: 700, fontSize: 18, margin: "0 0 4px" }}>Calder</p>
         <p className="mono dash-email" title={ctx.user.email}>
