@@ -184,6 +184,11 @@ re-runnable, resumable. Server actions enforce membership on every step.
 
 ## 9. Changelog (newest first)
 
+- **Org/project context spine (sender-program Phase 1):** global switcher in
+ the sidebar (compact band on mobile) showing org, projects, and environment
+ badges; context survives navigation via `?project=`; org/project creation
+ moved out of onboarding-only into Settings Workspace (owner/admin-gated
+ project creation, environment default development).
 - **Password signup/sign-in with OTP verification:** dedicated `/signup`
  (name/email/password, code step) + rebuilt `/login` (password primary,
  magic-link + OAuth secondary, forgot-password flow). scrypt hashes,
