@@ -194,6 +194,19 @@ body {
   }
 }
 
+.dash-context-mobile {
+  display: none;
+  border-bottom: 1px solid var(--color-border);
+  padding: 10px 16px;
+  background: var(--color-surface);
+}
+
+@media (max-width: 860px) {
+  .dash-context-mobile {
+    display: block;
+  }
+}
+
 /* ── First-delivery arrival ─────────────────────────────────── */
 
 .arrival {
