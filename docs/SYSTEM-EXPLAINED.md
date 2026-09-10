@@ -184,6 +184,13 @@ re-runnable, resumable. Server actions enforce membership on every step.
 
 ## 9. Changelog (newest first)
 
+- **Brand foundation + profile onboarding:** one shared `CalderLockup`
+ (`@calder/ui`, ADR-021b), emailed logo regenerated to the canonical mark,
+ real favicons/manifests/theme-color on both apps, lockup in sidebar, auth
+ pages, and 404. Profile layer rebuilt (role grid, project types, discovery
+ + AI detail, primary goal), onboarding state machine with resume, animated
+ pipeline explainer, step transitions, milestones to the audit trail.
+ Migration `0009_profile_fields`.
 - **Onboarding v2 (sender-program Phase 2):** brand-new users land in the
  wizard (gate on zero memberships), welcome beat first, then Profile, Org,
  Project, Sending (test sender, Gmail connect, or domain jump), API key,

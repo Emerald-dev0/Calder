@@ -239,6 +239,16 @@ premature dollar figures dishonest, and hardcoded prices become lies at scale.
  the same latency class as the OAuth code exchange. Bulk and tenant mail stay
  on the queue per ADR-002.
 
+## ADR-021b: Canonical brand mark (brand sprawl fix)
+
+**Status:** Accepted
+**Decision:** The canonical Calder mark is the dot + signal-A geometry
+(110x80) already rendered in production UI, now shared as `CalderLockup` /
+`CalderMark` in `@calder/ui`. Stale `avenor-*` assets stay on disk untouched;
+the emailed `logo.svg` was regenerated to the canonical geometry (it also
+still said "Avenor" in its accessible label). No new mark may be introduced
+without updating the shared component first.
+
 ## ADR-022: Password auth with scrypt + email OTP verification
 
 **Status:** Accepted
