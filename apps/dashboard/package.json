@@ -18,6 +18,7 @@
     "@calder/config": "workspace:^",
     "@calder/db": "workspace:^",
     "@calder/email": "workspace:^",
+    "@calder/queue": "workspace:^",
     "@calder/observability": "workspace:^",
     "@calder/providers": "workspace:^",
     "@calder/rate-limit": "workspace:^",

@@ -117,6 +117,9 @@ importers:
       '@calder/providers':
         specifier: workspace:^
         version: link:../../packages/providers
+      '@calder/queue':
+        specifier: workspace:^
+        version: link:../../packages/queue
       '@calder/rate-limit':
         specifier: workspace:^
         version: link:../../packages/rate-limit
