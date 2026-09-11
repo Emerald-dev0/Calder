@@ -32,11 +32,16 @@ export const templates = pgTable(
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
     name: varchar("name", { length: 255 }).notNull(),
+    // stable alias for send-by-alias. Unique per project, lowercase/hyphens.
+    alias: varchar("alias", { length: 100 }),
     description: text("description"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("templates_project_idx").on(t.projectId)]
+  (t) => [
+    index("templates_project_idx").on(t.projectId),
+    index("templates_project_alias_unique").on(t.projectId, t.alias),
+  ]
 );
 
 export const templateVersions = pgTable(

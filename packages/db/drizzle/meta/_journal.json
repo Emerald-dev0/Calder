@@ -78,6 +78,13 @@
       "when": 1789116614154,
       "tag": "0010_sender_identities",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789124182964,
+      "tag": "0011_key_scopes_template_alias",
+      "breakpoints": true
     }
   ]
 }

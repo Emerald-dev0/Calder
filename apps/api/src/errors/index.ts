@@ -22,7 +22,9 @@ export class AppError extends Error {
     public code: ErrorCode,
     message: string,
     public status: number,
-    public details?: unknown
+    public details?: unknown,
+    /** What to do about it. Rendered in the public error body when present. */
+    public fix?: string
   ) {
     super(message);
     this.name = "AppError";
@@ -61,15 +63,25 @@ export function internalError(message = "Internal server error"): AppError {
   return new AppError("internal_error", message, 500);
 }
 
+export interface PublicErrorBody {
+  code: string;
+  message: string;
+  request_id: string;
+  fix?: string;
+}
+
 export function toPublicError(
   err: unknown,
   requestId: string
-): { status: number; body: { error: { code: string; message: string; request_id: string } } } {
+): { status: number; body: { error: PublicErrorBody } } {
   if (err instanceof AppError) {
-    return {
-      status: err.status,
-      body: { error: { code: err.code, message: err.message, request_id: requestId } },
+    const body: PublicErrorBody = {
+      code: err.code,
+      message: err.message,
+      request_id: requestId,
     };
+    if (err.fix) body.fix = err.fix;
+    return { status: err.status, body: { error: body } };
   }
   // Zod validation errors
   if (err && typeof err === "object" && "issues" in err) {

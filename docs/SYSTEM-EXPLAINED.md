@@ -184,6 +184,11 @@ re-runnable, resumable. Server actions enforce membership on every step.
 
 ## 9. Changelog (newest first)
 
+- **REST completion 6a:** senders/keys/templates/suppressions endpoints,
+ key scopes (full/send/read, enforced with fix-bearing 403s), template
+ versions + aliases, message filters (sender/status/since) with cursor
+ pagination alongside legacy paging, identity object on message read,
+ `fix` guidance on public errors. Migration `0011`.
 - **Sender management UI (sender-program Phase 5):** Senders list with
  readiness counts, per-sender detail (identity, delivery stats, recent
  deliveries), add flows for verified domains and connected Gmail only,

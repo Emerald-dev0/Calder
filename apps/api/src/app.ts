@@ -12,6 +12,10 @@ import webhooks from "./routes/webhooks.js";
 import waitlist from "./routes/waitlist.js";
 import admin from "./routes/admin.js";
 import unsubscribe from "./routes/unsubscribe.js";
+import senders from "./routes/senders.js";
+import keys from "./routes/keys.js";
+import templates from "./routes/templates.js";
+import suppressions from "./routes/suppressions.js";
 
 export interface Env {
   Variables: {
@@ -59,6 +63,10 @@ export function createApp() {
   app.route("/v1/waitlist", waitlist);
   app.route("/v1/admin", admin);
   app.route("/v1/unsubscribe", unsubscribe);
+  app.route("/v1/senders", senders);
+  app.route("/v1/keys", keys);
+  app.route("/v1/templates", templates);
+  app.route("/v1/suppressions", suppressions);
 
   // 404
   app.notFound((c) => {

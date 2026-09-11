@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from "hono";
 import { hashApiKey } from "@calder/auth";
-import { authenticationError } from "../errors/index.js";
+import { authenticationError, authorizationError } from "../errors/index.js";
 
 /**
  * API key authentication middleware.
@@ -11,7 +11,13 @@ import { authenticationError } from "../errors/index.js";
 // In-memory store for dev/test without DB (fallback)
 const devKeys = new Map<
   string,
-  { apiKeyId: string; projectId: string; organizationId: string; env: "test" | "live" }
+  {
+    apiKeyId: string;
+    projectId: string;
+    organizationId: string;
+    env: "test" | "live";
+    scope?: string;
+  }
 >();
 
 export function registerDevKey(
@@ -35,7 +41,12 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   // Try dev in-memory first
   const devCtx = devKeys.get(hash);
   if (devCtx) {
-    c.set("auth" as never, { type: "api_key", ...devCtx, keyPrefix: secret.slice(0, 20) });
+    c.set("auth" as never, {
+      type: "api_key",
+      ...devCtx,
+      scope: devCtx.scope ?? "full",
+      keyPrefix: secret.slice(0, 20),
+    });
     await next();
     return;
   }
@@ -67,6 +78,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
       projectId: row.projectId,
       organizationId: project.organizationId,
       env: row.env as "test" | "live",
+      scope: row.scope ?? "full",
       keyPrefix: row.keyPrefix,
     });
     await next();
@@ -77,6 +89,34 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
     throw authenticationError("Invalid API key");
   }
 };
+
+export type KeyScope = "full" | "send" | "read";
+
+export interface AuthContext {
+  type: string;
+  apiKeyId: string;
+  projectId: string;
+  organizationId: string;
+  env: "test" | "live";
+  scope: string;
+  keyPrefix: string;
+}
+
+/**
+ * Scope gate: key management needs full; sends need send or full;
+ * reads accept any valid key. Throws a 403 that names the fix.
+ */
+export function requireScope(auth: AuthContext, need: "manage" | "send" | "read"): void {
+  const scope = auth.scope ?? "full";
+  if (need === "read") return;
+  if (need === "send" && (scope === "send" || scope === "full")) return;
+  if (need === "manage" && scope === "full") return;
+  throw authorizationError(
+    need === "manage"
+      ? "This API key cannot manage resources. Use a full-scope key."
+      : "This API key cannot send. Use a send or full-scope key."
+  );
+}
 
 /**
  * Optional auth, does not throw if missing (for preview routes).
