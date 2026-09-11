@@ -14,7 +14,8 @@ export type ErrorCode =
   | "internal_error"
   | "domain_not_verified"
   | "suppressed"
-  | "idempotency_conflict";
+  | "idempotency_conflict"
+  | "sender_not_ready";
 
 export class AppError extends Error {
   constructor(

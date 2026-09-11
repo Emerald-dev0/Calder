@@ -62,11 +62,30 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
   // below, envelope fields (From/To/Subject/Content-*/Received-*) can never
   // be smuggled through. Only List-Unsubscribe(-Post) and X-* pass.
   const safeHeaders = sanitizeHeaders(input.headers);
+  // Sender identity resolution: sender_xxx IDs resolve to address + name and
+  // stamp the delivery record; bare addresses take the legacy path.
+  // Transport selection stays project-default here (worker owns it, Phase 9).
+  let senderIdentityId: string | null = null;
+  let senderEmail = input.from;
+  let senderName: string | null = null;
+  try {
+    const { getDb } = await import("@calder/db");
+    const { resolveSender } = await import("./sender-service.js");
+    const resolved = await resolveSender(getDb(), projectId, input.from);
+    senderIdentityId = resolved.senderIdentityId;
+    senderEmail = resolved.email;
+    senderName = resolved.displayName;
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    logger.warn({ err, projectId }, "Sender resolution unavailable, legacy path");
+  }
   const emailRecord = {
     id: emailId,
     projectId,
     idempotencyKey: idempotencyKey ?? null,
-    from: input.from,
+    from: senderEmail,
+    senderIdentityId,
+    fromName: senderName,
     to: input.to,
     cc: input.cc ?? null,
     bcc: input.bcc ?? null,
@@ -91,6 +110,8 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       projectId: emailRecord.projectId,
       idempotencyKey: emailRecord.idempotencyKey,
       from: emailRecord.from,
+      senderIdentityId: emailRecord.senderIdentityId,
+      fromName: emailRecord.fromName,
       to: emailRecord.to,
       cc: emailRecord.cc,
       bcc: emailRecord.bcc,
