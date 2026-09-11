@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { timingSafeEqual } from "node:crypto";
 import { completeGmailConnect, saveGmailTransport } from "@calder/auth";
+import { getDb } from "@calder/db";
 import { getTenantContext } from "../../../../../lib/auth";
+import { recordMilestone } from "../../../../(app)/onboarding/actions";
 
 function statesEqual(a: string, b: string): boolean {
   const ba = Buffer.from(a);
@@ -50,6 +52,11 @@ export async function GET(req: Request): Promise<Response> {
       projectId,
       senderEmail,
       refreshToken,
+    });
+    await recordMilestone(getDb(), {
+      actorUserId: ctx.user.userId,
+      action: "onboarding.gmail_connected",
+      targetId: projectId,
     });
     return done("gmail-ok");
   } catch {

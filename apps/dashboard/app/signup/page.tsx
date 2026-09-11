@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { configuredProviders } from "@calder/auth";
 import { SignupForm } from "./signup-form";
+import { CalderLockup } from "@calder/ui";
 
 export const metadata = {
   title: "Create your Calder account",
@@ -12,11 +13,13 @@ export default function SignupPage() {
   return (
     <div className="login-split">
       <div className="login-art" aria-hidden="true">
-        <p className="login-art-brand">Calder</p>
+        <div className="login-art-brand">
+          <CalderLockup tone="paper" size={20} />
+        </div>
         <h2 className="login-art-headline">Reliable delivery, made legible.</h2>
         <p className="login-art-sub">
-          One unified infrastructure for modern developers. Everything on the record:
-          queued, sent, delivered, with zero mystery.
+          One unified infrastructure for modern developers. Everything on the record: queued, sent,
+          delivered, with zero mystery.
         </p>
         <div className="login-art-stage">
           <Image

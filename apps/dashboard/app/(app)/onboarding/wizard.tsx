@@ -19,8 +19,11 @@ import {
   USE_CASES,
   VOLUMES,
   ENVIRONMENTS,
-  ROLES,
-  REFERRAL_SOURCES,
+  PROFILE_ROLES,
+  PROJECT_TYPES,
+  DISCOVERY_SOURCES,
+  AI_ASSISTANTS,
+  PRIMARY_GOALS,
   type Environment,
 } from "../../../lib/onboarding";
 import { ArrivalMoment } from "../../../components/arrival-moment";
@@ -34,6 +37,8 @@ interface Org {
 export interface InitialProfile {
   name: string;
   username: string;
+  projectTypes: string[];
+  primaryGoal: string;
   role: string;
   referralSource: string;
 }
@@ -98,13 +103,15 @@ export function OnboardingWizard({
   initialProfile,
   orgsWithDeliveries,
   initialNotice,
+  initialStep,
 }: {
   orgs: Org[];
   initialProfile: InitialProfile;
   orgsWithDeliveries: string[];
   initialNotice?: string;
+  initialStep?: number;
 }) {
-  const [step, setStep] = React.useState(0);
+  const [step, setStep] = React.useState(initialStep ?? 0);
   const [welcomed, setWelcomed] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(initialNotice ?? null);
   const [busy, setBusy] = React.useState(false);
@@ -112,10 +119,14 @@ export function OnboardingWizard({
 
   const [displayName, setDisplayName] = React.useState(initialProfile.name);
   const [username, setUsername] = React.useState(initialProfile.username);
-  const [role, setRole] = React.useState(initialProfile.role || (ROLES[0] as string));
+  const [role, setRole] = React.useState(initialProfile.role || "Developer");
   const [referralSource, setReferralSource] = React.useState(
-    initialProfile.referralSource || (REFERRAL_SOURCES[0] as string)
+    initialProfile.referralSource || "Google / Search"
   );
+  const [discoveryDetail, setDiscoveryDetail] = React.useState("");
+  const [projectTypes, setProjectTypes] = React.useState<string[]>(initialProfile.projectTypes);
+  const [primaryGoal, setPrimaryGoal] = React.useState(initialProfile.primaryGoal);
+  const [profileScreen, setProfileScreen] = React.useState(0);
   const [done, setDone] = React.useState(false);
 
   const [orgId, setOrgId] = React.useState<string | null>(orgs[0]?.id ?? null);
@@ -211,7 +222,7 @@ export function OnboardingWizard({
 
   if (!welcomed) {
     return (
-      <div style={{ maxWidth: 640 }}>
+      <div style={{ maxWidth: 640 }} className="wizard-step">
         <p style={{ fontWeight: 700, fontSize: 20, margin: "0 0 8px" }}>Calder</p>
         <h1 style={{ fontSize: 30, letterSpacing: "-0.02em", margin: "0 0 10px" }}>
           Welcome. Let&rsquo;s get your first message out.
@@ -251,7 +262,7 @@ export function OnboardingWizard({
           : null;
 
   return (
-    <div style={{ maxWidth: 640 }}>
+    <div style={{ maxWidth: 640 }} key={`${step}-${profileScreen}`} className="wizard-step">
       {noticeText && (
         <p
           style={{
@@ -299,12 +310,11 @@ export function OnboardingWizard({
         ))}
       </ol>
 
-      {step === 0 && (
+      {step === 0 && profileScreen === 0 && (
         <div>
-          <h2 style={{ margin: "0 0 6px" }}>Who are you?</h2>
+          <h2 style={{ margin: "0 0 6px" }}>What best describes you?</h2>
           <p style={{ color: "#737373", fontSize: 14, margin: "0 0 20px" }}>
-            Your profile travels with you across every organization, pick a handle you&rsquo;ll
-            keep.
+            Your profile travels with you across every organization.
           </p>
           <Field label="Your name">
             <input
@@ -312,6 +322,7 @@ export function OnboardingWizard({
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="Ada Engineer"
               style={inputStyle}
+              autoComplete="name"
             />
           </Field>
           <Field label="Username (unique, lowercase)">
@@ -320,48 +331,269 @@ export function OnboardingWizard({
               onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
               placeholder="ada"
               style={inputStyle}
+              autoComplete="username"
             />
           </Field>
-          <Field label="I am a…">
-            <select value={role} onChange={(e) => setRole(e.target.value)} style={inputStyle}>
-              {ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="How did you hear about Calder?">
-            <select
-              value={referralSource}
-              onChange={(e) => setReferralSource(e.target.value)}
-              style={inputStyle}
+          <fieldset style={{ border: "none", padding: 0, margin: "0 0 20px" }}>
+            <legend style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>I am a…</legend>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+                gap: 8,
+              }}
             >
-              {REFERRAL_SOURCES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <button
-            style={btnPrimary}
-            disabled={busy}
-            onClick={() =>
-              run(async () => {
-                await saveProfile({ name: displayName, username, role, referralSource });
-                setStep(1);
-              })
-            }
-          >
+              {PROFILE_ROLES.map((r) => {
+                const on = role === r.value;
+                return (
+                  <label
+                    key={r.value}
+                    style={{
+                      display: "block",
+                      border: on ? "2px solid #0B0C0E" : "1px solid #D4D4D4",
+                      background: on ? "#F5F4EF" : "#fff",
+                      borderRadius: 10,
+                      padding: "10px 12px",
+                      fontSize: 13,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="profile-role"
+                      value={r.value}
+                      checked={on}
+                      onChange={() => setRole(r.value)}
+                      style={{ position: "absolute", opacity: 0, pointerEvents: "none" }}
+                    />
+                    <span style={{ fontWeight: on ? 700 : 400 }}>
+                      {on ? "✓ " : ""}
+                      {r.value}
+                    </span>
+                    <br />
+                    <span style={{ color: "#737373", fontSize: 12 }}>{r.hint}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+          <button style={btnPrimary} disabled={busy} onClick={() => setProfileScreen(1)}>
             Continue →
           </button>
           <Err message={error} />
         </div>
       )}
 
+      {step === 0 && profileScreen === 1 && (
+        <div>
+          <h2 style={{ margin: "0 0 6px" }}>What are you building?</h2>
+          <p style={{ color: "#737373", fontSize: 14, margin: "0 0 20px" }}>
+            Pick any that apply, it shapes your starting project.
+          </p>
+          <fieldset style={{ border: "none", padding: 0, margin: "0 0 20px" }}>
+            <legend className="mono" style={{ fontSize: 11, color: "#737373", marginBottom: 8 }}>
+              PROJECT TYPES
+            </legend>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {PROJECT_TYPES.map((t) => {
+                const on = projectTypes.includes(t);
+                return (
+                  <label
+                    key={t}
+                    style={{
+                      border: on ? "2px solid #0B0C0E" : "1px solid #D4D4D4",
+                      background: on ? "#F5F4EF" : "#fff",
+                      borderRadius: 999,
+                      padding: "8px 14px",
+                      fontSize: 13,
+                      fontWeight: on ? 600 : 400,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() =>
+                        setProjectTypes(
+                          on ? projectTypes.filter((x) => x !== t) : [...projectTypes, t]
+                        )
+                      }
+                      style={{ position: "absolute", opacity: 0, pointerEvents: "none" }}
+                    />
+                    {on ? "✓ " : ""}
+                    {t}
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button style={btnSecondary} onClick={() => setProfileScreen(0)}>
+              ← Back
+            </button>
+            <button style={btnPrimary} disabled={busy} onClick={() => setProfileScreen(2)}>
+              Continue →
+            </button>
+          </div>
+          <Err message={error} />
+        </div>
+      )}
+
+      {step === 0 && profileScreen === 2 && (
+        <div>
+          <h2 style={{ margin: "0 0 6px" }}>How did you hear about Calder?</h2>
+          <p style={{ color: "#737373", fontSize: 14, margin: "0 0 20px" }}>
+            Stays inside Calder, never published. Helps us meet the next developer.
+          </p>
+          <fieldset style={{ border: "none", padding: 0, margin: "0 0 20px" }}>
+            <legend className="mono" style={{ fontSize: 11, color: "#737373", marginBottom: 8 }}>
+              DISCOVERY SOURCE
+            </legend>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+                gap: 8,
+              }}
+            >
+              {DISCOVERY_SOURCES.map((s) => {
+                const on = referralSource === s;
+                return (
+                  <label
+                    key={s}
+                    style={{
+                      display: "block",
+                      border: on ? "2px solid #0B0C0E" : "1px solid #D4D4D4",
+                      background: on ? "#F5F4EF" : "#fff",
+                      borderRadius: 10,
+                      padding: "10px 12px",
+                      fontSize: 13,
+                      fontWeight: on ? 600 : 400,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="discovery-source"
+                      value={s}
+                      checked={on}
+                      onChange={() => {
+                        setReferralSource(s);
+                        if (s !== "AI assistant") setDiscoveryDetail("");
+                      }}
+                      style={{ position: "absolute", opacity: 0, pointerEvents: "none" }}
+                    />
+                    {on ? "✓ " : ""}
+                    {s}
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+          {referralSource === "AI assistant" && (
+            <Field label="Which one? (optional)">
+              <select
+                value={discoveryDetail}
+                onChange={(e) => setDiscoveryDetail(e.target.value)}
+                style={inputStyle}
+              >
+                <option value="">Pick one…</option>
+                {AI_ASSISTANTS.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+          <div style={{ display: "flex", gap: 10 }}>
+            <button style={btnSecondary} onClick={() => setProfileScreen(1)}>
+              ← Back
+            </button>
+            <button style={btnPrimary} disabled={busy} onClick={() => setProfileScreen(3)}>
+              Continue →
+            </button>
+          </div>
+          <Err message={error} />
+        </div>
+      )}
+
+      {step === 0 && profileScreen === 3 && (
+        <div>
+          <h2 style={{ margin: "0 0 6px" }}>What are you here to do?</h2>
+          <p style={{ color: "#737373", fontSize: 14, margin: "0 0 20px" }}>
+            One pick, it decides what we emphasize next.
+          </p>
+          <fieldset style={{ border: "none", padding: 0, margin: "0 0 20px" }}>
+            <legend className="mono" style={{ fontSize: 11, color: "#737373", marginBottom: 8 }}>
+              PRIMARY GOAL
+            </legend>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 440 }}>
+              {PRIMARY_GOALS.map((g) => {
+                const on = primaryGoal === g;
+                return (
+                  <label
+                    key={g}
+                    style={{
+                      display: "block",
+                      border: on ? "2px solid #0B0C0E" : "1px solid #D4D4D4",
+                      background: on ? "#F5F4EF" : "#fff",
+                      borderRadius: 10,
+                      padding: "10px 12px",
+                      fontSize: 14,
+                      fontWeight: on ? 600 : 400,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="primary-goal"
+                      value={g}
+                      checked={on}
+                      onChange={() => setPrimaryGoal(g)}
+                      style={{ position: "absolute", opacity: 0, pointerEvents: "none" }}
+                    />
+                    {on ? "✓ " : ""}
+                    {g}
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button style={btnSecondary} onClick={() => setProfileScreen(2)}>
+              ← Back
+            </button>
+            <button
+              style={btnPrimary}
+              disabled={busy || !primaryGoal}
+              onClick={() =>
+                run(async () => {
+                  await saveProfile({
+                    name: displayName,
+                    username,
+                    role,
+                    referralSource,
+                    discoveryDetail,
+                    projectTypes,
+                    primaryGoal,
+                  });
+                  setStep(1);
+                })
+              }
+            >
+              Save & continue →
+            </button>
+          </div>
+          <Err message={error} />
+        </div>
+      )}
+
       {step === 1 && (
         <div>
+          <p style={{ fontSize: 13, color: "#16A34A", fontWeight: 600, margin: "0 0 6px" }}>
+            Profile done. Now let&rsquo;s build.
+          </p>
           <h2 style={{ margin: "0 0 6px" }}>Where does this belong?</h2>
           <p style={{ color: "#737373", fontSize: 14, margin: "0 0 20px" }}>
             Organizations own billing and members. Most people need exactly one.
@@ -504,6 +736,64 @@ export function OnboardingWizard({
 
       {step === 3 && (
         <div>
+          <div
+            role="img"
+            aria-label="Your app sends through the Calder API, out an email transport, to your recipient."
+            style={{
+              background: "#fff",
+              border: "1px solid #E5E5E5",
+              borderRadius: 12,
+              padding: "16px",
+              marginBottom: 20,
+            }}
+          >
+            <svg viewBox="0 0 560 120" style={{ width: "100%", height: "auto", display: "block" }}>
+              {[
+                { x: 8, label: "Your app" },
+                { x: 152, label: "Calder API" },
+                { x: 296, label: "Transport" },
+                { x: 440, label: "Recipient" },
+              ].map((n, i) => (
+                <g key={n.label}>
+                  <rect
+                    x={n.x}
+                    y={38}
+                    width={112}
+                    height={44}
+                    rx={8}
+                    fill={i === 1 ? "#0B0C0E" : "#F5F4EF"}
+                    stroke="#0B0C0E"
+                    strokeWidth={1.5}
+                  />
+                  <text
+                    x={n.x + 56}
+                    y={63}
+                    textAnchor="middle"
+                    fontSize={12}
+                    fontWeight={600}
+                    fill={i === 1 ? "#F5F4EF" : "#0B0C0E"}
+                  >
+                    {n.label}
+                  </text>
+                  {i < 3 && (
+                    <line
+                      x1={n.x + 112}
+                      y1={60}
+                      x2={n.x + 152}
+                      y2={60}
+                      stroke="#0B0C0E"
+                      strokeWidth={1.5}
+                      strokeDasharray="5 5"
+                      className="pipe-flow"
+                    />
+                  )}
+                </g>
+              ))}
+            </svg>
+            <p className="mono" style={{ fontSize: 11, color: "#737373", margin: "8px 0 0" }}>
+              send → track → verify. Only what exists, nothing promised early.
+            </p>
+          </div>
           <h2 style={{ margin: "0 0 6px" }}>How should this project send?</h2>
           <p style={{ color: "#737373", fontSize: 14, margin: "0 0 20px" }}>
             Test sends ride Calder&rsquo;s shared sender. Anything real needs your own:
