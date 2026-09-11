@@ -1,11 +1,15 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-export const metadata = {
-  title: "404 — Not Found · Calder",
-};
-
+/**
+ * Plain-English 404: say what happened, show the missing address,
+ * offer the way out. No developer jargon on a page anyone can land on.
+ */
 export default function NotFound() {
+  const pathname = usePathname();
   return (
     <div
       style={{
@@ -59,7 +63,7 @@ export default function NotFound() {
             marginBottom: 16,
           }}
         >
-          404 · route.undelivered
+          404 · Page not found
         </span>
 
         <h1
@@ -71,7 +75,7 @@ export default function NotFound() {
             lineHeight: 1.15,
           }}
         >
-          This destination never arrived.
+          This page got lost in transit.
         </h1>
 
         <p
@@ -82,40 +86,29 @@ export default function NotFound() {
             margin: "0 0 24px",
           }}
         >
-          Like a message addressed to a non-existent mailbox, this URL was received by our proxy but
-          resolved to nothing on the record.
+          The address you&rsquo;re looking for doesn&rsquo;t exist. It may have been moved, deleted,
+          or typed incorrectly.
         </p>
 
-        <div
-          className="mono"
-          style={{
-            background: "#ffffff",
-            border: "1px solid var(--color-border)",
-            borderRadius: 8,
-            padding: "12px 16px",
-            fontSize: 12,
-            color: "#525252",
-            textAlign: "left",
-            margin: "0 0 28px",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-          }}
-        >
-          <span
+        {pathname && pathname !== "/" && (
+          <p
+            className="mono"
             style={{
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: "#EF4444",
-              display: "inline-block",
-              flexShrink: 0,
+              background: "#ffffff",
+              border: "1px solid var(--color-border)",
+              borderRadius: 8,
+              padding: "12px 16px",
+              fontSize: 12,
+              color: "#525252",
+              margin: "0 0 28px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
             }}
-          />
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            GET unrouted_path → 404_not_found · dropped
-          </span>
-        </div>
+          >
+            No page at {pathname}
+          </p>
+        )}
 
         <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
           <Link
@@ -131,7 +124,7 @@ export default function NotFound() {
               fontWeight: 600,
             }}
           >
-            Return home →
+            Back to dashboard →
           </Link>
           <Link
             href="/emails"
