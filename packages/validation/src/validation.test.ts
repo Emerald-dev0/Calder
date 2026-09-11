@@ -7,6 +7,7 @@ import {
   createTemplateSchema,
   createSuppressionSchema,
   keyScopeSchema,
+  bulkSendSchema,
 } from "./index";
 
 describe("validation schemas", () => {
@@ -78,5 +79,65 @@ describe("validation schemas", () => {
     expect(createSuppressionSchema.safeParse({ email: "x@y.com", reason: "manual" }).success).toBe(
       true
     );
+  });
+
+  it("template-only sends pass without inline subject/body", () => {
+    const ok = sendEmailSchema.safeParse({
+      from: "a@x.com",
+      to: "b@x.com",
+      template: "welcome",
+      variables: { name: "Ada" },
+    });
+    expect(ok.success).toBe(true);
+    const bad = sendEmailSchema.safeParse({ from: "a@x.com", to: "b@x.com" });
+    expect(bad.success).toBe(false);
+  });
+
+  it("attachments enforce count, names, and total size", () => {
+    const base = { from: "a@x.com", to: "b@x.com", subject: "S", text: "T" };
+    expect(
+      sendEmailSchema.safeParse({
+        ...base,
+        attachments: [{ filename: "a.pdf", contentBase64: "aGk=" }],
+      }).success
+    ).toBe(true);
+    expect(
+      sendEmailSchema.safeParse({
+        ...base,
+        attachments: [{ filename: "../evil.pdf", contentBase64: "aGk=" }],
+      }).success
+    ).toBe(false);
+    expect(
+      sendEmailSchema.safeParse({
+        ...base,
+        attachments: Array.from({ length: 11 }, (_, i) => ({
+          filename: `f${i}.pdf`,
+          contentBase64: "aGk=",
+        })),
+      }).success
+    ).toBe(false);
+  });
+
+  it("scheduled_at must be future and within a year", () => {
+    const base = { from: "a@x.com", to: "b@x.com", subject: "S", text: "T" };
+    const future = new Date(Date.now() + 3600_000).toISOString();
+    const past = new Date(Date.now() - 1000).toISOString();
+    expect(sendEmailSchema.safeParse({ ...base, scheduled_at: future }).success).toBe(true);
+    expect(sendEmailSchema.safeParse({ ...base, scheduled_at: past }).success).toBe(false);
+  });
+
+  it("bulkSendSchema caps at 100 with shared defaults", () => {
+    const ok = bulkSendSchema.safeParse({
+      from: "a@x.com",
+      subject: "Hi",
+      text: "Hey",
+      messages: [{ to: "x@y.com" }, { to: "z@y.com", subject: "Other" }],
+    });
+    expect(ok.success).toBe(true);
+    const tooMany = bulkSendSchema.safeParse({
+      from: "a@x.com",
+      messages: Array.from({ length: 101 }, () => ({ to: "x@y.com" })),
+    });
+    expect(tooMany.success).toBe(false);
   });
 });

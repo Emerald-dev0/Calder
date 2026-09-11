@@ -36,6 +36,23 @@ describe("buildGmailMime", () => {
     expect(mime).not.toContain("Bad Header;");
   });
 
+  it("wraps attachments in multipart/mixed with base64 parts", () => {
+    const mime = buildGmailMime({
+      from: "a@gmail.com",
+      to: "b@example.com",
+      subject: "Files",
+      text: "See attached",
+      attachments: [
+        { filename: "invoice.pdf", contentType: "application/pdf", contentBase64: "aGVsbG8=" },
+      ],
+    });
+    expect(mime).toContain("multipart/mixed");
+    expect(mime).toContain('filename="invoice.pdf"');
+    expect(mime).toContain("Content-Transfer-Encoding: base64");
+    expect(mime).toContain("aGVsbG8=");
+    expect(mime).toContain("See attached");
+  });
+
   it("round-trips through base64url without padding or unsafe chars", () => {
     const encoded = base64UrlEncode(
       buildGmailMime({

@@ -3,6 +3,13 @@
  * AWS SES is initial implementation; mock for dev/test.
  */
 
+export interface EmailAttachment {
+  filename: string;
+  contentType?: string;
+  /** Raw file bytes as base64. Providers encode per transport. */
+  contentBase64: string;
+}
+
 export interface EmailMessage {
   from: string;
   to: string;
@@ -12,6 +19,7 @@ export interface EmailMessage {
   subject: string;
   html?: string;
   text?: string;
+  attachments?: EmailAttachment[];
   // Optional: for tracking, tags etc
   headers?: Record<string, string>;
   tags?: Array<{ name: string; value: string }>;

@@ -1,7 +1,14 @@
 import { Hono } from "hono";
 import type { Env } from "../app.js";
+import spec from "../../openapi.json";
 
 const health = new Hono<Env>();
+
+// The OpenAPI document, served live so SDKs and docs never drift from code.
+// Mounted at /v1/openapi.json (health router lives at root).
+health.get("/v1/openapi.json", (c) => {
+  return c.json(spec);
+});
 
 health.get("/health", (c) => {
   return c.json({ status: "ok", timestamp: new Date().toISOString() });

@@ -37,6 +37,14 @@ export const emails = pgTable(
     text: text("text"),
     // structured metadata: template, tags, etc
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    // attachments: [{ filename, contentType, contentBase64 }], ≤10 files, ≤25MB base64 total
+    attachments: jsonb("attachments").$type<Array<{
+      filename: string;
+      contentType?: string;
+      contentBase64: string;
+    }> | null>(),
+    // hold delivery until this time (scheduled sends ride delayed queue jobs)
+    scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
     status: emailStatusEnum("status").notNull().default("created"),
     providerMessageId: varchar("provider_message_id", { length: 255 }),
     // error details if failed
