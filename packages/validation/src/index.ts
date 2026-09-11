@@ -4,7 +4,9 @@ import { z } from "zod";
 
 export const sendEmailSchema = z
   .object({
-    from: z.string().email().max(320),
+    from: z.union([z.string().email().max(320), z.string().regex(/^sender_[A-Za-z0-9_-]{1,64}$/)], {
+      errorMap: () => ({ message: "from must be an email address or a sender ID (sender_...)" }),
+    }),
     to: z.string().email().max(320),
     cc: z.string().email().max(320).optional(),
     bcc: z.string().email().max(320).optional(),

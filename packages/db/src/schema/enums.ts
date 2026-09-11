@@ -64,3 +64,17 @@ export const suppressionReasonEnum = pgEnum("suppression_reason", [
 export const otpPurposeEnum = pgEnum("otp_purpose", ["verification", "login", "reset"]);
 export const transportTypeEnum = pgEnum("transport_type", ["gmail", "ses", "managed"]);
 export const transportStatusEnum = pgEnum("transport_status", ["active", "suspended", "revoked"]);
+/** Sender identity kind. Only implemented transports appear here; extend by migration. */
+export const senderTypeEnum = pgEnum("sender_type", ["domain", "gmail", "managed"]);
+/**
+ * Sender readiness. pending = verification in flight; verified/connected =
+ * usable (domain vs integrated); disabled/failed = blocked with a reason.
+ * "Needs attention" is derived in UI, never stored.
+ */
+export const senderStatusEnum = pgEnum("sender_status", [
+  "pending",
+  "verified",
+  "connected",
+  "disabled",
+  "failed",
+]);

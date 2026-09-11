@@ -10,6 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { emailStatusEnum, emailEventTypeEnum } from "./enums";
 import { projects } from "./projects";
+import { senderIdentities } from "./senders";
 
 export const emails = pgTable(
   "emails",
@@ -21,6 +22,12 @@ export const emails = pgTable(
     // idempotency key scoped to project
     idempotencyKey: varchar("idempotency_key", { length: 255 }),
     from: varchar("from", { length: 320 }).notNull(),
+    // Resolved sender identity (nullable = legacy bare-address send).
+    // Delivery records must carry the identity, not just the string.
+    senderIdentityId: text("sender_identity_id").references(() => senderIdentities.id, {
+      onDelete: "set null",
+    }),
+    fromName: varchar("from_name", { length: 255 }),
     to: varchar("to", { length: 320 }).notNull(),
     cc: varchar("cc", { length: 1024 }),
     bcc: varchar("bcc", { length: 1024 }),

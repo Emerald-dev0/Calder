@@ -1,6 +1,6 @@
 {
-  "id": "cd4a40ec-c27c-45c6-baf3-8db62a0ee7f7",
-  "prevId": "9dc9e9fb-0e0c-4bf8-adc5-e36376497db0",
+  "id": "4b846e9d-8b48-4c1f-b639-e983ac2093a5",
+  "prevId": "cd4a40ec-c27c-45c6-baf3-8db62a0ee7f7",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -43,6 +43,31 @@
           "type": "varchar(100)",
           "primaryKey": false,
           "notNull": false
+        },
+        "discovery_detail": {
+          "name": "discovery_detail",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "project_types": {
+          "name": "project_types",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "primary_goal": {
+          "name": "primary_goal",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "onboarding_state": {
+          "name": "onboarding_state",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'not_started'"
         },
         "onboarding_completed_at": {
           "name": "onboarding_completed_at",
