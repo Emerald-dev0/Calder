@@ -1,6 +1,7 @@
 export {
   type EmailProvider,
   type EmailMessage,
+  type EmailAttachment,
   type ProviderSendResult,
   type ProviderError,
   MockEmailProvider,

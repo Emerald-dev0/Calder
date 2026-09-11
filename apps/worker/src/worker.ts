@@ -123,6 +123,7 @@ export async function startWorker() {
         text: string | null;
         status: string;
         headers: Record<string, string>;
+        attachments: Array<{ filename: string; contentType?: string; contentBase64: string }>;
       } | null = null;
 
       try {
@@ -136,6 +137,7 @@ export async function startWorker() {
           .limit(1);
         const row = rows[0];
         if (row) {
+          const atts = (row as { attachments?: unknown }).attachments;
           email = {
             id: row.id,
             from: row.from,
@@ -150,6 +152,9 @@ export async function startWorker() {
               typeof (row.metadata as Record<string, unknown>).headers === "object"
                 ? ((row.metadata as Record<string, unknown>).headers as Record<string, string>)
                 : {},
+            attachments: Array.isArray(atts)
+              ? (atts as Array<{ filename: string; contentType?: string; contentBase64: string }>)
+              : [],
           };
         }
       } catch (dbErr) {
@@ -172,6 +177,7 @@ export async function startWorker() {
           text: "Hello from Calder scaffold",
           status: "queued",
           headers: {},
+          attachments: [],
         };
         // Try to persist a fallback event anyway
       }
@@ -191,6 +197,7 @@ export async function startWorker() {
         html: email.html ?? undefined,
         text: email.text ?? undefined,
         headers: Object.keys(email.headers).length > 0 ? email.headers : undefined,
+        attachments: email.attachments.length > 0 ? email.attachments : undefined,
       });
 
       jobLogger.info(

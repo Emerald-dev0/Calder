@@ -16,6 +16,7 @@ import senders from "./routes/senders.js";
 import keys from "./routes/keys.js";
 import templates from "./routes/templates.js";
 import suppressions from "./routes/suppressions.js";
+import batch from "./routes/batch.js";
 
 export interface Env {
   Variables: {
@@ -67,6 +68,7 @@ export function createApp() {
   app.route("/v1/keys", keys);
   app.route("/v1/templates", templates);
   app.route("/v1/suppressions", suppressions);
+  app.route("/v1/emails/batch", batch);
 
   // 404
   app.notFound((c) => {

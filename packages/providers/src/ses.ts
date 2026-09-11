@@ -20,6 +20,11 @@ export class SesEmailProvider implements EmailProvider {
 
   async send(message: EmailMessage): Promise<ProviderSendResult> {
     try {
+      const attachments = (message.attachments ?? []).map((a) => ({
+        FileName: a.filename,
+        FileContentType: a.contentType ?? "application/octet-stream",
+        RawContent: Buffer.from(a.contentBase64, "base64"),
+      }));
       const cmd = new SendEmailCommand({
         FromEmailAddress: message.from,
         Destination: {
@@ -37,6 +42,7 @@ export class SesEmailProvider implements EmailProvider {
             Headers: message.headers
               ? Object.entries(message.headers).map(([Name, Value]) => ({ Name, Value }))
               : undefined,
+            Attachments: attachments.length > 0 ? attachments : undefined,
           },
         },
         EmailTags: message.tags?.map((t) => ({ Name: t.name, Value: t.value })),

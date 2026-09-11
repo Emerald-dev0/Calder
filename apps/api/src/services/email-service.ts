@@ -79,6 +79,95 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
     if (err instanceof AppError) throw err;
     logger.warn({ err, projectId }, "Sender resolution unavailable, legacy path");
   }
+  // Template send-by-alias: latest version wins; missing variables are a
+  // 400 naming every gap (silent defaults send the wrong email to someone).
+  let subject = input.subject;
+  let html = input.html ?? null;
+  let text = input.text ?? null;
+  if (input.template) {
+    try {
+      const { getDb, templates, templateVersions } = await import("@calder/db");
+      const { eq, and, desc } = await import("drizzle-orm");
+      const db = getDb();
+      const [tpl] = await db
+        .select({ id: templates.id })
+        .from(templates)
+        .where(and(eq(templates.projectId, projectId), eq(templates.alias, input.template)))
+        .limit(1);
+      if (!tpl) {
+        throw new AppError(
+          "not_found",
+          `Template "${input.template}" does not exist on this project.`,
+          404,
+          undefined,
+          "Create it via POST /v1/templates first."
+        );
+      }
+      const [latest] = await db
+        .select()
+        .from(templateVersions)
+        .where(eq(templateVersions.templateId, tpl.id))
+        .orderBy(desc(templateVersions.createdAt))
+        .limit(1);
+      if (!latest || (!latest.subject && !latest.html && !latest.text)) {
+        throw new AppError(
+          "validation_error",
+          `Template "${input.template}" has no content yet.`,
+          400,
+          undefined,
+          "Add a version via POST /v1/templates/:id/versions first."
+        );
+      }
+      subject = subject ?? latest.subject ?? "";
+      html = html ?? latest.html ?? null;
+      text = text ?? latest.text ?? null;
+      const vars = (input.variables as Record<string, string> | undefined) ?? {};
+      const missing = new Set<string>();
+      const fill = (s: string | null): string | null =>
+        s === null
+          ? null
+          : s.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (m, key: string) => {
+              const v = vars[key];
+              if (v === undefined) {
+                missing.add(key);
+                return m;
+              }
+              return v;
+            });
+      subject = fill(subject) ?? "";
+      html = fill(html);
+      text = fill(text);
+      if (missing.size > 0) {
+        throw new AppError(
+          "validation_error",
+          `Missing template variables: ${[...missing].join(", ")}.`,
+          400,
+          undefined,
+          "Pass every {{variable}} in the variables object."
+        );
+      }
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      logger.warn({ err, projectId }, "Template resolution unavailable");
+      throw new AppError("internal_error", "Could not resolve template.", 500);
+    }
+  }
+  if (!subject || (!html && !text)) {
+    throw new AppError(
+      "validation_error",
+      "Send needs a subject and html, text, or a template that provides them.",
+      400
+    );
+  }
+
+  // Scheduled sends hold in the delayed queue; the record carries the time.
+  let scheduledFor: Date | null = null;
+  let delayMs: number | undefined;
+  if (input.scheduled_at) {
+    scheduledFor = new Date(input.scheduled_at);
+    delayMs = Math.max(0, scheduledFor.getTime() - Date.now());
+  }
+
   const emailRecord = {
     id: emailId,
     projectId,
@@ -86,13 +175,15 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
     from: senderEmail,
     senderIdentityId,
     fromName: senderName,
+    scheduledFor,
+    attachments: input.attachments ?? null,
     to: input.to,
     cc: input.cc ?? null,
     bcc: input.bcc ?? null,
     replyTo: input.reply_to ?? null,
-    subject: input.subject,
-    html: input.html ?? null,
-    text: input.text ?? null,
+    subject,
+    html,
+    text,
     metadata: {
       ...((input.metadata as Record<string, unknown> | undefined) ?? {}),
       ...(Object.keys(safeHeaders).length > 0 ? { headers: safeHeaders } : {}),
@@ -120,6 +211,8 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       html: emailRecord.html,
       text: emailRecord.text,
       metadata: emailRecord.metadata,
+      scheduledFor: emailRecord.scheduledFor,
+      attachments: emailRecord.attachments,
       status: "queued",
       attemptCount: 0,
     });
@@ -171,8 +264,13 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
   // Wire queue to worker handler if available (in-process for scaffold vertical slice)
   // The worker will also poll; this ensures local dev works without separate process
   try {
-    await queue.enqueue("send-email", { emailId, projectId });
-    logger.info({ emailId, projectId, requestId, env }, "Email enqueued");
+    if (delayMs !== undefined && delayMs > 0) {
+      await queue.enqueueDelayed("send-email", { emailId, projectId }, delayMs);
+      logger.info({ emailId, projectId, requestId, env, delayMs }, "Email scheduled");
+    } else {
+      await queue.enqueue("send-email", { emailId, projectId });
+      logger.info({ emailId, projectId, requestId, env }, "Email enqueued");
+    }
   } catch (queueErr) {
     logger.error({ err: queueErr, emailId }, "Failed to enqueue email");
     // Update status to failed but still return ID for observability

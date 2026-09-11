@@ -33,7 +33,7 @@ interface TokenResponse {
   token_type: string;
 }
 
-/** Build a minimal RFC 822 message (multipart/alternative when both bodies exist). */
+/** Encode one body part set; attachments wrap everything in multipart/mixed. */
 export function buildGmailMime(
   message: Required<Pick<EmailMessage, "from" | "to" | "subject">> & EmailMessage
 ): string {
@@ -46,34 +46,78 @@ export function buildGmailMime(
     `Subject: ${message.subject}`,
     "MIME-Version: 1.0",
   ];
-  let body = "";
-  if (message.html && message.text) {
-    const boundary = `calder_${Date.now().toString(36)}`;
-    lines.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
-    body = [
-      "",
-      `--${boundary}`,
-      'Content-Type: text/plain; charset="UTF-8"',
-      "",
-      message.text,
-      `--${boundary}`,
-      'Content-Type: text/html; charset="UTF-8"',
-      "",
-      message.html,
-      `--${boundary}--`,
-      "",
-    ].join("\r\n");
-  } else if (message.html) {
-    lines.push('Content-Type: text/html; charset="UTF-8"');
-    body = `\r\n${message.html}\r\n`;
-  } else {
-    lines.push('Content-Type: text/plain; charset="UTF-8"');
-    body = `\r\n${message.text ?? ""}\r\n`;
+  const attachments = message.attachments ?? [];
+  if (attachments.length === 0) {
+    let body = "";
+    if (message.html && message.text) {
+      const boundary = `calder_${Date.now().toString(36)}`;
+      lines.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
+      body = [
+        "",
+        `--${boundary}`,
+        'Content-Type: text/plain; charset="UTF-8"',
+        "",
+        message.text,
+        `--${boundary}`,
+        'Content-Type: text/html; charset="UTF-8"',
+        "",
+        message.html,
+        `--${boundary}--`,
+        "",
+      ].join("\r\n");
+    } else if (message.html) {
+      lines.push('Content-Type: text/html; charset="UTF-8"');
+      body = `\r\n${message.html}\r\n`;
+    } else {
+      lines.push('Content-Type: text/plain; charset="UTF-8"');
+      body = `\r\n${message.text ?? ""}\r\n`;
+    }
+    for (const [name, value] of Object.entries(message.headers ?? {})) {
+      if (/^[A-Za-z0-9-]+$/.test(name)) lines.push(`${name}: ${value}`);
+    }
+    return `${lines.join("\r\n")}${body}`;
   }
+
+  // multipart/mixed: body part first, then one base64 part per attachment.
+  const outer = `calder_mixed_${Date.now().toString(36)}`;
+  lines.push(`Content-Type: multipart/mixed; boundary="${outer}"`);
   for (const [name, value] of Object.entries(message.headers ?? {})) {
     if (/^[A-Za-z0-9-]+$/.test(name)) lines.push(`${name}: ${value}`);
   }
-  return `${lines.join("\r\n")}${body}`;
+  const parts = ["", `--${outer}`];
+  if (message.html && message.text) {
+    const inner = `calder_alt_${Date.now().toString(36)}`;
+    parts.push(
+      `Content-Type: multipart/alternative; boundary="${inner}"`,
+      "",
+      `--${inner}`,
+      'Content-Type: text/plain; charset="UTF-8"',
+      "",
+      message.text,
+      `--${inner}`,
+      'Content-Type: text/html; charset="UTF-8"',
+      "",
+      message.html,
+      `--${inner}--`
+    );
+  } else if (message.html) {
+    parts.push('Content-Type: text/html; charset="UTF-8"', "", message.html);
+  } else {
+    parts.push('Content-Type: text/plain; charset="UTF-8"', "", message.text ?? "");
+  }
+  for (const a of attachments) {
+    const safeName = a.filename.replace(/["\r\n]/g, "");
+    parts.push(
+      `--${outer}`,
+      `Content-Type: ${a.contentType ?? "application/octet-stream"}; name="${safeName}"`,
+      "Content-Transfer-Encoding: base64",
+      `Content-Disposition: attachment; filename="${safeName}"`,
+      "",
+      (a.contentBase64.match(/.{1,76}/g) ?? [a.contentBase64]).join("\r\n")
+    );
+  }
+  parts.push(`--${outer}--`, "");
+  return `${lines.join("\r\n")}\r\n${parts.join("\r\n")}`;
 }
 
 export function base64UrlEncode(input: string): string {

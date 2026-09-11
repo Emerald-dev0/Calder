@@ -2,16 +2,37 @@ import { z } from "zod";
 
 // ── Email sending ────────────────────────────────────────────
 
+const aliasSchema = z
+  .string()
+  .min(1)
+  .max(100)
+  .regex(/^[a-z0-9-]+$/, "Alias must be lowercase alphanumeric and hyphens");
+
+const senderRefSchema = z.union(
+  [z.string().email().max(320), z.string().regex(/^sender_[A-Za-z0-9_-]{1,64}$/)],
+  {
+    errorMap: () => ({ message: "from must be an email address or a sender ID (sender_...)" }),
+  }
+);
+
+const attachmentSchema = z.object({
+  filename: z
+    .string()
+    .min(1)
+    .max(255)
+    .regex(/^[^/\\]+$/, "Filename cannot contain path separators"),
+  contentType: z.string().max(127).optional(),
+  contentBase64: z.string().min(1),
+});
+
 export const sendEmailSchema = z
   .object({
-    from: z.union([z.string().email().max(320), z.string().regex(/^sender_[A-Za-z0-9_-]{1,64}$/)], {
-      errorMap: () => ({ message: "from must be an email address or a sender ID (sender_...)" }),
-    }),
+    from: senderRefSchema,
     to: z.string().email().max(320),
     cc: z.string().email().max(320).optional(),
     bcc: z.string().email().max(320).optional(),
     reply_to: z.string().email().max(320).optional(),
-    subject: z.string().min(1).max(998),
+    subject: z.string().min(1).max(998).optional(),
     html: z.string().max(1_000_000).optional(),
     text: z.string().max(1_000_000).optional(),
     tags: z
@@ -20,13 +41,64 @@ export const sendEmailSchema = z
       .optional(),
     metadata: z.record(z.unknown()).optional(),
     headers: z.record(z.string().max(2000)).optional(),
+    attachments: z.array(attachmentSchema).max(10).optional(),
+    scheduled_at: z.string().datetime({ offset: true }).optional(),
+    template: aliasSchema.optional(),
+    variables: z.record(z.string().max(100_000)).optional(),
   })
-  .refine((d) => d.html !== undefined || d.text !== undefined, {
-    message: "Either html or text must be provided",
+  .refine((d) => d.html !== undefined || d.text !== undefined || d.template !== undefined, {
+    message: "Provide html, text, or a template alias",
     path: ["html"],
-  });
+  })
+  .refine((d) => d.subject !== undefined || d.template !== undefined, {
+    message: "Provide a subject, or a template that supplies one",
+    path: ["subject"],
+  })
+  .refine(
+    (d) => {
+      if (!d.attachments || d.attachments.length === 0) return true;
+      const total = d.attachments.reduce((n, a) => n + a.contentBase64.length, 0);
+      // base64 inflates ~4/3: 25MB on the wire ≈ 18MB of files
+      return total <= 25 * 1024 * 1024;
+    },
+    { message: "Attachments exceed 25 MB of base64 in total", path: ["attachments"] }
+  )
+  .refine(
+    (d) => {
+      if (!d.scheduled_at) return true;
+      const at = new Date(d.scheduled_at).getTime();
+      const now = Date.now();
+      return at > now && at - now <= 366 * 24 * 60 * 60 * 1000;
+    },
+    { message: "scheduled_at must be in the future, at most a year ahead", path: ["scheduled_at"] }
+  );
 
 export type SendEmailInput = z.infer<typeof sendEmailSchema>;
+
+// Bulk: up to 100 messages, one shared idempotency base in the header.
+export const bulkSendSchema = z.object({
+  from: senderRefSchema,
+  messages: z
+    .array(
+      z.object({
+        to: z.string().email().max(320),
+        subject: z.string().min(1).max(998).optional(),
+        html: z.string().max(1_000_000).optional(),
+        text: z.string().max(1_000_000).optional(),
+        template: aliasSchema.optional(),
+        variables: z.record(z.string().max(100_000)).optional(),
+      })
+    )
+    .min(1)
+    .max(100),
+  subject: z.string().min(1).max(998).optional(),
+  html: z.string().max(1_000_000).optional(),
+  text: z.string().max(1_000_000).optional(),
+  template: aliasSchema.optional(),
+  variables: z.record(z.string().max(100_000)).optional(),
+});
+
+export type BulkSendInput = z.infer<typeof bulkSendSchema>;
 
 // ── Domain ───────────────────────────────────────────────────
 
@@ -105,11 +177,7 @@ export type CreateKeyInput = z.infer<typeof createKeySchema>;
 
 // ── Templates ────────────────────────────────────────────────
 
-export const templateAliasSchema = z
-  .string()
-  .min(1)
-  .max(100)
-  .regex(/^[a-z0-9-]+$/, "Alias must be lowercase alphanumeric and hyphens");
+export const templateAliasSchema = aliasSchema;
 
 export const createTemplateSchema = z.object({
   name: z.string().min(1).max(255),
