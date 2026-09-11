@@ -184,6 +184,11 @@ re-runnable, resumable. Server actions enforce membership on every step.
 
 ## 9. Changelog (newest first)
 
+- **Sender management UI (sender-program Phase 5):** Senders list with
+ readiness counts, per-sender detail (identity, delivery stats, recent
+ deliveries), add flows for verified domains and connected Gmail only,
+ default/test-send/rename/disable/delete with confirms, test sends ride
+ the real queue contract. New `assertProjectAccess` home in `lib/auth`.
 - **Sender identity backend (sender-program Phase 4):** `sender_identities`
  (project-scoped, type/status enums, optional transport link, default flag)
  + `emails.sender_identity_id`/`from_name` (migration `0010`). `from`
