@@ -184,6 +184,16 @@ re-runnable, resumable. Server actions enforce membership on every step.
 
 ## 9. Changelog (newest first)
 
+- **REST completion 6b:** bulk sends (100 max, suppression skips, per-recipient
+ results, indexed idempotency), attachments (10/25MB, SES native + Gmail
+ multipart/mixed), scheduled sends (delayed queue + `scheduled_for`),
+ template send-by-alias with named missing variables, live OpenAPI at
+ `/v1/openapi.json`. Migration `0012`.
+- **REST completion 6a:** senders/keys/templates/suppressions endpoints,
+ key scopes (full/send/read, enforced with fix-bearing 403s), template
+ versions + aliases, message filters (sender/status/since) with cursor
+ pagination alongside legacy paging, identity object on message read,
+ `fix` guidance on public errors. Migration `0011`.
 - **Sender management UI (sender-program Phase 5):** Senders list with
  readiness counts, per-sender detail (identity, delivery stats, recent
  deliveries), add flows for verified domains and connected Gmail only,

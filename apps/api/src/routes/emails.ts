@@ -16,7 +16,21 @@ emails.post("/", authMiddleware, rateLimitMiddleware("sending"), async (c) => {
     organizationId: string;
     apiKeyId: string;
     env: "test" | "live";
+    scope?: string;
   };
+  const { requireScope } = await import("../middleware/auth.js");
+  requireScope(
+    {
+      type: "api_key",
+      apiKeyId: auth.apiKeyId,
+      projectId: auth.projectId,
+      organizationId: auth.organizationId,
+      env: auth.env,
+      scope: auth.scope ?? "full",
+      keyPrefix: "",
+    },
+    "send"
+  );
   const idempotencyKey =
     c.req.header("idempotency-key") ?? c.req.header("Idempotency-Key") ?? undefined;
 
@@ -46,14 +60,14 @@ emails.post("/", authMiddleware, rateLimitMiddleware("sending"), async (c) => {
   return c.json(result.response, 202 as never);
 });
 
-// GET /v1/emails/:id, fetch email status (tenant-scoped)
+// GET /v1/emails/:id, fetch email status (tenant-scoped, identity included)
 emails.get("/:id", authMiddleware, async (c) => {
   const auth = c.get("auth" as never) as { projectId: string };
   const id = c.req.param("id");
 
   // Lazy DB fetch with tenant scoping
   try {
-    const { getDb, emails: emailsTable } = await import("@calder/db");
+    const { getDb, emails: emailsTable, senderIdentities } = await import("@calder/db");
     const { eq, and } = await import("drizzle-orm");
     const db = getDb();
     const rows = await db
@@ -61,32 +75,98 @@ emails.get("/:id", authMiddleware, async (c) => {
       .from(emailsTable)
       .where(and(eq(emailsTable.id, id), eq(emailsTable.projectId, auth.projectId)))
       .limit(1);
-    const email = rows[0];
+    const email = rows[0] as
+      (Record<string, unknown> & { senderIdentityId?: string | null }) | undefined;
     if (!email) throw new AppError("not_found", "Email not found", 404);
-    return c.json({ data: email });
+    let sender: Record<string, unknown> | null = null;
+    if (email.senderIdentityId) {
+      const [s] = await db
+        .select({
+          id: senderIdentities.id,
+          display_name: senderIdentities.displayName,
+          email: senderIdentities.email,
+          type: senderIdentities.type,
+          status: senderIdentities.status,
+        })
+        .from(senderIdentities)
+        .where(eq(senderIdentities.id, email.senderIdentityId))
+        .limit(1);
+      sender = (s as Record<string, unknown> | undefined) ?? null;
+    }
+    return c.json({ data: { ...email, sender } });
   } catch (err) {
     if (err instanceof AppError) throw err;
     throw err;
   }
 });
 
-// GET /v1/emails, list recent emails (tenant-scoped, paginated)
+// GET /v1/emails, list (tenant-scoped). Filters: sender, status, since.
+// Pagination: cursor (preferred) or legacy page/per_page.
 emails.get("/", authMiddleware, async (c) => {
   const auth = c.get("auth" as never) as { projectId: string };
+  const sender = c.req.query("sender") ?? undefined;
+  const status = c.req.query("status") ?? undefined;
+  const since = c.req.query("since") ?? undefined;
+  const cursor = c.req.query("cursor") ?? undefined;
+  const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "20", 10) || 20, 100);
   const page = Number.parseInt(c.req.query("page") ?? "1", 10);
   const perPage = Math.min(Number.parseInt(c.req.query("per_page") ?? "20", 10), 100);
 
   try {
     const { getDb, emails: emailsTable } = await import("@calder/db");
-    const { eq, desc } = await import("drizzle-orm");
+    const { eq, and, desc, lt, gte, or } = await import("drizzle-orm");
     const db = getDb();
+    const conds = [eq(emailsTable.projectId, auth.projectId)];
+    if (sender) {
+      conds.push(
+        sender.startsWith("sender_")
+          ? eq(emailsTable.senderIdentityId, sender)
+          : eq(emailsTable.from, sender)
+      );
+    }
+    if (status) conds.push(eq(emailsTable.status, status as never));
+    if (since) {
+      const ts = new Date(since);
+      if (!Number.isNaN(ts.getTime())) conds.push(gte(emailsTable.createdAt, ts));
+    }
+    if (cursor) {
+      // cursor = base64url(createdAtISO + "|" + id)
+      try {
+        const [ts, lastId] = Buffer.from(cursor, "base64url").toString("utf8").split("|");
+        const at = new Date(ts ?? "");
+        if (!Number.isNaN(at.getTime()) && lastId) {
+          conds.push(
+            or(
+              lt(emailsTable.createdAt, at),
+              and(eq(emailsTable.createdAt, at), lt(emailsTable.id, lastId))
+            )!
+          );
+        }
+      } catch {
+        // malformed cursor: ignore, first page
+      }
+    }
+    const useCursor = cursor !== undefined;
     const rows = await db
       .select()
       .from(emailsTable)
-      .where(eq(emailsTable.projectId, auth.projectId))
-      .orderBy(desc(emailsTable.createdAt))
-      .limit(perPage)
-      .offset((page - 1) * perPage);
+      .where(and(...conds))
+      .orderBy(desc(emailsTable.createdAt), desc(emailsTable.id))
+      .limit(useCursor ? limit + 1 : perPage)
+      .offset(useCursor ? 0 : (page - 1) * perPage);
+
+    if (useCursor) {
+      const hasMore = rows.length > limit;
+      const page_rows = hasMore ? rows.slice(0, limit) : rows;
+      const last = page_rows[page_rows.length - 1];
+      const nextCursor =
+        hasMore && last
+          ? Buffer.from(`${new Date(last.createdAt).toISOString()}|${last.id}`, "utf8").toString(
+              "base64url"
+            )
+          : null;
+      return c.json({ data: page_rows, pagination: { limit, next_cursor: nextCursor } });
+    }
     return c.json({ data: rows, pagination: { page, per_page: perPage } });
   } catch (err) {
     if (err instanceof AppError) throw err;

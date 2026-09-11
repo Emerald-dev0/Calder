@@ -1,0 +1,373 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Calder API",
+    "version": "1.0.0",
+    "description": "Email infrastructure: send, track, verify. Test keys simulate, never deliver.",
+    "contact": { "name": "Calder", "url": "https://calder.click" }
+  },
+  "servers": [{ "url": "https://api.calder.click" }],
+  "security": [{ "bearerAuth": [] }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "sk_test_ or sk_live_ API key"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message", "request_id"],
+            "properties": {
+              "code": { "type": "string", "example": "validation_error" },
+              "message": { "type": "string", "example": "Provide html, text, or a template alias" },
+              "request_id": { "type": "string" },
+              "fix": {
+                "type": "string",
+                "example": "Pass every {{variable}} in the variables object."
+              }
+            }
+          }
+        }
+      },
+      "Email": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "from": { "type": "string" },
+          "senderIdentityId": { "type": ["string", "null"] },
+          "fromName": { "type": ["string", "null"] },
+          "to": { "type": "string" },
+          "subject": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": [
+              "created",
+              "queued",
+              "sending",
+              "sent",
+              "delivered",
+              "bounced",
+              "complained",
+              "failed",
+              "suppressed"
+            ]
+          },
+          "scheduledFor": { "type": ["string", "null"], "format": "date-time" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SendEmail": {
+        "type": "object",
+        "required": ["from", "to"],
+        "properties": {
+          "from": { "type": "string", "description": "Email address or sender ID (sender_...)" },
+          "to": { "type": "string", "format": "email" },
+          "cc": { "type": "string" },
+          "bcc": { "type": "string" },
+          "reply_to": { "type": "string" },
+          "subject": { "type": "string", "description": "Required unless template supplies it" },
+          "html": { "type": "string" },
+          "text": { "type": "string" },
+          "template": { "type": "string", "description": "Template alias" },
+          "variables": { "type": "object", "additionalProperties": { "type": "string" } },
+          "attachments": {
+            "type": "array",
+            "maxItems": 10,
+            "description": "25 MB of base64 total",
+            "items": {
+              "type": "object",
+              "required": ["filename", "contentBase64"],
+              "properties": {
+                "filename": { "type": "string" },
+                "contentType": { "type": "string" },
+                "contentBase64": { "type": "string" }
+              }
+            }
+          },
+          "scheduled_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Future, max a year ahead"
+          },
+          "tags": { "type": "array", "items": { "type": "object" } },
+          "metadata": { "type": "object" },
+          "headers": { "type": "object", "additionalProperties": { "type": "string" } }
+        }
+      },
+      "Sender": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "object": { "type": "string", "example": "sender" },
+          "display_name": { "type": "string" },
+          "email": { "type": "string" },
+          "type": { "type": "string", "enum": ["domain", "gmail", "managed"] },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "verified", "connected", "disabled", "failed"]
+          },
+          "is_default": { "type": "boolean" }
+        }
+      },
+      "ApiKey": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "object": { "type": "string", "example": "api_key" },
+          "name": { "type": "string" },
+          "prefix": { "type": "string" },
+          "env": { "type": "string", "enum": ["test", "live"] },
+          "scope": { "type": "string", "enum": ["full", "send", "read"] }
+        }
+      },
+      "Template": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "alias": { "type": ["string", "null"] }
+        }
+      },
+      "Suppression": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "email": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/v1/emails": {
+      "post": {
+        "summary": "Send an email",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/SendEmail" } }
+          }
+        },
+        "responses": {
+          "202": { "description": "Queued" },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List emails",
+        "parameters": [
+          { "name": "sender", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "since", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "cursor", "in": "query", "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "maximum": 100 } }
+        ],
+        "responses": { "200": { "description": "Email list" } }
+      }
+    },
+    "/v1/emails/batch": {
+      "post": {
+        "summary": "Send up to 100 messages",
+        "responses": { "202": { "description": "Per-recipient results" } }
+      }
+    },
+    "/v1/emails/{id}": {
+      "get": {
+        "summary": "Get one email with sender identity",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Email" },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/v1/senders": {
+      "get": {
+        "summary": "List sender identities",
+        "responses": { "200": { "description": "Senders" } }
+      },
+      "post": {
+        "summary": "Create a sender (domain must be verified, gmail needs a transport)",
+        "responses": {
+          "201": { "description": "Sender" },
+          "422": {
+            "description": "Not ready",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/v1/senders/{id}": {
+      "get": {
+        "summary": "Get a sender",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Sender" } }
+      },
+      "patch": {
+        "summary": "Rename or set default",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Sender" } }
+      },
+      "delete": {
+        "summary": "Delete a sender (deliveries keep records)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Deleted" } }
+      }
+    },
+    "/v1/senders/{id}/default": {
+      "post": {
+        "summary": "Set the project default sender",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Sender" } }
+      }
+    },
+    "/v1/senders/{id}/test": {
+      "post": {
+        "summary": "Test send (reports acceptance only)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "202": { "description": "Queued" } }
+      }
+    },
+    "/v1/keys": {
+      "get": {
+        "summary": "List API keys (no secrets)",
+        "responses": { "200": { "description": "Keys" } }
+      },
+      "post": {
+        "summary": "Create a key (secret shown once)",
+        "responses": { "201": { "description": "Key + secret" } }
+      }
+    },
+    "/v1/keys/{id}/revoke": {
+      "post": {
+        "summary": "Revoke a key",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Key" } }
+      }
+    },
+    "/v1/templates": {
+      "get": {
+        "summary": "List templates",
+        "responses": { "200": { "description": "Templates" } }
+      },
+      "post": {
+        "summary": "Create a template (v1 when content given)",
+        "responses": { "201": { "description": "Template" } }
+      }
+    },
+    "/v1/templates/{id}": {
+      "get": {
+        "summary": "Get a template",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Template" } }
+      },
+      "delete": {
+        "summary": "Delete a template",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Deleted" } }
+      }
+    },
+    "/v1/templates/{id}/versions": {
+      "get": {
+        "summary": "List versions",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Versions" } }
+      },
+      "post": {
+        "summary": "New auto-numbered version (rollback = post old content)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "201": { "description": "Version" } }
+      }
+    },
+    "/v1/suppressions": {
+      "get": {
+        "summary": "List suppressions",
+        "responses": { "200": { "description": "Suppressions" } }
+      },
+      "post": {
+        "summary": "Suppress an address",
+        "responses": { "201": { "description": "Suppression" } }
+      }
+    },
+    "/v1/suppressions/{id}": {
+      "delete": {
+        "summary": "Lift a suppression",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Deleted" } }
+      }
+    },
+    "/v1/domains": {
+      "get": { "summary": "List domains", "responses": { "200": { "description": "Domains" } } },
+      "post": {
+        "summary": "Add a domain (returns DNS records)",
+        "responses": { "201": { "description": "Domain" } }
+      }
+    },
+    "/v1/domains/{id}/verify": {
+      "post": {
+        "summary": "Check DNS and verify",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Domain" } }
+      }
+    },
+    "/v1/webhooks": {
+      "get": { "summary": "List webhooks", "responses": { "200": { "description": "Webhooks" } } },
+      "post": {
+        "summary": "Add a webhook (secret hashed, shown never)",
+        "responses": { "201": { "description": "Webhook" } }
+      }
+    },
+    "/v1/openapi.json": {
+      "get": {
+        "summary": "This specification",
+        "security": [],
+        "responses": { "200": { "description": "OpenAPI document" } }
+      }
+    }
+  }
+}

@@ -12,6 +12,9 @@ export const apiKeys = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     // prefix like calder_sk_test_ / calder_pk_live_ prefix fragment for identification
     keyPrefix: varchar("key_prefix", { length: 32 }).notNull(),
+    // full = manage everything; send = sends only; read = reads only.
+    // Existing keys read back as full.
+    scope: varchar("scope", { length: 16 }).notNull().default("full"),
     // hashed secret using SHA-256 hex (or bcrypt variant), never raw
     keyHash: varchar("key_hash", { length: 255 }).notNull().unique(),
     env: apiKeyEnvEnum("env").notNull(),
