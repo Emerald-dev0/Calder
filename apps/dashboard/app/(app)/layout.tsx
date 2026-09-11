@@ -17,6 +17,7 @@ const NAV = [
   { label: "Overview", href: "/" },
   { label: "Onboarding", href: "/onboarding" },
   { label: "Emails", href: "/emails" },
+  { label: "Senders", href: "/senders" },
   { label: "Domains", href: "/domains" },
   { label: "API Keys", href: "/keys" },
   { label: "Webhooks", href: "/webhooks" },
