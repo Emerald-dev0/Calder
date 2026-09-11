@@ -184,6 +184,13 @@ re-runnable, resumable. Server actions enforce membership on every step.
 
 ## 9. Changelog (newest first)
 
+- **Onboarding v2 (sender-program Phase 2):** brand-new users land in the
+ wizard (gate on zero memberships), welcome beat first, then Profile, Org,
+ Project, Sending (test sender, Gmail connect, or domain jump), API key,
+ First send, Domain. Gmail connect is a real OAuth flow
+ (`/api/auth/gmail/connect` + callback, encrypted transport saved,
+ owner/admin only). Founder note: register
+ `{DASHBOARD_URL}/api/auth/callback/gmail-connect` in the Google console.
 - **Org/project context spine (sender-program Phase 1):** global switcher in
  the sidebar (compact band on mobile) showing org, projects, and environment
  badges; context survives navigation via `?project=`; org/project creation

@@ -3,7 +3,11 @@ import { getDb, users, projects, emailEvents } from "@calder/db";
 import { getTenantContext } from "../../../lib/auth";
 import { OnboardingWizard } from "./wizard";
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams?: { notice?: string };
+}) {
   const ctx = await getTenantContext();
   const orgs = ctx.memberships.map((m) => ({
     id: m.organization.id,
@@ -27,9 +31,10 @@ export default async function OnboardingPage() {
       <p style={{ color: "#737373", margin: "0 0 24px" }}>
         Six steps to your first delivered email. Progress is saved as you go, leave anytime.
       </p>
-      <OnboardingWizard
-        orgs={orgs}
-        orgsWithDeliveries={orgsWithDeliveries}
+ <OnboardingWizard
+ orgs={orgs}
+ orgsWithDeliveries={orgsWithDeliveries}
+ initialNotice={searchParams?.notice}
         initialProfile={{
           name: me?.name ?? "",
           username: me?.username ?? "",
