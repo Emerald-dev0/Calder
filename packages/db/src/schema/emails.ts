@@ -47,6 +47,9 @@ export const emails = pgTable(
     scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
     status: emailStatusEnum("status").notNull().default("created"),
     providerMessageId: varchar("provider_message_id", { length: 255 }),
+    // What actually moved the message (set by the worker on send).
+    transport: varchar("transport", { length: 32 }),
+    provider: varchar("provider", { length: 32 }),
     // error details if failed
     lastError: text("last_error"),
     // retry tracking

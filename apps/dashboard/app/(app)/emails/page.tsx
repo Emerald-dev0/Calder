@@ -1,7 +1,8 @@
-import { desc, eq, count } from "drizzle-orm";
-import { getDb, emails, emailEvents } from "@calder/db";
+import { desc, eq, count, and } from "drizzle-orm";
+import { getDb, emails, emailEvents, senderIdentities } from "@calder/db";
 import { getTenantContext, resolveProject } from "../../../lib/auth";
 import { EmptyState } from "../../../components/empty-state";
+import { SenderFilter } from "./sender-filter";
 
 const STATUS_COLORS: Record<string, string> = {
   queued: "#B45309",
@@ -14,7 +15,11 @@ const STATUS_COLORS: Record<string, string> = {
   suppressed: "#737373",
 };
 
-export default async function EmailsPage({ searchParams }: { searchParams: { project?: string } }) {
+export default async function EmailsPage({
+  searchParams,
+}: {
+  searchParams: { project?: string; sender?: string };
+}) {
   const ctx = await getTenantContext();
   const scope = resolveProject(ctx, searchParams.project);
   if (!scope) {
@@ -27,10 +32,23 @@ export default async function EmailsPage({ searchParams }: { searchParams: { pro
   }
 
   const db = getDb();
+  const senders = await db
+    .select({
+      id: senderIdentities.id,
+      displayName: senderIdentities.displayName,
+      email: senderIdentities.email,
+    })
+    .from(senderIdentities)
+    .where(eq(senderIdentities.projectId, scope.project.id));
+  const senderFilter = searchParams.sender ?? "";
+  const senderKnown = senderFilter === "" || senders.some((s) => s.id === senderFilter);
+  const emailConds = [eq(emails.projectId, scope.project.id)];
+  if (senderKnown && senderFilter !== "")
+    emailConds.push(eq(emails.senderIdentityId, senderFilter));
   const rows = await db
     .select()
     .from(emails)
-    .where(eq(emails.projectId, scope.project.id))
+    .where(and(...emailConds))
     .orderBy(desc(emails.createdAt))
     .limit(50);
   const eventRows = await db
@@ -88,9 +106,16 @@ export default async function EmailsPage({ searchParams }: { searchParams: { pro
           </a>
         ))
       )}
+      {senders.length > 0 && (
+        <SenderFilter
+          projectId={scope.project.id}
+          senders={senders}
+          value={senderKnown ? senderFilter : ""}
+        />
+      )}
       {rows.length === 0 ? (
         <EmptyState
-          title="No emails sent yet"
+          title={senderFilter ? "No emails from this sender yet" : "No emails sent yet"}
           description="Send via POST /v1/emails with an API key and real-time events, statuses, and delivery logs will appear here."
           actionLabel="View API keys"
           actionHref={`/keys?project=${scope.project.id}`}

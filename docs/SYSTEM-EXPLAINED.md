@@ -184,6 +184,12 @@ re-runnable, resumable. Server actions enforce membership on every step.
 
 ## 9. Changelog (newest first)
 
+- **Sender-aware delivery (sender-program Phase 9):** worker resolves a
+ transport chain per send (sender transport, project default, global) with
+ transient failover and fail-closed caps/dead-senders; transport + provider
+ recorded on every delivery; dashboard deliveries gain a sender filter.
+ Proven live: verified sender delivered via Mock, disabled sender failed
+ closed. Migration `0013`.
 - **Sender auto-provisioning (sender-program Phase 8):** connecting Gmail
  mints its sender identity idempotently (reconnects rotate credentials
  instead of crashing on the unique constraint — caught by test); verified

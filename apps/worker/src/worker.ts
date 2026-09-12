@@ -7,26 +7,42 @@ import { getGmailRefreshToken } from "@calder/auth";
 import { logger, type Logger } from "@calder/observability";
 import { randomUUID } from "node:crypto";
 
+interface TransportCandidate {
+  service: EmailService;
+  /** Transport label recorded on the delivery (gmail/ses/managed/default). */
+  transport: string;
+}
+
+function isCapError(err: unknown): boolean {
+  return err instanceof Error && (err as { code?: string }).code === "gmail_cap";
+}
+
 /**
- * Per-job transport resolution. A project's active default transport
- * (e.g. connected Gmail) moves its mail; everything else uses the global
- * default service. Gmail sends are capped per UTC day and fail closed with a
- * permanent, explainable error, never silently, never over Google's limits.
+ * Per-job transport chain. Sender preference first (the identity's own
+ * transport), then the project default, then the global service. Transient
+ * provider failures fall through to the next leg; cap rejections and dead
+ * senders fail closed with a permanent, explainable error, never silently.
  */
-async function resolveEmailService(
+async function resolveServiceChain(
   projectId: string,
+  senderIdentityId: string | null,
   jobLogger: Logger
-): Promise<{ service: EmailService; transport: string }> {
-  const fallback = { service: createEmailService(getProvider()), transport: "default" };
+): Promise<TransportCandidate[]> {
+  const fallback: TransportCandidate = {
+    service: createEmailService(getProvider()),
+    transport: "default",
+  };
+  const chain: TransportCandidate[] = [];
   try {
-    const { getDb, projectTransports } = await import("@calder/db");
-    const { eq } = await import("drizzle-orm");
+    const { getDb, projectTransports, senderIdentities } = await import("@calder/db");
+    const { eq, and } = await import("drizzle-orm");
     const db = getDb();
     const rows = await db
       .select()
       .from(projectTransports)
       .where(eq(projectTransports.projectId, projectId));
-    const chosen = pickDefaultTransport(
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const def = pickDefaultTransport(
       rows.map((r) => ({
         id: r.id,
         projectId: r.projectId,
@@ -38,43 +54,97 @@ async function resolveEmailService(
         isDefault: r.isDefault,
       }))
     );
-    if (!chosen || chosen.type !== "gmail" || !chosen.encryptedCredentials) return fallback;
 
-    // Daily cap: count today's sends for this project (conservative, any transport).
-    const cap = chosen.dailyCap ?? GMAIL_FREE_DAILY_CAP;
-    const { emails } = await import("@calder/db");
-    const { gte, and, count } = await import("drizzle-orm");
-    const dayStart = new Date();
-    dayStart.setUTCHours(0, 0, 0, 0);
-    const sent = await db
-      .select({ value: count() })
-      .from(emails)
-      .where(and(eq(emails.projectId, projectId), gte(emails.createdAt, dayStart)));
-    const today = sent[0]?.value ?? 0;
-    if (today >= cap) {
-      throw Object.assign(
-        new Error(
-          `Gmail daily cap reached (${today}/${cap}). Add a domain to graduate to production infrastructure.`
-        ),
-        { code: "gmail_cap", transient: false, statusCode: 429 }
-      );
+    // Sender preference: the identity's own transport, when it is usable.
+    // A disabled sender mid-flight fails closed, never silently reroutes.
+    if (senderIdentityId) {
+      const [sender] = await db
+        .select()
+        .from(senderIdentities)
+        .where(eq(senderIdentities.id, senderIdentityId))
+        .limit(1);
+      if (sender && sender.projectId === projectId) {
+        if (sender.status !== "verified" && sender.status !== "connected") {
+          throw Object.assign(
+            new Error(`Sender ${sender.email} is ${sender.status}. Re-enable it before sending.`),
+            { code: "sender_not_ready", transient: false, statusCode: 422 }
+          );
+        }
+        const linked = sender.transportId ? byId.get(sender.transportId) : undefined;
+        if (linked && linked.status === "active" && (!def || linked.id !== def.id)) {
+          if (linked.type === "gmail") {
+            chain.push(await buildGmailService(db, projectId, linked, jobLogger));
+          } else {
+            chain.push({ service: createEmailService(getProvider()), transport: linked.type });
+          }
+        }
+      }
     }
 
-    const refreshToken = getGmailRefreshToken(chosen.encryptedCredentials);
-    const gmail = new GmailTransport({ refreshToken, senderEmail: chosen.label }, chosen.dailyCap);
-    jobLogger.info(
-      { transport: "gmail", sender: chosen.label },
-      "Routing via connected Gmail transport"
-    );
-    return { service: createEmailService(gmail), transport: "gmail" };
+    if (def && def.status === "active" && def.encryptedCredentials) {
+      if (def.type === "gmail") {
+        const built = await buildGmailService(db, projectId, def, jobLogger);
+        chain.push(built);
+      } else {
+        // ses/managed rows resolve through the global provider; the type is
+        // what gets recorded, so delivery logs stay truthful.
+        chain.push({ service: createEmailService(getProvider()), transport: def.type });
+      }
+    }
   } catch (err) {
-    // Cap rejections and explicit denials must surface, not silently fall back.
-    if (err instanceof Error && (err as { code?: string }).code === "gmail_cap") {
+    // Cap rejections and dead senders must surface, not silently fall back.
+    if (
+      isCapError(err) ||
+      (err instanceof Error && (err as { code?: string }).code === "sender_not_ready")
+    ) {
       throw err;
     }
     jobLogger.warn({ err }, "Transport resolution failed, using default provider");
-    return fallback;
   }
+  chain.push(fallback);
+  return chain;
+}
+
+async function buildGmailService(
+  db: import("@calder/db").DbClient,
+  projectId: string,
+  chosen: {
+    label: string;
+    dailyCap: number | null;
+    encryptedCredentials: { iv: string; ciphertext: string; tag: string } | null;
+  },
+  jobLogger: Logger
+): Promise<TransportCandidate> {
+  // Daily cap: count today's sends for this project (conservative, any transport).
+  const cap = chosen.dailyCap ?? GMAIL_FREE_DAILY_CAP;
+  const { emails } = await import("@calder/db");
+  const { gte, and, count, eq } = await import("drizzle-orm");
+  const dayStart = new Date();
+  dayStart.setUTCHours(0, 0, 0, 0);
+  const sent = await db
+    .select({ value: count() })
+    .from(emails)
+    .where(and(eq(emails.projectId, projectId), gte(emails.createdAt, dayStart)));
+  const today = (sent[0] as { value: number } | undefined)?.value ?? 0;
+  if (today >= cap) {
+    throw Object.assign(
+      new Error(
+        `Gmail daily cap reached (${today}/${cap}). Add a domain to graduate to production infrastructure.`
+      ),
+      { code: "gmail_cap", transient: false, statusCode: 429 }
+    );
+  }
+  if (!chosen.encryptedCredentials) {
+    throw Object.assign(new Error("Gmail credentials missing for transport."), {
+      code: "sender_not_ready",
+      transient: false,
+      statusCode: 422,
+    });
+  }
+  const refreshToken = getGmailRefreshToken(chosen.encryptedCredentials);
+  const gmail = new GmailTransport({ refreshToken, senderEmail: chosen.label }, chosen.dailyCap);
+  jobLogger.info({ transport: "gmail", sender: chosen.label }, "Routing via Gmail transport");
+  return { service: createEmailService(gmail), transport: "gmail" };
 }
 
 interface EmailJobData {
@@ -124,6 +194,7 @@ export async function startWorker() {
         status: string;
         headers: Record<string, string>;
         attachments: Array<{ filename: string; contentType?: string; contentBase64: string }>;
+        senderIdentityId: string | null;
       } | null = null;
 
       try {
@@ -146,6 +217,8 @@ export async function startWorker() {
             html: row.html,
             text: row.text,
             status: row.status,
+            senderIdentityId:
+              (row as { senderIdentityId?: string | null }).senderIdentityId ?? null,
             headers:
               typeof row.metadata === "object" &&
               row.metadata !== null &&
@@ -178,19 +251,17 @@ export async function startWorker() {
           status: "queued",
           headers: {},
           attachments: [],
+          senderIdentityId: null,
         };
         // Try to persist a fallback event anyway
       }
 
-      // ── Resolve transport, then send ───────────────────────
-      // Project default transport wins (Gmail graduation path); otherwise the
-      // global default service (SES if creds, else mock). Same events, same
-      // meter, whichever moves the message.
-      const { service: emailService, transport: transportName } = await resolveEmailService(
-        projectId,
-        jobLogger
-      );
-      const result = await emailService.send({
+      // ── Resolve chain, then send with failover ─────────────
+      // Sender's own transport first, then project default, then global.
+      // Transient provider errors fall through to the next leg; caps and
+      // dead senders throw immediately (fail closed, never silent).
+      const chain = await resolveServiceChain(projectId, email.senderIdentityId, jobLogger);
+      const payload = {
         from: email.from,
         to: email.to,
         subject: email.subject,
@@ -198,7 +269,38 @@ export async function startWorker() {
         text: email.text ?? undefined,
         headers: Object.keys(email.headers).length > 0 ? email.headers : undefined,
         attachments: email.attachments.length > 0 ? email.attachments : undefined,
-      });
+      };
+      const { isProviderError } = await import("@calder/email");
+      let result: import("@calder/email").ProviderSendResult | null = null;
+      let transportName = "default";
+      let lastErr: unknown = null;
+      for (let i = 0; i < chain.length; i++) {
+        const leg = chain[i]!;
+        try {
+          result = await leg.service.send(payload);
+          transportName = leg.transport;
+          if (i > 0) jobLogger.info({ transport: transportName }, "Failover leg delivered");
+          break;
+        } catch (err) {
+          lastErr = err;
+          const transient = isProviderError(err) ? err.transient : false;
+          const moreLegs = i < chain.length - 1;
+          if (isCapError(err)) throw err;
+          if (err instanceof Error && (err as { code?: string }).code === "sender_not_ready") {
+            throw err;
+          }
+          if (transient && moreLegs) {
+            jobLogger.warn(
+              { err, transport: leg.transport },
+              "Transient send failure, trying next transport leg"
+            );
+            continue;
+          }
+          throw err;
+        }
+      }
+      if (!result)
+        throw lastErr instanceof Error ? lastErr : new Error("All transport legs failed");
 
       jobLogger.info(
         {
@@ -219,6 +321,8 @@ export async function startWorker() {
           .set({
             status: "sent",
             providerMessageId: result.providerMessageId,
+            transport: transportName,
+            provider: result.provider,
             updatedAt: new Date(),
           })
           .where(eq(emails.id, emailId));
