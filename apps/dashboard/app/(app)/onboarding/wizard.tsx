@@ -15,6 +15,7 @@ import {
   listTransports,
   type DnsRecord,
 } from "./actions";
+import { createDomainSender } from "../senders/actions";
 import {
   USE_CASES,
   VOLUMES,
@@ -89,6 +90,103 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function FirstSenderForm({
+  projectId,
+  domain,
+  busy,
+  onCreated,
+  onError,
+}: {
+  projectId: string | null;
+  domain: string;
+  busy: boolean;
+  onCreated: (id: string) => void;
+  onError: (m: string | null) => void;
+}) {
+  const [displayName, setDisplayName] = React.useState("");
+  const [localPart, setLocalPart] = React.useState("hello");
+  const [working, setWorking] = React.useState(false);
+  return (
+    <div
+      style={{
+        background: "#fff",
+        border: "1px solid #E5E5E5",
+        borderRadius: 12,
+        padding: 16,
+        marginTop: 12,
+      }}
+    >
+      <p style={{ fontSize: 13, fontWeight: 600, margin: "0 0 4px" }}>Create your first sender</p>
+      <p style={{ fontSize: 12, color: "#737373", margin: "0 0 12px" }}>
+        Who should your first emails come from?
+      </p>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <input
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          placeholder="Display name"
+          aria-label="Display name"
+          style={{
+            flex: 1,
+            minWidth: 140,
+            height: 38,
+            border: "1px solid #D4D4D4",
+            borderRadius: 8,
+            padding: "0 10px",
+            fontSize: 13,
+          }}
+        />
+        <input
+          value={localPart}
+          onChange={(e) => setLocalPart(e.target.value)}
+          placeholder="hello"
+          aria-label="Local part"
+          style={{
+            width: 130,
+            height: 38,
+            border: "1px solid #D4D4D4",
+            borderRadius: 8,
+            padding: "0 10px",
+            fontSize: 13,
+          }}
+        />
+        <span className="mono" style={{ alignSelf: "center", fontSize: 12, color: "#525252" }}>
+          @{domain || "your domain"}
+        </span>
+        <button
+          type="button"
+          disabled={busy || working || !projectId}
+          onClick={async () => {
+            if (!projectId) return;
+            setWorking(true);
+            onError(null);
+            try {
+              const r = await createDomainSender({ projectId, displayName, localPart, domain });
+              onCreated(r.id);
+            } catch (err) {
+              onError(err instanceof Error ? err.message : "Could not create sender.");
+            }
+            setWorking(false);
+          }}
+          style={{
+            background: "#0B0C0E",
+            color: "#fff",
+            border: "none",
+            borderRadius: 8,
+            padding: "0 16px",
+            height: 38,
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          {working ? "Creating…" : "Create sender"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Err({ message }: { message: string | null }) {
   if (!message) return null;
   return (
@@ -147,6 +245,7 @@ export function OnboardingWizard({
   const [records, setRecords] = React.useState<DnsRecord[] | null>(null);
   const [domainId, setDomainId] = React.useState<string | null>(null);
   const [domainState, setDomainState] = React.useState<"pending" | "verified" | null>(null);
+  const [senderCreated, setSenderCreated] = React.useState<string | null>(null);
   const [dnsDetail, setDnsDetail] = React.useState<string | null>(null);
 
   async function run<T>(fn: () => Promise<T>): Promise<T | null> {
@@ -181,7 +280,15 @@ export function OnboardingWizard({
     };
   }, [emailId, projectId, emailStatus]);
 
-  const steps = ["Profile", "Organization", "Project", "Sending", "API key", "First send", "Domain"];
+  const steps = [
+    "Profile",
+    "Organization",
+    "Project",
+    "Sending",
+    "API key",
+    "First send",
+    "Domain",
+  ];
 
   type Transport = {
     id: string;
@@ -228,8 +335,8 @@ export function OnboardingWizard({
           Welcome. Let&rsquo;s get your first message out.
         </h1>
         <p style={{ color: "#737373", fontSize: 15, margin: "0 0 24px", lineHeight: 1.6 }}>
-          Communication infrastructure for your applications. Three short moves and
-          you&rsquo;ll have proof in your inbox.
+          Communication infrastructure for your applications. Three short moves and you&rsquo;ll
+          have proof in your inbox.
         </p>
         <ol style={{ margin: "0 0 28px", paddingLeft: 20, fontSize: 14, lineHeight: 2 }}>
           <li>
@@ -238,7 +345,10 @@ export function OnboardingWizard({
           </li>
           <li>
             <b>Sending setup</b>
-            <span style={{ color: "#737373" }}> — shared test sender, your Gmail, or your domain.</span>
+            <span style={{ color: "#737373" }}>
+              {" "}
+              — shared test sender, your Gmail, or your domain.
+            </span>
           </li>
           <li>
             <b>First send</b>
@@ -272,8 +382,7 @@ export function OnboardingWizard({
             margin: "0 0 16px",
             color: notice === "gmail-ok" ? "#166534" : "#92400E",
             background: notice === "gmail-ok" ? "#F0FDF4" : "#FFFBEB",
-            border:
-              notice === "gmail-ok" ? "1px solid #BBF7D0" : "1px solid #FDE68A",
+            border: notice === "gmail-ok" ? "1px solid #BBF7D0" : "1px solid #FDE68A",
           }}
         >
           {noticeText}{" "}
@@ -796,8 +905,8 @@ export function OnboardingWizard({
           </div>
           <h2 style={{ margin: "0 0 6px" }}>How should this project send?</h2>
           <p style={{ color: "#737373", fontSize: 14, margin: "0 0 20px" }}>
-            Test sends ride Calder&rsquo;s shared sender. Anything real needs your own:
-            Gmail for now, your domain for production.
+            Test sends ride Calder&rsquo;s shared sender and work right now. Gmail and your own
+            domain are optional upgrades, connect either whenever you&rsquo;re ready.
           </p>
           {transportsState === "ready" && transports.length > 0 && (
             <div
@@ -830,11 +939,7 @@ export function OnboardingWizard({
             </div>
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 440 }}>
-            <button
-              style={btnPrimary}
-              disabled={busy}
-              onClick={() => setStep(4)}
-            >
+            <button style={btnPrimary} disabled={busy} onClick={() => setStep(4)}>
               Continue with the test sender →
             </button>
             <a
@@ -1084,6 +1189,20 @@ export function OnboardingWizard({
                   <b style={{ color: "#16A34A", fontSize: 14 }}>Verified ✓</b>
                 )}
               </div>
+              {domainState === "verified" && !senderCreated && (
+                <FirstSenderForm
+                  projectId={projectId}
+                  domain={domain}
+                  busy={busy}
+                  onCreated={(id) => setSenderCreated(id)}
+                  onError={(m) => setError(m)}
+                />
+              )}
+              {senderCreated && (
+                <p style={{ fontSize: 13, color: "#16A34A", margin: "10px 0 0" }}>
+                  Sender ready — your first sends can come from your own domain.
+                </p>
+              )}
               {dnsDetail && domainState !== "verified" && (
                 <p style={{ fontSize: 13, color: "#737373", margin: "10px 0 0" }}>{dnsDetail}</p>
               )}
