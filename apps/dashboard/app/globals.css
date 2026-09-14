@@ -806,3 +806,18 @@ body {
     font-size: 19px;
   }
 }
+
+@keyframes skeleton {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [style*="skeleton"] {
+    animation: none !important;
+  }
+}
