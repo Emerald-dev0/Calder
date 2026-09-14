@@ -17,6 +17,7 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/signup") ||
     pathname.startsWith("/invite/") ||
     pathname.startsWith("/api/auth/") ||
+    pathname.startsWith("/api/cron/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/illustrations/") ||
     pathname === "/favicon.svg" ||
