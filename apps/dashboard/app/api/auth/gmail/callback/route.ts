@@ -47,7 +47,7 @@ export async function GET(req: Request): Promise<Response> {
     const ctx = await getTenantContext().catch(() => null);
     if (!ctx) return done("gmail-failed");
     const { senderEmail, refreshToken } = await completeGmailConnect(code, verifier);
-    await saveGmailTransport({
+    const { senderId } = await saveGmailTransport({
       userId: ctx.user.userId,
       projectId,
       senderEmail,
@@ -58,6 +58,13 @@ export async function GET(req: Request): Promise<Response> {
       action: "onboarding.gmail_connected",
       targetId: projectId,
     });
+    if (senderId) {
+      await recordMilestone(getDb(), {
+        actorUserId: ctx.user.userId,
+        action: "onboarding.sender_created",
+        targetId: senderId,
+      });
+    }
     return done("gmail-ok");
   } catch {
     return done("gmail-failed");

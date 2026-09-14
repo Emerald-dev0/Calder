@@ -1,7 +1,13 @@
 import { randomBytes } from "node:crypto";
 import { Google, generateState, generateCodeVerifier } from "arctic";
 import { eq, and } from "drizzle-orm";
-import { getDb, organizationMembers, projects, projectTransports } from "@calder/db";
+import {
+  getDb,
+  organizationMembers,
+  projects,
+  projectTransports,
+  senderIdentities,
+} from "@calder/db";
 import { getConfig } from "@calder/config";
 import { encryptSecret, decryptSecret } from "./crypto";
 
@@ -109,13 +115,16 @@ export async function completeGmailConnect(
   return { senderEmail: me.emailAddress.toLowerCase(), refreshToken: tokens.refresh_token };
 }
 
-/** Persist the transport. First transport on a project becomes default. */
+/**
+ * Persist the transport and ensure its sender identity. First transport on
+ * a project becomes default; reconnects rotate credentials in place.
+ */
 export async function saveGmailTransport(input: {
   userId: string;
   projectId: string;
   senderEmail: string;
   refreshToken: string;
-}): Promise<{ transportId: string }> {
+}): Promise<{ transportId: string; senderId: string | null }> {
   if (!(await canManageProject(input.userId, input.projectId))) {
     throw new Error("Only organization owners or admins can connect Gmail.");
   }
@@ -128,18 +137,76 @@ export async function saveGmailTransport(input: {
     JSON.stringify({ refreshToken: input.refreshToken }),
     "gmail"
   ).split(":");
-  const id = newId("tr");
-  await db.insert(projectTransports).values({
-    id,
-    projectId: input.projectId,
-    type: "gmail",
-    status: "active",
-    label: input.senderEmail,
-    encryptedCredentials: { iv: iv ?? "", ciphertext: ciphertext ?? "", tag: tag ?? "" },
-    dailyCap: 400,
-    isDefault: existing.length === 0,
-  });
-  return { transportId: id };
+  const creds = { iv: iv ?? "", ciphertext: ciphertext ?? "", tag: tag ?? "" };
+  // Reconnect rotates credentials on the existing row instead of violating
+  // the (project, type, label) unique constraint.
+  const [same] = await db
+    .select({ id: projectTransports.id })
+    .from(projectTransports)
+    .where(
+      and(
+        eq(projectTransports.projectId, input.projectId),
+        eq(projectTransports.type, "gmail"),
+        eq(projectTransports.label, input.senderEmail)
+      )
+    )
+    .limit(1);
+  let id: string;
+  if (same) {
+    id = same.id;
+    await db
+      .update(projectTransports)
+      .set({ encryptedCredentials: creds, status: "active", updatedAt: new Date() })
+      .where(eq(projectTransports.id, id));
+  } else {
+    id = newId("tr");
+    await db.insert(projectTransports).values({
+      id,
+      projectId: input.projectId,
+      type: "gmail",
+      status: "active",
+      label: input.senderEmail,
+      encryptedCredentials: creds,
+      dailyCap: 400,
+      isDefault: existing.length === 0,
+    });
+  }
+  // A connected account is immediately usable as a sender: mint the identity
+  // idempotently so no transport is ever stranded without one. Default only
+  // when the project has no senders at all; never steal an existing default.
+  const [known] = await db
+    .select({ id: senderIdentities.id })
+    .from(senderIdentities)
+    .where(
+      and(
+        eq(senderIdentities.projectId, input.projectId),
+        eq(senderIdentities.email, input.senderEmail)
+      )
+    )
+    .limit(1);
+  let senderId = known?.id ?? null;
+  if (!senderId) {
+    const [countRow] = await db
+      .select({ id: senderIdentities.id })
+      .from(senderIdentities)
+      .where(eq(senderIdentities.projectId, input.projectId))
+      .limit(1);
+    const [created] = await db
+      .insert(senderIdentities)
+      .values({
+        id: newId("sender"),
+        projectId: input.projectId,
+        displayName: input.senderEmail.split("@")[0] ?? input.senderEmail,
+        email: input.senderEmail,
+        type: "gmail",
+        transportId: id,
+        status: "connected",
+        isDefault: !countRow,
+      })
+      .returning({ id: senderIdentities.id });
+    senderId = created?.id ?? null;
+  }
+  return { transportId: id, senderId };
 }
 
 /** Decrypt a stored Gmail refresh token for the worker. */

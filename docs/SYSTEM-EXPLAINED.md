@@ -184,6 +184,11 @@ re-runnable, resumable. Server actions enforce membership on every step.
 
 ## 9. Changelog (newest first)
 
+- **Sender auto-provisioning (sender-program Phase 8):** connecting Gmail
+ mints its sender identity idempotently (reconnects rotate credentials
+ instead of crashing on the unique constraint — caught by test); verified
+ domains offer inline first-sender creation in onboarding. Gmail stays
+ optional: test sender is the default path, stated in copy.
 - **Email composer (sender-program Phase 7):** `/emails/new` with sender
  identity selector (search, checkmark, keyboard, mobile sheet), recipient
  chips, collapsed advanced options (Cc/Bcc/reply-to/schedule/attachments),
