@@ -12,34 +12,32 @@ export default function Concepts() {
     <>
       <h1>Core concepts</h1>
       <p className="docs-lede">
-        Five ideas explain nearly everything Calder does. Learn them once and the whole platform,
-        API, dashboard, webhooks, reads like one coherent system.
+        Five ideas explain almost everything Calder does. Learn them once and the API, the
+        dashboard and the webhooks all read the same way.
       </p>
 
       <h2>1. The email lifecycle</h2>
       <p>
-        Every email moves through states:{" "}
-        <span className="mono">created → queued → sending → sent → delivered</span>, with{" "}
-        <span className="mono">bounced</span>, <span className="mono">complained</span>, and{" "}
-        <span className="mono">failed</span> as terminal detours. Opens and clicks attach after
-        delivery. Each transition is recorded as an event you can query, the timeline in your
-        dashboard is this lifecycle, rendered.
+        An email moves through{" "}
+        <span className="mono">created → queued → sending → sent → delivered</span>. It can also
+        end early at <span className="mono">bounced</span>, <span className="mono">failed</span> or{" "}
+        <span className="mono">complained</span>. Every transition is stored as an event you can
+        query, and the dashboard timeline is that list rendered.
       </p>
 
       <h2>2. Async by default</h2>
       <p>
-        <span className="mono">POST /v1/emails</span> validates, persists, enqueues, and answers{" "}
-        <span className="mono">202</span> in milliseconds. Delivery happens in a background worker
-        with retries. Your request path never waits on a mail server, that separation is the single
-        most important architectural decision in the system.
+        <span className="mono">POST /v1/emails</span> validates the request, writes it down,
+        queues it and answers <span className="mono">202</span> in milliseconds. A background worker
+        handles delivery and retries. Nothing in your request path ever waits on a mail server,
+        which is what keeps your latency independent of ours.
       </p>
 
       <h2>3. Idempotency</h2>
       <p>
-        Networks fail mid-request, and clients retry. The{" "}
-        <span className="mono">Idempotency-Key</span> header makes retries safe: the first request
-        stores its result, repeats return the original. Anything that could cause harm if duplicated
-        , sends, charges, requires one.
+        Networks fail mid-request and clients retry. The{" "}
+        <span className="mono">Idempotency-Key</span> header makes that safe: the first request
+        stores its result, and a repeat of the same key returns it instead of sending again.
       </p>
 
       <h2>4. Events and webhooks</h2>

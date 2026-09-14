@@ -12,8 +12,8 @@ export default function DomainsGuide() {
     <>
       <h1>Domains</h1>
       <p className="docs-lede">
-        Sending from your own domain is the highest-leverage deliverability move you can make.
-        Here&rsquo;s the whole walkthrough.
+        Sending from your own domain is the single biggest deliverability improvement available to
+        you. It takes three DNS records and about ten minutes.
       </p>
 
       <h2>1. Add the domain</h2>
@@ -25,17 +25,18 @@ export default function DomainsGuide() {
 
       <h2>2. Create the DNS records</h2>
       <p>
-        Three records: a TXT token proving control, plus SPF, DKIM, and DMARC entries we generate
-        for you. Copy-paste values, no selector archaeology. Then{" "}
-        <span className="mono">POST /v1/domains/:id/verify</span>, we poll DNS with backoff and tell
-        you specifically what&rsquo;s missing if it fails.
+        Calder generates the records: a TXT token proving you control the domain, plus SPF, DKIM and
+        DMARC entries with the selectors already filled in. Paste them at your DNS provider, then
+        call <span className="mono">POST /v1/domains/:id/verify</span>. Verification retries with
+        backoff, and a failure names the record that is missing or wrong instead of asking you to
+        try again.
       </p>
 
       <h2>3. Watch its health</h2>
       <p>
-        Verification isn&rsquo;t one-and-done: we re-check continuously and alert on regressions.
-        Per-domain bounce and complaint rates live beside the status, so reputation is a number you
-        watch, not a feeling you have.
+        DNS records get deleted by accident, so verification re-runs on a schedule and a regression
+        is reported. Per-domain bounce and complaint rates are being wired in from provider
+        feedback; until they appear, the delivery log is the record to read.
       </p>
 
       <h2>Hosted domains (Vercel and friends)</h2>

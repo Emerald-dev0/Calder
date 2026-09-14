@@ -23,7 +23,7 @@ const PRINCIPLES: Array<[string, string]> = [
   ],
   [
     "Boring where it counts",
-    "Queues, retries, idempotency and DNS are solved problems. We spend our ambition on the parts that are genuinely unsolved, and we keep the rest predictable.",
+    "Queues, retries, idempotency and DNS are solved problems. We spend our ambition on the parts nobody has solved yet and keep the rest boring.",
   ],
   [
     "Honest pricing",
@@ -54,7 +54,7 @@ export default function AboutPage() {
             <Reveal>
               <p className="eyebrow">How we work</p>
               <h2 className="h2">
-                Five principles, <em>actually enforced.</em>
+                Five principles, <em>held to.</em>
               </h2>
             </Reveal>
             <div style={{ marginTop: "1rem" }}>

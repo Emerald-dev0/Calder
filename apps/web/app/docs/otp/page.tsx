@@ -10,19 +10,19 @@ export default function OtpDoc() {
     <>
       <h1>OTP</h1>
       <div className="docs-note">
-        <strong>Coming soon.</strong> Managed OTP challenges, create, verify, expire, and rate-limit
-        one-time codes, are planned, not shipped. The shape below is the design target, not
-        documentation of a live API.
+        <strong>In development.</strong> Managed OTP challenges (create, verify, expire, rate-limit)
+        are designed but not shipped. Nothing on this page describes a live endpoint.
       </div>
       <p className="docs-lede">
-        Intended shape: email-based challenges with expiration, attempt limits, and replay
-        prevention.
+        The planned shape: email challenges with expiry, an attempt cap and replay prevention.
       </p>
-      <h2>Today&rsquo;s workaround</h2>
+      <h2>What works today</h2>
       <p>
-        Generate codes in your application, send them as ordinary transactional emails with an
-        idempotency key, and verify them in your own store with a short TTL and a five-attempt cap.
-        When managed OTP lands, migration is a endpoint swap, not a redesign.
+        Generate the code in your application, send it as an ordinary transactional email with an
+        idempotency key, and verify it in your own store with a short TTL and a small attempt cap.
+        Calder already covers the parts that are awkward to retrofit: the suppression check, retries
+        that cannot duplicate the code, and a delivery record you can read when a user says the
+        email never arrived.
       </p>
     </>
   );

@@ -41,7 +41,7 @@ export default function PricingPage() {
           eyebrow="Pricing"
           title={
             <>
-              A free tier you can actually <em>build a product on.</em>
+              A free tier you can <em>build a product on.</em>
             </>
           }
           lede="Five thousand emails a month at ₦0, no card, no trial clock. When your app outgrows it, Pro is $15 or ₦25,000 for fifty thousand sends with production environments. Two currencies, two real prices, no conversion games."

@@ -12,7 +12,8 @@ export default function Examples() {
     <>
       <h1>Examples</h1>
       <p className="docs-lede">
-        Copy-paste starting points for common stacks. Same API underneath, pick your idiom.
+        Working starting points for common stacks. The API is the same underneath; pick the shape
+        that fits your codebase.
       </p>
 
       <h2>Next.js Route Handler</h2>

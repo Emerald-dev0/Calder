@@ -11,29 +11,31 @@ export default function ApiKeys() {
     <>
       <h1>API Keys</h1>
       <p className="docs-lede">
-        Scoped to one project and one environment, hashed at rest, revocable in one click. Treat
-        them like passwords that happen to start with <span className="mono">calder_sk_</span>.
+        A key belongs to one project and one environment, is stored as a hash, and can be revoked
+        without a deploy. Treat it like a password that happens to start with{" "}
+        <span className="mono">calder_sk_</span>.
       </p>
 
       <h2>Test vs. live</h2>
       <p>
-        Test keys (<span className="mono">calder_sk_test_…</span>) run the entire pipeline,
-        validation, queue, provider simulation, events, webhooks, without delivering anything real
-        or metering anything. Live keys (<span className="mono">calder_sk_live_…</span>) deliver for
-        real. Same code, different key, zero surprises.
+        Test keys (<span className="mono">calder_sk_test_…</span>) run the full pipeline, events and
+        webhooks included, but never deliver real mail and never count against your plan. Live keys
+        (<span className="mono">calder_sk_live_…</span>) deliver. The code is identical; only the
+        key changes.
       </p>
 
       <h2>Creation</h2>
       <p>
-        Create keys per project in the dashboard. The secret is shown <b>once</b>, we store only the
-        hash, so a lost key can&rsquo;t be recovered, only replaced. Name keys after their purpose (
-        <span className="mono">production-web</span>, not <span className="mono">key-3</span>).
+        Keys are created per project in the dashboard. The secret is shown <b>once</b> because only
+        its hash is stored, so a lost key is replaced rather than recovered. Name them after what
+        uses them: <span className="mono">production-web</span> beats{" "}
+        <span className="mono">key-3</span> the day you have to revoke one under pressure.
       </p>
 
       <h2>Rotation</h2>
       <p>
-        Create the replacement, deploy it, verify traffic, then revoke the old one. Overlap is
-        intentional, rotation should never require downtime or a 3am deploy.
+        Create the replacement, deploy it, confirm traffic is flowing, then revoke the old key. Both
+        keys work during the overlap on purpose, so rotating never needs downtime.
       </p>
 
       <h2>Revocation</h2>

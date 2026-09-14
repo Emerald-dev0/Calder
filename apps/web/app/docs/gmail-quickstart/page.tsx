@@ -31,16 +31,16 @@ export default function GmailQuickstart() {
     <>
       <h1>Gmail Quickstart</h1>
       <p className="docs-lede">
-        No domain, no DNS, no SMTP settings. Connect the Gmail account you already have and send
-        through the same API, logs, and events as production senders.
+        No domain and no DNS records. Connect a Gmail account you already own and send through the
+        same API, logs and events as anyone on a verified domain.
       </p>
 
       <h2>1. Connect Gmail</h2>
       <p>
-        In your project dashboard, choose <b>Connect Gmail</b> (rolling out to early access projects
-        now). Google asks for one permission, sending mail on your behalf, and nothing else. We
-        never see, ask for, or store your Google password; the authorization token is encrypted at
-        rest and you can revoke it anytime from either side.
+        In the project dashboard, choose <b>Connect Gmail</b>. Google asks for a single permission,
+        sending mail as you, and nothing else. Calder never sees or stores your Google password; the
+        OAuth token is encrypted at rest and can be revoked from the dashboard or from your Google
+        account, whichever you reach first.
       </p>
 
       <h2>2. Send exactly like everyone else</h2>

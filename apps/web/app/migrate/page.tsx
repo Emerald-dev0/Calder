@@ -39,7 +39,7 @@ export default function MigratePage() {
               Move over <em>in an afternoon.</em>
             </>
           }
-          lede="Same concepts, mechanical changes, no rewrite of your application. Here is the mapping we have actually done, what carries over untouched, and where Calder deliberately does something different."
+          lede="Same concepts, mechanical changes, no rewrite of your application. Here is the mapping we have done, what carries over untouched, and where Calder deliberately goes a different way."
         />
         <section className="section" style={{ paddingTop: 0 }}>
           <div className="wrap">

@@ -30,7 +30,7 @@ export default function NodeQuickstart() {
     <>
       <h1>Quickstart: Node.js</h1>
       <p className="docs-lede">
-        Node 18+ has everything you need built in. No SDK, no install, just{" "}
+        Node 18+ has what you need built in. No SDK, no install, just{" "}
         <span className="mono">fetch</span>.
       </p>
       <CodeBlock title="send.mjs" copyText={CODE}>

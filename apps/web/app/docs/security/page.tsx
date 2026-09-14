@@ -11,31 +11,31 @@ export default function SecurityDoc() {
     <>
       <h1>Security</h1>
       <p className="docs-lede">
-        What you must do on your side, and what we guarantee on ours. The full internal policy lives
-        in our <span className="mono">SECURITY.md</span>, this page is the developer&rsquo;s-eye
-        summary.
+        What you need to do on your side, and what Calder guarantees on ours. The full policy is
+        <span className="mono">SECURITY.md</span> in the repository; this page is the short version
+        for developers.
       </p>
 
       <h2>Your keys</h2>
       <p>
-        Store keys in environment variables or a secret manager, never in client bundles, never in
-        git. Rotate on a schedule and immediately on any suspected leak. Test and live keys are
-        cryptographically distinct; a test key can never deliver real mail.
+        Keep keys in environment variables or a secret manager, never in a client bundle and never
+        in git. Rotate them on a schedule, and straight away if one leaks. Test and live keys are
+        separate credentials, and a test key cannot deliver real mail.
       </p>
 
       <h2>Our guarantees</h2>
       <p>
-        Keys are hashed at rest (we can show a prefix, never the secret). Every tenant query is
-        scoped by organization and project at the data layer. Webhook payloads are HMAC-signed;
-        verify them. Error responses carry request IDs, never stack traces or secrets. See the full
-        posture on our <Link href="/security">security page</Link>.
+        Keys are stored as hashes, so we can show you a prefix and never the secret itself. Every
+        query is scoped to one organization and project at the data layer. Webhook payloads are
+        HMAC-signed and worth verifying. Error responses carry a request ID and nothing else. The
+        fuller picture is on the <Link href="/security">security page</Link>.
       </p>
 
       <h2>Reporting issues</h2>
       <p>
-        Found something? Write to <b className="mono">support@calder.click</b> with
-        &ldquo;security&rdquo; in the subject. We triage the same day and will keep you posted
-        through the fix.
+        Send it to <b className="mono">support@calder.click</b> with &ldquo;security&rdquo; in the
+        subject line. It gets read the same day, and you will hear back as the fix progresses,
+        including when we conclude something is not a vulnerability.
       </p>
     </>
   );

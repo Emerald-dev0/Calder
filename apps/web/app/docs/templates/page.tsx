@@ -10,17 +10,17 @@ export default function TemplatesDoc() {
     <>
       <h1>Templates</h1>
       <div className="docs-note">
-        <strong>Coming soon.</strong> Templates are in active development, after the delivery core.
-        Nothing below is shippable yet, send fully-rendered HTML today and it keeps working when
-        templates land.
+        <strong>In development.</strong> Templates come after the delivery core. Nothing below is
+        available today, and sending rendered HTML now keeps working after they ship.
       </div>
       <p className="docs-lede">
-        The plan, briefly: versioned templates with variables and previews.
+        The planned shape: versioned templates with variables and previews.
       </p>
-      <h2>Intended shape</h2>
+      <h2>Planned behaviour</h2>
       <p>
-        Named variables with safe defaults, preview with sample data, publish versions, and send by
-        template + version with one-click rollback. Test sends before anything goes live.
+        Named variables with defaults, previews against sample data, published versions, and sends
+        that reference the template and version they used, so a rollback is a click. Test sends go
+        to yourself before anything reaches a customer.
       </p>
     </>
   );
