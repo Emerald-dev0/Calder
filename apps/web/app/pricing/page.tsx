@@ -9,7 +9,7 @@ import { Reveal } from "../../components/reveal";
 export const metadata: Metadata = pageMeta({
   title: "Pricing",
   description:
-    "Simple, predictable email infrastructure pricing in NGN and USD. Hard limits, no surprise overages, metered from durable records.",
+    "Beginner ₦0/5k + 3 projects, Pro ₦15k/50k, Premium ₦45k/250k, Scale custom. Included + overage, NGN locally intentional, metered from durable records.",
   path: "/pricing",
 });
 
@@ -20,19 +20,23 @@ const FAQS = [
   },
   {
     q: "What happens when I hit my limit?",
-    a: "Sends pause with an explicit rate_limit_error — never silently dropped and never billed as surprise overages. Upgrade or wait for cycle reset.",
+    a: "Beginner pauses at 5k with PLAN_LIMIT_REACHED (limit/used/reset_at). Pro/Premium include 50k/250k then controlled overage per 1k — never silent charges, set a usage limit in Usage.",
   },
   {
     q: "Why both NGN and USD?",
-    a: "Calder is built for developers locally and globally. Pay in naira by card or bank transfer, or in USD — identical quotas either way.",
+    a: "NGN is locally intentional (₦0/₦15k/₦45k), USD globally ($0/$20/$60). Same quotas, intentional local pricing — a real advantage for Nigerian startups.",
   },
   {
     q: "Is there really a free tier?",
-    a: "3,000 emails every month with full API access, webhooks, and event history. No card required, no expiry cliff.",
+    a: "Beginner: 5k/mo, 3 projects, 2 domains, 5 senders, 10 templates, API/SMTP/SDK, 7-day logs, 2 webhooks — honest infrastructure, not a demo. No card, no expiry.",
   },
   {
     q: "Do test sends count against my quota?",
     a: "No. Test keys simulate the full pipeline without delivering mail and are never metered.",
+  },
+  {
+    q: "What unlocks on Pro vs Premium?",
+    a: "Pro (default): Inbox, Analytics, 5 team, 30-day logs, 10 webhooks. Premium: Audit Logs, dedicated controls, 90-day logs, 15 team, deliverability insights. See the dashboard — locked features show preview, not empty.",
   },
 ];
 
