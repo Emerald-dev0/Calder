@@ -47,7 +47,7 @@ function mulberry32(a: number) {
   };
 }
 const rand = mulberry32(SEED);
-const pick = <T,>(arr: T[]): T => arr[Math.floor(rand() * arr.length)] as T;
+const pick = <T>(arr: T[]): T => arr[Math.floor(rand() * arr.length)] as T;
 const between = (min: number, max: number) => min + rand() * (max - min);
 const intBetween = (min: number, max: number) => Math.floor(between(min, max + 1));
 const chance = (p: number) => rand() < p;
@@ -61,30 +61,134 @@ async function chunkInsert<T>(rows: T[], size: number, fn: (chunk: T[]) => Promi
 /* ── Pools ─────────────────────────────────────────────────────────────── */
 
 const FIRST = [
-  "Emerald", "Daniel", "Ada", "Chinedu", "Tunde", "Ngozi", "Kofi", "Amara", "Ifeanyi", "Zainab",
-  "Maya", "Leo", "Priya", "Arjun", "Sofia", "Mateo", "Ines", "Tomas", "Lena", "Noah",
-  "Grace", "Samuel", "Bisi", "Emeka", "Fatima", "Ibrahim", "Chioma", "Yusuf", "Halima", "Obi",
-  "June", "Marcus", "Elena", "Ravi", "Ana", "Femi", "Dara", "Kemi", "Tobi", "Nara",
+  "Emerald",
+  "Daniel",
+  "Ada",
+  "Chinedu",
+  "Tunde",
+  "Ngozi",
+  "Kofi",
+  "Amara",
+  "Ifeanyi",
+  "Zainab",
+  "Maya",
+  "Leo",
+  "Priya",
+  "Arjun",
+  "Sofia",
+  "Mateo",
+  "Ines",
+  "Tomas",
+  "Lena",
+  "Noah",
+  "Grace",
+  "Samuel",
+  "Bisi",
+  "Emeka",
+  "Fatima",
+  "Ibrahim",
+  "Chioma",
+  "Yusuf",
+  "Halima",
+  "Obi",
+  "June",
+  "Marcus",
+  "Elena",
+  "Ravi",
+  "Ana",
+  "Femi",
+  "Dara",
+  "Kemi",
+  "Tobi",
+  "Nara",
 ];
 const LAST = [
-  "Okafor", "Adeyemi", "Bello", "Ogun", "Mensah", "Eze", "Abubakar", "Olawale", "Nwosu", "Danjuma",
-  "Reyes", "Kumar", "Silva", "Costa", "Novak", "Weber", "Fischer", "Moretti", "Andersson", "Brown",
-  "Ibrahim", "Musa", "Ade", "Chukwu", "Balogun", "Osei", "Ampofo", "Diallo", "Traore", "Kim",
+  "Okafor",
+  "Adeyemi",
+  "Bello",
+  "Ogun",
+  "Mensah",
+  "Eze",
+  "Abubakar",
+  "Olawale",
+  "Nwosu",
+  "Danjuma",
+  "Reyes",
+  "Kumar",
+  "Silva",
+  "Costa",
+  "Novak",
+  "Weber",
+  "Fischer",
+  "Moretti",
+  "Andersson",
+  "Brown",
+  "Ibrahim",
+  "Musa",
+  "Ade",
+  "Chukwu",
+  "Balogun",
+  "Osei",
+  "Ampofo",
+  "Diallo",
+  "Traore",
+  "Kim",
 ];
 const DOMAIN_POOL = [
-  "gmail.com", "gmail.com", "gmail.com", "yahoo.com", "outlook.com", "proton.me",
-  "hotmail.com", "icloud.com", "fastmail.com", "hey.com",
+  "gmail.com",
+  "gmail.com",
+  "gmail.com",
+  "yahoo.com",
+  "outlook.com",
+  "proton.me",
+  "hotmail.com",
+  "icloud.com",
+  "fastmail.com",
+  "hey.com",
 ];
-const COMPANY_HINTS = ["studio", "labs", "digital", "tech", "works", "hq", "group", "systems", "soft", "cloud"];
+const COMPANY_HINTS = [
+  "studio",
+  "labs",
+  "digital",
+  "tech",
+  "works",
+  "hq",
+  "group",
+  "systems",
+  "soft",
+  "cloud",
+];
 const COUNTRIES: Array<[string, number]> = [
-  ["Nigeria", 0.52], ["United States", 0.12], ["United Kingdom", 0.07], ["India", 0.06],
-  ["Kenya", 0.05], ["Ghana", 0.05], ["Canada", 0.04], ["Germany", 0.03], ["Brazil", 0.03], ["South Africa", 0.03],
+  ["Nigeria", 0.52],
+  ["United States", 0.12],
+  ["United Kingdom", 0.07],
+  ["India", 0.06],
+  ["Kenya", 0.05],
+  ["Ghana", 0.05],
+  ["Canada", 0.04],
+  ["Germany", 0.03],
+  ["Brazil", 0.03],
+  ["South Africa", 0.03],
 ];
 const SOURCES: Array<[string, number]> = [
-  ["website", 0.34], ["x", 0.14], ["linkedin", 0.12], ["tiktok", 0.08],
-  ["referral", 0.14], ["campaign", 0.06], ["direct", 0.12],
+  ["website", 0.34],
+  ["x", 0.14],
+  ["linkedin", 0.12],
+  ["tiktok", 0.08],
+  ["referral", 0.14],
+  ["campaign", 0.06],
+  ["direct", 0.12],
 ];
-const TAG_POOL = ["design-partner", "early-adopter", "influencer", "student", "agency", "fintech", "saas-builder", "waitlist-champion"];
+const TAG_POOL = [
+  "design-partner",
+  "early-adopter",
+  "influencer",
+  "student",
+  "agency",
+  "fintech",
+  "saas-builder",
+  "waitlist-champion",
+];
 
 function weighted(pairs: Array<[string, number]>): string {
   const r = rand();
@@ -147,7 +251,12 @@ async function main() {
   console.log("· seeding waitlist (3,841 signups with referral chains)");
   const today = new Date();
   const start = Date.UTC(2026, 3, 1); // Apr 1 2026
-  const totalDays = Math.max(1, Math.round((Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) - start) / DAY));
+  const totalDays = Math.max(
+    1,
+    Math.round(
+      (Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) - start) / DAY
+    )
+  );
   // Raw weights: gentle start, strong finish.
   const weights: number[] = [];
   for (let d = 0; d <= totalDays; d++) {
@@ -192,10 +301,21 @@ async function main() {
       const refCode = code();
       // ~30% referred — point at a random earlier row once any exist.
       const referredBy =
-        created > 12 && chance(0.3) ? (wlRows[intBetween(0, created - 1)]?.referralCode ?? null) : null;
+        created > 12 && chance(0.3)
+          ? (wlRows[intBetween(0, created - 1)]?.referralCode ?? null)
+          : null;
       const statusRoll = rand();
-      const status = statusRoll < 0.006 ? "removed" : statusRoll < 0.036 ? "invited" : statusRoll < 0.06 ? "contacted" : "waiting";
-      const createdAt = new Date(start + dayIdx * DAY + intBetween(0, 23) * 3_600_000 + intBetween(0, 59) * 60_000);
+      const status =
+        statusRoll < 0.006
+          ? "removed"
+          : statusRoll < 0.036
+            ? "invited"
+            : statusRoll < 0.06
+              ? "contacted"
+              : "waiting";
+      const createdAt = new Date(
+        start + dayIdx * DAY + intBetween(0, 23) * 3_600_000 + intBetween(0, 59) * 60_000
+      );
       wlRows.push({
         id: `wl_${String(seq).padStart(6, "0")}`,
         email,
@@ -214,14 +334,20 @@ async function main() {
           : null,
         referralCode: refCode,
         referredBy,
-        invitedAt: status === "invited" || status === "contacted" ? new Date(createdAt.getTime() + intBetween(1, 30) * DAY) : null,
-        contactedAt: status === "contacted" ? new Date(createdAt.getTime() + intBetween(1, 20) * DAY) : null,
+        invitedAt:
+          status === "invited" || status === "contacted"
+            ? new Date(createdAt.getTime() + intBetween(1, 30) * DAY)
+            : null,
+        contactedAt:
+          status === "contacted" ? new Date(createdAt.getTime() + intBetween(1, 20) * DAY) : null,
         createdAt,
       });
       created += 1;
     }
   }
-  await chunkInsert(wlRows, 500, (chunk) => db.insert(waitlistSignups).values(chunk).onConflictDoNothing());
+  await chunkInsert(wlRows, 500, (chunk) =>
+    db.insert(waitlistSignups).values(chunk).onConflictDoNothing()
+  );
 
   /* ── Users: founder + ~150 customers, some converted from waitlist ── */
   console.log("· seeding users, organizations, projects");
@@ -277,19 +403,55 @@ async function main() {
 
   /* ── Organizations + members + projects ── */
   const orgNames = [
-    "Kudi Labs", "LagosPay", "Shuttle", "Paperwork AI", "Coursepady", "Forma Studio", "Bursery", "Tradebook",
-    "Sendstack", "Vaultify", "Helix Health", "Fundi Jobs", "Kolo Savings", "Brightpath", "Naija Deals", "Cobalt RS",
-    "Woven Africa", "Datafeedr", "QueueRocket", "Mailflow HQ", "Sabit HQ", "Tixify", "Ledgerly", "Pawnbroker",
-    "S cooldown", "Kanban Kings", "Zuri Chat", "Sarva AI", "Paylane", "Gridwork", "Oja Market", "Relay NG",
-    "Copysmith", "Bumpa", "Flexrate", "Shipwise",
+    "Kudi Labs",
+    "LagosPay",
+    "Shuttle",
+    "Paperwork AI",
+    "Coursepady",
+    "Forma Studio",
+    "Bursery",
+    "Tradebook",
+    "Sendstack",
+    "Vaultify",
+    "Helix Health",
+    "Fundi Jobs",
+    "Kolo Savings",
+    "Brightpath",
+    "Naija Deals",
+    "Cobalt RS",
+    "Woven Africa",
+    "Datafeedr",
+    "QueueRocket",
+    "Mailflow HQ",
+    "Sabit HQ",
+    "Tixify",
+    "Ledgerly",
+    "Pawnbroker",
+    "S cooldown",
+    "Kanban Kings",
+    "Zuri Chat",
+    "Sarva AI",
+    "Paylane",
+    "Gridwork",
+    "Oja Market",
+    "Relay NG",
+    "Copysmith",
+    "Bumpa",
+    "Flexrate",
+    "Shipwise",
   ];
   const orgRows: Array<typeof organizations.$inferInsert> = orgNames.map((name, i) => ({
     id: `org_demo${String(i + 1).padStart(3, "0")}`,
     name,
-    slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+    slug: name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, ""),
     createdAt: new Date(Date.now() - intBetween(5, 150) * DAY),
   }));
-  await chunkInsert(orgRows, 100, (chunk) => db.insert(organizations).values(chunk).onConflictDoNothing());
+  await chunkInsert(orgRows, 100, (chunk) =>
+    db.insert(organizations).values(chunk).onConflictDoNothing()
+  );
 
   const memberRows: Array<typeof organizationMembers.$inferInsert> = [];
   const projectRows: Array<typeof projects.$inferInsert> = [];
@@ -325,8 +487,12 @@ async function main() {
       });
     }
   });
-  await chunkInsert(memberRows, 200, (chunk) => db.insert(organizationMembers).values(chunk).onConflictDoNothing());
-  await chunkInsert(projectRows, 200, (chunk) => db.insert(projects).values(chunk).onConflictDoNothing());
+  await chunkInsert(memberRows, 200, (chunk) =>
+    db.insert(organizationMembers).values(chunk).onConflictDoNothing()
+  );
+  await chunkInsert(projectRows, 200, (chunk) =>
+    db.insert(projects).values(chunk).onConflictDoNothing()
+  );
 
   /* ── Transports ── */
   console.log("· seeding transports");
@@ -356,7 +522,9 @@ async function main() {
       });
     }
   });
-  await chunkInsert(transportRows, 200, (chunk) => db.insert(projectTransports).values(chunk).onConflictDoNothing());
+  await chunkInsert(transportRows, 200, (chunk) =>
+    db.insert(projectTransports).values(chunk).onConflictDoNothing()
+  );
 
   /* ── Subscriptions (NGN prices from the plan catalog) ── */
   console.log("· seeding subscriptions + usage");
@@ -367,9 +535,16 @@ async function main() {
     pro: "plan_pro",
     scale: "plan_scale",
   };
-  const priceFor = (planId: string) => priceRows.find((p) => p.planId === planId && p.currency === "NGN")?.amountCents ?? 0;
+  const priceFor = (planId: string) =>
+    priceRows.find((p) => p.planId === planId && p.currency === "NGN")?.amountCents ?? 0;
   const subRows: Array<typeof subscriptions.$inferInsert> = [];
-  const tiers: Array<"starter" | "pro" | "scale" | "free"> = ["starter", "pro", "pro", "scale", "free"];
+  const tiers: Array<"starter" | "pro" | "scale" | "free"> = [
+    "starter",
+    "pro",
+    "pro",
+    "scale",
+    "free",
+  ];
   orgRows.forEach((org, i) => {
     const tier = (i < 24 ? tiers[i % tiers.length] : chance(0.5) ? "free" : pick(tiers)) ?? "free";
     const monthsAgo = intBetween(0, 4);
@@ -394,7 +569,9 @@ async function main() {
     currentPeriodEnd: new Date(Date.now() + 10 * DAY),
     createdAt: new Date(Date.now() - 20 * DAY),
   });
-  await chunkInsert(subRows, 100, (chunk) => db.insert(subscriptions).values(chunk).onConflictDoNothing());
+  await chunkInsert(subRows, 100, (chunk) =>
+    db.insert(subscriptions).values(chunk).onConflictDoNothing()
+  );
 
   const usageRows: Array<typeof usageRecords.$inferInsert> = [];
   for (let period = 0; period < 2; period++) {
@@ -420,7 +597,9 @@ async function main() {
       });
     }
   }
-  await chunkInsert(usageRows, 500, (chunk) => db.insert(usageRecords).values(chunk).onConflictDoNothing());
+  await chunkInsert(usageRows, 500, (chunk) =>
+    db.insert(usageRecords).values(chunk).onConflictDoNothing()
+  );
 
   /* ── Email pipeline: ~4,600 emails over 30 days + events ── */
   console.log("· seeding email pipeline history");
@@ -507,7 +686,9 @@ async function main() {
       updatedAt: new Date(Date.now() - intBetween(0, 20) * DAY),
     });
   }
-  await chunkInsert(emailRows, 500, (chunk) => db.insert(emails).values(chunk).onConflictDoNothing());
+  await chunkInsert(emailRows, 500, (chunk) =>
+    db.insert(emails).values(chunk).onConflictDoNothing()
+  );
 
   const eventRows: Array<typeof emailEvents.$inferInsert> = [];
   let evSeq = 0;
@@ -536,7 +717,9 @@ async function main() {
       push("failed", 1800);
     }
   }
-  await chunkInsert(eventRows, 1000, (chunk) => db.insert(emailEvents).values(chunk).onConflictDoNothing());
+  await chunkInsert(eventRows, 1000, (chunk) =>
+    db.insert(emailEvents).values(chunk).onConflictDoNothing()
+  );
 
   /* ── Webhooks + deliveries ── */
   console.log("· seeding webhooks");
@@ -557,7 +740,8 @@ async function main() {
     const hook = hookRows[i % hookRows.length];
     if (!hook) continue;
     const roll = rand();
-    const status = roll < 0.9 ? "delivered" : roll < 0.97 ? "failed" : roll < 0.99 ? "pending" : "exhausted";
+    const status =
+      roll < 0.9 ? "delivered" : roll < 0.97 ? "failed" : roll < 0.99 ? "pending" : "exhausted";
     const createdAt = new Date(Date.now() - intBetween(0, 20) * DAY);
     deliveryRows.push({
       id: `whd_${i}`,
@@ -634,7 +818,10 @@ async function main() {
     .onConflictDoNothing();
 
   // Make the audit demo consistent: user 0 is support.
-  await db.update(users).set({ platformRole: "support" }).where(sql`id = ${userRows[0]!.id}`);
+  await db
+    .update(users)
+    .set({ platformRole: "support" })
+    .where(sql`id = ${userRows[0]!.id}`);
 
   console.log(
     `✓ demo seed complete: ${wlRows.length} waitlist, ${userRows.length + 1} users, ${orgRows.length + 1} orgs, ${emailRows.length} emails, ${eventRows.length} events`
@@ -643,7 +830,9 @@ async function main() {
 }
 
 const invokedDirectly =
-  typeof process !== "undefined" && Array.isArray(process.argv) && process.argv[1]?.endsWith("seed-demo.ts");
+  typeof process !== "undefined" &&
+  Array.isArray(process.argv) &&
+  process.argv[1]?.endsWith("seed-demo.ts");
 if (invokedDirectly) {
   main()
     .then(() => process.exit(0))

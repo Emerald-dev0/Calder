@@ -1,4 +1,19 @@
-import { and, asc, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import {
   auditLogs,
   emailEvents,
@@ -62,8 +77,15 @@ export async function waitlistOverview(): Promise<WaitlistOverview> {
 
   const [total, newToday, new7d, prev7d, referred, statusRows, converted] = await Promise.all([
     scalar(db.select({ value: count() }).from(waitlistSignups)),
-    scalar(db.select({ value: count() }).from(waitlistSignups).where(gte(waitlistSignups.createdAt, today))),
-    scalar(db.select({ value: count() }).from(waitlistSignups).where(gte(waitlistSignups.createdAt, d7))),
+    scalar(
+      db
+        .select({ value: count() })
+        .from(waitlistSignups)
+        .where(gte(waitlistSignups.createdAt, today))
+    ),
+    scalar(
+      db.select({ value: count() }).from(waitlistSignups).where(gte(waitlistSignups.createdAt, d7))
+    ),
     scalar(
       db
         .select({ value: count() })
@@ -103,10 +125,14 @@ export async function waitlistOverview(): Promise<WaitlistOverview> {
   };
 }
 
-export async function waitlistDailyCounts(days: number | null): Promise<Array<{ day: string; count: number }>> {
+export async function waitlistDailyCounts(
+  days: number | null
+): Promise<Array<{ day: string; count: number }>> {
   const db = getDb();
   const where =
-    days === null ? undefined : gte(waitlistSignups.createdAt, new Date(utcDayStart().getTime() - (days - 1) * DAY_MS));
+    days === null
+      ? undefined
+      : gte(waitlistSignups.createdAt, new Date(utcDayStart().getTime() - (days - 1) * DAY_MS));
   const rows = await db
     .select({
       day: sql<string>`to_char(${waitlistSignups.createdAt} at time zone 'UTC', 'YYYY-MM-DD')`,
@@ -128,7 +154,9 @@ export async function waitlistSources(): Promise<Array<{ label: string; count: n
   return rows.map((r) => ({ label: r.label ?? "direct", count: Number(r.count) }));
 }
 
-export async function waitlistCountries(limit = 8): Promise<Array<{ label: string; count: number }>> {
+export async function waitlistCountries(
+  limit = 8
+): Promise<Array<{ label: string; count: number }>> {
   const db = getDb();
   const rows = await db
     .select({ label: waitlistSignups.country, count: count() })
@@ -164,7 +192,11 @@ export async function waitlistTopReferrers(limit = 10): Promise<TopReferrer[]> {
   const emailByCode = new Map(identities.map((i) => [i.code, i.email]));
   return rows
     .filter((r): r is { code: string; invites: number } => Boolean(r.code))
-    .map((r) => ({ code: r.code, email: emailByCode.get(r.code) ?? null, invites: Number(r.invites) }));
+    .map((r) => ({
+      code: r.code,
+      email: emailByCode.get(r.code) ?? null,
+      invites: Number(r.invites),
+    }));
 }
 
 export interface WaitlistRow {
@@ -215,7 +247,9 @@ export async function waitlistRows(
   if (query.status === "converted") {
     conditions.push(inArray(waitlistSignups.email, db.select({ email: users.email }).from(users)));
   } else if (query.status) {
-    conditions.push(eq(waitlistSignups.status, query.status as "waiting" | "invited" | "contacted" | "removed"));
+    conditions.push(
+      eq(waitlistSignups.status, query.status as "waiting" | "invited" | "contacted" | "removed")
+    );
   }
   if (query.referred === "referred") conditions.push(isNotNull(waitlistSignups.referredBy));
   if (query.referred === "organic") conditions.push(isNull(waitlistSignups.referredBy));
@@ -227,7 +261,9 @@ export async function waitlistRows(
       .select()
       .from(waitlistSignups)
       .where(where)
-      .orderBy(query.sort === "oldest" ? asc(waitlistSignups.createdAt) : desc(waitlistSignups.createdAt))
+      .orderBy(
+        query.sort === "oldest" ? asc(waitlistSignups.createdAt) : desc(waitlistSignups.createdAt)
+      )
       .limit(perPage)
       .offset((page - 1) * perPage),
   ]);
@@ -242,7 +278,11 @@ export async function waitlistRows(
 
 export async function waitlistPerson(id: string) {
   const db = getDb();
-  const [person] = await db.select().from(waitlistSignups).where(eq(waitlistSignups.id, id)).limit(1);
+  const [person] = await db
+    .select()
+    .from(waitlistSignups)
+    .where(eq(waitlistSignups.id, id))
+    .limit(1);
   if (!person) return null;
   const [positionRow, invites, convertedUser, referrer] = await Promise.all([
     scalar(
@@ -256,7 +296,11 @@ export async function waitlistPerson(id: string) {
       .from(waitlistSignups)
       .where(eq(waitlistSignups.referredBy, person.referralCode))
       .orderBy(desc(waitlistSignups.createdAt)),
-    db.select({ id: users.id, name: users.name, createdAt: users.createdAt }).from(users).where(eq(users.email, person.email)).limit(1),
+    db
+      .select({ id: users.id, name: users.name, createdAt: users.createdAt })
+      .from(users)
+      .where(eq(users.email, person.email))
+      .limit(1),
     person.referredBy
       ? db
           .select({ id: waitlistSignups.id, email: waitlistSignups.email })
@@ -296,7 +340,13 @@ export async function userRows(q: string | undefined, page: number) {
   const where = like ? or(ilike(users.email, like), ilike(users.name, like)) : undefined;
   const [total, rows] = await Promise.all([
     scalar(db.select({ value: count() }).from(users).where(where)),
-    db.select().from(users).where(where).orderBy(desc(users.createdAt)).limit(perPage).offset((page - 1) * perPage),
+    db
+      .select()
+      .from(users)
+      .where(where)
+      .orderBy(desc(users.createdAt))
+      .limit(perPage)
+      .offset((page - 1) * perPage),
   ]);
   return { rows, total, page, pages: Math.max(1, Math.ceil(total / perPage)) };
 }
@@ -313,11 +363,19 @@ export async function userDetail(userId: string) {
   const memberships = await Promise.all(
     membershipsRaw.map(async (m) => ({
       ...m,
-      projects: await db.select().from(projects).where(eq(projects.organizationId, m.organization.id)),
+      projects: await db
+        .select()
+        .from(projects)
+        .where(eq(projects.organizationId, m.organization.id)),
     }))
   );
   const [sends, lastSeen] = await Promise.all([
-    scalar(db.select({ value: count() }).from(emails).where(sql`false`)),
+    scalar(
+      db
+        .select({ value: count() })
+        .from(emails)
+        .where(sql`false`)
+    ),
     Promise.resolve(null as Date | null),
   ]);
   return { user, memberships, sends, lastSeen };
@@ -339,7 +397,11 @@ export interface OrgSummary {
 
 export async function organizationRows(limit = 200): Promise<OrgSummary[]> {
   const db = getDb();
-  const orgRows = await db.select().from(organizations).orderBy(desc(organizations.createdAt)).limit(limit);
+  const orgRows = await db
+    .select()
+    .from(organizations)
+    .orderBy(desc(organizations.createdAt))
+    .limit(limit);
   const [memberCounts, projectCounts, activeSubs, priceRows, planRows] = await Promise.all([
     db
       .select({ organizationId: organizationMembers.organizationId, value: count() })
@@ -397,13 +459,35 @@ export async function orgDetail(orgId: string) {
       .from(organizationMembers)
       .innerJoin(users, eq(organizationMembers.userId, users.id))
       .where(eq(organizationMembers.organizationId, orgId)),
-    db.select().from(subscriptions).where(eq(subscriptions.organizationId, orgId)).orderBy(desc(subscriptions.createdAt)),
+    db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.organizationId, orgId))
+      .orderBy(desc(subscriptions.createdAt)),
     db.select().from(plans),
     db.select().from(planPrices).where(eq(planPrices.currency, "NGN")),
-    db.select().from(usageRecords).where(eq(usageRecords.organizationId, orgId)).orderBy(desc(usageRecords.periodStart)).limit(6),
-    db.select().from(auditLogs).where(eq(auditLogs.organizationId, orgId)).orderBy(desc(auditLogs.createdAt)).limit(10),
+    db
+      .select()
+      .from(usageRecords)
+      .where(eq(usageRecords.organizationId, orgId))
+      .orderBy(desc(usageRecords.periodStart))
+      .limit(6),
+    db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.organizationId, orgId))
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(10),
     orgProjects.length
-      ? db.select().from(projectTransports).where(inArray(projectTransports.projectId, orgProjects.map((p) => p.id)))
+      ? db
+          .select()
+          .from(projectTransports)
+          .where(
+            inArray(
+              projectTransports.projectId,
+              orgProjects.map((p) => p.id)
+            )
+          )
       : Promise.resolve([] as Array<typeof projectTransports.$inferSelect>),
   ]);
   const active = subs.find((s) => s.status === "active");
@@ -411,10 +495,7 @@ export async function orgDetail(orgId: string) {
   const price = plan ? priceRows.find((p) => p.planId === plan.id) : undefined;
   const projectIds = orgProjects.map((p) => p.id);
   const [emailCount] = projectIds.length
-    ? await db
-        .select({ value: count() })
-        .from(emails)
-        .where(inArray(emails.projectId, projectIds))
+    ? await db.select({ value: count() }).from(emails).where(inArray(emails.projectId, projectIds))
     : [{ value: 0 }];
   return {
     org,
@@ -463,13 +544,22 @@ export interface BillingOverview {
 
 export async function billingOverview(): Promise<BillingOverview> {
   const db = getDb();
-  const activeSubs = await db.select().from(subscriptions).where(eq(subscriptions.status, "active"));
+  const activeSubs = await db
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.status, "active"));
   const [priceRows, planRows, pastDue, canceled, trialing, newSubs] = await Promise.all([
     db.select().from(planPrices).where(eq(planPrices.currency, "NGN")),
     db.select().from(plans),
-    scalar(db.select({ value: count() }).from(subscriptions).where(eq(subscriptions.status, "past_due"))),
-    scalar(db.select({ value: count() }).from(subscriptions).where(eq(subscriptions.status, "canceled"))),
-    scalar(db.select({ value: count() }).from(subscriptions).where(eq(subscriptions.status, "trialing"))),
+    scalar(
+      db.select({ value: count() }).from(subscriptions).where(eq(subscriptions.status, "past_due"))
+    ),
+    scalar(
+      db.select({ value: count() }).from(subscriptions).where(eq(subscriptions.status, "canceled"))
+    ),
+    scalar(
+      db.select({ value: count() }).from(subscriptions).where(eq(subscriptions.status, "trialing"))
+    ),
     db
       .select({
         month: sql<string>`to_char(${subscriptions.createdAt} at time zone 'UTC', 'YYYY-MM')`,
@@ -505,7 +595,8 @@ export async function billingOverview(): Promise<BillingOverview> {
       tier,
       name: v.name,
       orgs: v.orgs,
-      monthlyCents: (priceRows.find((p) => planById.get(p.planId)?.tier === tier)?.amountCents ?? 0) * v.orgs,
+      monthlyCents:
+        (priceRows.find((p) => planById.get(p.planId)?.tier === tier)?.amountCents ?? 0) * v.orgs,
     })),
     newSubsByMonth: newSubs.map((r) => ({ month: r.month, count: Number(r.count) })),
     currency: "NGN",
@@ -519,7 +610,9 @@ export async function subscriptionRows(limit = 100) {
       subscription: subscriptions,
       organization: organizations,
       plan: plans,
-      price: sql<number | null>`(select amount_cents from plan_prices pp where pp.plan_id = ${plans.id} and pp.currency = 'NGN' limit 1)`,
+      price: sql<
+        number | null
+      >`(select amount_cents from plan_prices pp where pp.plan_id = ${plans.id} and pp.currency = 'NGN' limit 1)`,
     })
     .from(subscriptions)
     .innerJoin(organizations, eq(subscriptions.organizationId, organizations.id))
@@ -664,7 +757,12 @@ export async function deliverabilityBySender(days = 30) {
       complained: sql<number>`count(*) filter (where ${emails.status} = 'complained')`,
     })
     .from(emails)
-    .where(and(gte(emails.createdAt, since), inArray(emails.status, ["delivered", "bounced", "complained", "sent", "failed"])))
+    .where(
+      and(
+        gte(emails.createdAt, since),
+        inArray(emails.status, ["delivered", "bounced", "complained", "sent", "failed"])
+      )
+    )
     .groupBy(emails.from)
     .orderBy(desc(count()))
     .limit(12);
@@ -711,13 +809,17 @@ export async function dbHealth(): Promise<DbHealth> {
     const started = Date.now();
     const [versionRow] = await db.execute<{ version: string }>(sql`select version() as version`);
     const latency = Date.now() - started;
-    const [sizeRow] = await db.execute<{ size: string }>(sql`select pg_database_size(current_database())::text as size`);
+    const [sizeRow] = await db.execute<{ size: string }>(
+      sql`select pg_database_size(current_database())::text as size`
+    );
     const [connRow] = await db.execute<{ conns: string; max: string }>(sql`
       select
         (select count(*) from pg_stat_activity where datname = current_database())::text as conns,
         current_setting('max_connections')::text as max
     `);
-    const [uptimeRow] = await db.execute<{ started: Date }>(sql`select pg_postmaster_start_time() as started`);
+    const [uptimeRow] = await db.execute<{ started: Date }>(
+      sql`select pg_postmaster_start_time() as started`
+    );
     const tables = await db.execute<{ table: string; rows: string; size: string }>(sql`
       select relname::text as table, n_live_tup::text as rows, pg_total_relation_size(relid)::text as size
       from pg_stat_user_tables order by pg_total_relation_size(relid) desc limit 8
@@ -730,13 +832,20 @@ export async function dbHealth(): Promise<DbHealth> {
     const read = Number(hitRow?.read ?? 0);
     return {
       reachable: true,
-      version: String(versionRow?.version ?? "").split(" ").slice(0, 2).join(" "),
+      version: String(versionRow?.version ?? "")
+        .split(" ")
+        .slice(0, 2)
+        .join(" "),
       latencyMs: latency,
       sizeBytes: Number(sizeRow?.size ?? 0),
       connections: Number(connRow?.conns ?? 0),
       maxConnections: Number(connRow?.max ?? 0),
       uptimeSince: uptimeRow?.started ? new Date(uptimeRow.started) : null,
-      tables: tables.map((t) => ({ table: t.table, rows: Number(t.rows), sizeBytes: Number(t.size) })),
+      tables: tables.map((t) => ({
+        table: t.table,
+        rows: Number(t.rows),
+        sizeBytes: Number(t.size),
+      })),
       cacheHitRate: hit + read > 0 ? (hit / (hit + read)) * 100 : null,
     };
   } catch {
@@ -794,10 +903,16 @@ export async function redisHealth(): Promise<RedisHealth> {
     return {
       configured: true,
       reachable: true,
-      version: infoServer.split("\r\n").find((l) => l.startsWith("redis_version:"))?.split(":")[1] ?? null,
+      version:
+        infoServer
+          .split("\r\n")
+          .find((l) => l.startsWith("redis_version:"))
+          ?.split(":")[1] ?? null,
       usedMemoryBytes: pick(infoMemory, "used_memory"),
       maxMemoryBytes: pick(infoMemory, "maxmemory"),
-      connectedClients: pick(infoMemory, "maxmemory_human") ? pick(infoStats, "connected_clients") : pick(infoStats, "connected_clients"),
+      connectedClients: pick(infoMemory, "maxmemory_human")
+        ? pick(infoStats, "connected_clients")
+        : pick(infoStats, "connected_clients"),
       opsPerSec: pick(infoStats, "instantaneous_ops_per_sec"),
       hitRate: hits + misses > 0 ? (hits / (hits + misses)) * 100 : null,
       evictedKeys: pick(infoStats, "evicted_keys"),
@@ -839,7 +954,12 @@ export async function queueDerived() {
       db
         .select({ value: count() })
         .from(emails)
-        .where(and(inArray(emails.status, ["failed", "bounced"]), gte(emails.updatedAt, new Date(Date.now() - DAY_MS))))
+        .where(
+          and(
+            inArray(emails.status, ["failed", "bounced"]),
+            gte(emails.updatedAt, new Date(Date.now() - DAY_MS))
+          )
+        )
     ),
     db
       .select({ createdAt: emails.createdAt })
@@ -862,7 +982,12 @@ export async function workerThroughput(): Promise<Array<{ hour: string; sent: nu
       sent: count(),
     })
     .from(emails)
-    .where(and(gte(emails.updatedAt, new Date(Date.now() - DAY_MS)), inArray(emails.status, ["sent", "delivered"])))
+    .where(
+      and(
+        gte(emails.updatedAt, new Date(Date.now() - DAY_MS)),
+        inArray(emails.status, ["sent", "delivered"])
+      )
+    )
     .groupBy(sql`1`)
     .orderBy(sql`1`);
   return rows.map((r) => ({ hour: r.hour, sent: Number(r.sent) }));
@@ -938,14 +1063,19 @@ export async function eventRows(opts: { type?: string; q?: string; page: number 
       .orderBy(desc(emailEvents.createdAt))
       .limit(perPage)
       .offset((opts.page - 1) * perPage),
-    db.select({ type: emailEvents.type, value: count() }).from(emailEvents).groupBy(emailEvents.type),
+    db
+      .select({ type: emailEvents.type, value: count() })
+      .from(emailEvents)
+      .groupBy(emailEvents.type),
   ]);
   return {
     rows,
     total,
     page: opts.page,
     pages: Math.max(1, Math.ceil(total / perPage)),
-    byType: byType.map((r) => ({ type: r.type, count: Number(r.value) })).sort((a, b) => b.count - a.count),
+    byType: byType
+      .map((r) => ({ type: r.type, count: Number(r.value) }))
+      .sort((a, b) => b.count - a.count),
   };
 }
 
@@ -953,7 +1083,9 @@ export async function auditRows(opts: { q?: string; page: number }) {
   const db = getDb();
   const perPage = 60;
   const like = opts.q ? `%${opts.q}%` : null;
-  const where = like ? or(ilike(auditLogs.action, like), ilike(auditLogs.targetId, like)) : undefined;
+  const where = like
+    ? or(ilike(auditLogs.action, like), ilike(auditLogs.targetId, like))
+    : undefined;
   const [total, rows] = await Promise.all([
     scalar(db.select({ value: count() }).from(auditLogs).where(where)),
     db
@@ -990,7 +1122,9 @@ export async function evaluateAlerts(): Promise<ControlAlert[]> {
       .from(emails)
       .where(gte(emails.createdAt, since24))
       .groupBy(emails.status),
-    scalar(db.select({ value: count() }).from(subscriptions).where(eq(subscriptions.status, "past_due"))),
+    scalar(
+      db.select({ value: count() }).from(subscriptions).where(eq(subscriptions.status, "past_due"))
+    ),
     redisHealth(),
     dbHealth(),
     queueDerived(),
@@ -1059,11 +1193,17 @@ export async function evaluateAlerts(): Promise<ControlAlert[]> {
       id: "redis",
       severity: "warning",
       title: "Redis unreachable",
-      detail: "Queue, rate limiting, and cache operate on Redis. Delivery falls back but retries and rate caps degrade.",
+      detail:
+        "Queue, rate limiting, and cache operate on Redis. Delivery falls back but retries and rate caps degrade.",
       metric: "PING failed",
       href: "/control/infrastructure/redis",
     });
-  } else if (redis.usedMemoryBytes && redis.maxMemoryBytes && redis.maxMemoryBytes > 0 && redis.usedMemoryBytes / redis.maxMemoryBytes > 0.8) {
+  } else if (
+    redis.usedMemoryBytes &&
+    redis.maxMemoryBytes &&
+    redis.maxMemoryBytes > 0 &&
+    redis.usedMemoryBytes / redis.maxMemoryBytes > 0.8
+  ) {
     alerts.push({
       id: "redis-mem",
       severity: "warning",
@@ -1073,7 +1213,12 @@ export async function evaluateAlerts(): Promise<ControlAlert[]> {
       href: "/control/infrastructure/redis",
     });
   }
-  if (dbh.reachable && dbh.maxConnections && dbh.connections !== null && dbh.connections / dbh.maxConnections > 0.8) {
+  if (
+    dbh.reachable &&
+    dbh.maxConnections &&
+    dbh.connections !== null &&
+    dbh.connections / dbh.maxConnections > 0.8
+  ) {
     alerts.push({
       id: "db-conn",
       severity: "warning",
@@ -1119,8 +1264,18 @@ export async function abuseCandidates(days = 7) {
   const suspensions = Number(suspensionRows[0]?.value ?? 0);
   const suppressedRows = await db.select({ value: count() }).from(suppressions);
   const suppressedCount = Number(suppressedRows[0]?.value ?? 0);
-  const recentSuppressionRows = await db.select().from(suppressions).orderBy(desc(suppressions.createdAt)).limit(10);
-  return { suspicious, suspensions, suppressedCount, recentSuppressions: recentSuppressionRows, since };
+  const recentSuppressionRows = await db
+    .select()
+    .from(suppressions)
+    .orderBy(desc(suppressions.createdAt))
+    .limit(10);
+  return {
+    suspicious,
+    suspensions,
+    suppressedCount,
+    recentSuppressions: recentSuppressionRows,
+    since,
+  };
 }
 
 export async function securityEvents() {
@@ -1139,7 +1294,10 @@ export async function adminAccounts() {
   const db = getDb();
   const [rows, activeSessions, waitlisted] = await Promise.all([
     db
-      .select({ user: users, sessions: sql<number>`(select count(*) from ${sessions} where ${sessions.userId} = ${users.id} and ${sessions.expiresAt} > now())` })
+      .select({
+        user: users,
+        sessions: sql<number>`(select count(*) from ${sessions} where ${sessions.userId} = ${users.id} and ${sessions.expiresAt} > now())`,
+      })
       .from(users)
       .where(isNotNull(users.platformRole))
       .orderBy(asc(users.platformRole)),
@@ -1169,27 +1327,37 @@ export async function systemAudiences(): Promise<AudienceCount[]> {
   const d30 = new Date(today.getTime() - 30 * DAY_MS);
   const d7 = new Date(today.getTime() - 7 * DAY_MS);
   const planRows = await db.select().from(plans);
-  const [allUsers, verified, unverified, activeOrgs, sendingUsers, sendingProjects, waitlist, inactive, approaching] =
-    await Promise.all([
-      scalar(db.select({ value: count() }).from(users)),
-      scalar(db.select({ value: count() }).from(users).where(isNotNull(users.emailVerifiedAt))),
-      scalar(db.select({ value: count() }).from(users).where(isNull(users.emailVerifiedAt))),
-      scalar(db.select({ value: count() }).from(organizations)),
-      scalar(
-        db
-          .select({ value: count(sql`distinct ${emails.metadata}`) })
-          .from(emails)
-      ),
-      scalar(db.select({ value: count() }).from(projects).where(sql`exists (select 1 from ${emails} where ${emails.projectId} = ${projects.id})`)),
-      scalar(db.select({ value: count() }).from(waitlistSignups)),
-      scalar(db.select({ value: count() }).from(users).where(lt(users.createdAt, d30))),
-      scalar(
-        db
-          .select({ value: count() })
-          .from(usageRecords)
-          .where(and(gte(usageRecords.periodStart, d7), sql`${usageRecords.metric} = 'emails_sent'`))
-      ),
-    ]);
+  const [
+    allUsers,
+    verified,
+    unverified,
+    activeOrgs,
+    sendingUsers,
+    sendingProjects,
+    waitlist,
+    inactive,
+    approaching,
+  ] = await Promise.all([
+    scalar(db.select({ value: count() }).from(users)),
+    scalar(db.select({ value: count() }).from(users).where(isNotNull(users.emailVerifiedAt))),
+    scalar(db.select({ value: count() }).from(users).where(isNull(users.emailVerifiedAt))),
+    scalar(db.select({ value: count() }).from(organizations)),
+    scalar(db.select({ value: count(sql`distinct ${emails.metadata}`) }).from(emails)),
+    scalar(
+      db
+        .select({ value: count() })
+        .from(projects)
+        .where(sql`exists (select 1 from ${emails} where ${emails.projectId} = ${projects.id})`)
+    ),
+    scalar(db.select({ value: count() }).from(waitlistSignups)),
+    scalar(db.select({ value: count() }).from(users).where(lt(users.createdAt, d30))),
+    scalar(
+      db
+        .select({ value: count() })
+        .from(usageRecords)
+        .where(and(gte(usageRecords.periodStart, d7), sql`${usageRecords.metric} = 'emails_sent'`))
+    ),
+  ]);
   void sendingUsers;
   const byPlan = planRows.map((p) => ({
     key: `plan_${p.tier}`,
@@ -1198,15 +1366,69 @@ export async function systemAudiences(): Promise<AudienceCount[]> {
     href: `/control/customers/organizations?plan=${p.tier}`,
   }));
   return [
-    { key: "all_users", label: "All users", description: "Every registered Calder user", count: allUsers, href: "/control/customers" },
-    { key: "verified", label: "Verified users", description: "Email verified", count: verified, href: "/control/customers" },
-    { key: "unverified", label: "Unverified users", description: "Email not yet verified", count: unverified, href: "/control/customers" },
-    { key: "orgs", label: "All organizations", description: "Every customer organization", count: activeOrgs, href: "/control/customers/organizations" },
+    {
+      key: "all_users",
+      label: "All users",
+      description: "Every registered Calder user",
+      count: allUsers,
+      href: "/control/customers",
+    },
+    {
+      key: "verified",
+      label: "Verified users",
+      description: "Email verified",
+      count: verified,
+      href: "/control/customers",
+    },
+    {
+      key: "unverified",
+      label: "Unverified users",
+      description: "Email not yet verified",
+      count: unverified,
+      href: "/control/customers",
+    },
+    {
+      key: "orgs",
+      label: "All organizations",
+      description: "Every customer organization",
+      count: activeOrgs,
+      href: "/control/customers/organizations",
+    },
     ...byPlan.map((b) => ({ ...b, count: 0 })),
-    { key: "with_projects", label: "Users with projects", description: "Have created at least one project", count: sendingProjects, href: "/control/customers" },
-    { key: "sent_email", label: "Users who sent an email", description: "At least one delivery attempted", count: sendingProjects, href: "/control/customers" },
-    { key: "inactive", label: "Inactive users", description: "No activity in 30 days", count: inactive, href: "/control/customers" },
-    { key: "waitlist", label: "Waitlist", description: "Signed up, no account yet", count: waitlist, href: "/control/growth/waitlist" },
-    { key: "approaching", label: "Usage records this week", description: "Orgs with metered usage this week", count: approaching, href: "/control/platform/usage" },
+    {
+      key: "with_projects",
+      label: "Users with projects",
+      description: "Have created at least one project",
+      count: sendingProjects,
+      href: "/control/customers",
+    },
+    {
+      key: "sent_email",
+      label: "Users who sent an email",
+      description: "At least one delivery attempted",
+      count: sendingProjects,
+      href: "/control/customers",
+    },
+    {
+      key: "inactive",
+      label: "Inactive users",
+      description: "No activity in 30 days",
+      count: inactive,
+      href: "/control/customers",
+    },
+    {
+      key: "waitlist",
+      label: "Waitlist",
+      description: "Signed up, no account yet",
+      count: waitlist,
+      href: "/control/growth/waitlist",
+    },
+    {
+      key: "approaching",
+      label: "Usage records this week",
+      description: "Orgs with metered usage this week",
+      count: approaching,
+      href: "/control/platform/usage",
+    },
   ];
 }

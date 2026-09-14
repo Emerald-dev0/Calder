@@ -43,10 +43,17 @@ async function audit(
   }
 }
 
-export async function setWaitlistStatus(id: string, status: "waiting" | "invited" | "contacted" | "removed") {
+export async function setWaitlistStatus(
+  id: string,
+  status: "waiting" | "invited" | "contacted" | "removed"
+) {
   const ctx = await requireOperator();
   const db = getDb();
-  const [person] = await db.select().from(waitlistSignups).where(eq(waitlistSignups.id, id)).limit(1);
+  const [person] = await db
+    .select()
+    .from(waitlistSignups)
+    .where(eq(waitlistSignups.id, id))
+    .limit(1);
   if (!person) return;
   const now = new Date();
   await db
@@ -57,7 +64,11 @@ export async function setWaitlistStatus(id: string, status: "waiting" | "invited
       contactedAt: status === "contacted" ? (person.contactedAt ?? now) : person.contactedAt,
     })
     .where(eq(waitlistSignups.id, id));
-  await audit(ctx.user.userId, `waitlist.status.${status}`, id, { from: person.status, to: status, email: person.email });
+  await audit(ctx.user.userId, `waitlist.status.${status}`, id, {
+    from: person.status,
+    to: status,
+    email: person.email,
+  });
   revalidatePath("/control/growth/waitlist");
   revalidatePath(`/control/growth/waitlist/${id}`);
 }
@@ -67,11 +78,18 @@ export async function addWaitlistTag(id: string, rawTag: string) {
   const tag = rawTag.trim().toLowerCase().slice(0, 40);
   if (!tag) return;
   const db = getDb();
-  const [person] = await db.select().from(waitlistSignups).where(eq(waitlistSignups.id, id)).limit(1);
+  const [person] = await db
+    .select()
+    .from(waitlistSignups)
+    .where(eq(waitlistSignups.id, id))
+    .limit(1);
   if (!person) return;
   const tags = new Set(person.tags ?? []);
   tags.add(tag);
-  await db.update(waitlistSignups).set({ tags: [...tags] }).where(eq(waitlistSignups.id, id));
+  await db
+    .update(waitlistSignups)
+    .set({ tags: [...tags] })
+    .where(eq(waitlistSignups.id, id));
   await audit(ctx.user.userId, "waitlist.tag.add", id, { tag });
   revalidatePath(`/control/growth/waitlist/${id}`);
 }
@@ -79,7 +97,11 @@ export async function addWaitlistTag(id: string, rawTag: string) {
 export async function removeWaitlistTag(id: string, tag: string) {
   const ctx = await requireOperator();
   const db = getDb();
-  const [person] = await db.select().from(waitlistSignups).where(eq(waitlistSignups.id, id)).limit(1);
+  const [person] = await db
+    .select()
+    .from(waitlistSignups)
+    .where(eq(waitlistSignups.id, id))
+    .limit(1);
   if (!person) return;
   const tags = (person.tags ?? []).filter((t) => t !== tag);
   await db.update(waitlistSignups).set({ tags }).where(eq(waitlistSignups.id, id));

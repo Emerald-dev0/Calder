@@ -79,7 +79,12 @@ export function rangeToDays(range: TimeRange): number | null {
 }
 
 export function parseRange(value: string | undefined): TimeRange {
-  return value === "7d" || value === "30d" || value === "90d" || value === "6m" || value === "1y" || value === "all"
+  return value === "7d" ||
+    value === "30d" ||
+    value === "90d" ||
+    value === "6m" ||
+    value === "1y" ||
+    value === "all"
     ? value
     : "30d";
 }
