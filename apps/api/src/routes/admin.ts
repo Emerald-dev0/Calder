@@ -294,11 +294,12 @@ admin.get("/waitlist/confirmation", adminAuthMiddleware, async (c) => {
     .where(eq(waitlistConfirmation.id, "internal"))
     .limit(1);
   if (!row) {
+    // Falls back to the shipped default copy ({{first_name}} renders per recipient).
     return c.json({
       data: {
-        subject: "You're in, welcome to Calder early access",
-        html: `<p>You're on the list, and this email proves our pipeline works end to end.</p><p>Over the coming weeks we'll send you updates as we build: Gmail Quickstart for junior developers, a CLI that explains itself, deliverability you can actually watch.</p><p>If this landed in spam, please move it to Primary so you don't miss out.</p><p>The Calder team<br><a href="https://calder.click/waitlist">calder.click</a></p>`,
-        text: `You're on the list, and this email proves our pipeline works end to end.\n\nOver the coming weeks we'll send updates as we build.\n\nThe Calder team`,
+        subject: "You're in. Welcome to Calder.",
+        html: "<p>Hi {{first_name}},</p><p>You're officially on the Calder waitlist. 🎉</p><p>Honestly, thank you for joining us this early.</p><p>We have a lot to build, and we can't wait to show you what's coming.</p><p>— The Calder Team<br>Communication infrastructure for modern applications.</p>",
+        text: "Hi {{first_name}},\n\nYou're officially on the Calder waitlist. 🎉\n\nHonestly, thank you for joining us this early.\n\nWe have a lot to build, and we can't wait to show you what's coming.\n\n— The Calder Team\nCommunication infrastructure for modern applications.",
         updatedAt: null,
       },
     });

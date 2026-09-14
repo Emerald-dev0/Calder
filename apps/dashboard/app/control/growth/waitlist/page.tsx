@@ -19,7 +19,18 @@ import {
   waitlistTopReferrers,
 } from "@/lib/control/queries";
 import { AreaChart, BarsChart } from "@/control/_components/charts";
-import { Badge, BarList, Dot, Empty, PageHeader, Panel, Pager, RangeTabs, Stat, Tag } from "@/control/_components/ui";
+import {
+  Badge,
+  BarList,
+  Dot,
+  Empty,
+  PageHeader,
+  Panel,
+  Pager,
+  RangeTabs,
+  Stat,
+  Tag,
+} from "@/control/_components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +98,10 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
         subtitle="Every person waiting for Calder, live from the signup pipeline. Position, referrals, and conversion are computed — never stored."
         right={
           <>
-            <Link className="cp-btn" href={`/control/growth/waitlist/export?${exportParams.toString()}`}>
+            <Link
+              className="cp-btn"
+              href={`/control/growth/waitlist/export?${exportParams.toString()}`}
+            >
               Export CSV
             </Link>
             <RangeTabs current={range} basePath="/control/growth/waitlist" />
@@ -95,24 +109,53 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
         }
       />
 
-      <div className="cp-stats" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
+      <div
+        className="cp-stats"
+        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}
+      >
         <Stat label="Total" value={fmtInt(overview.total)} hint="all-time signups" />
         <Stat label="New today" value={fmtInt(overview.newToday)} hint="since 00:00 UTC" />
-        <Stat label="New this week" value={fmtInt(overview.new7d)} delta={growthRate} hint="vs previous 7 days" />
-        <Stat label="Conversion" value={fmtPct(conversionPct)} hint={`${fmtInt(overview.converted)} now have accounts`} />
-        <Stat label="Referral rate" value={fmtPct(referralPct)} hint={`${fmtInt(overview.referred)} joined via referral`} />
-        <Stat label="Waiting" value={fmtInt(overview.waiting)} hint={`${fmtInt(overview.invited)} invited · ${fmtInt(overview.contacted)} contacted`} />
+        <Stat
+          label="New this week"
+          value={fmtInt(overview.new7d)}
+          delta={growthRate}
+          hint="vs previous 7 days"
+        />
+        <Stat
+          label="Conversion"
+          value={fmtPct(conversionPct)}
+          hint={`${fmtInt(overview.converted)} now have accounts`}
+        />
+        <Stat
+          label="Referral rate"
+          value={fmtPct(referralPct)}
+          hint={`${fmtInt(overview.referred)} joined via referral`}
+        />
+        <Stat
+          label="Waiting"
+          value={fmtInt(overview.waiting)}
+          hint={`${fmtInt(overview.invited)} invited · ${fmtInt(overview.contacted)} contacted`}
+        />
       </div>
 
       <div className="cp-grid cp-grid-2">
-        <Panel title="Cumulative waitlist" caption={`total signups · last ${range === "all" ? "period (all time)" : range}`}>
+        <Panel
+          title="Cumulative waitlist"
+          caption={`total signups · last ${range === "all" ? "period (all time)" : range}`}
+        >
           <AreaChart
             data={cumulativeSeries.map((p) => ({ label: p.day, value: p.count }))}
             caption="cumulative waitlist size"
           />
         </Panel>
-        <Panel title="New signups per day" caption={`daily signups · last ${range === "all" ? "period (all time)" : range}`}>
-          <BarsChart data={dailyDense.map((p) => ({ label: p.day, value: p.count }))} caption="signups / day" />
+        <Panel
+          title="New signups per day"
+          caption={`daily signups · last ${range === "all" ? "period (all time)" : range}`}
+        >
+          <BarsChart
+            data={dailyDense.map((p) => ({ label: p.day, value: p.count }))}
+            caption="signups / day"
+          />
         </Panel>
       </div>
 
@@ -174,7 +217,12 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
             defaultValue={searchParams.q ?? ""}
             style={{ minWidth: 220 }}
           />
-          <select className="cp-select" name="source" defaultValue={searchParams.source ?? ""} aria-label="Source">
+          <select
+            className="cp-select"
+            name="source"
+            defaultValue={searchParams.source ?? ""}
+            aria-label="Source"
+          >
             <option value="">All sources</option>
             {sources
               .filter((s) => s.label !== "direct")
@@ -185,7 +233,12 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
               ))}
             <option value="__direct__">direct</option>
           </select>
-          <select className="cp-select" name="status" defaultValue={searchParams.status ?? ""} aria-label="Status">
+          <select
+            className="cp-select"
+            name="status"
+            defaultValue={searchParams.status ?? ""}
+            aria-label="Status"
+          >
             <option value="">All statuses</option>
             <option value="waiting">Waiting</option>
             <option value="invited">Invited</option>
@@ -193,20 +246,35 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
             <option value="converted">Converted</option>
             <option value="removed">Removed</option>
           </select>
-          <select className="cp-select" name="referred" defaultValue={searchParams.referred ?? ""} aria-label="Referral">
+          <select
+            className="cp-select"
+            name="referred"
+            defaultValue={searchParams.referred ?? ""}
+            aria-label="Referral"
+          >
             <option value="">Referred + organic</option>
             <option value="referred">Referred only</option>
             <option value="organic">Organic only</option>
           </select>
-          <select className="cp-select" name="sort" defaultValue={searchParams.sort ?? "newest"} aria-label="Sort">
+          <select
+            className="cp-select"
+            name="sort"
+            defaultValue={searchParams.sort ?? "newest"}
+            aria-label="Sort"
+          >
             <option value="newest">Newest first</option>
             <option value="oldest">Position order (oldest)</option>
           </select>
-          {searchParams.range ? <input type="hidden" name="range" value={searchParams.range} /> : null}
+          {searchParams.range ? (
+            <input type="hidden" name="range" value={searchParams.range} />
+          ) : null}
           <button className="cp-btn primary" type="submit">
             Apply
           </button>
-          {(searchParams.q || searchParams.source || searchParams.status || searchParams.referred) && (
+          {(searchParams.q ||
+            searchParams.source ||
+            searchParams.status ||
+            searchParams.referred) && (
             <Link className="cp-btn" href="/control/growth/waitlist">
               Clear
             </Link>
@@ -215,7 +283,8 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
 
         {table.rows.length === 0 ? (
           <Empty title="No one matches">
-            Adjust the filters, or the waitlist may be empty. Every number on this page is a live query.
+            Adjust the filters, or the waitlist may be empty. Every number on this page is a live
+            query.
           </Empty>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -235,7 +304,8 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
               </thead>
               <tbody>
                 {table.rows.map((r, i) => {
-                  const position = searchParams.sort === "oldest" ? (table.page - 1) * 50 + i + 1 : null;
+                  const position =
+                    searchParams.sort === "oldest" ? (table.page - 1) * 50 + i + 1 : null;
                   return (
                     <tr key={r.id}>
                       <td className="mono" style={{ color: "var(--cp-faint)" }}>
@@ -243,7 +313,7 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
                       </td>
                       <td>
                         <Link href={`/control/growth/waitlist/${r.id}`}>
-                          {r.name ?? <span style={{ color: "var(--cp-muted)" }}>Unnamed</span>}
+                          {r.firstName ?? <span style={{ color: "var(--cp-muted)" }}>Unnamed</span>}
                         </Link>
                       </td>
                       <td className="mono" style={{ fontSize: 12.5 }}>
@@ -256,7 +326,7 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
                       <td style={{ color: "var(--cp-muted)" }}>{r.country ?? "—"}</td>
                       <td className="mono" style={{ fontSize: 12.5 }}>
                         {r.referredBy ? (
-                          <Badge tone="accent" >
+                          <Badge tone="accent">
                             <span className="mono">{r.referredBy}</span>
                           </Badge>
                         ) : (
@@ -290,8 +360,8 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
       </Panel>
 
       <p className="cp-caption">
-        Conversion counts waitlist emails that now hold a Calder account — derived live, never stored. "Invite"
-        and note-taking live on each person&rsquo;s page.
+        Conversion counts waitlist emails that now hold a Calder account — derived live, never
+        stored. "Invite" and note-taking live on each person&rsquo;s page.
       </p>
     </>
   );

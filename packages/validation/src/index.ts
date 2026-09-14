@@ -220,6 +220,12 @@ export const joinWaitlistSchema = z.object({
     .email()
     .max(320)
     .transform((v) => v.toLowerCase().trim()),
+  first_name: z
+    .string()
+    .max(255)
+    .transform((v) => v.trim())
+    .refine((v) => v.length > 0, "First name can't be empty")
+    .optional(),
   ref: z
     .string()
     .regex(/^[A-Za-z0-9]{6,16}$/, "Invalid referral code")

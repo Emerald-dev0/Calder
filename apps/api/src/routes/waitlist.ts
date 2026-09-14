@@ -85,6 +85,63 @@ async function buildTicket(db: ReturnType<typeof getDb>, email: string): Promise
   };
 }
 
+/**
+ * Default confirmation copy, used when no dynamic template row exists.
+ * `firstName` is already defaulted by the caller (null → "there").
+ */
+function DEFAULT_CONFIRMATION_HTML(firstName: string): string {
+  return [
+    `<p>Hi ${escapeHtml(firstName)},</p>`,
+    `<p>You're officially on the Calder waitlist. 🎉</p>`,
+    `<p>Honestly, thank you for joining us this early.</p>`,
+    `<p>Calder is still being built, and there's something pretty exciting about having people here before everything is finished. We're working on the product, refining the experience, and putting the infrastructure behind it together piece by piece.</p>`,
+    `<p>Over the coming days and weeks, you'll hear from us a little more.</p>`,
+    `<p>You may get updates about what we're building, new features as they come together, early access opportunities, and some of the thinking behind Calder. You may even hear directly from our founder from time to time.</p>`,
+    `<p>We don't want this to feel like one of those waitlists where you sign up and disappear into a database.</p>`,
+    `<p>You're part of the early Calder community now.</p>`,
+    `<p>And if you know someone who might find Calder useful, feel free to tell them about us. The more people who discover what we're building this early, the more exciting this becomes.</p>`,
+    `<p>For now, thank you for being here.</p>`,
+    `<p>We have a lot to build.</p>`,
+    `<p>We can't wait to show you what's coming.</p>`,
+    `<p>— The Calder Team<br>Communication infrastructure for modern applications.</p>`,
+  ].join("");
+}
+
+function DEFAULT_CONFIRMATION_TEXT(firstName: string): string {
+  return [
+    `Hi ${firstName},`,
+    ``,
+    `You're officially on the Calder waitlist. 🎉`,
+    ``,
+    `Honestly, thank you for joining us this early.`,
+    ``,
+    `Calder is still being built, and there's something pretty exciting about having people here before everything is finished. We're working on the product, refining the experience, and putting the infrastructure behind it together piece by piece.`,
+    ``,
+    `Over the coming days and weeks, you'll hear from us a little more.`,
+    ``,
+    `You may get updates about what we're building, new features as they come together, early access opportunities, and some of the thinking behind Calder. You may even hear directly from our founder from time to time.`,
+    ``,
+    `We don't want this to feel like one of those waitlists where you sign up and disappear into a database.`,
+    ``,
+    `You're part of the early Calder community now.`,
+    ``,
+    `And if you know someone who might find Calder useful, feel free to tell them about us. The more people who discover what we're building this early, the more exciting this becomes.`,
+    ``,
+    `For now, thank you for being here.`,
+    ``,
+    `We have a lot to build.`,
+    ``,
+    `We can't wait to show you what's coming.`,
+    ``,
+    `— The Calder Team`,
+    `Communication infrastructure for modern applications.`,
+  ].join("\n");
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 // POST /v1/waitlist, join (or re-fetch your ticket if already joined)
 waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
   const body = await c.req.json().catch(() => null);
@@ -94,6 +151,7 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
     throw new AppError("validation_error", "That email doesn't look valid.", 400);
   }
   const { email, ref } = parsed.data;
+  const firstName = parsed.data.first_name ?? null;
 
   let db: ReturnType<typeof getDb>;
   try {
@@ -107,8 +165,21 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
   }
 
   // Already joined → return the existing ticket (idempotent by email).
+  // If they re-submitted with a first name we don't have yet, capture it.
   const existing = await buildTicket(db, email);
-  if (existing) return c.json({ data: { ...existing, joined: false } }, 200);
+  if (existing) {
+    if (firstName) {
+      const [row] = await db
+        .select({ firstName: waitlistSignups.firstName })
+        .from(waitlistSignups)
+        .where(eq(waitlistSignups.email, email))
+        .limit(1);
+      if (row && !row.firstName) {
+        await db.update(waitlistSignups).set({ firstName }).where(eq(waitlistSignups.email, email));
+      }
+    }
+    return c.json({ data: { ...existing, joined: false } }, 200);
+  }
 
   // Validate referral code if provided (unknown codes are ignored, not errors).
   let referredBy: string | null = null;
@@ -124,6 +195,7 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
     await db.insert(waitlistSignups).values({
       id: newId("wl"),
       email,
+      firstName,
       referralCode: code,
       referredBy,
       createdAt: now,
@@ -150,9 +222,9 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
     const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
     const { signUnsubscribeToken: signToken } = await import("@calder/auth");
     const confirmUnsub = `${getConfig().API_URL.replace(/\/$/, "")}/v1/unsubscribe?token=${signToken(INTERNAL_PROJECT_ID, email)}`;
-    let subject = `You're in, welcome to Calder early access`;
-    let html = `<p>You're on the list, and this email proves our pipeline works end to end.</p><p>Over the coming weeks we'll send you updates as we build: Gmail Quickstart for junior developers, a CLI that explains itself, deliverability you can actually watch.</p><p>If this landed in spam, please move it to Primary so you don't miss out.</p><p>The Calder team<br><a href="${appUrl}/waitlist">calder.click</a></p>`;
-    let text = `You're on the list, and this email proves our pipeline works end to end.\n\nOver the coming weeks we'll send updates as we build: Gmail Quickstart, a CLI that explains itself, deliverability you can watch.\n\nIf this landed in spam, please move it to Primary so you don't miss out.\n\nThe Calder team`;
+    let subject = `You're in. Welcome to Calder.`;
+    let html = DEFAULT_CONFIRMATION_HTML(firstName ?? "there");
+    let text = DEFAULT_CONFIRMATION_TEXT(firstName ?? "there");
     try {
       const { getDb, waitlistConfirmation } = await import("@calder/db");
       const { eq } = await import("drizzle-orm");
@@ -170,19 +242,22 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
     } catch {
       // fallback to hardcoded
     }
-    // Simple mustache for waitlist confirmation (position/referral not needed but supported)
+    // Mustache rendering for the waitlist confirmation. {{first_name}} is
+    // HTML-escaped in the html body; email/referral values are ours or
+    // already constrained, so they pass through.
     const ticketRef = ticket.referralCode;
-    const render = (s: string) =>
+    const render = (s: string, escape: (v: string) => string) =>
       s
+        .replace(/\{\{first_name\}\}/g, escape(firstName ?? "there"))
         .replace(/\{\{email\}\}/g, email)
         .replace(/\{\{referral_link\}\}/g, `${appUrl}/waitlist?ref=${ticketRef}`)
         .replace(/\{\{referral_code\}\}/g, ticketRef);
     await sendInternalEmail({
       to: email,
-      subject: render(subject),
+      subject: render(subject, (v) => v),
       unsubscribeUrl: confirmUnsub,
-      html: render(html),
-      text: render(text),
+      html: render(html, escapeHtml),
+      text: render(text, (v) => v),
       idempotencyKey: `waitlist-confirm:${email}`,
       requestId: c.get("requestId"),
     });

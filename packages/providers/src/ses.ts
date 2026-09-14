@@ -1,5 +1,19 @@
 import { SESv2Client, SendEmailCommand, GetAccountCommand } from "@aws-sdk/client-sesv2";
+import type { Attachment as SesAttachment } from "@aws-sdk/client-sesv2";
 import type { EmailProvider, EmailMessage, ProviderSendResult, ProviderError } from "@calder/email";
+
+// Typed against the SDK's Attachment shape so a wrong field name is a compile
+// error, not a silently dropped attachment in production. (FileContentType is
+// not a SES field — the SDK's structural typing would let it through unchecked.)
+const toSesAttachment = (a: {
+  filename: string;
+  contentType?: string;
+  contentBase64: string;
+}): SesAttachment => ({
+  FileName: a.filename,
+  ContentType: a.contentType ?? "application/octet-stream",
+  RawContent: Buffer.from(a.contentBase64, "base64"),
+});
 
 /**
  * AWS SES provider, initial production provider.
@@ -20,11 +34,7 @@ export class SesEmailProvider implements EmailProvider {
 
   async send(message: EmailMessage): Promise<ProviderSendResult> {
     try {
-      const attachments = (message.attachments ?? []).map((a) => ({
-        FileName: a.filename,
-        FileContentType: a.contentType ?? "application/octet-stream",
-        RawContent: Buffer.from(a.contentBase64, "base64"),
-      }));
+      const attachments = (message.attachments ?? []).map(toSesAttachment);
       const cmd = new SendEmailCommand({
         FromEmailAddress: message.from,
         Destination: {
