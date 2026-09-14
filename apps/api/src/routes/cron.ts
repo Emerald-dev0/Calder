@@ -1,10 +1,23 @@
 import { Hono } from "hono";
 import type { Env } from "../app.js";
-import { getDb, emails, emailEvents, suppressions, projectTransports, senderIdentities } from "@calder/db";
+import {
+  getDb,
+  emails,
+  emailEvents,
+  suppressions,
+  projectTransports,
+  senderIdentities,
+} from "@calder/db";
 import { eq, and, lte, or, isNull } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { logger } from "@calder/observability";
-import { createEmailService, MockEmailProvider, pickDefaultTransport, GMAIL_FREE_DAILY_CAP, isProviderError } from "@calder/email";
+import {
+  createEmailService,
+  MockEmailProvider,
+  pickDefaultTransport,
+  GMAIL_FREE_DAILY_CAP,
+  isProviderError,
+} from "@calder/email";
 import { SesEmailProvider, GmailTransport } from "@calder/providers";
 import { getGmailRefreshToken } from "@calder/auth";
 import { isTransientError, getRetryDelay } from "@calder/queue";
@@ -36,7 +49,11 @@ function getProvider() {
 async function buildGmail(
   db: ReturnType<typeof getDb>,
   projectId: string,
-  chosen: { label: string; dailyCap: number | null; encryptedCredentials: { iv: string; ciphertext: string; tag: string } | null }
+  chosen: {
+    label: string;
+    dailyCap: number | null;
+    encryptedCredentials: { iv: string; ciphertext: string; tag: string } | null;
+  }
 ) {
   const cap = chosen.dailyCap ?? GMAIL_FREE_DAILY_CAP;
   const { count, gte } = await import("drizzle-orm");
@@ -48,17 +65,29 @@ async function buildGmail(
     .where(and(eq(emails.projectId, projectId), gte(emails.createdAt, dayStart)));
   const today = (sent[0] as { value: number } | undefined)?.value ?? 0;
   if (today >= cap) {
-    throw Object.assign(new Error(`Gmail daily cap reached (${today}/${cap}). Add a domain to graduate.`), {
-      code: "gmail_cap",
-      transient: false,
-      statusCode: 429,
-    });
+    throw Object.assign(
+      new Error(`Gmail daily cap reached (${today}/${cap}). Add a domain to graduate.`),
+      {
+        code: "gmail_cap",
+        transient: false,
+        statusCode: 429,
+      }
+    );
   }
   if (!chosen.encryptedCredentials) {
-    throw Object.assign(new Error("Gmail credentials missing."), { code: "sender_not_ready", transient: false, statusCode: 422 });
+    throw Object.assign(new Error("Gmail credentials missing."), {
+      code: "sender_not_ready",
+      transient: false,
+      statusCode: 422,
+    });
   }
   const refreshToken = getGmailRefreshToken(chosen.encryptedCredentials as never);
-  return { service: createEmailService(new GmailTransport({ refreshToken, senderEmail: chosen.label }, chosen.dailyCap)), transport: "gmail" };
+  return {
+    service: createEmailService(
+      new GmailTransport({ refreshToken, senderEmail: chosen.label }, chosen.dailyCap)
+    ),
+    transport: "gmail",
+  };
 }
 
 async function resolveChain(projectId: string, senderIdentityId: string | null) {
@@ -66,7 +95,10 @@ async function resolveChain(projectId: string, senderIdentityId: string | null) 
   const chain: Array<{ service: ReturnType<typeof createEmailService>; transport: string }> = [];
   try {
     const db = getDb();
-    const rows = await db.select().from(projectTransports).where(eq(projectTransports.projectId, projectId));
+    const rows = await db
+      .select()
+      .from(projectTransports)
+      .where(eq(projectTransports.projectId, projectId));
     const byId = new Map(rows.map((r) => [r.id, r]));
     const def = pickDefaultTransport(
       rows.map((r) => ({
@@ -81,10 +113,18 @@ async function resolveChain(projectId: string, senderIdentityId: string | null) 
       }))
     );
     if (senderIdentityId) {
-      const [sender] = await db.select().from(senderIdentities).where(eq(senderIdentities.id, senderIdentityId)).limit(1);
+      const [sender] = await db
+        .select()
+        .from(senderIdentities)
+        .where(eq(senderIdentities.id, senderIdentityId))
+        .limit(1);
       if (sender && sender.projectId === projectId) {
         if (sender.status !== "verified" && sender.status !== "connected") {
-          throw Object.assign(new Error(`Sender ${sender.email} is ${sender.status}.`), { code: "sender_not_ready", transient: false, statusCode: 422 });
+          throw Object.assign(new Error(`Sender ${sender.email} is ${sender.status}.`), {
+            code: "sender_not_ready",
+            transient: false,
+            statusCode: 422,
+          });
         }
         const linked = sender.transportId ? byId.get(sender.transportId) : undefined;
         if (linked && linked.status === "active" && (!def || linked.id !== def.id)) {
@@ -111,7 +151,8 @@ async function resolveChain(projectId: string, senderIdentityId: string | null) 
 
 // GET /v1/cron/drain — Vercel Cron or cron-job.org hits this every minute
 cron.get("/drain", async (c) => {
-  if (!authorized(c)) return c.json({ error: { code: "unauthorized", message: "Invalid cron secret" } }, 401);
+  if (!authorized(c))
+    return c.json({ error: { code: "unauthorized", message: "Invalid cron secret" } }, 401);
   const db = getDb();
   const now = new Date();
   // queued + scheduled_for due + attemptCount < max
@@ -131,7 +172,10 @@ cron.get("/drain", async (c) => {
   let skipped = 0;
   for (const row of pending) {
     if ((row.attemptCount ?? 0) >= MAX_ATTEMPTS) {
-      await db.update(emails).set({ status: "failed", lastError: "Exhausted retries", updatedAt: now }).where(eq(emails.id, row.id));
+      await db
+        .update(emails)
+        .set({ status: "failed", lastError: "Exhausted retries", updatedAt: now })
+        .where(eq(emails.id, row.id));
       failed++;
       continue;
     }
@@ -158,10 +202,15 @@ cron.get("/drain", async (c) => {
     }
 
     // Claim attempt
-    await db.update(emails).set({ attemptCount: (row.attemptCount ?? 0) + 1, updatedAt: now }).where(eq(emails.id, row.id));
+    await db
+      .update(emails)
+      .set({ attemptCount: (row.attemptCount ?? 0) + 1, updatedAt: now })
+      .where(eq(emails.id, row.id));
 
     const headers =
-      typeof row.metadata === "object" && row.metadata !== null && typeof (row.metadata as Record<string, unknown>).headers === "object"
+      typeof row.metadata === "object" &&
+      row.metadata !== null &&
+      typeof (row.metadata as Record<string, unknown>).headers === "object"
         ? ((row.metadata as Record<string, unknown>).headers as Record<string, string>)
         : {};
     const payload = {
@@ -171,10 +220,16 @@ cron.get("/drain", async (c) => {
       html: row.html ?? undefined,
       text: row.text ?? undefined,
       headers: Object.keys(headers).length > 0 ? headers : undefined,
-      attachments: Array.isArray(row.attachments) && row.attachments.length > 0 ? (row.attachments as never) : undefined,
+      attachments:
+        Array.isArray(row.attachments) && row.attachments.length > 0
+          ? (row.attachments as never)
+          : undefined,
     };
 
-    const chain = await resolveChain(row.projectId, (row as { senderIdentityId?: string | null }).senderIdentityId ?? null);
+    const chain = await resolveChain(
+      row.projectId,
+      (row as { senderIdentityId?: string | null }).senderIdentityId ?? null
+    );
     let result: { providerMessageId: string; provider: string } | null = null;
     let transportName = "default";
     let lastErr: unknown = null;
@@ -197,7 +252,9 @@ cron.get("/drain", async (c) => {
           senderNotReady = true;
           break;
         }
-        const transient = isProviderError(err) ? (err as { transient: boolean }).transient : isTransientError(err);
+        const transient = isProviderError(err)
+          ? (err as { transient: boolean }).transient
+          : isTransientError(err);
         const moreLegs = i < chain.length - 1;
         if (transient && moreLegs) continue;
         break;
@@ -207,14 +264,25 @@ cron.get("/drain", async (c) => {
     if (result) {
       await db
         .update(emails)
-        .set({ status: "sent", providerMessageId: result.providerMessageId, transport: transportName, provider: result.provider, lastError: null, updatedAt: new Date() })
+        .set({
+          status: "sent",
+          providerMessageId: result.providerMessageId,
+          transport: transportName,
+          provider: result.provider,
+          lastError: null,
+          updatedAt: new Date(),
+        })
         .where(eq(emails.id, row.id));
       await db.insert(emailEvents).values({
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
         projectId: row.projectId,
         type: "sent",
-        data: { provider: result.provider, providerMessageId: result.providerMessageId, transport: transportName },
+        data: {
+          provider: result.provider,
+          providerMessageId: result.providerMessageId,
+          transport: transportName,
+        },
       });
       sent++;
       continue;
@@ -224,7 +292,10 @@ cron.get("/drain", async (c) => {
     const transient = isTransientError(lastErr);
     const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
     if (isCap || senderNotReady) {
-      await db.update(emails).set({ status: "failed", lastError: msg, updatedAt: new Date() }).where(eq(emails.id, row.id));
+      await db
+        .update(emails)
+        .set({ status: "failed", lastError: msg, updatedAt: new Date() })
+        .where(eq(emails.id, row.id));
       await db.insert(emailEvents).values({
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
@@ -236,12 +307,18 @@ cron.get("/drain", async (c) => {
       continue;
     }
     if (transient && (row.attemptCount ?? 0) + 1 < MAX_ATTEMPTS) {
-      await db.update(emails).set({ lastError: msg, updatedAt: new Date() }).where(eq(emails.id, row.id));
+      await db
+        .update(emails)
+        .set({ lastError: msg, updatedAt: new Date() })
+        .where(eq(emails.id, row.id));
       // leave queued for next tick
       failed++;
       continue;
     }
-    await db.update(emails).set({ status: "failed", lastError: `Exhausted: ${msg}`, updatedAt: new Date() }).where(eq(emails.id, row.id));
+    await db
+      .update(emails)
+      .set({ status: "failed", lastError: `Exhausted: ${msg}`, updatedAt: new Date() })
+      .where(eq(emails.id, row.id));
     await db.insert(emailEvents).values({
       id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
       emailId: row.id,
