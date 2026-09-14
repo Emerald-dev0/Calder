@@ -2,37 +2,35 @@
 
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import { getDb, organizations, plans, subscriptions, auditLogs } from "@calder/db";
-import { getConfig } from "@calder/config";
 import { revalidatePath } from "next/cache";
-import { getTenantContext } from "../../../lib/auth";
+import { auditLogs, organizations, plans, subscriptions } from "@calder/db";
+import { getDb } from "@calder/db";
+import { requireControl } from "@/lib/control/guard";
+import { READ_ONLY_ROLES } from "@/lib/control/roles";
 
 const TIERS = ["free", "starter", "pro", "scale"] as const;
 
-function isFounder(email: string): boolean {
-  const founders = (getConfig().FOUNDER_EMAILS ?? "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  return founders.includes(email.toLowerCase());
-}
-
 /**
- * Founder-only: cancel any active subscription for an org and open a new one
- * for `months` starting now. Duration is explicit, no hidden renewals.
+ * Founder/operator action: set an organization's plan by cancelling any
+ * active subscription and opening a new one for `months`, starting now.
+ * Explicit duration, no hidden renewals, every change audit-logged.
  */
 export async function setSubscription(
   orgId: string,
   planTier: string,
   months: number
 ): Promise<{ ok: boolean; error?: string }> {
-  const ctx = await getTenantContext().catch(() => null);
-  if (!ctx || !isFounder(ctx.user.email)) return { ok: false, error: "Founder only." };
-  if (!TIERS.includes(planTier as (typeof TIERS)[number]))
+  const ctx = await requireControl();
+  if ((READ_ONLY_ROLES as string[]).includes(ctx.role)) {
+    return { ok: false, error: "Read-only role." };
+  }
+  if (!TIERS.includes(planTier as (typeof TIERS)[number])) {
     return { ok: false, error: "Unknown plan tier." };
+  }
   const m = Math.floor(months);
-  if (!Number.isFinite(m) || m < 1 || m > 36)
+  if (!Number.isFinite(m) || m < 1 || m > 36) {
     return { ok: false, error: "Duration must be 1-36 months." };
+  }
 
   const db = getDb();
   const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
@@ -73,6 +71,9 @@ export async function setSubscription(
   } catch {
     // Audit must never break the operation it records.
   }
-  revalidatePath("/admin");
+  revalidatePath("/control");
+  revalidatePath("/control/billing");
+  revalidatePath("/control/customers/organizations");
+  revalidatePath(`/control/customers/organizations/${orgId}`);
   return { ok: true };
 }

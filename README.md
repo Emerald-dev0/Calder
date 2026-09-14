@@ -6,7 +6,7 @@ Developer-first communication infrastructure. Transactional email is the first p
 
 ## Status
 
-Foundation scaffold complete (v0.1). API → queue → worker → provider → event vertical slice implemented with mock provider. See `PRD.md` for product scope, `docs/DECISIONS.md` for why things are built the way they are, `docs/DESIGN.md` for visual direction.
+Foundation scaffold complete (v0.1). API → queue → worker → provider → event vertical slice implemented with mock provider. See `PRD.md` for product scope, `docs/DECISIONS.md` for why things are built the way they are, `docs/DESIGN.md` for visual direction, `docs/CONTROL-PLANE.md` for the founder/admin Control Plane.
 
 ## Documentation map
 

@@ -63,7 +63,7 @@ const NAV_GROUPS: Array<{ heading: string; items: Array<{ label: string; href: s
       { label: "Audit Logs", href: "/audit-logs", tier: "PREMIUM" },
     ],
   },
-  { heading: "", items: [{ label: "Settings", href: "/settings" }, { label: "Admin", href: "/admin", founder: true }] },
+  { heading: "", items: [{ label: "Settings", href: "/settings" }, { label: "Control Plane", href: "/control", founder: true }] },
 ];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
