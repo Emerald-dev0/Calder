@@ -21,5 +21,15 @@ export const waitlistSignups = pgTable(
   ]
 );
 
+/** Dynamic waitlist confirmation template — single row (id=internal) editable from /admin. */
+export const waitlistConfirmation = pgTable("waitlist_confirmation", {
+  id: text("id").primaryKey(), // "internal"
+  subject: varchar("subject", { length: 998 }).notNull(),
+  html: text("html").notNull(),
+  text: text("text").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type WaitlistSignup = typeof waitlistSignups.$inferSelect;
 export type NewWaitlistSignup = typeof waitlistSignups.$inferInsert;
+export type WaitlistConfirmation = typeof waitlistConfirmation.$inferSelect;

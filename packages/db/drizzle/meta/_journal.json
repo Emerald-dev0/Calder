@@ -99,6 +99,13 @@
       "when": 1789197971975,
       "tag": "0013_email_transport_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1789387794910,
+      "tag": "0014_waitlist_confirmation",
+      "breakpoints": true
     }
   ]
 }

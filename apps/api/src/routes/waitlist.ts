@@ -143,17 +143,37 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
   // Dogfood: confirm through our own pipeline under the founder-owned tenant.
   // Same idempotency key every time, so replays never duplicate. A failure here
   // must never fail the signup, log loudly, deliverability is retried by design.
+  // Dynamic template: admin can change via PUT /v1/admin/waitlist/confirmation without a deploy.
   try {
     const { sendInternalEmail } = await import("../services/email-service.js");
     const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
     const { signUnsubscribeToken: signToken } = await import("@calder/auth");
     const confirmUnsub = `${getConfig().API_URL.replace(/\/$/, "")}/v1/unsubscribe?token=${signToken(INTERNAL_PROJECT_ID, email)}`;
+    let subject = `You're in, welcome to Calder early access`;
+    let html = `<p>You're on the list, and this email proves our pipeline works end to end.</p><p>Over the coming weeks we'll send you updates as we build: Gmail Quickstart for junior developers, a CLI that explains itself, deliverability you can actually watch.</p><p>If this landed in spam, please move it to Primary so you don't miss out.</p><p>The Calder team<br><a href="${appUrl}/waitlist">calder.click</a></p>`;
+    let text = `You're on the list, and this email proves our pipeline works end to end.\n\nOver the coming weeks we'll send updates as we build: Gmail Quickstart, a CLI that explains itself, deliverability you can watch.\n\nIf this landed in spam, please move it to Primary so you don't miss out.\n\nThe Calder team`;
+    try {
+      const { getDb, waitlistConfirmation } = await import("@calder/db");
+      const { eq } = await import("drizzle-orm");
+      const d = getDb();
+      const [tpl] = await d.select().from(waitlistConfirmation).where(eq(waitlistConfirmation.id, "internal")).limit(1);
+      if (tpl) {
+        subject = tpl.subject;
+        html = tpl.html;
+        text = tpl.text;
+      }
+    } catch {
+      // fallback to hardcoded
+    }
+    // Simple mustache for waitlist confirmation (position/referral not needed but supported)
+    const ticketRef = ticket.referralCode;
+    const render = (s: string) => s.replace(/\{\{email\}\}/g, email).replace(/\{\{referral_link\}\}/g, `${appUrl}/waitlist?ref=${ticketRef}`).replace(/\{\{referral_code\}\}/g, ticketRef);
     await sendInternalEmail({
       to: email,
-      subject: `You're in, welcome to Calder early access`,
+      subject: render(subject),
       unsubscribeUrl: confirmUnsub,
-      html: `<p>You're on the list, and this email proves our pipeline works end to end.</p><p>Over the coming weeks we'll send you updates as we build: Gmail Quickstart for junior developers, a CLI that explains itself, deliverability you can actually watch.</p><p>If this landed in spam, please move it to Primary so you don't miss out.</p><p>The Calder team<br><a href="${appUrl}/waitlist">calder.click</a></p>`,
-      text: `You're on the list, and this email proves our pipeline works end to end.\n\nOver the coming weeks we'll send updates as we build: Gmail Quickstart, a CLI that explains itself, deliverability you can watch.\n\nIf this landed in spam, please move it to Primary so you don't miss out.\n\nThe Calder team`,
+      html: render(html),
+      text: render(text),
       idempotencyKey: `waitlist-confirm:${email}`,
       requestId: c.get("requestId"),
     });

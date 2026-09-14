@@ -357,8 +357,8 @@ export interface InternalEmailParams {
   html: string;
   text: string;
   headers?: Record<string, string>;
-  /** Sender override. Defaults to INTERNAL_FROM. Anything else must be an
- active Gmail transport label of the internal project, enforced below. */
+  attachments?: Array<{ filename: string; contentType?: string; contentBase64: string }>;
+  /** Sender override. Defaults to INTERNAL_FROM. Accepts email or sender_xxx; validated below. */
   from?: string;
   /** When provided, branded footer links here for one-click unsubscribe. */
   unsubscribeUrl?: string;
@@ -366,9 +366,19 @@ export interface InternalEmailParams {
   requestId: string;
 }
 
-/** Resolve a requested sender against what this project may actually send as. */
+/** Resolve a requested sender against what this project may actually send as. Accepts email or sender_xxx. */
 async function resolveInternalSender(db: DbClient, requested?: string): Promise<string> {
   if (!requested || requested === INTERNAL_FROM) return INTERNAL_FROM;
+  // Try sender_xxx first via shared resolver
+  if (requested.startsWith("sender_")) {
+    try {
+      const { resolveSender } = await import("./sender-service.js");
+      const out = await resolveSender(db, INTERNAL_PROJECT_ID, requested);
+      return out.email;
+    } catch {
+      // fall through to label check
+    }
+  }
   const { projectTransports } = await import("@calder/db");
   const { eq, and } = await import("drizzle-orm");
   const rows = await db
@@ -384,14 +394,19 @@ async function resolveInternalSender(db: DbClient, requested?: string): Promise<
   const match = rows.find(
     (r) => r.type === "gmail" && r.label.toLowerCase() === requested.toLowerCase()
   );
-  if (!match) {
+  if (match) return match.label;
+  // Also allow any verified sender email of the internal project
+  try {
+    const { resolveSender } = await import("./sender-service.js");
+    const out = await resolveSender(db, INTERNAL_PROJECT_ID, requested);
+    return out.email;
+  } catch {
     throw new AppError(
       "validation_error",
-      `Sender not authorized for this project. Use ${INTERNAL_FROM} or a connected Gmail address.`,
+      `Sender not authorized for this project. Use ${INTERNAL_FROM}, a sender_xxx ID, or a connected Gmail address.`,
       400
     );
   }
-  return match.label;
 }
 
 export async function sendInternalEmail(
@@ -437,6 +452,7 @@ export async function sendInternalEmail(
       }),
       text: params.text,
       headers: params.headers,
+      attachments: params.attachments,
     },
   });
   return { id: result.response.id, replay: result.idempotentReplay };

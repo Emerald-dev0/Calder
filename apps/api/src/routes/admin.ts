@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   getDb,
   waitlistSignups,
+  waitlistConfirmation,
   suppressions,
   organizations,
   organizationMembers,
@@ -32,7 +33,21 @@ const broadcastSchema = z.object({
     .string()
     .regex(/^[a-z0-9-]{1,64}$/, "Campaign key: lowercase, numbers, hyphens.")
     .optional(),
-  from: z.string().email().max(320).optional(),
+  from: z
+    .string()
+    .max(320)
+    .regex(/^([^\s@]+@[^\s@]+\.[^\s@]+|sender_[A-Za-z0-9_-]{1,64})$/, "from must be email or sender_xxx")
+    .optional(),
+  attachments: z
+    .array(
+      z.object({
+        filename: z.string().min(1).max(255).regex(/^[^/\\]+$/, "Filename cannot contain path separators"),
+        contentType: z.string().max(127).optional(),
+        contentBase64: z.string().min(1),
+      })
+    )
+    .max(10)
+    .optional(),
 });
 
 const CAMPAIGNS: Record<string, { subject: string; html: string; text: string; campaign: string }> =
@@ -58,21 +73,40 @@ admin.post(
     // Named campaign (versioned content) or fully custom content.
     // Optional `from` overrides the sender; validated per-recipient send against
     // the project's authorized identities (default + connected Gmail addresses).
-    let content: { subject: string; html: string; text: string; campaign: string; from?: string } =
-      {
-        subject: "",
-        html: "",
-        text: "",
-        campaign: "",
-      };
+    let content: {
+      subject: string;
+      html: string;
+      text: string;
+      campaign: string;
+      from?: string;
+      attachments?: Array<{ filename: string; contentType?: string; contentBase64: string }>;
+    } = {
+      subject: "",
+      html: "",
+      text: "",
+      campaign: "",
+    };
     const rawFrom =
       typeof body === "object" &&
       body !== null &&
       typeof (body as Record<string, unknown>).from === "string"
         ? ((body as Record<string, unknown>).from as string).trim()
         : undefined;
-    if (rawFrom && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawFrom)) {
-      throw new AppError("validation_error", "Invalid from address.", 400);
+    if (
+      rawFrom &&
+      !/^([^\s@]+@[^\s@]+\.[^\s@]+|sender_[A-Za-z0-9_-]{1,64})$/.test(rawFrom)
+    ) {
+      throw new AppError("validation_error", "Invalid from: use email or sender_xxx.", 400);
+    }
+    // attachments from body (validated below via broadcastSchema)
+    const rawAttachments =
+      typeof body === "object" && body !== null && Array.isArray((body as Record<string, unknown>).attachments)
+        ? ((body as Record<string, unknown>).attachments as Array<{ filename: string; contentType?: string; contentBase64: string }>)
+        : undefined;
+    if (rawAttachments) {
+      const total = rawAttachments.reduce((n, a) => n + (a.contentBase64?.length ?? 0), 0);
+      if (rawAttachments.length > 10) throw new AppError("validation_error", "At most 10 attachments.", 400);
+      if (total > 25 * 1024 * 1024) throw new AppError("validation_error", "Attachments exceed 25 MB of base64 in total.", 400);
     }
     if (
       typeof body === "object" &&
@@ -88,7 +122,7 @@ admin.post(
           "Unknown campaign. Send subject/html/text for custom content.",
           400
         );
-      content = { ...named, from: rawFrom };
+      content = { ...named, from: rawFrom, attachments: rawAttachments };
     } else {
       const parsed = broadcastSchema.safeParse(body);
       if (!parsed.success)
@@ -141,6 +175,7 @@ admin.post(
           subject: rendered.subject,
           html: rendered.html,
           text: rendered.text,
+          attachments: content.attachments,
           headers: {
             "List-Unsubscribe": `<${unsubUrl}>`,
             "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
@@ -233,6 +268,52 @@ admin.post("/organizations/:orgId/subscription", adminAuthMiddleware, async (c) 
     { data: { id, organizationId: orgId, plan: plan.tier, periodEnd: end.toISOString() } },
     201
   );
+});
+
+/**
+ * GET /v1/admin/waitlist/confirmation — fetch the dynamic waitlist confirmation template.
+ * Admin-gated. Falls back to defaults if no row exists.
+ */
+admin.get("/waitlist/confirmation", adminAuthMiddleware, async (c) => {
+  const db = getDb();
+  const [row] = await db.select().from(waitlistConfirmation).where(eq(waitlistConfirmation.id, "internal")).limit(1);
+  if (!row) {
+    return c.json({
+      data: {
+        subject: "You're in, welcome to Calder early access",
+        html: `<p>You're on the list, and this email proves our pipeline works end to end.</p><p>Over the coming weeks we'll send you updates as we build: Gmail Quickstart for junior developers, a CLI that explains itself, deliverability you can actually watch.</p><p>If this landed in spam, please move it to Primary so you don't miss out.</p><p>The Calder team<br><a href="https://calder.click/waitlist">calder.click</a></p>`,
+        text: `You're on the list, and this email proves our pipeline works end to end.\n\nOver the coming weeks we'll send updates as we build.\n\nThe Calder team`,
+        updatedAt: null,
+      },
+    });
+  }
+  return c.json({ data: row });
+});
+
+/**
+ * PUT /v1/admin/waitlist/confirmation {subject, html, text} — upsert the confirmation template.
+ * Admin-gated. Dynamic so the founder can change the waitlist welcome without a deploy.
+ */
+admin.put("/waitlist/confirmation", adminAuthMiddleware, async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const parsed = z
+    .object({
+      subject: z.string().min(1).max(998),
+      html: z.string().min(1).max(1_000_000),
+      text: z.string().min(1).max(1_000_000),
+    })
+    .safeParse(body);
+  if (!parsed.success) throw validationError("subject, html, text required.");
+  const db = getDb();
+  const now = new Date();
+  await db
+    .insert(waitlistConfirmation)
+    .values({ id: "internal", subject: parsed.data.subject, html: parsed.data.html, text: parsed.data.text, updatedAt: now })
+    .onConflictDoUpdate({
+      target: waitlistConfirmation.id,
+      set: { subject: parsed.data.subject, html: parsed.data.html, text: parsed.data.text, updatedAt: now },
+    });
+  return c.json({ data: { ok: true, updatedAt: now.toISOString() } });
 });
 
 export default admin;

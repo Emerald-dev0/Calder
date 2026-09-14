@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
 import { SmoothScroll } from "../components/smooth";
-import { SITE_URL, OG_IMAGE, orgJsonLd, websiteJsonLd } from "../lib/seo";
+import { SITE_URL, OG_IMAGE, orgJsonLd, websiteJsonLd, founderJsonLd } from "../lib/seo";
 import "./globals.css";
 
 export const metadata: Metadata = {
- metadataBase: new URL(SITE_URL),
- title: "Calder, Communication infrastructure that gets out of your way",
- description:
- "Developer-first transactional email infrastructure. OTP, verification, receipts, and notifications through one API, observable from queued to delivered.",
- icons: { icon: "/favicon.svg" },
- alternates: { canonical: SITE_URL },
+  metadataBase: new URL(SITE_URL),
+  title: "Calder, Communication infrastructure that gets out of your way",
+  description:
+    "Developer-first transactional email infrastructure. OTP, verification, receipts, and notifications through one API, observable from queued to delivered.",
+  icons: { icon: "/favicon.svg" },
+  alternates: { canonical: SITE_URL },
+  authors: [{ name: "Daniel Oluwadare", url: SITE_URL }],
+  creator: "Daniel Oluwadare",
  openGraph: {
  title: "Calder, Communication infrastructure that gets out of your way",
  description:
@@ -32,12 +34,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
  return (
  <html lang="en">
  <body>
- <script
- type="application/ld+json"
- dangerouslySetInnerHTML={{
- __html: JSON.stringify([orgJsonLd(), websiteJsonLd()]),
- }}
- />
+  <script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{
+  __html: JSON.stringify([orgJsonLd(), websiteJsonLd(), founderJsonLd()]),
+  }}
+  />
  <SmoothScroll>{children}</SmoothScroll>
  </body>
  </html>

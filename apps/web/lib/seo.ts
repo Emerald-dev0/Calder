@@ -59,8 +59,22 @@ export function orgJsonLd(): Record<string, unknown> {
     description:
       "Developer-first transactional email infrastructure. One API for OTPs, verification, receipts, and notifications, observable from queued to delivered.",
     foundingDate: "2026",
+    founder: founderJsonLd(),
     areaServed: ["NG", "Worldwide"],
     sameAs: [] as string[],
+  };
+}
+
+export function founderJsonLd(): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: "Daniel Oluwadare",
+    jobTitle: "Founder",
+    description: "Founder of Calder, communication infrastructure for transactional email.",
+    url: SITE_URL,
+    worksFor: { "@type": "Organization", name: "Calder", url: SITE_URL },
+    knowsAbout: ["Transactional Email", "Deliverability", "Developer Infrastructure"],
   };
 }
 
