@@ -202,7 +202,7 @@ export async function waitlistTopReferrers(limit = 10): Promise<TopReferrer[]> {
 export interface WaitlistRow {
   id: string;
   email: string;
-  name: string | null;
+  firstName: string | null;
   source: string | null;
   country: string | null;
   status: string;
@@ -237,7 +237,7 @@ export async function waitlistRows(
     conditions.push(
       or(
         ilike(waitlistSignups.email, like),
-        ilike(waitlistSignups.name, like),
+        ilike(waitlistSignups.firstName, like),
         ilike(waitlistSignups.referralCode, like)
       )
     );

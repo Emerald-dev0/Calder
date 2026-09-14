@@ -25,15 +25,27 @@ export default async function WaitlistPersonPage({ params }: { params: { id: str
             / person
           </>
         }
-        title={person.name ?? person.email}
+        title={person.firstName ?? person.email}
         subtitle={
           <span className="mono" style={{ fontSize: 12.5 }}>
             {person.email} · <code>{person.referralCode}</code>
           </span>
         }
         right={
-          <Badge tone={person.status === "removed" ? "bad" : person.status === "invited" ? "accent" : undefined}>
-            <Dot tone={person.status === "waiting" ? "idle" : person.status === "removed" ? "bad" : "info"} />{" "}
+          <Badge
+            tone={
+              person.status === "removed"
+                ? "bad"
+                : person.status === "invited"
+                  ? "accent"
+                  : undefined
+            }
+          >
+            <Dot
+              tone={
+                person.status === "waiting" ? "idle" : person.status === "removed" ? "bad" : "info"
+              }
+            />{" "}
             {person.status}
           </Badge>
         }
@@ -42,7 +54,11 @@ export default async function WaitlistPersonPage({ params }: { params: { id: str
       <div className="cp-grid cp-grid-2">
         <Panel title="Profile" caption="waitlist signup record">
           <KV k="Position" v={`#${fmtInt(position)}`} mono />
-          <KV k="Joined" v={`${fmtDate(new Date(person.createdAt))} · ${fmtAgo(new Date(person.createdAt))}`} mono />
+          <KV
+            k="Joined"
+            v={`${fmtDate(new Date(person.createdAt))} · ${fmtAgo(new Date(person.createdAt))}`}
+            mono
+          />
           <KV k="Source" v={person.source ?? "direct"} />
           <KV k="Country" v={person.country ?? "—"} />
           <KV k="Referral code" v={person.referralCode} mono />
@@ -71,7 +87,8 @@ export default async function WaitlistPersonPage({ params }: { params: { id: str
             v={
               convertedUser ? (
                 <>
-                  Joined Calder <Link href={`/control/customers/users/${convertedUser.id}`}>view account →</Link>
+                  Joined Calder{" "}
+                  <Link href={`/control/customers/users/${convertedUser.id}`}>view account →</Link>
                 </>
               ) : (
                 "not yet"
@@ -115,7 +132,10 @@ export default async function WaitlistPersonPage({ params }: { params: { id: str
                 (person.tags ?? []).map((t) => (
                   <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                     <Tag>{t}</Tag>
-                    <form action={removeWaitlistTag.bind(null, person.id, t)} style={{ display: "inline" }}>
+                    <form
+                      action={removeWaitlistTag.bind(null, person.id, t)}
+                      style={{ display: "inline" }}
+                    >
                       <button
                         type="submit"
                         aria-label={`Remove tag ${t}`}
@@ -182,7 +202,11 @@ export default async function WaitlistPersonPage({ params }: { params: { id: str
         </Panel>
       </div>
 
-      <Panel title={`Referrals through this person`} caption={`${fmtInt(invites.length)} people joined with their code`} flush>
+      <Panel
+        title={`Referrals through this person`}
+        caption={`${fmtInt(invites.length)} people joined with their code`}
+        flush
+      >
         {invites.length === 0 ? (
           <div className="cp-empty">
             <b>No referrals yet</b>

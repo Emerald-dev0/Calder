@@ -147,10 +147,10 @@ export const PLANS: Plan[] = [
 
 /** One-line progression shown under the cards. See docs/PRICING.md § narrative. */
 export const PROGRESSION = [
-  { plan: "Beginner", line: "I can build." },
-  { plan: "Pro", line: "I can ship." },
-  { plan: "Premium", line: "I can operate." },
-  { plan: "Scale", line: "I can depend on this." },
+  { plan: "Beginner", line: "build and experiment" },
+  { plan: "Pro", line: "ship and grow" },
+  { plan: "Premium", line: "operate seriously" },
+  { plan: "Scale", line: "run communication infrastructure at business scale" },
 ] as const;
 
 export interface ComparisonRow {

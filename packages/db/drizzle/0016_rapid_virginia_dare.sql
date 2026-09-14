@@ -1,0 +1,1 @@
+ALTER TABLE "waitlist_signups" RENAME COLUMN "name" TO "first_name";

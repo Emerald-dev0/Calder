@@ -7,15 +7,17 @@ import { waitlistStatusEnum } from "./enums";
  * referralCode is shown to the user; referredBy stores the code that
  * brought them here. Position is computed, never stored.
  *
- * Profile columns (name/source/country/tags/note) are Control Plane fields:
+ * Profile columns (source/country/tags/note) are Control Plane fields:
  * captured where available at signup, editable only from the Control Plane.
+ * first_name is the only identity the public form collects.
  */
 export const waitlistSignups = pgTable(
   "waitlist_signups",
   {
     id: text("id").primaryKey(),
     email: varchar("email", { length: 320 }).notNull().unique(),
-    name: varchar("name", { length: 255 }),
+    // The only name the public form collects; never required.
+    firstName: varchar("first_name", { length: 255 }),
     // Acquisition source: website, x, linkedin, tiktok, referral, campaign…
     source: varchar("source", { length: 100 }),
     country: varchar("country", { length: 100 }),

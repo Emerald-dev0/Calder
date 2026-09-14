@@ -235,14 +235,14 @@ async function main() {
     .limit(1);
   const internalProjectId = internalProject?.id ?? "proj_website";
 
-  // Dynamic waitlist confirmation template (single row).
+  /* ── Dynamic waitlist confirmation template (single row) ── */
   await db
     .insert(waitlistConfirmation)
     .values({
       id: "internal",
-      subject: "You're on the Calder waitlist",
-      html: "<p>You're on the list — this email proves our pipeline works end to end.</p><p>We'll send build updates as Gmail Quickstart, the self-explaining CLI, and watchable deliverability land.</p><p>The Calder team</p>",
-      text: "You're on the list — this email proves our pipeline works end to end.",
+      subject: "You're in. Welcome to Calder.",
+      html: "<p>Hi there,</p><p>You're officially on the Calder waitlist. 🎉</p><p>Honestly, thank you for joining us this early.</p><p>We have a lot to build, and we can't wait to show you what's coming.</p><p>— The Calder Team<br>Communication infrastructure for modern applications.</p>",
+      text: "Hi there,\n\nYou're officially on the Calder waitlist. 🎉\n\nHonestly, thank you for joining us this early.\n\nWe have a lot to build, and we can't wait to show you what's coming.\n\n— The Calder Team\nCommunication infrastructure for modern applications.",
       updatedAt: new Date(),
     })
     .onConflictDoNothing();
@@ -319,7 +319,7 @@ async function main() {
       wlRows.push({
         id: `wl_${String(seq).padStart(6, "0")}`,
         email,
-        name: chance(0.85) ? `${first} ${last}` : null,
+        firstName: chance(0.85) ? first : null,
         source: referredBy && chance(0.7) ? "referral" : weighted(SOURCES),
         country: weighted(COUNTRIES),
         status,
@@ -378,7 +378,7 @@ async function main() {
     userRows.push({
       id: `usr_c${String(i + 1).padStart(4, "0")}`,
       email: w.email,
-      name: w.name,
+      name: w.firstName,
       emailVerifiedAt: chance(0.85) ? new Date() : null,
       referralSource: w.source,
       onboardingState: chance(0.7) ? "completed" : "in_progress",
@@ -674,7 +674,7 @@ async function main() {
       from: "hello@calder.click",
       fromName: "Calder",
       to: wlRows[intBetween(0, 2999)]!.email,
-      subject: "You're on the Calder waitlist",
+      subject: "You're in. Welcome to Calder.",
       text: "You're on the list.",
       html: "<p>You're on the list.</p>",
       status: "delivered",
