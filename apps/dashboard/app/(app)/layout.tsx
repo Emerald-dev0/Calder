@@ -4,6 +4,7 @@ import { getTenantContext } from "../../lib/auth";
 import { ContextSwitcher } from "../../components/context-switcher";
 import { OnboardingGate } from "../../components/onboarding-gate";
 import { CalderLockup } from "@calder/ui";
+import { PlanBadge } from "../../components/plan-gate";
 
 function isFounder(email: string): boolean {
   const founders = (getConfig().FOUNDER_EMAILS ?? "")
@@ -13,24 +14,62 @@ function isFounder(email: string): boolean {
   return founders.includes(email.toLowerCase());
 }
 
-const NAV = [
-  { label: "Overview", href: "/" },
-  { label: "Onboarding", href: "/onboarding" },
-  { label: "Emails", href: "/emails" },
-  { label: "Senders", href: "/senders" },
-  { label: "Domains", href: "/domains" },
-  { label: "API Keys", href: "/keys" },
-  { label: "Webhooks", href: "/webhooks" },
-  { label: "Usage", href: "/usage" },
-  { label: "Billing", href: null },
-  { label: "Settings", href: "/settings" },
-  { label: "Admin", href: "/admin", founder: true },
-] as const;
+const NAV_GROUPS: Array<{ heading: string; items: Array<{ label: string; href: string | null; tier?: "PRO" | "PREMIUM" | "SCALE"; founder?: boolean }> }> = [
+  { heading: "Workspace", items: [{ label: "Overview", href: "/" }] },
+  {
+    heading: "SEND",
+    items: [
+      { label: "Email", href: "/emails" },
+      { label: "Templates", href: "/templates" },
+      { label: "Senders", href: "/senders" },
+    ],
+  },
+  {
+    heading: "RECEIVE",
+    items: [
+      { label: "Inbox", href: "/inbox", tier: "PRO" },
+      { label: "Webhooks", href: "/webhooks" },
+    ],
+  },
+  {
+    heading: "DEVELOP",
+    items: [
+      { label: "API Keys", href: "/keys" },
+      { label: "SDKs", href: "/sdks" },
+      { label: "SMTP", href: "/smtp" },
+      { label: "Logs", href: "/logs" },
+    ],
+  },
+  {
+    heading: "CONFIGURE",
+    items: [
+      { label: "Domains", href: "/domains" },
+      { label: "Integrations", href: "/integrations" },
+    ],
+  },
+  {
+    heading: "OBSERVE",
+    items: [
+      { label: "Deliveries", href: "/deliveries" },
+      { label: "Analytics", href: "/analytics", tier: "PRO" },
+      { label: "Suppressions", href: "/suppressions" },
+      { label: "Usage", href: "/usage" },
+    ],
+  },
+  {
+    heading: "ORGANIZATION",
+    items: [
+      { label: "Team", href: "/team", tier: "PRO" },
+      { label: "Audit Logs", href: "/audit-logs", tier: "PREMIUM" },
+    ],
+  },
+  { heading: "", items: [{ label: "Settings", href: "/settings" }, { label: "Admin", href: "/admin", founder: true }] },
+];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getTenantContext();
   const showAdmin = isFounder(ctx.user.email);
-  const visibleNav = NAV.filter((item) => !("founder" in item) || showAdmin);
+  const visibleGroups = NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => !(i.founder && !showAdmin)) })).filter((g) => g.items.length > 0);
   const memberships = ctx.memberships.map((m) => ({
     organization: { id: m.organization.id, name: m.organization.name, slug: m.organization.slug },
     role: m.role,
@@ -53,20 +92,24 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </p>
         <ContextSwitcher memberships={memberships} />
         <nav aria-label="Dashboard" className="dash-nav">
-          {visibleNav.map((item) =>
-            item.href ? (
-              <Link key={item.label} href={item.href} className="dash-link">
-                {item.label}
-              </Link>
-            ) : (
-              <span key={item.label} className="dash-link dash-soon">
-                {item.label}
-                <span className="mono" style={{ fontSize: 10 }}>
-                  soon
-                </span>
-              </span>
-            )
-          )}
+          {visibleGroups.map((group) => (
+            <div key={group.heading} style={{ marginBottom: group.heading ? 14 : 0 }}>
+              {group.heading && <div style={{ fontSize: 10, letterSpacing: "0.08em", color: "var(--color-muted)", margin: "10px 0 6px", fontWeight: 700 }}>{group.heading}</div>}
+              {group.items.map((item) =>
+                item.href ? (
+                  <Link key={item.label} href={item.href} className="dash-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>{item.label}</span>
+                    {item.tier && <PlanBadge tier={item.tier} />}
+                  </Link>
+                ) : (
+                  <span key={item.label} className="dash-link dash-soon">
+                    {item.label}
+                    <span className="mono" style={{ fontSize: 10 }}>soon</span>
+                  </span>
+                )
+              )}
+            </div>
+          ))}
         </nav>
         <form action="/api/auth/logout" method="POST" style={{ marginTop: 24 }}>
           <button type="submit" className="dash-signout">
@@ -98,10 +141,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <ContextSwitcher memberships={memberships} compact />
         </div>
         <nav aria-label="Dashboard" className="dash-tabs">
-          {visibleNav.map((item) =>
+          {visibleGroups.flatMap((g) => g.items).map((item) =>
             item.href ? (
-              <Link key={item.label} href={item.href} className="dash-tab">
-                {item.label}
+              <Link key={item.label} href={item.href} className="dash-tab" style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                {item.label} {item.tier && <span style={{ fontSize: 9, border: "1px solid var(--color-border)", padding: "0 4px", borderRadius: 3 }}>{item.tier}</span>}
               </Link>
             ) : (
               <span key={item.label} className="dash-tab dash-soon">
