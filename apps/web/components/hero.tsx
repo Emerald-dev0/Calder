@@ -9,8 +9,8 @@ import { SIGNUP_URL } from "../lib/site";
 // blur placeholder. Same-origin asset, no external fetch to fail.
 import courierImg from "../public/illustrations/hero-courier-cutout.webp";
 
-const STATES = ["queued", "sending", "sent", "delivered"] as const;
-const LATENCIES = ["12ms", "180ms", "340ms", "1.02s"] as const;
+const STATES = ["created", "queued", "sending", "sent", "delivered"] as const;
+const LATENCIES = ["2ms", "12ms", "180ms", "340ms", "1.02s"] as const;
 
 /**
  * Isolated courier figure for the hero. Module-level so the 1.4s lifecycle
@@ -87,33 +87,33 @@ export function Hero() {
       <div className="hero-fade" aria-hidden="true" />
       <div className="hero-grid-lines" aria-hidden="true" />
       <span className="margin-note" aria-hidden="true">
-        transactional + marketing, est. 2026
+        communication infrastructure, est. 2026
       </span>
       <div className="wrap hero-inner">
         <div data-intro>
           <div className="hero-copy">
-            <p className="eyebrow hero-eyebrow">Email infrastructure for applications</p>
+            <p className="eyebrow hero-eyebrow">Communication infrastructure &middot; est. 2026</p>
             <h1 className="display">
-              You POST. We deliver. <em>You can prove it.</em>
+              Your application has something to say. <em>Calder makes sure it gets there.</em>
             </h1>
           </div>
         </div>
         <div className="hero-split">
           <div data-intro>
             <p className="lede" style={{ marginTop: "1.6rem" }}>
-              Calder sends the mail your application depends on, verification codes, password
-              resets, receipts, security alerts, and the campaigns you choose to send, on a separate
-              stream so neither borrows the other&rsquo;s reputation. One API call, or plain SMTP if
-              that&rsquo;s your world. Every send leaves a record you can prove.
+              Your application needs to send more than email. It needs to welcome people, verify
+              accounts, confirm payments, send alerts, announce what&rsquo;s new, and stay connected
+              with the people using it. Calder gives you the infrastructure behind those
+              conversations &mdash; <strong>one platform, one API, and a complete record of what happened to every message.</strong>
             </p>
-            <p style={{ marginTop: "1rem", fontSize: "0.95rem", color: "var(--muted)" }}>
-              5,000 emails a month free. No card. No domain required to start.
+            <p style={{ marginTop: "1.2rem", fontSize: "1rem", color: "var(--ink-soft)", fontWeight: 600 }}>
+              5,000 emails free every month. No card required.
             </p>
             <div className="hero-ctas">
-              <a className="btn btn-primary" href={SIGNUP_URL}>
+              <a className="btn btn-primary" href="/waitlist">
                 Start free{" "}
                 <span className="arrow" aria-hidden="true">
-                  →
+                  &rarr;
                 </span>
               </a>
               <a className="btn btn-secondary" href="/docs/quickstart">
@@ -127,11 +127,11 @@ export function Hero() {
               </span>
               <span>
                 <i />
-                Retry without double-sending
+                Every event recorded from send to delivery
               </span>
               <span>
                 <i />
-                Webhooks that show their work
+                Automatic retries when things go wrong
               </span>
             </div>
           </div>

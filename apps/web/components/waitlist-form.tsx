@@ -152,14 +152,36 @@ export function WaitlistForm() {
   return (
     <div className="waitlist-zone" data-total={total ?? undefined}>
       {state.kind === "ticket" ? (
-        <TicketCard ticket={state.ticket} fresh={state.fresh} />
+        <div className="waitlist-success">
+          <p className="eyebrow" style={{ color: "var(--accent-bright)" }}>
+            YOU&rsquo;RE IN · CALDER
+          </p>
+          <h2 className="h2" style={{ marginBottom: "1.5rem" }}>
+            Welcome aboard, {firstName || "there"}.
+          </h2>
+          <div className="lede" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            <p>You&rsquo;re officially on the Calder list.</p>
+            <p>
+              We&rsquo;re building something we&rsquo;re genuinely excited about, and you&rsquo;ll
+              be hearing from us as it takes shape.
+            </p>
+            <p>
+              Over the coming days and weeks, our founder and the Calder team may drop into your
+              inbox with product updates, things we&rsquo;re working on, and a few
+              behind-the-scenes looks at what&rsquo;s coming.
+            </p>
+            <p>Thanks for getting here early.</p>
+            <p>We&rsquo;ll see you around.</p>
+          </div>
+          <p
+            className="caption"
+            style={{ marginTop: "2.5rem", fontSize: "1.1rem", color: "var(--ink)" }}
+          >
+            &mdash; The Calder Team
+          </p>
+        </div>
       ) : (
         <form className="waitlist-form" onSubmit={(e) => void join(e)}>
-          <p className="waitlist-lede">
-            Get early access to Calder. Join the waitlist and be among the first to build with
-            Calder. We&rsquo;ll keep you updated as we ship new features, open early access, and get
-            closer to launch.
-          </p>
           <div className="waitlist-field">
             <label className="caption" htmlFor="waitlist-first-name">
               First name
@@ -171,7 +193,7 @@ export function WaitlistForm() {
               required
               autoComplete="given-name"
               maxLength={255}
-              placeholder="Enter your first name"
+              placeholder="Your first name"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               disabled={state.kind === "sending"}
@@ -207,11 +229,12 @@ export function WaitlistForm() {
           )}
           <div className="waitlist-row">
             <button className="btn btn-primary" type="submit" disabled={state.kind === "sending"}>
-              {state.kind === "sending" ? "Reserving…" : "Join the waitlist"}
+              {state.kind === "sending" ? "Reserving…" : "Join the waitlist \u2192"}
             </button>
           </div>
           <p className="caption waitlist-legal">
-            We&rsquo;ll only use your email to send Calder updates. You can unsubscribe at any time.
+            We&rsquo;ll use your email to send you Calder updates and early access information. You
+            can unsubscribe at any time.
           </p>
         </form>
       )}

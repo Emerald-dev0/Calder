@@ -17,12 +17,11 @@ export function Pricing() {
         <Reveal>
           <p className="eyebrow">Pricing</p>
           <h2 className="h2">
-            Five thousand emails free. <em>Ship for ₦25,000.</em>
+            Start free. <em>Grow when you need to.</em>
           </h2>
           <p className="lede" style={{ marginTop: "1.2rem" }}>
-            Four plans, priced in naira and dollars as separate decisions, not conversions. Hard
-            limits instead of surprise overages, and the marketing suite included in every plan once
-            it ships.
+            Five thousand emails every month. No card. No sales call. No artificial &ldquo;try it&rdquo;
+            experience. Build, ship, and grow without paying before you need to.
           </p>
         </Reveal>
 
