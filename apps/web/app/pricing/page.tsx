@@ -1,62 +1,84 @@
 import type { Metadata } from "next";
-import { pageMeta } from "../../lib/seo";
+import { pageMeta, pricingJsonLd } from "../../lib/seo";
 import { Navigation } from "../../components/navigation";
 import { Pricing } from "../../components/pricing";
+import { PlanComparison } from "../../components/pricing-table";
+import { Streams } from "../../components/streams";
 import { FinalCta, Footer } from "../../components/closing";
 import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
+import { PLANS, PRICING_FAQS } from "../../lib/plans";
 
 export const metadata: Metadata = pageMeta({
   title: "Pricing",
   description:
-    "Beginner ₦0/5k + 3 projects, Pro ₦15k/50k, Premium ₦45k/250k, Scale custom. Included + overage, NGN locally intentional, metered from durable records.",
+    "Beginner is free: 5,000 emails, 3 projects, 2 domains. Pro is $15 or ₦25,000 for 50,000 emails and production environments. Premium is $49 or ₦75,000 for 250,000. Naira and dollar prices are separate decisions, not conversions.",
   path: "/pricing",
 });
 
-const FAQS = [
+/** What happens at the limit, answered before anyone has to ask. */
+const LIMITS = [
   {
-    q: "What counts as an email?",
-    a: "One accepted send request (202 from POST /v1/emails). Webhook deliveries, event reads, and API calls are never metered.",
+    title: "You get an error, not a bill",
+    body: "Hitting a quota returns a clear failure that names the limit, your usage, and when it resets. Nothing is charged automatically and nothing is silently dropped.",
   },
   {
-    q: "What happens when I hit my limit?",
-    a: "Beginner pauses at 5k with PLAN_LIMIT_REACHED (limit/used/reset_at). Pro/Premium include 50k/250k then controlled overage per 1k — never silent charges, set a usage limit in Usage.",
+    title: "Retries never double-count",
+    body: "One accepted send is one email on the meter. Provider retries, idempotent replays, and webhook redeliveries are ours to absorb, not yours to pay for.",
   },
   {
-    q: "Why both NGN and USD?",
-    a: "NGN is locally intentional (₦0/₦15k/₦45k), USD globally ($0/$20/$60). Same quotas, intentional local pricing — a real advantage for Nigerian startups.",
-  },
-  {
-    q: "Is there really a free tier?",
-    a: "Beginner: 5k/mo, 3 projects, 2 domains, 5 senders, 10 templates, API/SMTP/SDK, 7-day logs, 2 webhooks — honest infrastructure, not a demo. No card, no expiry.",
-  },
-  {
-    q: "Do test sends count against my quota?",
-    a: "No. Test keys simulate the full pipeline without delivering mail and are never metered.",
-  },
-  {
-    q: "What unlocks on Pro vs Premium?",
-    a: "Pro (default): Inbox, Analytics, 5 team, 30-day logs, 10 webhooks. Premium: Audit Logs, dedicated controls, 90-day logs, 15 team, deliverability insights. See the dashboard — locked features show preview, not empty.",
+    title: "Test keys never meter",
+    body: "Test sends run the full pipeline, queue, events, webhooks, and are not counted against your plan. Build the integration before you send a single real email.",
   },
 ];
 
 export default function PricingPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd(PLANS)) }}
+      />
       <Navigation />
       <main>
         <PageHero
           eyebrow="Pricing"
           title={
             <>
-              Infrastructure economics, <em>not billing theater.</em>
+              A free tier you can <em>build a product on.</em>
             </>
           }
-          lede="Four tiers, two currencies, zero overage traps. Usage is metered from the same durable records as everything else, the invoice always matches your dashboard."
+          lede="Five thousand emails a month at ₦0, no card, no trial clock. When your app outgrows it, Pro is $15 or ₦25,000 for fifty thousand sends with production environments. Two currencies, two real prices, no conversion games."
         />
         <div style={{ paddingBottom: "2rem" }}>
           <Pricing />
         </div>
+
+        <Streams />
+
+        <section className="section" style={{ paddingTop: 0 }}>
+          <div className="wrap">
+            <Reveal>
+              <p className="eyebrow">At the limit</p>
+              <h2 className="h2">
+                What happens when you run out, <em>stated plainly.</em>
+              </h2>
+            </Reveal>
+            <div className="limit-grid">
+              {LIMITS.map((l, i) => (
+                <Reveal key={l.title} delay={i * 80}>
+                  <div className="limit-item">
+                    <h3>{l.title}</h3>
+                    <p>{l.body}</p>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <PlanComparison />
+
         <section className="section" style={{ paddingTop: 0 }}>
           <div className="wrap">
             <Reveal>
@@ -66,7 +88,7 @@ export default function PricingPage() {
               </h2>
             </Reveal>
             <div style={{ marginTop: "2rem" }}>
-              {FAQS.map((f) => (
+              {PRICING_FAQS.map((f) => (
                 <Reveal key={f.q}>
                   <div className="ed-row" style={{ padding: "1.6rem 0" }}>
                     <h3 style={{ margin: 0, fontSize: "1.15rem", letterSpacing: "-0.01em" }}>
@@ -79,6 +101,7 @@ export default function PricingPage() {
             </div>
           </div>
         </section>
+
         <FinalCta />
       </main>
       <Footer />

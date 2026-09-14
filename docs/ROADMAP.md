@@ -21,6 +21,12 @@ golden path (signup → first delivered email → webhook) as the prioritization
 Deliberate stance: **modular monolith until triggers fire** (ADR-007). One API
 deployable, one worker deployable. No Kubernetes, no Kafka, no service mesh in MVP.
 
+Public launch status (2026-09-14): pricing locked (ADR-024), marketing email
+promoted to a first-class stream on the same pipeline (ADR-025), and the sending
+path made fail-loud (ADR-026). Campaigns, audiences and automations move from
+"future architecture" to the top of the post-launch queue, ahead of SDKs,
+inbound email and the CLI.
+
 ## Architecture Principles
 
 1. Golden path first, anything serving signup→delivery→webhook outranks everything else.
@@ -545,6 +551,6 @@ Infrastructure (Redis/queues/workers/DB/providers), Observability (live
 alert rule book), Security (abuse actions, restrictions, admin access),
 Operations (feature flags, maintenance, status page), Administration
 (administrators, roles, audit logs, settings). Access model and role
-precedence: ADR-024; live-evaluation stance: ADR-025. Everything else in
+precedence: ADR-027; live-evaluation stance: ADR-028. Everything else in
 this roadmap (queue backend, billing provider, abuse automation) still
 applies and lands behind the Control Plane surfaces rather than beside them.

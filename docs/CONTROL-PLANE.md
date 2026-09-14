@@ -186,7 +186,7 @@ Audit Logs (actor/action/target/time/metadata, filterable), Settings
 - Founder dual-world check: `/` renders the normal customer dashboard
   ("Good morning, Emerald", project Website) with the Control Plane link.
 - Visual QA at 1440px and 390px on Command Center, Waitlist, person page,
-  org detail, Alerts (see ADR-024 for the stance; screenshots retained in
+  org detail, Alerts (see ADR-028 for the stance; screenshots retained in
   the session workspace).
 
 ## 6. Not built yet (honest list)

@@ -11,12 +11,11 @@ import { eq, and, lte, or, isNull } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import {
   createEmailService,
-  MockEmailProvider,
   pickDefaultTransport,
   GMAIL_FREE_DAILY_CAP,
   isProviderError,
 } from "@calder/email";
-import { SesEmailProvider, GmailTransport } from "@calder/providers";
+import { GmailTransport, resolveEmailProvider } from "@calder/providers";
 import { getGmailRefreshToken } from "@calder/auth";
 import { isTransientError } from "@calder/queue";
 
@@ -38,9 +37,7 @@ function authorized(req: Request): boolean {
 }
 
 function getProvider() {
-  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY)
-    return new SesEmailProvider();
-  return new MockEmailProvider({ latencyMs: 50 });
+  return resolveEmailProvider().provider;
 }
 
 async function buildGmail(

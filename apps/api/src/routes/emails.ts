@@ -5,6 +5,7 @@ import { AppError, validationError } from "../errors/index.js";
 import { handleSendEmail } from "../services/email-service.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { rateLimitMiddleware } from "../middleware/rate-limit.js";
+import { kickDrain, executionCtxOf } from "../lib/kick-drain.js";
 
 const emails = new Hono<Env>();
 
@@ -56,6 +57,10 @@ emails.post("/", authMiddleware, rateLimitMiddleware("sending"), async (c) => {
   if (result.idempotentReplay) {
     return c.json(result.response, 200 as never);
   }
+
+  // Nudge the delivery drain so the email leaves now rather than at the next
+  // scheduled run. Non-blocking: the 202 is already decided.
+  kickDrain(executionCtxOf(c));
 
   return c.json(result.response, 202 as never);
 });

@@ -37,6 +37,62 @@ marked otherwise.
  (TLS `rediss://` URL swap only, no code changes; BullMQ options already
  compatible). Never a second source of truth.
 
+## Launch checklist (confirmation email is the go/no-go)
+
+SES production access is live (ADR-023: 50k/day, 14/s, us-east-1). The remaining
+risk is a deploy that lacks the credentials, which is why the sending path now
+fails loudly instead of simulating delivery (ADR-026).
+
+```bash
+# 1. Pull the production environment (Vercel project: api)
+vercel env pull .env.production.local --environment=production
+
+# 2. Verify every part of the confirmation path, in one command
+pnpm launch-check          # exits non-zero when the path is not launch-ready
+```
+
+`launch-check` verifies, in order of what actually breaks launches:
+
+| Check | Passes when |
+| ----- | ----------- |
+| email provider | `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` present, provider is SES |
+| SES account | production access enabled, not sandbox (sandbox only mails verified recipients) |
+| Calder sender | `AUTH_EMAIL_FROM` set to a verified SES identity (defaults to `Calder <hello@calder.click>`) |
+| database | reachable, migrations applied, internal tenant (`org_avenor` / `proj_website`) seeded |
+| waitlist template | dynamic confirmation template present (editable without a deploy) |
+| queue | `REDIS_URL` set, so retries and delayed sends survive a restart |
+| delivery wake-up | `CRON_SECRET` set, so a `202` leaves immediately instead of waiting for the scheduled drain |
+| admin access | `ADMIN_API_KEY` set, so broadcasts and template edits work |
+| secrets | `AUTH_SECRET` and `WEBHOOK_SIGNING_SECRET` are no longer development defaults |
+| allowed origins | `ALLOWED_ORIGINS` lists the first-party origins (`https://calder.click`, `https://app.calder.click`) |
+
+### Environment variables by project
+
+| Variable | web | dashboard | api | worker |
+| ------------------------------ | --- | --------- | --- | ------ |
+| `AWS_ACCESS_KEY_ID/SECRET` | | | required | required |
+| `AWS_REGION=us-east-1` | | | required | required |
+| `AUTH_EMAIL_FROM` | | required | | |
+| `SES_FROM_DOMAIN` | | | required | |
+| `DATABASE_URL` | | required | required | required |
+| `REDIS_URL` | | required | required | required |
+| `CRON_SECRET` | | | required | |
+| `ADMIN_API_KEY` | | | required | |
+| `ALLOWED_ORIGINS` | | | required | |
+| `API_URL` | | required | required | |
+
+Notes that cost time when missed:
+
+- The dashboard sends its own auth mail (verification codes, magic links) through
+  SES directly, so it needs AWS credentials too, not only the API.
+- `AUTH_EMAIL_FROM` must be an identity verified in SES (domain or address).
+  Without it, production mail goes out as `Calder <hello@calder.click>`, which
+  fails unless that address is verified.
+- A `202` from `POST /v1/emails` only means "accepted". Delivered means the drain
+  ran: check `scripts/verify-delivery.sh` or the dashboard timeline.
+- `/ready` returning 503 with `progress: degraded` after a deploy means the
+  database, Redis or the email provider is not reachable from that deployment.
+
 ## Domains (owned: calder.click)
 
 ```

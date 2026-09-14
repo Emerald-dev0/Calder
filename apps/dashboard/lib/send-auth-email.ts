@@ -1,6 +1,7 @@
 import { getConfig } from "@calder/config";
 import { MAGIC_LINK_FROM } from "@calder/auth";
-import { brandEmail, createEmailService, MockEmailProvider } from "@calder/email";
+import { brandEmail, createEmailService } from "@calder/email";
+import { resolveEmailProvider } from "@calder/providers";
 import { logger } from "@calder/observability";
 
 export async function sendOtpEmail(opts: {
@@ -9,11 +10,17 @@ export async function sendOtpEmail(opts: {
   purpose: "verification" | "reset";
 }): Promise<void> {
   const config = getConfig();
-  const { createSesProvider } = await import("@calder/providers");
-  const provider = config.AWS_ACCESS_KEY_ID
-    ? createSesProvider(config.AWS_REGION)
-    : new MockEmailProvider({ latencyMs: 50 });
-  const service = createEmailService(provider);
+  const status = resolveEmailProvider();
+  const service = createEmailService(status.provider);
+  if (!status.deliverable) {
+    // Loud on purpose: users who never receive a verification code cannot
+    // finish signup, and the silent-mock failure mode is indistinguishable
+    // from a deliverability problem without this line.
+    logger.warn(
+      { driver: status.driver, reason: status.reason, to: opts.to },
+      "Auth email is NOT deliverable: no real provider configured"
+    );
+  }
 
   const isVerification = opts.purpose === "verification";
   const subject = isVerification
@@ -42,7 +49,7 @@ export async function sendOtpEmail(opts: {
 
   try {
     const result = await service.send({
-      from: MAGIC_LINK_FROM,
+      from: config.AUTH_EMAIL_FROM ?? MAGIC_LINK_FROM,
       to: opts.to,
       subject,
       html,

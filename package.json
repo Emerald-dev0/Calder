@@ -20,7 +20,8 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "db:generate": "turbo run db:generate",
     "db:migrate": "turbo run db:migrate",
-    "db:studio": "turbo run db:studio"
+    "db:studio": "turbo run db:studio",
+    "launch-check": "pnpm --filter @calder/api launch-check"
   },
   "devDependencies": {
     "@types/node": "^22.7.0",
