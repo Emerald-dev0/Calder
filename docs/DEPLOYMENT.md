@@ -21,12 +21,15 @@ marked otherwise.
 - `apps/api`, `apps/worker`, managed infra, provider TBD, must remain portable.
   (Pxxl evaluated and dropped, Vercel purchased domain + hosting keeps one
   vendor while pre-revenue.)
-- `apps/api` deploys to Vercel as serverless functions: `api/index.ts` wraps
-  the same Hono app via `hono/vercel` (ships in hono core, no new dependency),
-  a catch-all rewrite funnels every path — including the `/v1/cron/drain`
-  cron — to the function, and `maxDuration: 60` covers drain batches. The
-  long-running node server (`src/index.ts`) remains for local dev and
-  non-serverless deploys.
+- `apps/api` deploys to Vercel as serverless functions. Vercel's runtime executes
+  plain Node and does not compile the TS sources this monorepo's workspace
+  packages export, so the shipped function is pre-bundled: `pnpm build` runs
+  `scripts/bundle-serverless.mjs` (esbuild), which compiles `src/serverless.ts`
+  — inlining every `@calder/*` workspace source while keeping npm packages
+  external — into the generated, gitignored `api/index.js`, with a catch-all
+  rewrite funneling every path (including `/v1/cron/drain`) to it and
+  `maxDuration: 60` covering drain batches. The long-running node server
+  (`src/index.ts`) remains for local dev and non-serverless deploys.
 - DNS lives with the registrar (Vercel) until custom receiving email is needed;
   moving nameservers to Cloudflare free tier unlocks Email Routing for inbound
   (support@, hello@) plus faster TXT management. Cloudflare does not send mail
