@@ -221,6 +221,18 @@ body {
   }
 }
 
+/* Sender popover becomes a bottom sheet on small screens. */
+@media (max-width: 640px) {
+  .sender-pop {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    top: auto !important;
+    bottom: 12px !important;
+    max-height: 60vh !important;
+  }
+}
+
 .dash-context-mobile {
   display: none;
   border-bottom: 1px solid var(--color-border);

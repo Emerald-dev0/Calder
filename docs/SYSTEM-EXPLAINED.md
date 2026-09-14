@@ -184,6 +184,13 @@ re-runnable, resumable. Server actions enforce membership on every step.
 
 ## 9. Changelog (newest first)
 
+- **Email composer (sender-program Phase 7):** `/emails/new` with sender
+ identity selector (search, checkmark, keyboard, mobile sheet), recipient
+ chips, collapsed advanced options (Cc/Bcc/reply-to/schedule/attachments),
+ send confirmation naming the sender, acceptance-only results. Composer
+ sends go through dashboard server actions on the same persist/enqueue
+ contract (user sessions can't hold API keys); REST dogfooding waits on
+ user-scoped tokens.
 - **REST completion 6b:** bulk sends (100 max, suppression skips, per-recipient
  results, indexed idempotency), attachments (10/25MB, SES native + Gmail
  multipart/mixed), scheduled sends (delayed queue + `scheduled_for`),

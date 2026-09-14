@@ -47,6 +47,21 @@ export default async function EmailsPage({ searchParams }: { searchParams: { pro
         <span className="mono" style={{ fontSize: 12, color: "#737373" }}>
           {scope.organization.slug} / {scope.project.slug}
         </span>
+        <a
+          href={`/emails/new?project=${scope.project.id}`}
+          style={{
+            marginLeft: "auto",
+            background: "#0B0C0E",
+            color: "#fff",
+            borderRadius: 8,
+            padding: "8px 16px",
+            fontSize: 13,
+            fontWeight: 600,
+            textDecoration: "none",
+          }}
+        >
+          New email
+        </a>
       </div>
       <p style={{ color: "#737373", margin: "0 0 20px", fontSize: 14 }}>
         Every send under this project, including mail Calder sends to itself.
