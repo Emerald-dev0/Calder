@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { Plan } from "./plans";
 
 /**
  * Single source of SEO truth. Every public page builds metadata through
@@ -57,7 +58,7 @@ export function orgJsonLd(): Record<string, unknown> {
     name: "Calder",
     url: SITE_URL,
     description:
-      "Developer-first transactional email infrastructure. One API for OTPs, verification, receipts, and notifications, observable from queued to delivered.",
+      "Email infrastructure for applications. One API for transactional mail (OTPs, verification, receipts) and campaigns, sent on separate pipelines so product mail never inherits a campaign's reputation.",
     foundingDate: "2026",
     founder: founderJsonLd(),
     areaServed: ["NG", "Worldwide"],
@@ -71,10 +72,15 @@ export function founderJsonLd(): Record<string, unknown> {
     "@type": "Person",
     name: "Daniel Oluwadare",
     jobTitle: "Founder",
-    description: "Founder of Calder, communication infrastructure for transactional email.",
+    description: "Founder of Calder, email infrastructure for applications.",
     url: SITE_URL,
     worksFor: { "@type": "Organization", name: "Calder", url: SITE_URL },
-    knowsAbout: ["Transactional Email", "Deliverability", "Developer Infrastructure"],
+    knowsAbout: [
+      "Transactional Email",
+      "Email Marketing",
+      "Deliverability",
+      "Developer Infrastructure",
+    ],
   };
 }
 
@@ -102,5 +108,50 @@ export function articleJsonLd(input: {
     publisher: { "@type": "Organization", name: "Calder", url: SITE_URL },
     mainEntityOfPage: `${SITE_URL}${input.path}`,
     datePublished: input.datePublished,
+  };
+}
+
+/**
+ * Structured data for /pricing, built from the same PLANS array the page
+ * renders. Naira and dollar figures are separate price points rather than
+ * conversions, so each plan emits one Offer per currency. Scale is quoted, so
+ * it carries no price and no fake number.
+ */
+export function pricingJsonLd(plans: Plan[]): Record<string, unknown> {
+  const offers = plans.flatMap((plan) => {
+    const entries: { currency: string; price: string }[] = [
+      { currency: "USD", price: plan.price.USD },
+      { currency: "NGN", price: plan.price.NGN },
+    ];
+    const priced = entries
+      .map((entry) => ({ ...entry, price: entry.price.replace(/[^0-9.]/g, "") }))
+      .filter((entry) => entry.price.length > 0);
+
+    const base = {
+      "@type": "Offer" as const,
+      name: `${plan.name} plan`,
+      url: `${SITE_URL}/pricing`,
+      availability: "https://schema.org/InStock",
+      description: `${plan.promise} ${plan.volume}, ${plan.projects} projects, ${plan.domains} sending domains, ${plan.team} team seat(s), ${plan.logs} log retention, ${plan.support.toLowerCase()} support.`,
+    };
+
+    if (priced.length === 0) return [{ ...base }];
+    return priced.map((entry) => ({
+      ...base,
+      name: `${plan.name} plan (${entry.currency})`,
+      price: entry.price,
+      priceCurrency: entry.currency,
+    }));
+  });
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: "Calder",
+    description:
+      "Email infrastructure for applications: transactional mail and campaigns on separate pipelines.",
+    brand: { "@type": "Brand", name: SITE_NAME },
+    url: `${SITE_URL}/pricing`,
+    offers,
   };
 }

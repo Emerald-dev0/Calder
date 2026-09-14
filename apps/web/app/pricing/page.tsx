@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { pageMeta } from "../../lib/seo";
+import { pageMeta, pricingJsonLd } from "../../lib/seo";
 import { Navigation } from "../../components/navigation";
 import { Pricing } from "../../components/pricing";
 import { PlanComparison } from "../../components/pricing-table";
@@ -7,7 +7,7 @@ import { Streams } from "../../components/streams";
 import { FinalCta, Footer } from "../../components/closing";
 import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
-import { PRICING_FAQS } from "../../lib/plans";
+import { PLANS, PRICING_FAQS } from "../../lib/plans";
 
 export const metadata: Metadata = pageMeta({
   title: "Pricing",
@@ -35,6 +35,10 @@ const LIMITS = [
 export default function PricingPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd(PLANS)) }}
+      />
       <Navigation />
       <main>
         <PageHero
