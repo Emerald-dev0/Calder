@@ -2,7 +2,7 @@
 
 > **Living document. Rule: every backend change updates this file in the same
 > commit.** If code and this file disagree, the code is right and this file is
-> a bug, fix the file. Last updated: Redis pipeline cutover (see §9).
+> a bug, fix the file. Last updated: SES prod + sender-aware delivery (see §9).
 
 ## 1. The system in one picture
 
@@ -112,7 +112,7 @@ claims the account by signing in with an email listed in `FOUNDER_EMAILS`
 | Idempotency (durable keys, replay) | Real |
 | Redis queue (BullMQ) API↔worker delivery | Real (this cutover) |
 | Worker retry/backoff/DLQ/suppression/events | Real |
-| SES provider | Real code, needs AWS creds + sandbox warm-up to fire |
+| SES provider | Real, prod: 50k/day, 14/s, out of sandbox (case 178897239300386, us-east-1, 2026-09-13) |
 | Mock provider (test keys) | Real, full-path simulation |
 | OAuth login, sessions, linking | Real code, needs provider console creds to click through |
 | Orgs/projects/keys/domains/webhooks API | Real CRUD, tenant-scoped |
@@ -184,6 +184,13 @@ re-runnable, resumable. Server actions enforce membership on every step.
 
 ## 9. Changelog (newest first)
 
+- **SES production access (2026-09-13):** `50,000/day, 14/s, out of sandbox` in `us-east-1` (case `178897239300386`). Worker now sends via SES when `AWS_ACCESS_KEY_ID`/`SECRET` + `AWS_REGION=us-east-1` are present; Mock remains for test keys / missing creds. Requires prod `DATABASE_URL` + `REDIS_URL` on the worker host; sandbox limits no longer apply.
+- **Sender-aware delivery (sender-program Phase 9):** worker resolves a
+ transport chain per send (sender transport, project default, global) with
+ transient failover and fail-closed caps/dead-senders; transport + provider
+ recorded on every delivery; dashboard deliveries gain a sender filter.
+ Proven live: verified sender delivered via Mock, disabled sender failed
+ closed. Migration `0013`.
 - **Sender auto-provisioning (sender-program Phase 8):** connecting Gmail
  mints its sender identity idempotently (reconnects rotate credentials
  instead of crashing on the unique constraint — caught by test); verified

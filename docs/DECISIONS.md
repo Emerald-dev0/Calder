@@ -249,6 +249,12 @@ the emailed `logo.svg` was regenerated to the canonical geometry (it also
 still said "Avenor" in its accessible label). No new mark may be introduced
 without updating the shared component first.
 
+## ADR-023: SES production access (50k/day, 14/s, out of sandbox)
+
+**Status:** Accepted (live 2026-09-13, case 178897239300386, `us-east-1`)
+
+**Decision:** Production SES quota verified (`50,000/day, 14 msgs/s, sandbox removed`). Worker host must have `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` + `AWS_REGION=us-east-1` to send via SES; missing creds fall back to Mock (test keys never hit SES). Bulk and transactional mail now share the prod provider with the sender-aware chain (ADR-017 + Phase 9 failover).
+
 ## ADR-022: Password auth with scrypt + email OTP verification
 
 **Status:** Accepted
