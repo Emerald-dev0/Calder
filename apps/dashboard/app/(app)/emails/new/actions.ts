@@ -2,13 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import {
-  getDb,
-  senderIdentities,
-  suppressions,
-  emails,
-  emailEvents,
-} from "@calder/db";
+import { getDb, senderIdentities, suppressions, emails, emailEvents } from "@calder/db";
 import { createQueue } from "@calder/queue";
 import { getTenantContext } from "../../../../lib/auth";
 
@@ -48,7 +42,9 @@ function cleanList(list: string[] | undefined, field: string, required: boolean)
  * executed through the dashboard session. Suppressed recipients block the
  * send with a named error instead of silently queuing.
  */
-export async function sendComposerEmail(input: ComposeInput): Promise<{ ok: true; emailId: string }> {
+export async function sendComposerEmail(
+  input: ComposeInput
+): Promise<{ ok: true; emailId: string }> {
   const ctx = await getTenantContext();
   const projectIds = new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)));
   if (!projectIds.has(input.projectId)) throw new Error("Project not found.");
@@ -104,7 +100,8 @@ export async function sendComposerEmail(input: ComposeInput): Promise<{ ok: true
   let delayMs: number | undefined;
   if (input.scheduledAt) {
     const at = new Date(input.scheduledAt).getTime();
-    if (Number.isNaN(at) || at <= Date.now()) throw new Error("Scheduled time must be in the future.");
+    if (Number.isNaN(at) || at <= Date.now())
+      throw new Error("Scheduled time must be in the future.");
     if (at - Date.now() > 366 * 24 * 60 * 60 * 1000) {
       throw new Error("Scheduled time is at most a year ahead.");
     }
