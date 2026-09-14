@@ -99,9 +99,7 @@ export interface SesAccountStatus {
  * rejected (or silently dropped in some flows). `/ready` cannot see this, it
  * needs an API call, so this is used by the launch check and by operators.
  */
-export async function getSesAccountStatus(
-  client?: SESv2Client
-): Promise<SesAccountStatus> {
+export async function getSesAccountStatus(client?: SESv2Client): Promise<SesAccountStatus> {
   const ses = client ?? new SESv2Client({ region: process.env.AWS_REGION ?? "us-east-1" });
   const account = await ses.send(new GetAccountCommand({}));
   return {

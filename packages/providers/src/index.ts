@@ -1,4 +1,9 @@
-export { SesEmailProvider, createSesProvider, getSesAccountStatus, type SesAccountStatus } from "./ses";
+export {
+  SesEmailProvider,
+  createSesProvider,
+  getSesAccountStatus,
+  type SesAccountStatus,
+} from "./ses";
 export {
   GmailTransport,
   createGmailTransport,

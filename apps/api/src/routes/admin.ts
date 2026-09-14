@@ -36,12 +36,19 @@ const broadcastSchema = z.object({
   from: z
     .string()
     .max(320)
-    .regex(/^([^\s@]+@[^\s@]+\.[^\s@]+|sender_[A-Za-z0-9_-]{1,64})$/, "from must be email or sender_xxx")
+    .regex(
+      /^([^\s@]+@[^\s@]+\.[^\s@]+|sender_[A-Za-z0-9_-]{1,64})$/,
+      "from must be email or sender_xxx"
+    )
     .optional(),
   attachments: z
     .array(
       z.object({
-        filename: z.string().min(1).max(255).regex(/^[^/\\]+$/, "Filename cannot contain path separators"),
+        filename: z
+          .string()
+          .min(1)
+          .max(255)
+          .regex(/^[^/\\]+$/, "Filename cannot contain path separators"),
         contentType: z.string().max(127).optional(),
         contentBase64: z.string().min(1),
       })
@@ -92,21 +99,26 @@ admin.post(
       typeof (body as Record<string, unknown>).from === "string"
         ? ((body as Record<string, unknown>).from as string).trim()
         : undefined;
-    if (
-      rawFrom &&
-      !/^([^\s@]+@[^\s@]+\.[^\s@]+|sender_[A-Za-z0-9_-]{1,64})$/.test(rawFrom)
-    ) {
+    if (rawFrom && !/^([^\s@]+@[^\s@]+\.[^\s@]+|sender_[A-Za-z0-9_-]{1,64})$/.test(rawFrom)) {
       throw new AppError("validation_error", "Invalid from: use email or sender_xxx.", 400);
     }
     // attachments from body (validated below via broadcastSchema)
     const rawAttachments =
-      typeof body === "object" && body !== null && Array.isArray((body as Record<string, unknown>).attachments)
-        ? ((body as Record<string, unknown>).attachments as Array<{ filename: string; contentType?: string; contentBase64: string }>)
+      typeof body === "object" &&
+      body !== null &&
+      Array.isArray((body as Record<string, unknown>).attachments)
+        ? ((body as Record<string, unknown>).attachments as Array<{
+            filename: string;
+            contentType?: string;
+            contentBase64: string;
+          }>)
         : undefined;
     if (rawAttachments) {
       const total = rawAttachments.reduce((n, a) => n + (a.contentBase64?.length ?? 0), 0);
-      if (rawAttachments.length > 10) throw new AppError("validation_error", "At most 10 attachments.", 400);
-      if (total > 25 * 1024 * 1024) throw new AppError("validation_error", "Attachments exceed 25 MB of base64 in total.", 400);
+      if (rawAttachments.length > 10)
+        throw new AppError("validation_error", "At most 10 attachments.", 400);
+      if (total > 25 * 1024 * 1024)
+        throw new AppError("validation_error", "Attachments exceed 25 MB of base64 in total.", 400);
     }
     if (
       typeof body === "object" &&
@@ -276,7 +288,11 @@ admin.post("/organizations/:orgId/subscription", adminAuthMiddleware, async (c) 
  */
 admin.get("/waitlist/confirmation", adminAuthMiddleware, async (c) => {
   const db = getDb();
-  const [row] = await db.select().from(waitlistConfirmation).where(eq(waitlistConfirmation.id, "internal")).limit(1);
+  const [row] = await db
+    .select()
+    .from(waitlistConfirmation)
+    .where(eq(waitlistConfirmation.id, "internal"))
+    .limit(1);
   if (!row) {
     return c.json({
       data: {
@@ -308,10 +324,21 @@ admin.put("/waitlist/confirmation", adminAuthMiddleware, async (c) => {
   const now = new Date();
   await db
     .insert(waitlistConfirmation)
-    .values({ id: "internal", subject: parsed.data.subject, html: parsed.data.html, text: parsed.data.text, updatedAt: now })
+    .values({
+      id: "internal",
+      subject: parsed.data.subject,
+      html: parsed.data.html,
+      text: parsed.data.text,
+      updatedAt: now,
+    })
     .onConflictDoUpdate({
       target: waitlistConfirmation.id,
-      set: { subject: parsed.data.subject, html: parsed.data.html, text: parsed.data.text, updatedAt: now },
+      set: {
+        subject: parsed.data.subject,
+        html: parsed.data.html,
+        text: parsed.data.text,
+        updatedAt: now,
+      },
     });
   return c.json({ data: { ok: true, updatedAt: now.toISOString() } });
 });
