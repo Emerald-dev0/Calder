@@ -1,8 +1,17 @@
-# Calder, developer-first transactional email infrastructure
+# Calder, email infrastructure for applications
 
-Calder is transactional email infrastructure: one API endpoint in, delivered
-events out. Test keys simulate everything; live keys deliver. NGN-first pricing
-with hard limits. Nigeria-first wedge, global ambition.
+Calder sends email for applications: transactional mail (verification codes,
+password resets, receipts, invoices, security alerts, order updates) through a
+versioned REST API or an SMTP relay, and marketing mail (newsletters, launches,
+promotions, lifecycle) on a separate stream with its own audiences, consent,
+suppression and reputation. Both run over one pipeline: one API, one event log,
+one webhook system, one usage meter.
+
+Free to start: 5,000 emails a month, 3 projects, 2 sending domains, no card.
+Pro is $15 or ₦25,000 for 50,000 emails with development, staging and production
+environments. Premium is $49 or ₦75,000 for 250,000. Scale is custom volume and
+pricing. Naira and dollar prices are separate local price points, not currency
+conversions. Hard limits, never surprise overages.
 
 - Homepage: https://calder.click/
 - What is Calder: https://calder.click/what-is-calder
@@ -20,5 +29,3 @@ with hard limits. Nigeria-first wedge, global ambition.
 - Changelog: https://calder.click/changelog
 - Security: https://calder.click/security
 - Blog: https://calder.click/blog
-
-Full documentation dump: https://calder.click/docs/llms-full.txt

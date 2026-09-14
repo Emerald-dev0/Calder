@@ -97,9 +97,9 @@ async function checkDatabase(): Promise<void> {
     return;
   }
   try {
-    const { getDb, organizations, projects, waitlistConfirmation, suppressions, count } =
+    const { getDb, organizations, projects, waitlistConfirmation, suppressions } =
       await import("@calder/db");
-    const { eq } = await import("drizzle-orm");
+    const { eq, count } = await import("drizzle-orm");
     const db = getDb();
 
     const internalProjects = await db
@@ -183,6 +183,16 @@ async function checkQueueAndOps(): Promise<void> {
     config.AUTH_SECRET.startsWith("dev-secret")
       ? "AUTH_SECRET is still the development default"
       : "custom AUTH_SECRET set"
+  );
+
+  add(
+    process.env.CRON_SECRET || config.ADMIN_API_KEY ? "pass" : "warn",
+    "delivery wake-up",
+    process.env.CRON_SECRET
+      ? "CRON_SECRET set: accepted sends are delivered immediately, not at the next scheduled run"
+      : config.ADMIN_API_KEY
+        ? "ADMIN_API_KEY is used for the wake-up call; set CRON_SECRET to separate the two"
+        : "neither CRON_SECRET nor ADMIN_API_KEY set: sends wait for the scheduled drain"
   );
 
   const origins = (process.env.ALLOWED_ORIGINS ?? "").split(",").filter(Boolean);

@@ -8,6 +8,7 @@ import { eq, lte, count } from "drizzle-orm";
 import type { Env } from "../app.js";
 import { AppError, validationError } from "../errors/index.js";
 import { rateLimitMiddleware } from "../middleware/rate-limit.js";
+import { kickDrain, executionCtxOf } from "../lib/kick-drain.js";
 
 const waitlist = new Hono<Env>();
 
@@ -181,6 +182,9 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
     const { logger } = await import("@calder/observability");
     logger.error({ err, email }, "Waitlist confirmation failed to enqueue (signup kept)");
   }
+
+  // The confirmation was just enqueued; let it leave now.
+  kickDrain(executionCtxOf(c));
 
   return c.json({ data: { ...ticket, joined: true } }, 201);
 });

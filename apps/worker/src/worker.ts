@@ -234,6 +234,45 @@ export async function startWorker() {
         jobLogger.warn({ err: dbErr }, "DB lookup failed, trying in-memory fallback");
       }
 
+      // ── Suppression check, before any provider call ────────
+      // The cron drains perform this check; the worker is a separate
+      // deliverable and must not be the path that mails someone who
+      // bounced, complained or opted out. See the sending-path checklist
+      // in AGENTS.md.
+      if (email) {
+        try {
+          const { getDb, emails, emailEvents, suppressions } = await import("@calder/db");
+          const { eq, and } = await import("drizzle-orm");
+          const db = getDb();
+          const sup = await db
+            .select()
+            .from(suppressions)
+            .where(and(eq(suppressions.projectId, projectId), eq(suppressions.email, email.to)))
+            .limit(1);
+          if (sup.length > 0) {
+            const now = new Date();
+            await db
+              .update(emails)
+              .set({ status: "suppressed", lastError: sup[0]!.reason, updatedAt: now })
+              .where(eq(emails.id, emailId));
+            await db.insert(emailEvents).values({
+              id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+              emailId,
+              projectId,
+              type: "suppressed",
+              data: { reason: sup[0]!.reason, source: "worker" },
+            });
+            jobLogger.info({ reason: sup[0]!.reason }, "Recipient suppressed, not sending");
+            return;
+          }
+        } catch (supErr) {
+          // Never send on an unverifiable suppression state. Fail closed:
+          // the queue retries, and a human sees the error.
+          jobLogger.error({ err: supErr }, "Suppression check failed, refusing to send");
+          throw supErr;
+        }
+      }
+
       // In-memory fallback for scaffold without DB (API's memoryEmails not shared across processes;
       // for single-process dev where API and worker share queue, we need to fetch via HTTP or shared store.
       // For scaffold vertical slice, if email not found in DB, we simulate with job data.
