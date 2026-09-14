@@ -271,3 +271,37 @@ Resend-style email + password; OTP instead of mailed reset links because
 receipt already proves ownership and there is nothing phishable to click
 later. Hashes never logged, never returned, reset marks the address
 verified.
+
+## ADR-024: Founder/Admin Control Plane (separate layer, one login)
+
+**Status:** Accepted (built 2026-09-14, verified live)
+**Decision:** The operational admin surface lives under `/control` in the
+dashboard app as a distinct layer with its own design system (dark, dense,
+operator-grade) and its own section gate, sharing identity and data with the
+customer dashboard. Access is by platform role (`users.platform_role` +
+section map in `lib/control/gate.ts`). The only founder bootstrap is the
+`FOUNDER_EMAILS` env allowlist, applied at session creation; precedence (DB
+founder role > env bootstrap > non-founder DB role > customer) is locked by
+unit tests. Nobody can self-promote: role grants are founder-only, reason-
+required, and audit-logged. The founder remains a normal customer (owns the
+"Calder" org) — platform role never alters tenant behavior.
+**Why:** the founder needs one screen that answers "is the business OK,
+are customers OK, is Calder healthy, is anything broken?" without touching
+the customer product, and every internal action needs an audit trail
+(`audit_logs`, before/after metadata). A separate app would duplicate auth
+and the data layer for zero benefit at this scale; a subdomain move later is
+a deploy concern, not a code concern.
+
+## ADR-025: Control Plane metrics and alerts evaluate live; no snapshot state
+
+**Status:** Accepted
+**Decision:** Command Center stats and the alert rule book are pure functions
+over current database/Redis state, evaluated per request
+(`lib/control/stats.ts`, `lib/control/alerts.ts`, unit-tested). There are no
+metric snapshot tables and no alert-state store in V1; alert history begins
+with the notifications/incidents work.
+**Why:** the demo dataset taught the lesson early — a stored "oldest queued
+job" stat went stale while the underlying queue state moved, and the alert
+fired with a 47-day-old value. Live evaluation cannot silently lie. If
+per-request cost ever matters, we add materialized rollups behind the same
+functions, not a parallel truth.

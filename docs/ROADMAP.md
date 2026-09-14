@@ -533,3 +533,18 @@ dashboard-shell, and SDK-type work parallelized where dependency-free (see graph
 - `docs/API.md` `pk` discrepancy assigned to Phase 3 instead of lingering.
 
 _End of roadmap v1._
+
+## Addendum: Founder/Admin Control Plane (2026-09-14)
+
+Built outside the original 14-phase sequencing (founder directive): the
+founder/admin operational layer described in `docs/CONTROL-PLANE.md` —
+Command Center, Growth/Waitlist priority, Customers 360°, Communications
+with the transactional/marketing split rendered everywhere, Billing
+(plans/coupons/credits/entitlements with overrides), Platform,
+Infrastructure (Redis/queues/workers/DB/providers), Observability (live
+alert rule book), Security (abuse actions, restrictions, admin access),
+Operations (feature flags, maintenance, status page), Administration
+(administrators, roles, audit logs, settings). Access model and role
+precedence: ADR-024; live-evaluation stance: ADR-025. Everything else in
+this roadmap (queue backend, billing provider, abuse automation) still
+applies and lands behind the Control Plane surfaces rather than beside them.

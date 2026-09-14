@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, varchar, jsonb } from "drizzle-orm/pg-core";
+import { platformRoleEnum } from "./enums";
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(), // e.g., usr_xxx or cuid
@@ -13,6 +14,8 @@ export const users = pgTable("users", {
   primaryGoal: varchar("primary_goal", { length: 50 }),
   onboardingState: varchar("onboarding_state", { length: 32 }).notNull().default("not_started"),
   onboardingCompletedAt: timestamp("onboarding_completed_at", { withTimezone: true }),
+  // Control Plane role. NULL = ordinary customer (no platform access).
+  platformRole: platformRoleEnum("platform_role"),
   emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
   passwordHash: text("password_hash"),
   imageUrl: text("image_url"),

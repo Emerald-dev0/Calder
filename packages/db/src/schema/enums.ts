@@ -78,3 +78,29 @@ export const senderStatusEnum = pgEnum("sender_status", [
   "disabled",
   "failed",
 ]);
+/**
+ * Platform-level role (Control Plane access). Completely separate from
+ * organization roles: a platform role says what you may operate of CALDER
+ * itself, an organization role says what you may do inside one customer
+ * workspace. `founder` is the apex — full access plus ownership actions no
+ * other role can perform or grant. Assignment happens out-of-band (SQL /
+ * seed), never through a self-service UI.
+ */
+export const platformRoleEnum = pgEnum("platform_role", [
+  "founder",
+  "platform_admin",
+  "support",
+  "billing",
+  "infrastructure",
+  "security",
+  "analyst",
+]);
+/** Waitlist lifecycle. Conversion (joined as a user) is derived live, never stored. */
+export const waitlistStatusEnum = pgEnum("waitlist_status", [
+  "waiting",
+  "invited",
+  "contacted",
+  "removed",
+]);
+
+export type PlatformRole = (typeof platformRoleEnum.enumValues)[number];
