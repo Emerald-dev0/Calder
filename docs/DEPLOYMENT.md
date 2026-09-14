@@ -11,31 +11,37 @@ marked otherwise.
 ## Planned deployment shape
 
 - `apps/web`, `apps/dashboard`, Vercel (or equivalent) for web-facing surfaces, deployed via the `vercel` CLI (see `AGENTS.md` CLI-first tooling).
- Monorepo wiring: **one Vercel project per app**. When importing, set the
- **Root Directory** to `apps/web` for the marketing site and `apps/dashboard`
- for the app (framework preset: Next.js; build command and output left as
- Vercel defaults). Connect both projects to the same GitHub repo (`Calder`);
- production branches deploy `main`, previews deploy PRs. Environment variables
- are set per project (see inventory below), never shared blindly between web
- and dashboard.
+  Monorepo wiring: **one Vercel project per app**. When importing, set the
+  **Root Directory** to `apps/web` for the marketing site and `apps/dashboard`
+  for the app (framework preset: Next.js; build command and output left as
+  Vercel defaults). Connect both projects to the same GitHub repo (`Calder`);
+  production branches deploy `main`, previews deploy PRs. Environment variables
+  are set per project (see inventory below), never shared blindly between web
+  and dashboard.
 - `apps/api`, `apps/worker`, managed infra, provider TBD, must remain portable.
- (Pxxl evaluated and dropped, Vercel purchased domain + hosting keeps one
- vendor while pre-revenue.)
+  (Pxxl evaluated and dropped, Vercel purchased domain + hosting keeps one
+  vendor while pre-revenue.)
+- `apps/api` deploys to Vercel as serverless functions: `api/index.ts` wraps
+  the same Hono app via `hono/vercel` (ships in hono core, no new dependency),
+  a catch-all rewrite funnels every path — including the `/v1/cron/drain`
+  cron — to the function, and `maxDuration: 60` covers drain batches. The
+  long-running node server (`src/index.ts`) remains for local dev and
+  non-serverless deploys.
 - DNS lives with the registrar (Vercel) until custom receiving email is needed;
- moving nameservers to Cloudflare free tier unlocks Email Routing for inbound
- (support@, hello@) plus faster TXT management. Cloudflare does not send mail
-, delivery stays SES; sending from dedicated subdomains (e.g. mail.&lt;domain&gt;)
- protects root-domain reputation. Note: Email Routing requires Cloudflare
- nameservers, is forwarding-only (not mailboxes), and pairs with Gmail Send-As
- for a $0 professional setup.
+  moving nameservers to Cloudflare free tier unlocks Email Routing for inbound
+  (support@, hello@) plus faster TXT management. Cloudflare does not send mail
+  , delivery stays SES; sending from dedicated subdomains (e.g. mail.&lt;domain&gt;)
+  protects root-domain reputation. Note: Email Routing requires Cloudflare
+  nameservers, is forwarding-only (not mailboxes), and pairs with Gmail Send-As
+  for a $0 professional setup.
 - Database, managed PostgreSQL. Recommended: **Neon** (serverless, branching
- for preview DBs, free tier; Supabase only if auth/storage extras are ever
- wanted, they aren't). Client enforces TLS outside localhost, disables
- prepared statements for pooler compatibility, pool via `DB_POOL_MAX`
- (default 10, lower per-instance on serverless).
+  for preview DBs, free tier; Supabase only if auth/storage extras are ever
+  wanted, they aren't). Client enforces TLS outside localhost, disables
+  prepared statements for pooler compatibility, pool via `DB_POOL_MAX`
+  (default 10, lower per-instance on serverless).
 - Queue/cache, managed Redis-compatible service. Recommended: **Upstash**
- (TLS `rediss://` URL swap only, no code changes; BullMQ options already
- compatible). Never a second source of truth.
+  (TLS `rediss://` URL swap only, no code changes; BullMQ options already
+  compatible). Never a second source of truth.
 
 ## Launch checklist (confirmation email is the go/no-go)
 
@@ -53,33 +59,33 @@ pnpm launch-check          # exits non-zero when the path is not launch-ready
 
 `launch-check` verifies, in order of what actually breaks launches:
 
-| Check | Passes when |
-| ----- | ----------- |
-| email provider | `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` present, provider is SES |
-| SES account | production access enabled, not sandbox (sandbox only mails verified recipients) |
-| Calder sender | `AUTH_EMAIL_FROM` set to a verified SES identity (defaults to `Calder <hello@calder.click>`) |
-| database | reachable, migrations applied, internal tenant (`org_avenor` / `proj_website`) seeded |
-| waitlist template | dynamic confirmation template present (editable without a deploy) |
-| queue | `REDIS_URL` set, so retries and delayed sends survive a restart |
-| delivery wake-up | `CRON_SECRET` set, so a `202` leaves immediately instead of waiting for the scheduled drain |
-| admin access | `ADMIN_API_KEY` set, so broadcasts and template edits work |
-| secrets | `AUTH_SECRET` and `WEBHOOK_SIGNING_SECRET` are no longer development defaults |
-| allowed origins | `ALLOWED_ORIGINS` lists the first-party origins (`https://calder.click`, `https://app.calder.click`) |
+| Check             | Passes when                                                                                          |
+| ----------------- | ---------------------------------------------------------------------------------------------------- |
+| email provider    | `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` present, provider is SES                               |
+| SES account       | production access enabled, not sandbox (sandbox only mails verified recipients)                      |
+| Calder sender     | `AUTH_EMAIL_FROM` set to a verified SES identity (defaults to `Calder <hello@calder.click>`)         |
+| database          | reachable, migrations applied, internal tenant (`org_avenor` / `proj_website`) seeded                |
+| waitlist template | dynamic confirmation template present (editable without a deploy)                                    |
+| queue             | `REDIS_URL` set, so retries and delayed sends survive a restart                                      |
+| delivery wake-up  | `CRON_SECRET` set, so a `202` leaves immediately instead of waiting for the scheduled drain          |
+| admin access      | `ADMIN_API_KEY` set, so broadcasts and template edits work                                           |
+| secrets           | `AUTH_SECRET` and `WEBHOOK_SIGNING_SECRET` are no longer development defaults                        |
+| allowed origins   | `ALLOWED_ORIGINS` lists the first-party origins (`https://calder.click`, `https://app.calder.click`) |
 
 ### Environment variables by project
 
-| Variable | web | dashboard | api | worker |
-| ------------------------------ | --- | --------- | --- | ------ |
-| `AWS_ACCESS_KEY_ID/SECRET` | | | required | required |
-| `AWS_REGION=us-east-1` | | | required | required |
-| `AUTH_EMAIL_FROM` | | required | | |
-| `SES_FROM_DOMAIN` | | | required | |
-| `DATABASE_URL` | | required | required | required |
-| `REDIS_URL` | | required | required | required |
-| `CRON_SECRET` | | | required | |
-| `ADMIN_API_KEY` | | | required | |
-| `ALLOWED_ORIGINS` | | | required | |
-| `API_URL` | | required | required | |
+| Variable                   | web | dashboard | api      | worker   |
+| -------------------------- | --- | --------- | -------- | -------- |
+| `AWS_ACCESS_KEY_ID/SECRET` |     |           | required | required |
+| `AWS_REGION=us-east-1`     |     |           | required | required |
+| `AUTH_EMAIL_FROM`          |     | required  |          |          |
+| `SES_FROM_DOMAIN`          |     |           | required |          |
+| `DATABASE_URL`             |     | required  | required | required |
+| `REDIS_URL`                |     | required  | required | required |
+| `CRON_SECRET`              |     |           | required |          |
+| `ADMIN_API_KEY`            |     |           | required |          |
+| `ALLOWED_ORIGINS`          |     |           | required |          |
+| `API_URL`                  |     | required  | required |          |
 
 Notes that cost time when missed:
 
@@ -120,21 +126,23 @@ registration. Do this once per provider per environment.
 1. APIs & Services → Credentials → Create OAuth client ID (Web application).
 2. Authorized JavaScript origins: `http://localhost:3001`, `https://app.calder.click`.
 3. Authorized redirect URIs (exact, no trailing slash):
- - `http://localhost:3001/api/auth/callback/google`
- - `https://app.calder.click/api/auth/callback/google`
+
+- `http://localhost:3001/api/auth/callback/google`
+- `https://app.calder.click/api/auth/callback/google`
+
 4. Copy Client ID + Secret → `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
 5. While in Testing mode: add founder emails under Test users (unverified apps
- cap at 100 users and expire refresh tokens in 7 days, go Production/verified
- before launch). Requested scopes at runtime: `openid`, `profile`, `email`
- (login) and additionally `gmail.send` (Connect Gmail flow only).
+   cap at 100 users and expire refresh tokens in 7 days, go Production/verified
+   before launch). Requested scopes at runtime: `openid`, `profile`, `email`
+   (login) and additionally `gmail.send` (Connect Gmail flow only).
 
 **GitHub** (one OAuth App per environment, GitHub allows a single callback URL):
 
 1. Settings → Developer settings → OAuth Apps → New OAuth App (dev), repeat for prod.
 2. Dev: Homepage `http://localhost:3001`, callback
- `http://localhost:3001/api/auth/callback/github`.
+   `http://localhost:3001/api/auth/callback/github`.
 3. Prod: Homepage `https://calder.click`, callback
- `https://app.calder.click/api/auth/callback/github`.
+   `https://app.calder.click/api/auth/callback/github`.
 4. Copy Client ID + Secret → `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`.
 5. No special scopes needed for login (verified primary email is read by default).
 
@@ -144,12 +152,12 @@ values; rotate immediately on any leak.
 
 ## Production environment inventory
 
-| App | Required env | Notes |
+| App       | Required env                                                                                                                                                                           | Notes                                                |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| dashboard | `DATABASE_URL` (Neon, pooled), `AUTH_SECRET` (32+ chars, generated), `AUTH_URL=https://app.calder.click`, `GOOGLE_*`, `GITHUB_*`, `FOUNDER_EMAILS`, `API_URL=https://api.calder.click` | `ALLOW_DEV_LOGIN` must be unset |
-| api | `DATABASE_URL`, `REDIS_URL` (`rediss://` Upstash), `AUTH_SECRET`, `AWS_*` (SES), `WEBHOOK_SIGNING_SECRET`, `ADMIN_API_KEY` | Migrations run before deploy (`drizzle-kit migrate`) |
-| worker | Same as api + `WORKER_CONCURRENCY` | Shares Redis + Postgres with api |
-| web | None required (static) | Rebuild on copy changes |
+| dashboard | `DATABASE_URL` (Neon, pooled), `AUTH_SECRET` (32+ chars, generated), `AUTH_URL=https://app.calder.click`, `GOOGLE_*`, `GITHUB_*`, `FOUNDER_EMAILS`, `API_URL=https://api.calder.click` | `ALLOW_DEV_LOGIN` must be unset                      |
+| api       | `DATABASE_URL`, `REDIS_URL` (`rediss://` Upstash), `AUTH_SECRET`, `AWS_*` (SES), `WEBHOOK_SIGNING_SECRET`, `ADMIN_API_KEY`                                                             | Migrations run before deploy (`drizzle-kit migrate`) |
+| worker    | Same as api + `WORKER_CONCURRENCY`                                                                                                                                                     | Shares Redis + Postgres with api                     |
+| web       | None required (static)                                                                                                                                                                 | Rebuild on copy changes                              |
 
 Secrets live in the hosting provider's env store (Vercel env / container
 secrets), never in the repo. Rotate `AUTH_SECRET` invalidates all sessions by
