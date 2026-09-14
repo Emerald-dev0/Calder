@@ -78,14 +78,7 @@ export const ROLE_SECTIONS: Record<PlatformRole, ControlSection[]> = {
   billing: ["overview", "customers", "billing"],
   infrastructure: ["overview", "platform", "infrastructure", "observability"],
   security: ["overview", "customers", "security", "observability"],
-  analyst: [
-    "overview",
-    "growth",
-    "customers",
-    "billing",
-    "platform",
-    "infrastructure",
-  ],
+  analyst: ["overview", "growth", "customers", "billing", "platform", "infrastructure"],
 };
 
 export function canAccessSection(role: PlatformRole, section: ControlSection): boolean {

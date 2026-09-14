@@ -31,7 +31,11 @@ export const getControlContext = cache(async (): Promise<ControlContext | null> 
     .where(eq(users.id, user.userId))
     .limit(1);
 
-  const role = resolvePlatformRole(user.email, row?.platformRole ?? null, getConfig().FOUNDER_EMAILS);
+  const role = resolvePlatformRole(
+    user.email,
+    row?.platformRole ?? null,
+    getConfig().FOUNDER_EMAILS
+  );
   if (!role) return null;
   return { user, email: user.email, role };
 });
