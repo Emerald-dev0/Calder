@@ -5,6 +5,7 @@ import { authMiddleware, requireScope, type AuthContext } from "../middleware/au
 import { rateLimitMiddleware } from "../middleware/rate-limit.js";
 import { AppError, validationError } from "../errors/index.js";
 import { handleSendEmail } from "../services/email-service.js";
+import { kickDrain, executionCtxOf } from "../lib/kick-drain.js";
 
 const batch = new Hono<Env>();
 
@@ -100,6 +101,8 @@ batch.post("/", authMiddleware, rateLimitMiddleware("sending"), async (c) => {
       });
     }
   }
+
+  kickDrain(executionCtxOf(c));
 
   return c.json({ data: { accepted, skipped, results } }, 202);
 });

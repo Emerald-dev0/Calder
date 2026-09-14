@@ -1,8 +1,8 @@
 import { createQueue, type QueueJob } from "@calder/queue";
 import { isTransientError, getRetryDelay } from "@calder/queue";
-import { MockEmailProvider, pickDefaultTransport, GMAIL_FREE_DAILY_CAP } from "@calder/email";
+import { pickDefaultTransport, GMAIL_FREE_DAILY_CAP } from "@calder/email";
 import { createEmailService, type EmailService } from "@calder/email";
-import { SesEmailProvider, GmailTransport } from "@calder/providers";
+import { GmailTransport, resolveEmailProvider } from "@calder/providers";
 import { getGmailRefreshToken } from "@calder/auth";
 import { logger, type Logger } from "@calder/observability";
 import { randomUUID } from "node:crypto";
@@ -156,13 +156,13 @@ function getProvider() {
   // Last-mile providers only. Internal (dogfood) mail enters upstream at
   // enqueue time, routing ALL jobs through a self-calling provider here
   // would recurse (worker → API → queue → worker). See docs/SYSTEM-EXPLAINED.md.
-  // Use SES if AWS creds are present, otherwise mock
-  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+  const status = resolveEmailProvider();
+  if (status.deliverable) {
     logger.info("Using SES email provider");
-    return new SesEmailProvider();
+  } else {
+    logger.warn({ reason: status.reason }, "Using mock email provider");
   }
-  logger.info("Using Mock email provider (set AWS_ACCESS_KEY_ID to use SES)");
-  return new MockEmailProvider({ latencyMs: 100 });
+  return status.provider;
 }
 
 export async function startWorker() {
@@ -232,6 +232,45 @@ export async function startWorker() {
         }
       } catch (dbErr) {
         jobLogger.warn({ err: dbErr }, "DB lookup failed, trying in-memory fallback");
+      }
+
+      // ── Suppression check, before any provider call ────────
+      // The cron drains perform this check; the worker is a separate
+      // deliverable and must not be the path that mails someone who
+      // bounced, complained or opted out. See the sending-path checklist
+      // in AGENTS.md.
+      if (email) {
+        try {
+          const { getDb, emails, emailEvents, suppressions } = await import("@calder/db");
+          const { eq, and } = await import("drizzle-orm");
+          const db = getDb();
+          const sup = await db
+            .select()
+            .from(suppressions)
+            .where(and(eq(suppressions.projectId, projectId), eq(suppressions.email, email.to)))
+            .limit(1);
+          if (sup.length > 0) {
+            const now = new Date();
+            await db
+              .update(emails)
+              .set({ status: "suppressed", lastError: sup[0]!.reason, updatedAt: now })
+              .where(eq(emails.id, emailId));
+            await db.insert(emailEvents).values({
+              id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+              emailId,
+              projectId,
+              type: "suppressed",
+              data: { reason: sup[0]!.reason, source: "worker" },
+            });
+            jobLogger.info({ reason: sup[0]!.reason }, "Recipient suppressed, not sending");
+            return;
+          }
+        } catch (supErr) {
+          // Never send on an unverifiable suppression state. Fail closed:
+          // the queue retries, and a human sees the error.
+          jobLogger.error({ err: supErr }, "Suppression check failed, refusing to send");
+          throw supErr;
+        }
       }
 
       // In-memory fallback for scaffold without DB (API's memoryEmails not shared across processes;

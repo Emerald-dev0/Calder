@@ -271,3 +271,64 @@ Resend-style email + password; OTP instead of mailed reset links because
 receipt already proves ownership and there is nothing phishable to click
 later. Hashes never logged, never returned, reset marks the address
 verified.
+
+## ADR-024: Pricing architecture locked: capability ladder, two local prices, marketing included
+
+**Status:** Accepted (2026-09-14, public launch)
+**Decision:** Four plans, Beginner $0/₦0 (5,000 emails, 3 projects, 2 domains,
+development environment), Pro $15/₦25,000 (50,000, dev+staging+production),
+Premium $49/₦75,000 (250,000, deliverability + security + 90-day logs),
+Scale custom (dedicated capacity, SLA, SSO). ₦ and $ are separate price points,
+never an FX conversion. Marketing allowances are counted in contacts and are
+included in every plan, including Beginner.
+**Why:** the previous ₦10k/₦25k/₦60k hypothesis ladder was a volume ladder, which
+made Calder look like a Resend clone at every tier. The distinction that matters
+to a buyer is capability (build → ship → operate → depend), not the number of
+zeros. Priced-in-naira-because-you-are-in-Nigeria is a real advantage only if the
+naira price is a decision rather than a conversion. Including the marketing suite
+below the paid line removes the transactional/marketing bundling decision from
+the buyer's plate while the separate-streams architecture keeps their reputation
+intact.
+**Consequence:** `apps/web/lib/plans.ts` is the single public source of truth;
+the pricing page, comparison tables, FAQ and structured data all read from it.
+`docs/PRICING.md` §4's unit-economics gate still applies to any change.
+
+## ADR-025: Marketing becomes a first-class stream, not a feature flag
+
+**Status:** Accepted (direction), marketing suite **in development**
+**Decision:** Calder is not a transactional-only platform. Transactional
+(immediate, application-triggered) and marketing (scheduled, list-targeted) are
+two streams on one pipeline: separate suppression, separate consent, separate
+rate limits and separate allowance, sharing the API, event log, webhooks and
+quota meter. Public surfaces describe the marketing suite as "in development"
+until it ships; the label lives in `apps/web/lib/site.ts` and is removed in the
+shipping commit.
+**Why:** the original PRD said "not targeting: newsletter platforms, marketing
+automation". That stance is wrong for the market Calder actually sells into:
+Nigerian and African teams overwhelmingly want both, and buying them from two
+vendors means two reputations, two suppression lists and two bills. Making them
+one platform with two streams is the differentiator, and it is only defensible
+because the streams never share reputation.
+**Consequence:** PRD §3/§18 updated; campaigns remain post-MVP in scope, so the
+architecture is not re-opened, only the product direction.
+
+## ADR-026: The sending path fails loudly, never silently simulates
+
+**Status:** Accepted (2026-09-14)
+**Decision:** `resolveEmailProvider()` in `@calder/providers` is the only place
+a mail provider is chosen. In production, missing AWS credentials throw
+`EmailProviderNotConfiguredError` instead of falling back to the mock provider.
+In development the mock is correct behaviour and is logged with its reason.
+`/ready` performs real checks (database query, Redis PING, provider
+deliverability) and reports `degraded` with a 503 rather than claiming `ok`.
+`pnpm launch-check` verifies the whole confirmation-email path: provider
+credentials, SES sandbox status, internal tenant seed, dynamic waitlist template,
+queue durability, secrets and origin allowlist.
+**Why:** every auth email path (signup verification, magic link, waitlist
+confirmation) previously resolved `AWS_ACCESS_KEY_ID ? SES : Mock` inline, so a
+production deploy without credentials accepted requests, stamped 200s, and
+delivered nothing, indistinguishable from a deliverability problem. That is the
+worst possible failure for a launch: silent, and discovered by users.
+**Consequence:** provider selection is uniform across API, worker, cron and
+dashboard auth routes; a genuinely unconfigured production deploy fails on the
+first send attempt instead of pretending.

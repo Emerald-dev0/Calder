@@ -13,12 +13,11 @@ import { randomUUID } from "node:crypto";
 import { logger } from "@calder/observability";
 import {
   createEmailService,
-  MockEmailProvider,
   pickDefaultTransport,
   GMAIL_FREE_DAILY_CAP,
   isProviderError,
 } from "@calder/email";
-import { SesEmailProvider, GmailTransport } from "@calder/providers";
+import { GmailTransport, resolveEmailProvider } from "@calder/providers";
 import { getGmailRefreshToken } from "@calder/auth";
 import { isTransientError, getRetryDelay } from "@calder/queue";
 
@@ -39,11 +38,13 @@ function authorized(c: { req: { header: (n: string) => string | undefined } }): 
   return false;
 }
 
+/**
+ * Provider selection is centralized in @calder/providers: a production deploy
+ * without AWS credentials must fail loudly rather than simulate delivery.
+ * Per-project transports (Gmail, SES) are chosen later in the drain loop.
+ */
 function getProvider() {
-  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
-    return new SesEmailProvider();
-  }
-  return new MockEmailProvider({ latencyMs: 50 });
+  return resolveEmailProvider().provider;
 }
 
 async function buildGmail(

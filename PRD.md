@@ -1,14 +1,14 @@
 # Calder, Product Requirements Document (v0.2)
 
 Status: Pre-launch. Rebrand (Avenor → Calder) + transport architecture adopted.
-Category: Developer infrastructure / transactional communication
-Initial primitive: Transactional email
+Category: Developer infrastructure / application communication
+Primitives: Transactional email (live) + marketing email (in development)
 
 ## 1. Summary
 
 Calder is developer-first communication infrastructure, starting with transactional email and designed to expand into a broader communication layer (OTP, SMS, push) without architectural rework.
 
-Positioning: **Calder, the easiest way to add reliable transactional email to an application.** Communication infrastructure that gets out of your way. Differentiation comes from developer experience + domain intelligence + debuggability + predictable pricing + distinctive design, combined, not any single feature.
+Positioning: **Calder, email infrastructure for applications.** Transactional mail (OTPs, resets, receipts, alerts) and marketing mail (campaigns, lifecycle) on two streams over one pipeline, one API, one event log. Differentiation comes from developer experience + domain intelligence + debuggability + separate-stream reputation + two locally-priced currencies + distinctive design, combined, not any single feature.
 
 ## 2. Problem
 
@@ -20,7 +20,7 @@ Developers need application-generated transactional communication but implementi
 
 **First market, not ceiling:** Nigeria-first, NGN pricing, local payment rails, onboarding that assumes no domain and no budget. The product must never look geographically limited: same API, same reliability bar, global ambition. Nigeria is the wedge (accessible pricing, Gmail-first beginners, underserved builders), not the boundary.
 
-**Not targeting (initially):** newsletter platforms, marketing automation, CRM, bulk/broadcast email.
+**Not targeting:** CRM, sales engagement, or a drag-and-drop page builder. Marketing email *is* in scope from 2026-09-14 (ADR-025), as a second stream over the same pipeline, not a separate product sold separately.
 
 ## 4. Core model
 
@@ -62,20 +62,30 @@ Versioned from first release (`/v1/...`). Predictable error shape: `{ error: { c
 
 Calder exposes **REST API** (modern applications, SDKs) and **SMTP** (`smtp.calder.com:587`, STARTTLS; project-scoped username + generated secret) for existing stacks and SMTP-native libraries (Nodemailer, smtplib, Laravel/Django mailers, etc.). Both converge into the same ingestion → queue → worker → provider pipeline: one email model, one event lifecycle, one usage meter, one billable event. SMTP is a standard-protocol interface, not a second delivery system. No anonymous relay, ever, authentication and TLS are mandatory. Full spec: `docs/SMTP.md`.
 
-## 11. Pricing (hypothesis, NOT finalized)
+## 11. Pricing (locked for launch, 2026-09-14)
 
-| Plan | Price (NGN) | Target volume | USD equiv* |
-| ------- | ------------ | ------------- | ---------- |
-| Free | ₦0 | 3, 000/mo | $0 |
-| Builder | ≈ ₦10,000/mo | ~25,000 | ≈ $7 |
-| Pro | ≈ ₦25,000/mo | ~75,000 | ≈ $16 |
-| Scale | ≈ ₦60,000/mo | ~250,000 | ≈ $40 |
+| Plan | USD | NGN | Emails / month | Projects | Domains | Team | Environments | Logs | Support |
+| -------- | ----- | --------- | -------------- | -------- | ------- | ---- | ---------------------------- | ------- | --------- |
+| Beginner | $0 | ₦0 | 5,000 | 3 | 2 | 1 | Development | 7 days | Community |
+| Pro | $15 | ₦25,000 | 50,000 | 10 | 10 | 5 | Dev + Staging + Production | 30 days | Email |
+| Premium | $49 | ₦75,000 | 250,000 | 50 | 50 | 15 | Dev + Staging + Production | 90 days | Priority |
+| Scale | Custom | Custom | Custom | Custom | Custom | Custom | Custom | Custom | Dedicated |
 
-Free includes Gmail connection, 1 domain, API + SMTP, templates, basic logs, 1 webhook. Higher tiers add domains, campaigns (post-MVP), webhooks, retention, analytics, teams.
+Marketing allowances, counted in **contacts** and separate from transactional
+send volume: 1,000 / 10,000 / 50,000 / Custom. The marketing suite (campaigns,
+audiences, segments, automations, preference center, transaction/marketing
+stream separation) is included in **every plan including Beginner**, and is
+labeled "in development" on public surfaces until it ships.
 
-\*USD equivalents unset, FX volatility makes premature dollar figures dishonest. NGN leads; USD follows at launch parity review.
-
-Rules: hypotheses, not promises, no value is hardcoded anywhere except plan-configuration tables. Hard limits over overages. Unit-economics model required before commercial lock: see `docs/PRICING.md`.
+Rules (unchanged, and now enforced by ADR-024):
+- Naira and dollar figures are separate local price points, never an FX
+  conversion. Hard limits over overages.
+- `apps/web/lib/plans.ts` is the single public source of truth; the pricing page,
+  comparison tables, FAQ and structured data read from it.
+- The unit-economics gate in `docs/PRICING.md` §4 applies to any change to this
+  table, including marketing allowances.
+- No value may be hardcoded anywhere outside plan-configuration tables and that
+  file.
 
 ## 12. Payments
 
@@ -87,7 +97,7 @@ Sending flows through per-project **transports** (`project_transports`): Gmail (
 
 **Gmail Quickstart:** no domain required. OAuth (minimum `gmail.send` scope, never passwords), encrypted tokens, conservative daily caps, limits surfaced transparently. When the app grows, Calder prompts domain verification and graduates the project to production infrastructure.
 
-**Campaigns vs transactional (architecture, not product yet):** transactional (OTP, receipts, resets, notifications) ships now. Campaigns (audiences, consent, unsubscribe, scheduling, batching, analytics) are an explicit future architecture, never "one send × 10, 000". No bulk mail through Gmail, ever.
+**Campaigns vs transactional (two streams, one pipeline):** transactional (OTP, receipts, resets, notifications) is live. Marketing (audiences, consent, unsubscribe, scheduling, batching, analytics) is in development on the same pipeline with its own suppression, consent, rate limits and contact allowance, never "one send × 10,000", and never sharing reputation with application mail. No bulk mail through Gmail, ever. See ADR-025.
 
 ## 19. Abuse posture (new)
 

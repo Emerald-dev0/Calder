@@ -102,6 +102,7 @@ pnpm typecheck # Type-check all packages
 pnpm test # Run all tests
 pnpm format # Format with Prettier
 pnpm db:studio # Open Drizzle Studio
+pnpm launch-check # Verify the confirmation-email path is launch-ready
 ```
 
 ## Git workflow & pull requests
