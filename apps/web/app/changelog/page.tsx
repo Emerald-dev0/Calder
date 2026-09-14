@@ -12,29 +12,21 @@ export const metadata: Metadata = {
 const ENTRIES = [
   {
     date: "Sep 2026",
-    title: "A logo that looks like us",
+    title: "A new home for Calder",
     points: [
-      "New wordmark, favicon, and the signal motif you'll see across the product",
-      "Hand-drawn illustration style for the site and dashboard empty states",
-      "A 404 page that reads like a delivery log, because of course it does",
+      "Rebuilt the public site around the core idea: communication infrastructure for applications",
+      "New visual identity, interactive delivery lifecycle, and updated documentation",
+      "Pricing locked in ₦ and $ separately, with honest growth paths",
     ],
   },
   {
     date: "Sep 2026",
-    title: "The site you're reading",
+    title: "Calder is live",
     points: [
-      "Watch a test email travel queued → sent → delivered, live on the homepage",
-      "Copy-paste sending examples in cURL, Node, and Python",
-      "Pricing in naira and dollars, with the honest math attached",
-    ],
-  },
-  {
-    date: "Sep 2026",
-    title: "The engine room",
-    points: [
-      "Send pipeline live: every request validated, stored, queued, and answered in milliseconds",
-      "Safe retries built in, send the same request twice, deliver exactly once",
-      "Full event history on every email, from queued to opened",
+      "REST API for sending email with asynchronous delivery pipeline",
+      "Safe retries, idempotency, and full event history on every message",
+      "Signed webhooks, SMTP support, and sending domain verification",
+      "Projects, API keys, and usage tracking",
     ],
   },
 ];
@@ -45,13 +37,9 @@ export default function ChangelogPage() {
       <Navigation />
       <main>
         <PageHero
-          eyebrow="Changelog"
-          title={
-            <>
-              What shipped, <em>in order.</em>
-            </>
-          }
-          lede="No hype, no 'we're thrilled to announce.' Just the work, newest first, including the unglamorous foundation weeks."
+          eyebrow="The Calder build log"
+          title="Changelog"
+          lede="A running record of what we&rsquo;re shipping, improving, and learning as Calder grows. No hype. Just the work."
         />
         <section className="section" style={{ paddingTop: 0 }}>
           <div className="wrap">

@@ -9,61 +9,79 @@ export function Pipeline() {
     <section className="section" id="pipeline">
       <div className="wrap">
         <Reveal>
-          <p className="eyebrow">How it works</p>
+          <p className="eyebrow">How Calder works</p>
           <h2 className="h2">
-            Most email APIs are a black box <em>with a prayer inside.</em>
+            Your application talks. <em>Calder handles the rest.</em>
           </h2>
           <p className="lede" style={{ marginTop: "1.2rem" }}>
-            Calder answers in milliseconds, then keeps working after the response. Your request is
-            validated, written down and queued; a worker walks the message to the provider and
-            records each step it takes, including the ones that fail.
+            Your code shouldn&rsquo;t have to know how queues work, which provider is available,
+            whether a delivery failed, or how many times a webhook needs to retry. That&rsquo;s
+            Calder&rsquo;s job.
           </p>
         </Reveal>
-        <Reveal delay={120}>
-          <div className="pipeline">
-            <div className="pipeline-flow">
-              <div className="pnode">
-                <div className="pnode-kicker">01 · You</div>
-                <div className="pnode-title">Your application</div>
-                <div className="pnode-sub">One POST. Idempotency-Key header, Bearer API key.</div>
-              </div>
-              <div className="plink" aria-hidden="true" />
-              <div className="pnode hero-node">
-                <div className="pnode-kicker">02 · Calder API</div>
-                <div className="pnode-title">Validate → persist → enqueue</div>
-                <div className="pnode-sub">Responds 202 Accepted. Nothing blocks on delivery.</div>
-              </div>
-              <div className="plink" aria-hidden="true" />
-              <div className="pnode">
-                <div className="pnode-kicker">03 · Worker</div>
-                <div className="pnode-title">Send &amp; retry</div>
-                <div className="pnode-sub">
-                  Backoff with jitter. Dead-letter, never silent loss.
-                </div>
-              </div>
-              <div className="plink" aria-hidden="true" />
-              <div className="pnode">
-                <div className="pnode-kicker">04 · Provider</div>
-                <div className="pnode-title">AWS SES</div>
-                <div className="pnode-sub">Behind an abstraction, swappable, failover-ready.</div>
-              </div>
-              <div className="plink" aria-hidden="true" />
-              <div className="pnode">
-                <div className="pnode-kicker">05 · Inbox</div>
-                <div className="pnode-title">Delivered</div>
-                <div className="pnode-sub">Bounce and complaint signals flow back as events.</div>
+
+        <div className="pipeline-v2">
+          <Reveal delay={100} className="pipeline-step">
+            <div className="step-number">01</div>
+            <div className="step-content">
+              <h3>Your application</h3>
+              <p>
+                <strong>Make one request.</strong> Send through the API or use SMTP. Add an
+                idempotency key when you need guaranteed retry behavior.
+              </p>
+              <div className="step-meta">
+                API or SMTP &middot; <code>Idempotency-Key</code> supported
               </div>
             </div>
-            <div className="pipeline-return">
-              <span>every step emits →</span>
-              <span className="event-pill">email.queued</span>
-              <span className="event-pill">email.sent</span>
-              <span className="event-pill">email.delivered</span>
-              <span className="event-pill">email.bounced</span>
-              <span>signed webhooks · retried with history</span>
+          </Reveal>
+
+          <Reveal delay={200} className="pipeline-step">
+            <div className="step-number">02</div>
+            <div className="step-content">
+              <h3>Calder</h3>
+              <p>
+                <strong>We validate, record, and queue it.</strong> Your request gets a fast
+                response while Calder takes care of everything that comes after.
+              </p>
+              <div className="step-meta">Validate &rarr; Record &rarr; Queue</div>
             </div>
-          </div>
-        </Reveal>
+          </Reveal>
+
+          <Reveal delay={300} className="pipeline-step">
+            <div className="step-number">03</div>
+            <div className="step-content">
+              <h3>Delivery</h3>
+              <p>
+                <strong>We keep it moving.</strong> Workers process the message, retry temporary
+                failures, and route it through the delivery infrastructure.
+              </p>
+              <div className="step-meta">Automatic retries · Smart routing</div>
+            </div>
+          </Reveal>
+
+          <Reveal delay={400} className="pipeline-step">
+            <div className="step-number">04</div>
+            <div className="step-content">
+              <h3>Your recipient</h3>
+              <p>
+                <strong>It arrives.</strong> Delivery and engagement signals come back to Calder.
+              </p>
+              <div className="step-meta">Signal capture · Real-time status</div>
+            </div>
+          </Reveal>
+
+          <Reveal delay={500} className="pipeline-step">
+            <div className="step-number">05</div>
+            <div className="step-content">
+              <h3>Your dashboard</h3>
+              <p>
+                <strong>You can see exactly what happened.</strong> Every important step becomes an
+                event you can inspect, search, and act on.
+              </p>
+              <div className="step-meta">Full lifecycle events · Event logs</div>
+            </div>
+          </Reveal>
+        </div>
       </div>
     </section>
   );

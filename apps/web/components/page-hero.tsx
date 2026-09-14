@@ -3,7 +3,7 @@ import { Reveal } from "./reveal";
 interface PageHeroProps {
  eyebrow: string;
  title: React.ReactNode;
- lede: string;
+ lede: React.ReactNode;
 }
 
 /** Shared inner-page hero: eyebrow, display title, lede. */

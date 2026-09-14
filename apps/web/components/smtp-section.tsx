@@ -12,68 +12,79 @@ export function SmtpSection() {
         <Reveal>
           <p className="eyebrow">Two ways in</p>
           <h2 className="h2">
-            Use the interface <em>you already know.</em>
+            Use the interface that <em>fits your stack.</em>
           </h2>
           <p className="lede" style={{ marginTop: "1.2rem" }}>
-            New application? POST JSON to <span className="mono">/v1/emails</span>. WordPress,
-            Laravel, Django, or a cron script that has sent mail the same way for years? Point the
-            SMTP client you already have at Calder instead. Both routes land in the same queue, the
-            same retries and the same log, and you never run a mail server.
+            Building something new? <strong>Use the API.</strong> Already have an application
+            sending mail through SMTP? <strong>Keep using SMTP.</strong> Both end up in the same
+            Calder pipeline, with the same delivery tracking, events, retries, and observability.
           </p>
         </Reveal>
         <div className="dev-grid">
           <Reveal>
-            <CodeBlock
-              title="api, POST /v1/emails → 202"
-              copyText={`curl https://api.calder.click/v1/emails -H "Authorization: Bearer calder_sk_live_…" -d '{"from":"app@acme.com", "to":"ada@example.com", "subject":"Hi", "text":"…"}'`}
-            >
-              <span className="tok-method">POST</span> <span className="tok-path">/v1/emails</span>{" "}
-              <span className="tok-method">→ 202</span>
-              {"\n"}
-              <span className="tok-punct">{"{"}</span>{" "}
-              <span className="tok-key">&quot;id&quot;</span>:{" "}
-              <span className="tok-str">&quot;em_9f2k41xq&quot;</span>,{" "}
-              <span className="tok-key">&quot;status&quot;</span>:{" "}
-              <span className="tok-str">&quot;queued&quot;</span>{" "}
-              <span className="tok-punct">{"}"}</span>
-            </CodeBlock>
+            <div className="pipeline" style={{ marginTop: 0, height: "100%" }}>
+              <p className="eyebrow">API</p>
+              <p className="caption" style={{ marginBottom: "1.5rem", fontSize: "0.95rem" }}>
+                <code>POST /v1/emails &rarr; 202 Accepted</code>
+              </p>
+              <CodeBlock title="Response" copyText='{"id": "em_9f2k41xq", "status": "queued"}'>
+                <span className="tok-punct">{"{"}</span>
+                {"\n"}
+                &nbsp;&nbsp;<span className="tok-key">&quot;id&quot;</span>:{" "}
+                <span className="tok-str">&quot;em_9f2k41xq&quot;</span>,
+                {"\n"}
+                &nbsp;&nbsp;<span className="tok-key">&quot;status&quot;</span>:{" "}
+                <span className="tok-str">&quot;queued&quot;</span>
+                {"\n"}
+                <span className="tok-punct">{"}"}</span>
+              </CodeBlock>
+            </div>
           </Reveal>
           <Reveal delay={120}>
-            <CodeBlock
-              title="smtp, smtp.calder.click:587"
-              copyText={`host: smtp.calder.click
-port: 587 (STARTTLS)
-user: <project SMTP username>
-pass: <generated secret, shown once>`}
-            >
-              <span className="tok-key">host</span>:{" "}
-              <span className="tok-str">smtp.calder.click</span>
-              {"\n"}
-              <span className="tok-key">port</span>: <span className="tok-num">587</span>{" "}
-              <span className="tok-dim">(STARTTLS)</span>
-              {"\n"}
-              <span className="tok-key">user</span>:{" "}
-              <span className="tok-str">&lt;project username&gt;</span>
-              {"\n"}
-              <span className="tok-key">pass</span>:{" "}
-              <span className="tok-str">&lt;generated secret&gt;</span>
-              {"\n"}
-              <span className="tok-method">→ 250 Queued</span>{" "}
-              <span className="tok-dim">(same pipeline)</span>
-            </CodeBlock>
+            <div className="pipeline" style={{ marginTop: 0, height: "100%" }}>
+              <p className="eyebrow">SMTP</p>
+              <p className="caption" style={{ marginBottom: "1.5rem", fontSize: "0.95rem" }}>
+                <code>smtp.calder.click:587</code>
+              </p>
+              <div className="minilog">
+                <div className="minilog-row">
+                  <span className="status-dot ok" />
+                  <span className="addr">
+                    <b>STARTTLS</b> &middot; Secure transport
+                  </span>
+                </div>
+                <div className="minilog-row">
+                  <span className="status-dot ok" />
+                  <span className="addr">
+                    <b>Authenticated</b> &middot; Project credentials
+                  </span>
+                </div>
+                <div className="minilog-row">
+                  <span className="status-dot ok" />
+                  <span className="addr">
+                    <b>Same pipeline</b> &middot; Identical tracking
+                  </span>
+                </div>
+              </div>
+              <div style={{ marginTop: "2rem" }}>
+                <p
+                  className="caption"
+                  style={{
+                    borderLeft: "2px solid var(--border)",
+                    paddingLeft: "1.2rem",
+                    fontStyle: "italic",
+                  }}
+                >
+                  No mail server to operate.
+                  <br />
+                  No second system to monitor.
+                  <br />
+                  No separate set of logs to understand.
+                </p>
+              </div>
+            </div>
           </Reveal>
         </div>
-        <Reveal delay={80}>
-          <div className="pipeline-return" style={{ marginTop: "1.4rem" }}>
-            <span>you never operate →</span>
-            <span className="event-pill">mail servers</span>
-            <span className="event-pill">queues</span>
-            <span className="event-pill">retries</span>
-            <span className="event-pill">webhooks</span>
-            <span className="event-pill">provider infra</span>
-            <span>bring a domain when ready, test keys need nothing</span>
-          </div>
-        </Reveal>
       </div>
     </section>
   );

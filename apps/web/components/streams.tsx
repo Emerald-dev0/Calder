@@ -66,50 +66,84 @@ export function Streams() {
     <section className="section" id="streams">
       <div className="wrap">
         <Reveal>
-          <p className="eyebrow">Two streams, one platform</p>
+          <p className="eyebrow">One platform. Different kinds of communication.</p>
           <h2 className="h2">
-            An OTP is not a newsletter. <em>They should not share a reputation.</em>
+            Different messages <em>have different jobs.</em>
           </h2>
           <p className="lede" style={{ marginTop: "1.2rem" }}>
-            Run application mail and campaign mail through one provider and a bad campaign week
-            becomes a broken login. Calder keeps them on separate streams with separate suppression,
-            consent and rate limits, behind the same API and the same log.
+            A verification code and a product announcement shouldn&rsquo;t behave the same way.
+            Calder gives application and campaign communication the separation they need while
+            keeping everything your team uses in one place.
           </p>
         </Reveal>
 
         <div className="lanes">
           <Reveal>
-            <Lane
-              title="Transactional"
-              tag="live today"
-              tone="live"
-              caption="Mail your application sends because someone did something. Sent immediately, never batched into a campaign, never delayed by one."
-              events={TRANSACTIONAL}
-            />
+            <div className="lane lane-live">
+              <div className="lane-head">
+                <h3>Transactional</h3>
+              </div>
+              <p className="lane-caption">
+                The messages your application sends when something happens. Fast, reliable, and
+                event-driven.
+              </p>
+              <div className="lane-events">
+                {[
+                  "Verification codes",
+                  "Password resets",
+                  "Receipts",
+                  "Invoices",
+                  "Security alerts",
+                  "Order updates",
+                  "Account notifications",
+                ].map((name) => (
+                  <div className="lane-event" key={name}>
+                    <span className="lane-dot" aria-hidden="true" />
+                    <span className="lane-name">{name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </Reveal>
           <Reveal delay={90}>
-            <Lane
-              title="Marketing"
-              tag="in development"
-              tone="dev"
-              caption="Mail you decide to send to a list: newsletters, launches, lifecycle. Own audiences, own consent, own reputation, and its own contact allowance on every plan."
-              events={MARKETING}
-            />
+            <div className="lane lane-live">
+              <div className="lane-head">
+                <h3>Marketing</h3>
+              </div>
+              <p className="lane-caption">
+                The messages you send when you have something to say. Audiences, consent,
+                scheduling, and automation.
+              </p>
+              <div className="lane-events">
+                {[
+                  "Newsletters",
+                  "Announcements",
+                  "Product launches",
+                  "Promotions",
+                  "Re-engagement",
+                  "Lifecycle communication",
+                  "Campaign analytics",
+                ].map((name) => (
+                  <div className="lane-event" key={name}>
+                    <span className="lane-dot" aria-hidden="true" />
+                    <span className="lane-name">{name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </Reveal>
         </div>
 
         <Reveal delay={60}>
-          <div className="pipeline-return" style={{ marginTop: "1.6rem" }}>
-            <span>one pipeline underneath →</span>
-            <span className="event-pill">same API</span>
-            <span className="event-pill">same event log</span>
-            <span className="event-pill">same webhooks</span>
-            <span className="event-pill">same quota meter</span>
-            <span>
-              {MARKETING_SUITE === "dev"
-                ? "marketing stream ships to every plan, including Beginner"
-                : "marketing stream is live on every plan"}
-            </span>
+          <div
+            className="pipeline-return"
+            style={{ marginTop: "3rem", justifyContent: "center", gap: "2rem" }}
+          >
+            <span style={{ fontWeight: 700, color: "var(--ink)" }}>Two streams. One Calder.</span>
+            <span>One API</span>
+            <span>One event history</span>
+            <span>One dashboard</span>
+            <span>One place to understand what you&rsquo;re sending</span>
           </div>
         </Reveal>
       </div>
