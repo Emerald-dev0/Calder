@@ -1,5 +1,5 @@
 import { desc, inArray } from "drizzle-orm";
-import { getDb, emails, emailEvents } from "@calder/db";
+import { getDb, emailEvents } from "@calder/db";
 import { getTenantContext } from "../../../lib/auth";
 import { EmptyState } from "../../../components/empty-state";
 

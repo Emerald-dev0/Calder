@@ -1,4 +1,4 @@
-import { desc, inArray, count, sql } from "drizzle-orm";
+import { desc, inArray, count } from "drizzle-orm";
 import { getDb, emails } from "@calder/db";
 import { getTenantContext } from "../../../lib/auth";
 import { EmptyState } from "../../../components/empty-state";

@@ -1,4 +1,4 @@
-import { desc, inArray, count, gte } from "drizzle-orm";
+import { desc, inArray, count } from "drizzle-orm";
 import { getDb, emails, domains } from "@calder/db";
 import { getTenantContext } from "../../lib/auth";
 
@@ -49,7 +49,9 @@ export default async function OverviewPage() {
     try {
       const doms = await db.select({ id: domains.id }).from(domains).where(inArray(domains.projectId, projectIds)).limit(1);
       health = [{ label: "Domain", ok: doms.length > 0 }, ...health];
-    } catch {}
+    } catch {
+      // health check best-effort
+    }
   }
 
   const cards = [
