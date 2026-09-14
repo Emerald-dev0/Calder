@@ -1,4 +1,4 @@
-import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
+import { SESv2Client, SendEmailCommand, GetAccountCommand } from "@aws-sdk/client-sesv2";
 import type { EmailProvider, EmailMessage, ProviderSendResult, ProviderError } from "@calder/email";
 
 /**
@@ -81,4 +81,34 @@ export function createSesProvider(region?: string): SesEmailProvider {
     return new SesEmailProvider(new SESv2Client({ region }));
   }
   return new SesEmailProvider();
+}
+
+export interface SesAccountStatus {
+  /** Sandbox accounts can only send to verified recipients. Launch blocker. */
+  sandbox: boolean;
+  enforcementStatus: string | null;
+  max24HourSend: number;
+  sentLast24Hours: number;
+  /** 0 in sandbox; anything above means real sending rate is available. */
+  maxSendRate: number;
+}
+
+/**
+ * SES account status, the single most common silent launch failure. A brand
+ * new AWS account is in the sandbox, where sending to an unverified address is
+ * rejected (or silently dropped in some flows). `/ready` cannot see this, it
+ * needs an API call, so this is used by the launch check and by operators.
+ */
+export async function getSesAccountStatus(
+  client?: SESv2Client
+): Promise<SesAccountStatus> {
+  const ses = client ?? new SESv2Client({ region: process.env.AWS_REGION ?? "us-east-1" });
+  const account = await ses.send(new GetAccountCommand({}));
+  return {
+    sandbox: account.ProductionAccessEnabled !== true,
+    enforcementStatus: account.EnforcementStatus ?? null,
+    max24HourSend: account.SendQuota?.Max24HourSend ?? 0,
+    sentLast24Hours: account.SendQuota?.SentLast24Hours ?? 0,
+    maxSendRate: account.SendQuota?.MaxSendRate ?? 0,
+  };
 }

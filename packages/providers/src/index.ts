@@ -1,4 +1,4 @@
-export { SesEmailProvider, createSesProvider } from "./ses";
+export { SesEmailProvider, createSesProvider, getSesAccountStatus, type SesAccountStatus } from "./ses";
 export {
   GmailTransport,
   createGmailTransport,
@@ -10,3 +10,9 @@ export {
 export { CalderEmailProvider, createCalderProvider } from "./calder";
 export { MockEmailProvider } from "@calder/email";
 export type { EmailProvider, EmailMessage, ProviderSendResult } from "@calder/email";
+export {
+  resolveEmailProvider,
+  EmailProviderNotConfiguredError,
+  type EmailProviderStatus,
+  type ResolveEmailProviderOptions,
+} from "./resolve";

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getConfig } from "@calder/config";
 import { requestMagicLink, normalizeEmail, isPlausibleEmail, MAGIC_LINK_FROM } from "@calder/auth";
-import { brandEmail, createEmailService, MockEmailProvider } from "@calder/email";
+import { brandEmail, createEmailService } from "@calder/email";
+import { resolveEmailProvider } from "@calder/providers";
 import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { logger } from "@calder/observability";
 
@@ -48,17 +49,25 @@ export async function POST(req: Request): Promise<Response> {
     const origin = new URL(req.url).origin;
     const link = `${origin}/api/auth/magic-link/callback?token=${raw}`;
     const config = getConfig();
-    const { createSesProvider } = await import("@calder/providers");
-    const provider = config.AWS_ACCESS_KEY_ID
-      ? createSesProvider(config.AWS_REGION)
-      : new MockEmailProvider({ latencyMs: 50 });
-    const service = createEmailService(provider);
+    const status = resolveEmailProvider();
+    const service = createEmailService(status.provider);
+    if (!status.deliverable) {
+      logger.warn(
+        { driver: status.driver, reason: status.reason },
+        "Magic link is NOT deliverable"
+      );
+    }
     const html = brandEmail(
-      `<p>Click the link below to sign in to Calder. It expires in 15 minutes and works once.</p><p><a href="${link}">Sign in to Calder</a></p><p>If you did not request this, ignore this email.</p>`,
-      { preheader: "Your one-time Calder sign-in link." }
+      `<p style="margin:0 0 16px;">Here is your one-time sign-in link. It expires in 15 minutes and works once.</p>
+       <p style="margin:0 0 16px;"><a href="${link}" style="display:inline-block;background:#0B0C0E;color:#F5F4EF;text-decoration:none;padding:11px 18px;border-radius:8px;font-weight:600;">Sign in to Calder</a></p>
+       <p style="margin:0;color:#737373;font-size:13px;">If you did not request this, ignore this email. Nothing will happen.</p>`,
+      {
+        preheader: "Your one-time Calder sign-in link.",
+        unsubscribeReason: "You have a Calder account, so we email you about it.",
+      }
     );
     const result = await service.send({
-      from: MAGIC_LINK_FROM,
+      from: config.AUTH_EMAIL_FROM ?? MAGIC_LINK_FROM,
       to: email,
       subject: "Sign in to Calder",
       html,

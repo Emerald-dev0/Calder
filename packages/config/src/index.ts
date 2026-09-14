@@ -31,16 +31,26 @@ const envSchema = z.object({
   // Founder bootstrap: comma-separated emails auto-granted owner of org_avenor on first login
   FOUNDER_EMAILS: z.string().optional(),
 
-  // Email Provider, optional in dev (mock provider used)
+  // Email Provider, optional in dev (mock provider used). In production the
+  // credentials are required: @calder/providers refuses to simulate delivery.
   AWS_REGION: z.string().default("us-east-1"),
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
   SES_FROM_DOMAIN: z.string().optional(),
+  // Sender for Calder's own mail (verification codes, magic links, receipts).
+  // SES sandbox only delivers from a verified identity, so this must be
+  // settable without a deploy. Defaults to "Calder <hello@calder.click>".
+  AUTH_EMAIL_FROM: z.string().optional(),
 
   // Billing (Bachs), optional until integration validated
   BACHS_API_KEY: z.string().optional(),
   BACHS_WEBHOOK_SECRET: z.string().optional(),
   BACHS_API_URL: z.string().url().optional(),
+
+  // Browser origins allowed to call the public API. Server-to-server calls are
+  // unaffected (no CORS involved). Defaults cover the first-party surfaces;
+  // development reflects any origin so local previews work.
+  ALLOWED_ORIGINS: z.string().optional(),
 
   // Webhooks
   WEBHOOK_SIGNING_SECRET: z.string().min(8).default("whsec_dev_secret_change_me"),

@@ -1,8 +1,8 @@
 import { createQueue, type QueueJob } from "@calder/queue";
 import { isTransientError, getRetryDelay } from "@calder/queue";
-import { MockEmailProvider, pickDefaultTransport, GMAIL_FREE_DAILY_CAP } from "@calder/email";
+import { pickDefaultTransport, GMAIL_FREE_DAILY_CAP } from "@calder/email";
 import { createEmailService, type EmailService } from "@calder/email";
-import { SesEmailProvider, GmailTransport } from "@calder/providers";
+import { GmailTransport, resolveEmailProvider } from "@calder/providers";
 import { getGmailRefreshToken } from "@calder/auth";
 import { logger, type Logger } from "@calder/observability";
 import { randomUUID } from "node:crypto";
@@ -156,13 +156,13 @@ function getProvider() {
   // Last-mile providers only. Internal (dogfood) mail enters upstream at
   // enqueue time, routing ALL jobs through a self-calling provider here
   // would recurse (worker → API → queue → worker). See docs/SYSTEM-EXPLAINED.md.
-  // Use SES if AWS creds are present, otherwise mock
-  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+  const status = resolveEmailProvider();
+  if (status.deliverable) {
     logger.info("Using SES email provider");
-    return new SesEmailProvider();
+  } else {
+    logger.warn({ reason: status.reason }, "Using mock email provider");
   }
-  logger.info("Using Mock email provider (set AWS_ACCESS_KEY_ID to use SES)");
-  return new MockEmailProvider({ latencyMs: 100 });
+  return status.provider;
 }
 
 export async function startWorker() {

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from "../app.js";
 import spec from "../../openapi.json";
+import { pingRedis } from "../lib/redis-ping.js";
 
 const health = new Hono<Env>();
 
@@ -14,32 +15,85 @@ health.get("/health", (c) => {
   return c.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+type CheckState = "ok" | "degraded" | "skipped";
+
+/**
+ * Readiness, with real checks and honest states.
+ *
+ * Rules this endpoint follows, because a lie here pages someone at 3am:
+ * - "unavailable" is never reported as "ok"
+ * - a check that cannot run is "skipped", with the reason
+ * - the email provider check is the one that matters most for launch:
+ *   a production deploy without credentials can accept sends and deliver
+ *   nothing, so `/ready` refuses to say ready in that state.
+ */
 health.get("/ready", async (c) => {
-  // Check critical dependencies
-  const checks: Record<string, string> = {};
+  const checks: Record<string, { state: CheckState; detail?: string }> = {};
+  const required: string[] = [];
   let ready = true;
 
-  // DB check, try to query if DATABASE_URL available and not in test mock bypass
+  // ── Email provider (the launch-critical one) ──────────────────
   try {
-    if (process.env.DATABASE_URL) {
-      // Lightweight check: we don't actually connect in scaffold if no DB
-      // For scaffold readiness: report degraded if env forces check and fails
-      checks.db = "ok";
-    } else {
-      checks.db = "skipped (no DATABASE_URL)";
-    }
-  } catch {
-    checks.db = "degraded";
+    const { resolveEmailProvider } = await import("@calder/providers");
+    const status = resolveEmailProvider();
+    checks.email_provider = {
+      state: status.deliverable ? "ok" : "degraded",
+      detail: status.deliverable
+        ? `driver=${status.driver}`
+        : `${status.reason ?? "not deliverable"}`,
+    };
+    if (!status.deliverable && process.env.NODE_ENV === "production") ready = false;
+    required.push("email_provider");
+  } catch (err) {
+    // resolveEmailProvider throws in production when credentials are missing.
+    checks.email_provider = {
+      state: "degraded",
+      detail: err instanceof Error ? err.message : "provider resolution failed",
+    };
     ready = false;
+    required.push("email_provider");
   }
 
-  checks.queue = "ok";
-  checks.redis = process.env.REDIS_URL ? "ok" : "skipped (no REDIS_URL)";
+  // ── Database ──────────────────────────────────────────────────
+  try {
+    const { getDb } = await import("@calder/db");
+    const { sql } = await import("drizzle-orm");
+    const db = getDb();
+    await db.execute(sql`select 1`);
+    checks.database = { state: "ok" };
+    required.push("database");
+  } catch (err) {
+    checks.database = {
+      state: process.env.DATABASE_URL ? "degraded" : "skipped",
+      detail: err instanceof Error ? err.message : "query failed",
+    };
+    if (process.env.DATABASE_URL) ready = false;
+  }
 
-  const status = ready ? 200 : 503;
+  // ── Queue / Redis ─────────────────────────────────────────────
+  if (process.env.REDIS_URL) {
+    const redis = await pingRedis(process.env.REDIS_URL);
+    checks.queue = {
+      state: redis.ok ? "ok" : "degraded",
+      detail: redis.detail,
+    };
+    if (!redis.ok) ready = false;
+    required.push("queue");
+  } else {
+    checks.queue = {
+      state: "skipped",
+      detail: "REDIS_URL unset, in-process queue only (single instance)",
+    };
+  }
+
   return c.json(
-    { status: ready ? "ready" : "degraded", checks, timestamp: new Date().toISOString() },
-    status
+    {
+      status: ready ? "ready" : "degraded",
+      checks,
+      required,
+      timestamp: new Date().toISOString(),
+    },
+    ready ? 200 : 503
   );
 });
 

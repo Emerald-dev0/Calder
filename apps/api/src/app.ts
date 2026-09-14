@@ -43,7 +43,26 @@ export function createApp() {
   app.use(
     "*",
     cors({
-      origin: (origin) => origin ?? "*",
+      // Reflect only origins we recognise. The waitlist endpoint is
+      // unauthenticated, so a blanket "*" invites third-party form stuffing.
+      // Server-to-server API calls never send an Origin header and are
+      // unaffected by this list.
+      origin: (origin) => {
+        if (!origin) return "*";
+        const configured = (process.env.ALLOWED_ORIGINS ?? "")
+          .split(",")
+          .map((o) => o.trim())
+          .filter(Boolean);
+        const defaults = [
+          "https://calder.click",
+          "https://www.calder.click",
+          "https://app.calder.click",
+        ];
+        const allowed = configured.length > 0 ? configured : defaults;
+        if (allowed.includes(origin)) return origin;
+        if (process.env.NODE_ENV !== "production") return origin;
+        return allowed[0];
+      },
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization", "Idempotency-Key", "X-Request-Id"],
       exposeHeaders: [
