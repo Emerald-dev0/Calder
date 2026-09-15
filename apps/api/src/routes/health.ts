@@ -5,17 +5,21 @@ import { pingRedis } from "../lib/redis-ping.js";
 
 // Loaded via require, not a static import: per-file transpilers (esbuild,
 // including Vercel's) drop import attributes, which plain Node then rejects
-// with ERR_IMPORT_ATTRIBUTE_MISSING. The spec is resolved relative to this
-// file, so both layouts work: src|dist/routes/*.js use ../../, while the
-// serverless bundle (apps/api/api/index.js) uses ../.
+// with ERR_IMPORT_ATTRIBUTE_MISSING. Both paths below are string literals so
+// Vercel's file tracer ships openapi.json with the function; src|dist
+// layouts resolve the first, the serverless bundle (apps/api/api/index.js)
+// the second.
 function loadOpenApiSpec(): unknown {
   const require = createRequire(import.meta.url);
-  for (const rel of ["../../openapi.json", "../openapi.json"]) {
-    try {
-      return require(rel) as unknown;
-    } catch {
-      // Try the next layout.
-    }
+  try {
+    return require("../../openapi.json") as unknown;
+  } catch {
+    // Fall through to the bundle layout.
+  }
+  try {
+    return require("../openapi.json") as unknown;
+  } catch {
+    // Fall through to the loud error below.
   }
   throw new Error("openapi.json not found relative to the health route");
 }
