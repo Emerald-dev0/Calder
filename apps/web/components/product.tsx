@@ -1,5 +1,5 @@
 import { Reveal } from "./reveal";
-import { TemplateScene, DomainScene, MeterScene } from "./product-scenes";
+import { TemplateScene, DomainScene } from "./product-scenes";
 
 /**
  * The actual offering: what life inside Calder looks like day to day.
@@ -131,9 +131,6 @@ export function ProductTour() {
                 <li>Invoices that match your dashboard, always</li>
                 <li>NGN and USD plans with receipts included</li>
               </ul>
-            </Reveal>
-            <Reveal delay={120} className="ed-visual">
-              <MeterScene />
             </Reveal>
           </div>
         </div>
