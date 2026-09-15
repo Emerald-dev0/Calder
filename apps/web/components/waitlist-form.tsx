@@ -167,17 +167,31 @@ export function WaitlistForm() {
             </p>
             <p>
               Over the coming days and weeks, our founder and the Calder team may drop into your
-              inbox with product updates, things we&rsquo;re working on, and a few
-              behind-the-scenes looks at what&rsquo;s coming.
+              inbox with product updates, things we&rsquo;re working on, and a few behind-the-scenes
+              looks at what&rsquo;s coming.
             </p>
             <p>Thanks for getting here early.</p>
             <p>We&rsquo;ll see you around.</p>
           </div>
+          <p style={{ marginTop: "1.5rem" }}>
+            <a
+              className="btn btn-secondary"
+              href="/calder-flyer.png"
+              download="Calder-admission.png"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Download your ticket →
+            </a>
+          </p>
           <p
             className="caption"
             style={{ marginTop: "2.5rem", fontSize: "1.1rem", color: "var(--ink)" }}
           >
             &mdash; The Calder Team
+          </p>
+          <p className="caption" style={{ marginTop: "0.6rem" }}>
+            Your ticket is also attached to the confirmation email. Check your inbox.
           </p>
         </div>
       ) : (
