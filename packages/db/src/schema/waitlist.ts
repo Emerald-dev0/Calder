@@ -1,4 +1,14 @@
-import { pgEnum, pgTable, text, timestamp, varchar, jsonb, index, integer, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  varchar,
+  jsonb,
+  index,
+  integer,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { waitlistStatusEnum } from "./enums.js";
 
 /**

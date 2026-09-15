@@ -152,7 +152,9 @@ export async function trafficDailySeries(
  * Daily conversions: waitlist emails that became Calder accounts (DEC-002),
  * bucketed by account-creation day. Derived live, never stored.
  */
-export async function conversionsDaily(w: DateWindow): Promise<Array<{ day: string; count: number }>> {
+export async function conversionsDaily(
+  w: DateWindow
+): Promise<Array<{ day: string; count: number }>> {
   const db = getDb();
   const parts = [
     inArray(users.email, db.select({ email: waitlistSignups.email }).from(waitlistSignups)),
@@ -179,7 +181,12 @@ export async function conversionsInWindow(w: DateWindow): Promise<number> {
     w.start ? gte(users.createdAt, w.start) : undefined,
     w.end && w.key !== "today" ? lt(users.createdAt, w.end) : undefined,
   ].filter(Boolean);
-  return scalar(db.select({ value: count() }).from(users).where(and(...parts)));
+  return scalar(
+    db
+      .select({ value: count() })
+      .from(users)
+      .where(and(...parts))
+  );
 }
 
 /** Signups per source captured at signup time (window-aware). */
@@ -306,9 +313,7 @@ export async function waitlistWindowCounts(
 ): Promise<{ current: number; previous: number | null }> {
   const db = getDb();
   const current = w.start
-    ? await scalar(
-        db.select({ value: count() }).from(waitlistSignups).where(wlWhere(w))
-      )
+    ? await scalar(db.select({ value: count() }).from(waitlistSignups).where(wlWhere(w)))
     : await scalar(db.select({ value: count() }).from(waitlistSignups));
   let previous: number | null = null;
   if (w.compareStart && w.compareEnd) {
@@ -317,7 +322,10 @@ export async function waitlistWindowCounts(
         .select({ value: count() })
         .from(waitlistSignups)
         .where(
-          and(gte(waitlistSignups.createdAt, w.compareStart), lt(waitlistSignups.createdAt, w.compareEnd))
+          and(
+            gte(waitlistSignups.createdAt, w.compareStart),
+            lt(waitlistSignups.createdAt, w.compareEnd)
+          )
         )
     );
   }

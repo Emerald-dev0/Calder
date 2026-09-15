@@ -169,19 +169,22 @@ export function parseRange(
 }
 
 function isRangeKey(v: string | undefined): v is RangeKey {
-  return !!v && [
-    "today",
-    "yesterday",
-    "7d",
-    "30d",
-    "90d",
-    "this_month",
-    "last_month",
-    "all",
-    "custom",
-    "6m",
-    "1y",
-  ].includes(v);
+  return (
+    !!v &&
+    [
+      "today",
+      "yesterday",
+      "7d",
+      "30d",
+      "90d",
+      "this_month",
+      "last_month",
+      "all",
+      "custom",
+      "6m",
+      "1y",
+    ].includes(v)
+  );
 }
 
 /** The previous-period window for the same key (for delta queries). */

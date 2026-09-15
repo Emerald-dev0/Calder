@@ -41,7 +41,13 @@ export interface EditorState {
   currentVersion: number | null;
   currentPublishedAt: string | null;
   hasDraft: boolean;
-  versions: Array<{ id: string; version: number; subject: string; publishedAt: string; publishedBy: string | null }>;
+  versions: Array<{
+    id: string;
+    version: number;
+    subject: string;
+    publishedAt: string;
+    publishedBy: string | null;
+  }>;
 }
 
 async function requireOperator() {
@@ -128,12 +134,20 @@ export async function saveDraft(input: {
   const now = new Date();
   await db
     .insert(waitlistConfirmationDrafts)
-    .values({ id: "internal", subject: input.subject, html: input.html, text: input.text, updatedAt: now })
+    .values({
+      id: "internal",
+      subject: input.subject,
+      html: input.html,
+      text: input.text,
+      updatedAt: now,
+    })
     .onConflictDoUpdate({
       target: waitlistConfirmationDrafts.id,
       set: { subject: input.subject, html: input.html, text: input.text, updatedAt: now },
     });
-  await audit(ctx.user.userId, "confirmation_email.save_draft", { subjectLength: input.subject.length });
+  await audit(ctx.user.userId, "confirmation_email.save_draft", {
+    subjectLength: input.subject.length,
+  });
   revalidatePath("/control/email-editor");
   return { ok: true };
 }
@@ -144,7 +158,8 @@ export async function publishEmail(input: {
   text: string;
 }): Promise<{ ok: true; version: number }> {
   const ctx = await requireOperator();
-  if (!input.subject.trim() || !input.html.trim()) throw new Error("Subject and HTML are required.");
+  if (!input.subject.trim() || !input.html.trim())
+    throw new Error("Subject and HTML are required.");
   const db = getDb();
   const now = new Date();
 
@@ -167,12 +182,20 @@ export async function publishEmail(input: {
     });
     await tx
       .insert(waitlistConfirmation)
-      .values({ id: "internal", subject: input.subject, html: input.html, text: input.text, updatedAt: now })
+      .values({
+        id: "internal",
+        subject: input.subject,
+        html: input.html,
+        text: input.text,
+        updatedAt: now,
+      })
       .onConflictDoUpdate({
         target: waitlistConfirmation.id,
         set: { subject: input.subject, html: input.html, text: input.text, updatedAt: now },
       });
-    await tx.delete(waitlistConfirmationDrafts).where(eq(waitlistConfirmationDrafts.id, "internal"));
+    await tx
+      .delete(waitlistConfirmationDrafts)
+      .where(eq(waitlistConfirmationDrafts.id, "internal"));
   });
 
   await audit(ctx.user.userId, "confirmation_email.publish", { version: nextVersion });
@@ -193,7 +216,13 @@ export async function restoreVersion(version: number): Promise<{ ok: true }> {
   const now = new Date();
   await db
     .insert(waitlistConfirmationDrafts)
-    .values({ id: "internal", subject: row.subject, html: row.html, text: row.text, updatedAt: now })
+    .values({
+      id: "internal",
+      subject: row.subject,
+      html: row.html,
+      text: row.text,
+      updatedAt: now,
+    })
     .onConflictDoUpdate({
       target: waitlistConfirmationDrafts.id,
       set: { subject: row.subject, html: row.html, text: row.text, updatedAt: now },
@@ -220,7 +249,8 @@ export async function sendTestEmail(input: {
 }): Promise<{ ok: true; emailId: string }> {
   const ctx = await requireOperator();
   const to = input.to.toLowerCase().trim();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) throw new Error("Enter a valid test recipient address.");
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to))
+    throw new Error("Enter a valid test recipient address.");
 
   const db = getDb();
   const emailId = `em_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
@@ -249,7 +279,9 @@ export async function sendTestEmail(input: {
     });
   });
 
-  const queue = createQueue<{ emailId: string; projectId: string }>("email:send", { maxAttempts: 5 });
+  const queue = createQueue<{ emailId: string; projectId: string }>("email:send", {
+    maxAttempts: 5,
+  });
   await queue.enqueue("send-email", { emailId, projectId: INTERNAL_PROJECT });
 
   // REQ-074: test sends never touch waitlist_signups or analytics_events.
