@@ -42,7 +42,7 @@
 | G3 Interface | PASS | `.ilana/artifacts/INTERFACE.md` (tokens, hierarchy, states, responsive) |
 | G4 Construction | PASS | All REQ areas built; see variance notes below |
 | G5 Verification | PASS | tsc clean (6 workspaces); 38/38 + 22/22 unit tests; api suite 15 passed; lint 0 errors; all redesigned pages render 200 with real data locally |
-| G6 SCM | PASS | branch `feat/founder-command-center`, PR opened, not merged (human review) |
+| G6 SCM | PASS | branch `feat/founder-command-center`, PR #34 (Emerald-dev0/Calder) opened, CI `verify` green, dashboard deploy green; calder-api Vercel deploy failure diagnosed from founder-provided logs (Vercel tsc pass rejects ambient fetch types under TS 5.9.3 lib resolution) and fixed in edea857 — all checks green; not merged (human review) |
 | G7 QA | PASS-WITH-FLAG | DOM-level render evidence captured (1440-content structure verified, mobile grid via CSS); pixel screenshots NOT captured — no browser driver on host; flagged in PR per AGENTS.md loop step 7 |
 | G8 Closure | PENDING | after human review/merge |
 
