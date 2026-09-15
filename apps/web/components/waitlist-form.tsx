@@ -152,46 +152,123 @@ export function WaitlistForm() {
   return (
     <div className="waitlist-zone" data-total={total ?? undefined}>
       {state.kind === "ticket" ? (
-        <div className="waitlist-success">
-          <p className="eyebrow" style={{ color: "var(--accent-bright)" }}>
-            YOU&rsquo;RE IN · CALDER
+        <div
+          className="waitlist-success"
+          style={{
+            position: "relative",
+            overflow: "hidden",
+            background: "#FFFFFF",
+            border: "1px solid #E5E5E5",
+            borderRadius: "16px",
+            padding: "2.5rem 2rem",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{ fontSize: "1.75rem", letterSpacing: "0.2em", marginBottom: "1rem" }}
+            aria-hidden="true"
+          >
+            🎉&nbsp;✨&nbsp;🎊
+          </div>
+          <p className="eyebrow" style={{ color: "var(--accent)", justifyContent: "center" }}>
+            YOU&rsquo;RE IN &middot; CALDER
           </p>
-          <h2 className="h2" style={{ marginBottom: "1.5rem" }}>
-            Welcome aboard, {firstName || "there"}.
+          <h2 className="h2" style={{ marginTop: "0.75rem", marginBottom: "0.5rem" }}>
+            Welcome aboard, {firstName || "there"}. <span aria-hidden="true">🎉</span>
           </h2>
-          <div className="lede" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-            <p>You&rsquo;re officially on the Calder list.</p>
+          <p className="caption" style={{ marginTop: "0.5rem", color: "var(--ink-soft)" }}>
+            You&rsquo;re officially on the Calder list.
+          </p>
+          <div
+            style={{
+              marginTop: "1.75rem",
+              textAlign: "left",
+              background: "#F5F4EF",
+              border: "1px solid #E5E5E5",
+              borderRadius: "12px",
+              padding: "1.25rem 1.25rem 1rem",
+            }}
+          >
+            <img
+              src="/calder-flyer.png"
+              alt="Calder admission ticket"
+              width={1122}
+              height={1402}
+              style={{
+                width: "100%",
+                height: "auto",
+                display: "block",
+                borderRadius: "8px",
+                border: "1px solid #E5E5E5",
+                marginBottom: "1rem",
+              }}
+            />
+            <p style={{ margin: 0, fontSize: "14px", lineHeight: 1.6, color: "var(--ink-soft)" }}>
+              Your ticket is below — it&rsquo;s also attached to the confirmation email. Save it,
+              share it, or just keep it for when we open the doors.
+            </p>
+          </div>
+          <div
+            className="lede"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.9rem",
+              textAlign: "left",
+              marginTop: "1.5rem",
+            }}
+          >
             <p>
-              We&rsquo;re building something we&rsquo;re genuinely excited about, and you&rsquo;ll
-              be hearing from us as it takes shape.
+              We&rsquo;re building something we&rsquo;re <strong>genuinely excited</strong> about,
+              and you&rsquo;ll be hearing from us <strong>as it takes shape</strong>.
             </p>
             <p>
               Over the coming days and weeks, our founder and the Calder team may drop into your
-              inbox with product updates, things we&rsquo;re working on, and a few behind-the-scenes
-              looks at what&rsquo;s coming.
+              inbox with <strong>product updates</strong>, things we&rsquo;re working on, and a few{" "}
+              <strong>behind-the-scenes looks</strong> at what&rsquo;s coming.
             </p>
-            <p>Thanks for getting here early.</p>
-            <p>We&rsquo;ll see you around.</p>
+            <p>Thanks for getting here early. We&rsquo;ll see you around. ✨</p>
           </div>
-          <p style={{ marginTop: "1.5rem" }}>
+          <div
+            style={{
+              marginTop: "1.75rem",
+              display: "flex",
+              gap: "0.75rem",
+              justifyContent: "center",
+              flexWrap: "wrap",
+            }}
+          >
             <a
-              className="btn btn-secondary"
+              className="btn btn-primary"
               href="/calder-flyer.png"
               download="Calder-admission.png"
               target="_blank"
               rel="noopener noreferrer"
             >
-              Download your ticket →
+              Download your ticket 🎟️ →
             </a>
+            <a
+              className="btn btn-secondary"
+              href={`https://calder.click/waitlist?ref=${state.ticket.referralCode}`}
+              onClick={(e) => {
+                e.preventDefault();
+                navigator.clipboard?.writeText(
+                  `https://calder.click/waitlist?ref=${state.ticket.referralCode}`
+                );
+              }}
+            >
+              Copy referral link
+            </a>
+          </div>
+          <p className="caption" style={{ marginTop: "1.5rem", color: "var(--ink-soft)" }}>
+            Check your inbox — your confirmation email is on its way with the ticket attached. In
+            spam? Move it to Primary.
           </p>
           <p
             className="caption"
-            style={{ marginTop: "2.5rem", fontSize: "1.1rem", color: "var(--ink)" }}
+            style={{ marginTop: "1.25rem", fontSize: "1rem", color: "var(--ink)" }}
           >
             &mdash; The Calder Team
-          </p>
-          <p className="caption" style={{ marginTop: "0.6rem" }}>
-            Your ticket is also attached to the confirmation email. Check your inbox.
           </p>
         </div>
       ) : (
