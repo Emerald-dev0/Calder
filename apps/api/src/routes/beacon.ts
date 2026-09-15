@@ -11,8 +11,8 @@ function newId(): string {
 }
 
 /** Country from the edge geo header. Server-derived only; never from the client (REQ-080/084). */
-function edgeCountry(headers: Headers): string | null {
-  const c = headers.get("x-vercel-ip-country");
+function edgeCountry(getHeader: (name: string) => string | undefined): string | null {
+  const c = getHeader("x-vercel-ip-country");
   return c && /^[A-Za-z]{2}$/.test(c) ? c.toUpperCase() : null;
 }
 
@@ -44,7 +44,7 @@ beacon.post("/", rateLimitMiddleware("beacon"), async (c) => {
     return c.body(null, 204);
   }
 
-  const country = edgeCountry(c.req.raw.headers);
+  const country = edgeCountry((name) => c.req.header(name));
   const rows = parsed.data.events.map((e) => ({
     id: newId(),
     type: e.type,
