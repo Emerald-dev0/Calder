@@ -9,6 +9,7 @@ export * from "./webhooks.js";
 export * from "./billing.js";
 export * from "./system.js";
 export * from "./waitlist.js";
+export * from "./analytics.js";
 export * from "./sessions.js";
 export * from "./transports.js";
 export * from "./senders.js";

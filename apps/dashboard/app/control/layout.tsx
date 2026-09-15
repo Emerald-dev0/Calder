@@ -1,8 +1,8 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { canAccessSection, CONTROL_ROLE_LABEL } from "@/lib/control/roles";
 import { requireControl } from "@/lib/control/guard";
-import { MobileNav, SidebarNav, type NavGroup } from "./_components/nav";
+import { MobileNav, type NavGroup } from "./_components/nav";
+import { SidebarShell } from "./_components/sidebar-shell";
 import "./control.css";
 
 /**
@@ -141,64 +141,29 @@ export default async function ControlLayout({ children }: { children: ReactNode 
   ).map((g) => ({ heading: g.heading, items: g.items }));
 
   return (
-    <div className="cp">
-      <div className="cp-shell">
-        <aside className="cp-sidebar">
-          <div className="cp-brand">
+    <SidebarShell
+      groups={groups}
+      name={ctx.user.name ?? ctx.email}
+      email={ctx.email}
+      roleLabel={CONTROL_ROLE_LABEL[ctx.role]}
+    >
+      <MobileNav groups={groups} />
+      <div className="cp-topbar">
+        <span className="cp-crumb">
+          Calder <span style={{ color: "var(--cp-faint)" }}>/</span> <b>Control Plane</b>
+        </span>
+        <div className="cp-topbar-right">
+          <span className="cp-pill">
             <span
+              className={`cp-dot ${isFounder ? "ok" : "info"}`}
               aria-hidden
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: 999,
-                background: "var(--cp-accent)",
-                boxShadow: "0 0 12px rgba(61, 90, 254, 0.8)",
-                display: "inline-block",
-              }}
+              style={{ background: isFounder ? "#d4b06a" : undefined }}
             />
-            <div>
-              <div className="cp-brand-name">Calder</div>
-              <div className="cp-brand-sub">Control Plane</div>
-            </div>
-          </div>
-
-          <div className="cp-identity">
-            <div className="cp-identity-name" title={ctx.email}>
-              {ctx.user.name ?? ctx.email}
-            </div>
-            <span className="cp-identity-role">
-              <span className="cp-dot" aria-hidden />
-              {CONTROL_ROLE_LABEL[ctx.role]}
-            </span>
-          </div>
-
-          <SidebarNav groups={groups} />
-
-          <Link className="cp-exit" href="/">
-            ← Open Calder (customer)
-          </Link>
-        </aside>
-
-        <div className="cp-main">
-          <MobileNav groups={groups} />
-          <div className="cp-topbar">
-            <span className="cp-crumb">
-              Calder <span style={{ color: "var(--cp-faint)" }}>/</span> <b>Control Plane</b>
-            </span>
-            <div className="cp-topbar-right">
-              <span className="cp-pill">
-                <span
-                  className={`cp-dot ${isFounder ? "ok" : "info"}`}
-                  aria-hidden
-                  style={{ background: isFounder ? "#d4b06a" : undefined }}
-                />
-                {CONTROL_ROLE_LABEL[ctx.role]}
-              </span>
-            </div>
-          </div>
-          <main className="cp-content">{children}</main>
+            {CONTROL_ROLE_LABEL[ctx.role]}
+          </span>
         </div>
       </div>
-    </div>
+      <main className="cp-content">{children}</main>
+    </SidebarShell>
   );
 }

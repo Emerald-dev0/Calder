@@ -162,6 +162,13 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
   }
   const { email, ref } = parsed.data;
   const firstName = parsed.data.first_name ?? null;
+  // Signup-time attribution (DEC-007): source is declared by the form from the
+  // page's acquisition context; country is derived server-side from the edge
+  // geo header only (never from the client). Aggregate analytics only.
+  const source = parsed.data.source ?? null;
+  const countryHeader = c.req.header("x-vercel-ip-country");
+  const country =
+    countryHeader && /^[A-Za-z]{2}$/.test(countryHeader) ? countryHeader.toUpperCase() : null;
 
   let db: ReturnType<typeof getDb>;
   try {
@@ -206,6 +213,8 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
       id: newId("wl"),
       email,
       firstName,
+      source,
+      country,
       referralCode: code,
       referredBy,
       createdAt: now,

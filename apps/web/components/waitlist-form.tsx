@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { trackForm } from "../lib/analytics";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 const API_MISSING = "The signup service isn't configured yet. Please try again in a little while.";
@@ -121,6 +122,7 @@ export function WaitlistForm() {
 
   async function join(e: React.FormEvent) {
     e.preventDefault();
+    trackForm("start");
     const clean = email.toLowerCase().trim();
     const name = firstName.trim();
     if (!clean.includes("@")) {
@@ -132,13 +134,21 @@ export function WaitlistForm() {
       return;
     }
     setState({ kind: "sending" });
-    const ref = new URLSearchParams(window.location.search).get("ref") ?? undefined;
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref") ?? undefined;
+    const utmSource = params.get("utm_source");
     try {
       const ticket = await api<Ticket>("/v1/waitlist", {
         method: "POST",
-        body: JSON.stringify({ email: clean, first_name: name, ref }),
+        body: JSON.stringify({
+          email: clean,
+          first_name: name,
+          ref,
+          source: utmSource ?? ref ?? undefined,
+        }),
       });
       localStorage.setItem(STORAGE_KEY, clean);
+      trackForm("complete");
       setTotal(ticket.total);
       setState({ kind: "ticket", ticket, fresh: ticket.joined });
     } catch (err) {
@@ -272,7 +282,11 @@ export function WaitlistForm() {
           </p>
         </div>
       ) : (
-        <form className="waitlist-form" onSubmit={(e) => void join(e)}>
+        <form
+          className="waitlist-form"
+          onSubmit={(e) => void join(e)}
+          onFocus={() => trackForm("start")}
+        >
           <div className="waitlist-field">
             <label className="caption" htmlFor="waitlist-first-name">
               First name

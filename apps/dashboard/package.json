@@ -18,16 +18,17 @@
     "@calder/config": "workspace:^",
     "@calder/db": "workspace:^",
     "@calder/email": "workspace:^",
-    "@calder/queue": "workspace:^",
     "@calder/observability": "workspace:^",
     "@calder/providers": "workspace:^",
+    "@calder/queue": "workspace:^",
     "@calder/rate-limit": "workspace:^",
     "@calder/ui": "workspace:*",
     "drizzle-orm": "^0.38.0",
+    "ioredis": "^5.4.1",
     "next": "^14.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "ioredis": "^5.4.1"
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
     "@types/node": "^22.7.0",

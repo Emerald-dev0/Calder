@@ -10,6 +10,7 @@ import domains from "./routes/domains.js";
 import projects from "./routes/projects.js";
 import webhooks from "./routes/webhooks.js";
 import waitlist from "./routes/waitlist.js";
+import beacon from "./routes/beacon.js";
 import admin from "./routes/admin.js";
 import unsubscribe from "./routes/unsubscribe.js";
 import senders from "./routes/senders.js";
@@ -82,6 +83,7 @@ export function createApp() {
   app.route("/v1/projects", projects);
   app.route("/v1/webhooks", webhooks);
   app.route("/v1/waitlist", waitlist);
+  app.route("/v1/beacon", beacon);
   app.route("/v1/admin", admin);
   app.route("/v1/unsubscribe", unsubscribe);
   app.route("/v1/senders", senders);

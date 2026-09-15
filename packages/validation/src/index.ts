@@ -230,9 +230,41 @@ export const joinWaitlistSchema = z.object({
     .string()
     .regex(/^[A-Za-z0-9]{6,16}$/, "Invalid referral code")
     .optional(),
+  // Acquisition context declared by the page/form (see DEC-007). Stored on
+  // the signup row; country is separately derived server-side from geo.
+  source: z.string().max(100).optional(),
 });
 
 export type JoinWaitlistInput = z.infer<typeof joinWaitlistSchema>;
+
+// ── Analytics beacon ─────────────────────────────────────────
+
+/**
+ * First-party analytics events. Privacy by construction: the schema only
+ * accepts the anonymous, non-identifying fields below — anything else a
+ * client sends is stripped. No emails, names, IPs, or free text (REQ-080).
+ */
+const beaconEventSchema = z
+  .object({
+    type: z.enum(["pageview", "cta_click", "form_start", "form_complete"]),
+    path: z.string().max(512).optional(),
+    label: z.string().max(100).optional(),
+    referrer: z.string().max(512).optional(),
+    source: z.string().max(100).optional(),
+    utm: z.record(z.string().max(200)).optional(),
+    sessionId: z.string().min(8).max(64),
+    visitorId: z.string().min(8).max(64),
+    device: z.enum(["desktop", "mobile", "tablet"]).optional(),
+  })
+  .strict();
+
+export const beaconBatchSchema = z
+  .object({
+    events: z.array(beaconEventSchema).min(1).max(20),
+  })
+  .strict();
+
+export type BeaconBatchInput = z.infer<typeof beaconBatchSchema>;
 
 // ── Environment validation ───────────────────────────────────
 
