@@ -598,7 +598,6 @@ export function LoginForm({ providers, initialError, devLogin }: LoginFormProps)
                 setSuccessNotice(null);
               }}
               className="auth-link-btn"
-              style={{ fontSize: 12 }}
             >
               Forgot password?
             </button>
@@ -628,21 +627,6 @@ export function LoginForm({ providers, initialError, devLogin }: LoginFormProps)
         <button type="submit" disabled={busy} className="auth-btn-primary" style={{ marginTop: 8 }}>
           {busy ? "Signing in..." : "Sign in"}
         </button>
-
-        <div style={{ textAlign: "center", marginTop: 12 }}>
-          <button
-            type="button"
-            onClick={() => {
-              setMode("magic-link");
-              setError(null);
-              setSuccessNotice(null);
-            }}
-            className="auth-link-btn"
-            style={{ fontSize: 13 }}
-          >
-            Email me a sign-in link instead
-          </button>
-        </div>
       </form>
 
       {providers.length > 0 && (
