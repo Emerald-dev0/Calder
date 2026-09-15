@@ -4,5 +4,5 @@ export {
   type Subscription,
   type BillingEvent,
   MockBillingProvider,
-} from "./provider";
-export { createBillingService, type BillingService } from "./service";
+} from "./provider.js";
+export { createBillingService, type BillingService } from "./service.js";

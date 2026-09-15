@@ -9,7 +9,7 @@ import {
   senderIdentities,
 } from "@calder/db";
 import { getConfig } from "@calder/config";
-import { encryptSecret, decryptSecret } from "./crypto";
+import { encryptSecret, decryptSecret } from "./crypto.js";
 
 /**
  * Gmail Quickstart connect flow. Minimum scope (openid + email identity +

@@ -1,4 +1,4 @@
-import type { AuthContext } from "./types";
+import type { AuthContext } from "./types.js";
 
 /**
  * Centralized authorization helpers.

@@ -3,9 +3,9 @@ import { getDb, suppressions } from "@calder/db";
 import { verifyUnsubscribeToken } from "@calder/auth";
 import { eq, and } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import type { Env } from "../app";
-import { AppError, validationError } from "../errors/index";
-import { rateLimitMiddleware } from "../middleware/rate-limit";
+import type { Env } from "../app.js";
+import { AppError, validationError } from "../errors/index.js";
+import { rateLimitMiddleware } from "../middleware/rate-limit.js";
 
 const unsubscribe = new Hono<Env>();
 

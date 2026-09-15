@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import * as schema from "./schema/index";
+import * as schema from "./schema/index.js";
 
 let client: ReturnType<typeof postgres> | null = null;
 let dbInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;

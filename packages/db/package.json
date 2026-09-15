@@ -1,38 +1,45 @@
 {
- "name": "@calder/db",
- "version": "0.1.0",
- "private": true,
- "type": "module",
- "main": "./src/index.ts",
- "types": "./src/index.ts",
- "exports": {
- ".": "./src/index.ts",
- "./schema": "./src/schema/index.ts"
- },
- "scripts": {
- "build": "tsc --project tsconfig.json --noEmit",
- "lint": "eslint src --ext .ts",
- "typecheck": "tsc --noEmit",
- "test": "vitest run --passWithNoTests",
- "clean": "rm -rf dist",
- "db:generate": "drizzle-kit generate",
- "db:migrate": "tsx src/migrate.ts",
- "db:seed": "tsx src/seed.ts",
+  "name": "@calder/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema/index.d.ts",
+      "default": "./dist/schema/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rm -rf dist",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/migrate.ts",
+    "db:seed": "tsx src/seed.ts",
     "db:seed-demo": "NODE_ENV=development tsx src/seed-demo.ts",
- "db:studio": "drizzle-kit studio",
- "db:push": "drizzle-kit push"
- },
- "dependencies": {
- "drizzle-orm": "^0.38.0",
- "postgres": "^3.4.5",
- "drizzle-zod": "^0.5.1",
- "zod": "^3.23.8"
- },
- "devDependencies": {
- "@types/node": "^22.7.0",
- "drizzle-kit": "^0.30.0",
- "tsx": "^4.19.0",
- "typescript": "^5.6.3",
- "vitest": "^2.1.0"
- }
+    "db:studio": "drizzle-kit studio",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.38.0",
+    "postgres": "^3.4.5",
+    "drizzle-zod": "^0.5.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "drizzle-kit": "^0.30.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.0"
+  }
 }

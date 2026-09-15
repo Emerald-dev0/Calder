@@ -1,5 +1,5 @@
 import { MockEmailProvider, type EmailProvider } from "@calder/email";
-import { SesEmailProvider } from "./ses";
+import { SesEmailProvider } from "./ses.js";
 
 /**
  * Provider resolution, one place, so no surface silently degrades.

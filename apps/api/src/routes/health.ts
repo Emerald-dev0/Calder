@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../app.js";
-import spec from "../../openapi.json";
+import spec from "../../openapi.json" with { type: "json" };
 import { pingRedis } from "../lib/redis-ping.js";
 
 const health = new Hono<Env>();

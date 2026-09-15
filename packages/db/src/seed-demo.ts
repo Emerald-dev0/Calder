@@ -18,9 +18,9 @@ import {
   organizationMembers,
   organizations,
   type NewWaitlistSignup,
-} from "./index";
-import { getDb } from "./client";
-import { seedInternalTenant, seedPlans } from "./seed";
+} from "./index.js";
+import { getDb } from "./client.js";
+import { seedInternalTenant, seedPlans } from "./seed.js";
 
 /**
  * DEMO SEED — development environments only.

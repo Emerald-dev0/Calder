@@ -1,9 +1,9 @@
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { eq, and } from "drizzle-orm";
 import { getDb, users } from "@calder/db";
-import { createSession } from "./session";
-import { acceptPendingInvites, ensureFounderAccess } from "./oauth";
-import { issueEmailCode, verifyEmailCode, normalizeEmail, isPlausibleEmail } from "./email-code";
+import { createSession } from "./session.js";
+import { acceptPendingInvites, ensureFounderAccess } from "./oauth.js";
+import { issueEmailCode, verifyEmailCode, normalizeEmail, isPlausibleEmail } from "./email-code.js";
 
 /**
  * Scrypt parameters: N=16384, r=8, p=1, 64-byte key.

@@ -1,5 +1,5 @@
 import { pgTable, text, timestamp, varchar, index, jsonb } from "drizzle-orm/pg-core";
-import { organizations } from "./organizations";
+import { organizations } from "./organizations.js";
 
 export interface ProjectMetadata {
   environment?: "production" | "staging" | "development";

@@ -6,9 +6,9 @@ export {
   type ProviderError,
   MockEmailProvider,
   isProviderError,
-} from "./provider";
-export { createEmailService, type EmailService } from "./service";
-export { brandEmail, type BrandOptions } from "./brand";
+} from "./provider.js";
+export { createEmailService, type EmailService } from "./service.js";
+export { brandEmail, type BrandOptions } from "./brand.js";
 export {
   type EmailTransport,
   type TransportType,
@@ -19,11 +19,11 @@ export {
   transportResult,
   GMAIL_FREE_DAILY_CAP,
   GMAIL_WORKSPACE_DAILY_CAP,
-} from "./transport";
+} from "./transport.js";
 export {
   type DomainVerificationProvider,
   type VerificationResult,
   DnsVerificationProvider,
   VercelVerificationProvider,
   CompositeVerificationProvider,
-} from "./domain-verification";
+} from "./domain-verification.js";
