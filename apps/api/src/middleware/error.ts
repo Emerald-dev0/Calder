@@ -9,8 +9,10 @@ export const errorMiddleware: ErrorHandler = (err, c) => {
 
   if (!isAppError) {
     logger.error({ err, requestId, path: c.req.path }, "Unhandled error");
+    console.error(`[${requestId}] Unhandled error at ${c.req.path}:`, err);
   } else if (status >= 500) {
     logger.error({ err: err.message, code: err.code, requestId }, "Application error");
+    console.error(`[${requestId}] Application error ${err.code}:`, err.message, err.stack);
   }
 
   const { body } = toPublicError(err, requestId);
