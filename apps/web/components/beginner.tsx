@@ -11,90 +11,65 @@ export function BeginnerSection() {
     <section className="section" id="start-sending" style={{ paddingTop: 0 }}>
       <div className="wrap">
         <Reveal>
-          <p className="eyebrow">Start without a domain</p>
+          <p className="eyebrow">Built for where you are now</p>
           <h2 className="h2">
-            Sixteen and learning Next.js? <em>Send email today.</em>
+            You don&rsquo;t need a perfect setup <em>to get started.</em>
           </h2>
           <p className="lede" style={{ marginTop: "1.2rem" }}>
-            No domain to buy and no DNS to decipher. Connect the Gmail account you already have
-            through Google&rsquo;s own authorization, never by handing over a password, and your
-            sends flow through the same API, the same logs and the same events as anyone on a
-            verified domain. When the project grows, add three DNS records and switch transport in
-            the dashboard. Nothing in your code changes.
+            Maybe you&rsquo;re building your first Next.js app. Maybe you&rsquo;re testing an idea
+            this weekend. Maybe you haven&rsquo;t bought a domain yet. That&rsquo;s fine. Connect a
+            Gmail account through Google&rsquo;s authorization, start building, and move to a
+            verified sending domain when you&rsquo;re ready. <strong>Same Calder API. Same project. Same logs. Same code.</strong>
           </p>
         </Reveal>
         <div className="dev-grid">
           <Reveal>
-            <CodeBlock
-              title="gmail quickstart, same Calder API"
-              copyText={`curl https://api.calder.click/v1/emails -H "Authorization: Bearer calder_sk_test_…" -d '{"from":"myproject@gmail.com", "to":"customer@example.com", "subject":"Welcome!", "html":"<h1>Welcome!</h1>"}'`}
-            >
-              <span className="tok-dim">$</span> <span className="tok-key">curl</span>{" "}
-              <span className="tok-path">https://api.calder.click/v1/emails</span>{" "}
-              <span className="tok-dim">\</span>
-              {"\n"}
-              &nbsp;&nbsp;<span className="tok-dim">-H</span>{" "}
-              <span className="tok-str">&quot;Authorization: Bearer calder_sk_test_…&quot;</span>{" "}
-              <span className="tok-dim">\</span>
-              {"\n"}
-              &nbsp;&nbsp;<span className="tok-dim">-d</span>{" "}
-              <span className="tok-str">
-                &apos;{"{"}
-                &quot;from&quot;:&quot;myproject@gmail.com&quot;,
-                &quot;to&quot;:&quot;customer@example.com&quot;,
-                &quot;subject&quot;:&quot;Welcome!&quot;,
-                &quot;html&quot;:&quot;&lt;h1&gt;Welcome!&lt;/h1&gt;&quot;
-                {"}"}&apos;
-              </span>
-              {"\n\n"}
-              <span className="tok-dim">
-                {"// SDKs (npm install calder) land with v1, the API above is stable now."}
-              </span>
-            </CodeBlock>
-          </Reveal>
-          <Reveal delay={120}>
             <div className="pipeline" style={{ marginTop: 0, height: "100%" }}>
-              <p className="eyebrow">How you start</p>
-              <div className="minilog">
+              <p className="eyebrow">Connect Gmail</p>
+              <h3>Start building immediately.</h3>
+              <p className="caption" style={{ marginTop: "0.5rem" }}>
+                OAuth-based connection with development limits.
+              </p>
+              <div className="minilog" style={{ marginTop: "1.5rem" }}>
                 <div className="minilog-row">
                   <span className="status-dot info" />
-                  <span className="addr">
-                    <b>Connect Gmail</b>, OAuth, two clicks, capped for development
-                  </span>
-                  <span className="tag info">no domain</span>
-                </div>
-                <div className="minilog-row">
-                  <span className="status-dot info" />
-                  <span className="addr">
-                    <b>Or verify a domain</b>, DNS records, full production capacity
-                  </span>
-                  <span className="tag info">production</span>
+                  <span className="addr">Google OAuth 2.0 flow</span>
                 </div>
                 <div className="minilog-row">
                   <span className="status-dot ok" />
-                  <span className="addr">
-                    <b>Graduate anytime</b>, same key, same code, new transport
-                  </span>
-                  <span className="tag ok">no rewrite</span>
+                  <span className="addr">No password required</span>
                 </div>
               </div>
-              <p className="caption" style={{ marginTop: "1rem" }}>
-                Gmail sending is capped on purpose: it is an on-ramp, not bulk infrastructure, and
-                the limits are shown in the dashboard before you reach them. Full walkthrough:{" "}
-                <a href="/docs/gmail-quickstart" style={{ color: "var(--accent)" }}>
-                  Gmail Quickstart →
-                </a>
+            </div>
+          </Reveal>
+          <Reveal delay={120}>
+            <div className="pipeline" style={{ marginTop: 0, height: "100%" }}>
+              <p className="eyebrow">Verify a domain</p>
+              <h3>Move into production.</h3>
+              <p className="caption" style={{ marginTop: "0.5rem" }}>
+                Add your DNS records and unlock your sending domain.
               </p>
+              <div className="minilog" style={{ marginTop: "1.5rem" }}>
+                <div className="minilog-row">
+                  <span className="status-dot info" />
+                  <span className="addr">SPF · DKIM · DMARC</span>
+                </div>
+                <div className="minilog-row">
+                  <span className="status-dot ok" />
+                  <span className="addr">Production limits</span>
+                </div>
+              </div>
             </div>
           </Reveal>
         </div>
         <Reveal delay={80}>
-          <div className="pipeline-return" style={{ marginTop: "2rem" }}>
-            <span>No domain →</span>
-            <span className="event-pill">Connect Gmail</span>
-            <span>→ build → grow →</span>
-            <span className="event-pill">Verify domain</span>
-            <span>→ production infrastructure. Same key throughout.</span>
+          <div className="pipeline" style={{ marginTop: "1.5rem" }}>
+            <p className="eyebrow">Keep building</p>
+            <h3 style={{ fontSize: "1.1rem", fontWeight: 700 }}>No rewrite required.</h3>
+            <p className="caption" style={{ marginTop: "0.4rem" }}>
+              Change the transport without rebuilding your integration. One click in the dashboard,
+              your API keys and code remain exactly the same.
+            </p>
           </div>
         </Reveal>
       </div>

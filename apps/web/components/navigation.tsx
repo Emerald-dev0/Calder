@@ -44,18 +44,12 @@ export function Navigation() {
               {l.label}
             </a>
           ))}
-          <a className="nav-links-signin" href={LOGIN_URL} onClick={() => setOpen(false)}>
-            Sign in
-          </a>
         </nav>
         <div className="nav-cta">
-          <a className="btn btn-ghost btn-sm nav-signin" href={LOGIN_URL}>
-            Sign in
-          </a>
-          <a className="btn btn-primary btn-sm" href={SIGNUP_URL}>
+          <a className="btn btn-primary btn-sm" href="/waitlist">
             Start free{" "}
             <span className="arrow" aria-hidden="true">
-              →
+              &rarr;
             </span>
           </a>
           <button

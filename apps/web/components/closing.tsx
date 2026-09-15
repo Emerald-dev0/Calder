@@ -39,18 +39,18 @@ export function FinalCta() {
               />
             </svg>
             <p className="eyebrow" style={{ color: "#8FB0FF" }}>
-              Start free
+              Start building
             </p>
             <h2>
-              Send something real <em>in the next ten minutes.</em>
+              Your application has <em>enough to worry about.</em>
             </h2>
             <p>
-              Five thousand emails a month, no card, no sales call. Add an API key, POST once, and
-              watch the event land in your own webhook endpoint. If the address you send to is
-              yours, you will see it arrive.
+              Let Calder handle the communication infrastructure. Start with 5,000 emails free,
+              connect your application in minutes, and know what happens after you hit
+              <strong> Send</strong>.
             </p>
             <div className="final-ctas">
-              <a className="btn btn-paper" href={SIGNUP_URL}>
+              <a className="btn btn-paper" href="/waitlist">
                 Create your account{" "}
                 <span className="arrow" aria-hidden="true">
                   →
@@ -109,12 +109,13 @@ export function Footer() {
         <div className="footer-grid">
           <div>
             <Logo />
-            <p className="caption" style={{ marginTop: "1rem", maxWidth: "24rem" }}>
-              Communication infrastructure for applications. Transactional mail today, marketing
-              mail on its own stream, one API and one event log underneath both.
+            <p className="caption" style={{ marginTop: "1.2rem", maxWidth: "24rem", fontSize: '0.95rem', lineHeight: 1.6 }}>
+              <strong>Communication infrastructure for applications.</strong>
+              <br />
+              Send, receive, observe, and manage the messages your application depends on.
             </p>
-            <p className="caption" style={{ marginTop: "0.6rem" }}>
-              <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+            <p className="caption" style={{ marginTop: "1rem" }}>
+              <a href={`mailto:${SUPPORT_EMAIL}`} style={{ textDecoration: 'none', borderBottom: '1px solid var(--border)' }}>{SUPPORT_EMAIL}</a>
             </p>
           </div>
           {COLUMNS.map((col) => (
@@ -134,8 +135,8 @@ export function Footer() {
           Calder
         </div>
         <div className="footer-bottom">
-          <span>© 2026 Calder. Communication infrastructure that gets out of your way.</span>
-          <span style={{ display: "inline-flex", gap: "1rem" }}>
+          <span>© 2026 Calder. Let&rsquo;s build better infrastructure.</span>
+          <span style={{ display: "inline-flex", gap: "1.5rem" }}>
             <a href="/legal/privacy">Privacy</a>
             <a href="/legal/terms">Terms</a>
             <a href="/security">Security</a>

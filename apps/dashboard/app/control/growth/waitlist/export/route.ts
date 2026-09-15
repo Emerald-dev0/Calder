@@ -31,11 +31,11 @@ export async function GET(req: Request) {
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const lines = [
-    "email,name,joined,source,country,status,referral_code,referred_by,tags,note",
+    "email,first_name,joined,source,country,status,referral_code,referred_by,tags,note",
     ...rows.map((r) =>
       [
         esc(r.email),
-        esc(r.name),
+        esc(r.firstName),
         new Date(r.createdAt).toISOString(),
         esc(r.source ?? "direct"),
         esc(r.country),
