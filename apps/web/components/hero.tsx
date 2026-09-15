@@ -4,7 +4,6 @@ import * as React from "react";
 import Image from "next/image";
 import gsap from "gsap";
 import { SignalField } from "./signal-field";
-import { SIGNUP_URL } from "../lib/site";
 // Static import: hashed URL (immutable CDN caching), auto srcset (scaling),
 // blur placeholder. Same-origin asset, no external fetch to fail.
 import courierImg from "../public/illustrations/hero-courier-cutout.webp";
@@ -110,12 +109,6 @@ export function Hero() {
               5,000 emails a month free. No card. No domain required to start.
             </p>
             <div className="hero-ctas">
-              <a className="btn btn-primary" href={SIGNUP_URL}>
-                Start free{" "}
-                <span className="arrow" aria-hidden="true">
-                  →
-                </span>
-              </a>
               <a className="btn btn-secondary" href="/docs/quickstart">
                 Read the quickstart
               </a>
