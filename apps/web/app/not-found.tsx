@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalderSignal } from "@calder/ui";
 import { Logo } from "../components/logo";
 
-/** Where people actually want to go when a link dies. */
 const ROUTES: Array<{ label: string; href: string; detail: string }> = [
   { label: "Documentation", href: "/docs", detail: "Quickstarts, API reference, SMTP setup" },
   { label: "Pricing", href: "/pricing", detail: "Four plans, free to start" },
@@ -14,14 +12,10 @@ const ROUTES: Array<{ label: string; href: string; detail: string }> = [
 export const metadata: Metadata = {
   title: "Page not found, Calder",
   description:
-    "That page was never delivered. Back to the docs, pricing, status page, or changelog.",
+    "This message didn't have a destination. The page you're looking for doesn't exist here.",
   robots: { index: false, follow: true },
 };
 
-/**
- * 404, "lost in transit." The missing page is treated like a failed
- * delivery: logged, inspectable, and rerouted somewhere useful.
- */
 export default function NotFound() {
   return (
     <main className="lost">
@@ -32,25 +26,49 @@ export default function NotFound() {
           </Link>
         </div>
         <div className="lost-body">
-          <span className="lost-ghost" aria-hidden="true">
-            404
-          </span>
-          <CalderSignal size={76} className="lost-signal" />
-          <p className="eyebrow">404, undeliverable</p>
+          <p className="eyebrow">404 · Route not found</p>
           <h1 className="display">
-            This page never got <em>delivered.</em>
+            This message didn&apos;t have <em>a destination.</em>
           </h1>
           <p className="lede" style={{ marginTop: "1.4rem" }}>
-            No queue entry, no provider record, no event. Whatever you were looking for was never
-            sent, or it bounced somewhere between your click and our server.
+            The page you&apos;re looking for doesn&apos;t exist here.
           </p>
-          <div className="lost-event mono" aria-label="Request log">
-            <span className="status-dot bad" aria-hidden="true" />
-            <span>GET this-page → 404 · logged · request_id req_lost…</span>
-            <span className="tag bad">bounced</span>
+          <p style={{ marginTop: "0.8rem", color: "var(--ink-soft)" }}>
+            Maybe the link is old. Maybe the page moved. Maybe you just took a wrong turn.
+          </p>
+          <p style={{ marginTop: "0.4rem", color: "var(--ink-soft)" }}>
+            Either way, nothing is waiting in a queue.
+          </p>
+
+          <div style={{ marginTop: "2rem" }}>
+            <Link className="btn btn-primary" href="/">
+              Back home{" "}
+              <span className="arrow" aria-hidden="true">
+                →
+              </span>
+            </Link>
           </div>
 
-          <nav className="lost-routes" aria-label="Useful destinations">
+          <div
+            className="lost-event mono"
+            aria-label="Delivery status"
+            style={{ marginTop: "2.5rem" }}
+          >
+            <span>STATUS</span>
+            <span>404</span>
+            <span style={{ marginLeft: "1.5rem" }}>ROUTE</span>
+            <span>not_found</span>
+            <span style={{ marginLeft: "1.5rem" }}>REQUEST</span>
+            <span>received</span>
+            <span style={{ marginLeft: "1.5rem" }}>DELIVERY</span>
+            <span>not_applicable</span>
+          </div>
+
+          <nav
+            className="lost-routes"
+            aria-label="Useful destinations"
+            style={{ marginTop: "2.5rem" }}
+          >
             {ROUTES.map((r) => (
               <Link className="lost-route" href={r.href} key={r.href}>
                 <span className="lost-route-label">{r.label}</span>
@@ -62,21 +80,8 @@ export default function NotFound() {
             ))}
           </nav>
 
-          <div className="hero-ctas">
-            <Link className="btn btn-primary" href="/">
-              Back home{" "}
-              <span className="arrow" aria-hidden="true">
-                →
-              </span>
-            </Link>
-            <Link className="btn btn-secondary" href="/docs">
-              Read the docs
-            </Link>
-          </div>
-
           <p className="caption" style={{ marginTop: "1.6rem" }}>
-            Followed a link from somewhere else and it broke?{" "}
-            <a href="mailto:support@calder.click">Tell us where</a> and we will fix it.
+            Found a broken link? <a href="mailto:support@calder.click">Tell us.</a>
           </p>
         </div>
       </div>

@@ -86,13 +86,9 @@ export function Hero() {
       <SignalField />
       <div className="hero-fade" aria-hidden="true" />
       <div className="hero-grid-lines" aria-hidden="true" />
-      <span className="margin-note" aria-hidden="true">
-        communication infrastructure, est. 2026
-      </span>
       <div className="wrap hero-inner">
         <div data-intro>
           <div className="hero-copy">
-            <p className="eyebrow hero-eyebrow">Communication infrastructure &middot; est. 2026</p>
             <h1 className="display">
               Your application has something to say. <em>Calder makes sure it gets there.</em>
             </h1>
@@ -104,9 +100,19 @@ export function Hero() {
               Your application needs to send more than email. It needs to welcome people, verify
               accounts, confirm payments, send alerts, announce what&rsquo;s new, and stay connected
               with the people using it. Calder gives you the infrastructure behind those
-              conversations &mdash; <strong>one platform, one API, and a complete record of what happened to every message.</strong>
+              conversations &mdash;{" "}
+              <strong>
+                one platform, one API, and a complete record of what happened to every message.
+              </strong>
             </p>
-            <p style={{ marginTop: "1.2rem", fontSize: "1rem", color: "var(--ink-soft)", fontWeight: 600 }}>
+            <p
+              style={{
+                marginTop: "1.2rem",
+                fontSize: "1rem",
+                color: "var(--ink-soft)",
+                fontWeight: 600,
+              }}
+            >
               5,000 emails free every month. No card required.
             </p>
             <div className="hero-ctas">

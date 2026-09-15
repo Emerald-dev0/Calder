@@ -15,20 +15,31 @@ const links = [
 export function Navigation() {
   const [open, setOpen] = React.useState(false);
 
-  // Close the mobile panel on Escape and when the viewport grows past the
-  // breakpoint, so a half-open menu never survives a resize.
+  // Close on Escape, click outside, and when viewport grows past the mobile
+  // breakpoint (must match the CSS breakpoint at 820px).
   React.useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
-    const mq = window.matchMedia("(min-width: 861px)");
+    const mq = window.matchMedia("(min-width: 821px)");
     const onChange = () => setOpen(false);
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const nav = document.getElementById("primary-nav");
+      const toggle = document.querySelector(".nav-toggle");
+      if (nav?.contains(target) || toggle?.contains(target)) return;
+      setOpen(false);
+    };
     window.addEventListener("keydown", onKey);
     mq.addEventListener("change", onChange);
+    // Delay to avoid closing immediately on the same tap that opened it.
+    window.setTimeout(() => document.addEventListener("click", onClick), 0);
     return () => {
       window.removeEventListener("keydown", onKey);
       mq.removeEventListener("change", onChange);
+      document.removeEventListener("click", onClick);
     };
   }, [open]);
 

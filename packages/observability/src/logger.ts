@@ -2,21 +2,31 @@ import pino, { type Logger as PinoLogger } from "pino";
 
 export type Logger = PinoLogger;
 
-const isDev = process.env.NODE_ENV !== "production";
+const isDev = process.env.NODE_ENV === "development";
 
 function createPinoOptions(level: string = process.env.LOG_LEVEL ?? "info") {
   if (isDev) {
-    return {
-      level,
-      transport: {
-        target: "pino-pretty",
-        options: {
-          colorize: true,
-          translateTime: "SYS:standard",
-          ignore: "pid, hostname",
+    // pino-pretty is a dev-only pretty printer loaded via dynamic require by
+    // pino's transport. In bundled/serverless runs (Vercel) the string target
+    // is not statically traceable and the file may not be included, so verify
+    // it can be resolved before asking pino to use it.
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require.resolve("pino-pretty");
+      return {
+        level,
+        transport: {
+          target: "pino-pretty",
+          options: {
+            colorize: true,
+            translateTime: "SYS:standard",
+            ignore: "pid, hostname",
+          },
         },
-      },
-    } as pino.LoggerOptions;
+      } as pino.LoggerOptions;
+    } catch {
+      // Fall through to JSON logger when pino-pretty is not bundled.
+    }
   }
   return {
     level,
@@ -31,7 +41,19 @@ function createPinoOptions(level: string = process.env.LOG_LEVEL ?? "info") {
 
 export function createLogger(options?: pino.LoggerOptions & { name?: string }): Logger {
   const base = createPinoOptions(options?.level as string | undefined);
-  return pino({ ...base, ...options });
+  try {
+    return pino({ ...base, ...options });
+  } catch (err) {
+    // pino throws "unable to determine transport target for pino-pretty" when
+    // the pretty printer is not in the function's file set (Vercel tracing).
+    // Fall back to JSON logging rather than crashing the whole function.
+    const hasTransport = !!(base as { transport?: unknown }).transport;
+    if (hasTransport) {
+      const { transport: _t, ...rest } = base as pino.LoggerOptions & { transport?: unknown };
+      return pino({ ...rest, ...options } as pino.LoggerOptions);
+    }
+    throw err;
+  }
 }
 
 /**
