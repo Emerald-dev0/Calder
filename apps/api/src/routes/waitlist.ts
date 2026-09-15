@@ -131,151 +131,141 @@ function escapeHtml(s: string): string {
 
 // POST /v1/waitlist, join (or re-fetch your ticket if already joined)
 waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!body) throw validationError("Invalid JSON body");
+  const parsed = joinWaitlistSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new AppError("validation_error", "That email doesn't look valid.", 400);
+  }
+  const { email, ref } = parsed.data;
+  const firstName = parsed.data.first_name ?? null;
+
+  let db: ReturnType<typeof getDb>;
   try {
-    const body = await c.req.json().catch(() => null);
-    if (!body) throw validationError("Invalid JSON body");
-    const parsed = joinWaitlistSchema.safeParse(body);
-    if (!parsed.success) {
-      throw new AppError("validation_error", "That email doesn't look valid.", 400);
-    }
-    const { email, ref } = parsed.data;
-    const firstName = parsed.data.first_name ?? null;
-
-    let db: ReturnType<typeof getDb>;
-    try {
-      db = getDb();
-    } catch {
-      throw new AppError(
-        "internal_error",
-        "The waitlist is temporarily unavailable. Please try again in a minute.",
-        503
-      );
-    }
-
-    // Already joined → return the existing ticket (idempotent by email).
-    // If they re-submitted with a first name we don't have yet, capture it.
-    const existing = await buildTicket(db, email);
-    if (existing) {
-      if (firstName) {
-        const [row] = await db
-          .select({ firstName: waitlistSignups.firstName })
-          .from(waitlistSignups)
-          .where(eq(waitlistSignups.email, email))
-          .limit(1);
-        if (row && !row.firstName) {
-          await db
-            .update(waitlistSignups)
-            .set({ firstName })
-            .where(eq(waitlistSignups.email, email));
-        }
-      }
-      return c.json({ data: { ...existing, joined: false } }, 200);
-    }
-
-    // Validate referral code if provided (unknown codes are ignored, not errors).
-    let referredBy: string | null = null;
-    if (ref && (await referralCodeExists(db, ref))) referredBy = ref;
-
-    const code = await uniqueReferralCode(db);
-    // Set createdAt explicitly (ms precision) instead of DB now(): Postgres stores
-    // microseconds, but the driver round-trips milliseconds, comparing a re-read
-    // timestamp against stored values then misses by fractions of a millisecond
-    // (position computed as 0). Exact-ms values compare exactly.
-    const now = new Date();
-    try {
-      await db.insert(waitlistSignups).values({
-        id: newId("wl"),
-        email,
-        firstName,
-        referralCode: code,
-        referredBy,
-        createdAt: now,
-      });
-    } catch (err: unknown) {
-      // Race: same email inserted concurrently → return the winner's ticket.
-      if (err instanceof Error && "code" in err && (err as { code: string }).code === "23505") {
-        const winner = await buildTicket(db, email);
-        if (winner) return c.json({ data: { ...winner, joined: false } }, 200);
-      }
-      console.error(`[waitlist-insert] ${err instanceof Error ? err.message : String(err)}`, err);
-      throw new AppError(
-        "internal_error",
-        `Waitlist insert failed: ${err instanceof Error ? err.message : String(err)}`,
-        500
-      );
-    }
-
-    const ticket = await buildTicket(db, email);
-    if (!ticket)
-      throw new AppError("internal_error", "Could not join the waitlist. Please retry.", 500);
-
-    // Dogfood: confirm through our own pipeline under the founder-owned tenant.
-    // Same idempotency key every time, so replays never duplicate. A failure here
-    // must never fail the signup, log loudly, deliverability is retried by design.
-    // Dynamic template: admin can change via PUT /v1/admin/waitlist/confirmation without a deploy.
-    try {
-      const { sendInternalEmail } = await import("../services/email-service.js");
-      const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
-      const { signUnsubscribeToken: signToken } = await import("@calder/auth");
-      const confirmUnsub = `${getConfig().API_URL.replace(/\/$/, "")}/v1/unsubscribe?token=${signToken(INTERNAL_PROJECT_ID, email)}`;
-      let subject = `You're in. Welcome to Calder.`;
-      let html = DEFAULT_CONFIRMATION_HTML(firstName ?? "there");
-      let text = DEFAULT_CONFIRMATION_TEXT(firstName ?? "there");
-      try {
-        const { getDb, waitlistConfirmation } = await import("@calder/db");
-        const { eq } = await import("drizzle-orm");
-        const d = getDb();
-        const [tpl] = await d
-          .select()
-          .from(waitlistConfirmation)
-          .where(eq(waitlistConfirmation.id, "internal"))
-          .limit(1);
-        if (tpl) {
-          subject = tpl.subject;
-          html = tpl.html;
-          text = tpl.text;
-        }
-      } catch {
-        // fallback to hardcoded
-      }
-      // Mustache rendering for the waitlist confirmation. {{first_name}} is
-      // HTML-escaped in the html body; email/referral values are ours or
-      // already constrained, so they pass through.
-      const ticketRef = ticket.referralCode;
-      const render = (s: string, escape: (v: string) => string) =>
-        s
-          .replace(/\{\{first_name\}\}/g, escape(firstName ?? "there"))
-          .replace(/\{\{email\}\}/g, email)
-          .replace(/\{\{referral_link\}\}/g, `${appUrl}/waitlist?ref=${ticketRef}`)
-          .replace(/\{\{referral_code\}\}/g, ticketRef);
-      // Flyer attachment disabled for diagnostic — re-enable after POST succeeds.
-      await sendInternalEmail({
-        to: email,
-        subject: render(subject, (v) => v),
-        unsubscribeUrl: confirmUnsub,
-        html: render(html, escapeHtml),
-        text: render(text, (v) => v),
-        idempotencyKey: `waitlist-confirm:${email}`,
-        requestId: c.get("requestId"),
-      });
-    } catch (err) {
-      const { logger } = await import("@calder/observability");
-      logger.error({ err, email }, "Waitlist confirmation failed to enqueue (signup kept)");
-    }
-
-    // The confirmation was just enqueued; let it leave now.
-    kickDrain(executionCtxOf(c));
-
-    return c.json({ data: { ...ticket, joined: true } }, 201);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error(`[waitlist-diag] ${msg}`, e);
-    const stack = e instanceof Error ? e.stack : undefined;
-    return c.json(
-      { error: { code: "diag", message: msg, stack, request_id: c.get("requestId") } },
-      500
+    db = getDb();
+  } catch {
+    throw new AppError(
+      "internal_error",
+      "The waitlist is temporarily unavailable. Please try again in a minute.",
+      503
     );
   }
+
+  // Already joined → return the existing ticket (idempotent by email).
+  // If they re-submitted with a first name we don't have yet, capture it.
+  const existing = await buildTicket(db, email);
+  if (existing) {
+    if (firstName) {
+      const [row] = await db
+        .select({ firstName: waitlistSignups.firstName })
+        .from(waitlistSignups)
+        .where(eq(waitlistSignups.email, email))
+        .limit(1);
+      if (row && !row.firstName) {
+        await db.update(waitlistSignups).set({ firstName }).where(eq(waitlistSignups.email, email));
+      }
+    }
+    return c.json({ data: { ...existing, joined: false } }, 200);
+  }
+
+  // Validate referral code if provided (unknown codes are ignored, not errors).
+  let referredBy: string | null = null;
+  if (ref && (await referralCodeExists(db, ref))) referredBy = ref;
+
+  const code = await uniqueReferralCode(db);
+  // Set createdAt explicitly (ms precision) instead of DB now(): Postgres stores
+  // microseconds, but the driver round-trips milliseconds, comparing a re-read
+  // timestamp against stored values then misses by fractions of a millisecond
+  // (position computed as 0). Exact-ms values compare exactly.
+  const now = new Date();
+  try {
+    await db.insert(waitlistSignups).values({
+      id: newId("wl"),
+      email,
+      firstName,
+      referralCode: code,
+      referredBy,
+      createdAt: now,
+    });
+  } catch (err: unknown) {
+    // Race: same email inserted concurrently → return the winner's ticket.
+    if (err instanceof Error && "code" in err && (err as { code: string }).code === "23505") {
+      const winner = await buildTicket(db, email);
+      if (winner) return c.json({ data: { ...winner, joined: false } }, 200);
+    }
+    console.error(`[waitlist-insert] ${err instanceof Error ? err.message : String(err)}`, err);
+    throw new AppError("internal_error", "Could not join the waitlist. Please retry.", 500);
+  }
+
+  const ticket = await buildTicket(db, email);
+  if (!ticket)
+    throw new AppError("internal_error", "Could not join the waitlist. Please retry.", 500);
+
+  // Dogfood: confirm through our own pipeline under the founder-owned tenant.
+  // Same idempotency key every time, so replays never duplicate. A failure here
+  // must never fail the signup, log loudly, deliverability is retried by design.
+  // Dynamic template: admin can change via PUT /v1/admin/waitlist/confirmation without a deploy.
+  try {
+    const { sendInternalEmail } = await import("../services/email-service.js");
+    const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+    const { signUnsubscribeToken: signToken } = await import("@calder/auth");
+    const confirmUnsub = `${getConfig().API_URL.replace(/\/$/, "")}/v1/unsubscribe?token=${signToken(INTERNAL_PROJECT_ID, email)}`;
+    let subject = `You're in. Welcome to Calder.`;
+    let html = DEFAULT_CONFIRMATION_HTML(firstName ?? "there");
+    let text = DEFAULT_CONFIRMATION_TEXT(firstName ?? "there");
+    try {
+      const { getDb, waitlistConfirmation } = await import("@calder/db");
+      const { eq } = await import("drizzle-orm");
+      const d = getDb();
+      const [tpl] = await d
+        .select()
+        .from(waitlistConfirmation)
+        .where(eq(waitlistConfirmation.id, "internal"))
+        .limit(1);
+      if (tpl) {
+        subject = tpl.subject;
+        html = tpl.html;
+        text = tpl.text;
+      }
+    } catch {
+      // fallback to hardcoded
+    }
+    // Mustache rendering for the waitlist confirmation. {{first_name}} is
+    // HTML-escaped in the html body; email/referral values are ours or
+    // already constrained, so they pass through.
+    const ticketRef = ticket.referralCode;
+    const render = (s: string, escape: (v: string) => string) =>
+      s
+        .replace(/\{\{first_name\}\}/g, escape(firstName ?? "there"))
+        .replace(/\{\{email\}\}/g, email)
+        .replace(/\{\{referral_link\}\}/g, `${appUrl}/waitlist?ref=${ticketRef}`)
+        .replace(/\{\{referral_code\}\}/g, ticketRef);
+    const { FLYER_BASE64, FLYER_FILENAME, FLYER_CONTENT_TYPE } = await import("../assets/flyer.js");
+    await sendInternalEmail({
+      to: email,
+      subject: render(subject, (v) => v),
+      unsubscribeUrl: confirmUnsub,
+      html: render(html, escapeHtml),
+      text: render(text, (v) => v),
+      idempotencyKey: `waitlist-confirm:${email}`,
+      requestId: c.get("requestId"),
+      attachments: [
+        {
+          filename: FLYER_FILENAME,
+          contentType: FLYER_CONTENT_TYPE,
+          contentBase64: FLYER_BASE64,
+        },
+      ],
+    });
+  } catch (err) {
+    const { logger } = await import("@calder/observability");
+    logger.error({ err, email }, "Waitlist confirmation failed to enqueue (signup kept)");
+  }
+
+  // The confirmation was just enqueued; let it leave now.
+  kickDrain(executionCtxOf(c));
+
+  return c.json({ data: { ...ticket, joined: true } }, 201);
 });
 
 // GET /v1/waitlist/position?email=, returning visitor ticket lookup
