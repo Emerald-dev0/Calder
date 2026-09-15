@@ -150,8 +150,11 @@ async function resolveChain(projectId: string, senderIdentityId: string | null) 
   return chain;
 }
 
-// GET /v1/cron/drain — Vercel Cron or cron-job.org hits this every minute
-cron.get("/drain", async (c) => {
+// GET /v1/cron/drain — Vercel Cron hits this on a schedule (Vercel Cron sends
+// GET). POST is the queue wake-up (`kickDrain` nudges the drain right after a
+// send is accepted so confirmations leave immediately). Same handler, both
+// methods: the scheduled run stays a safety net for retries and delayed sends.
+cron.on(["GET", "POST"], "/drain", async (c) => {
   if (!authorized(c))
     return c.json({ error: { code: "unauthorized", message: "Invalid cron secret" } }, 401);
   const db = getDb();
