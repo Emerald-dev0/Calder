@@ -102,4 +102,10 @@ export function createApp() {
   return app;
 }
 
+// Vercel's Hono preset treats src/app.* as a server entry and validates its
+// default export. This default keeps that check passing for Hono detection;
+// the real Vercel entry is api/index.js (see src/serverless.ts) behind the
+// rewrite in vercel.json. Keeping both valid avoids "Invalid export" crashes.
+export default createApp();
+
 export type AppType = ReturnType<typeof createApp>;
