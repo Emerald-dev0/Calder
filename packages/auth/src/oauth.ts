@@ -10,7 +10,7 @@ import {
   orgInvitations,
 } from "@calder/db";
 import { getConfig } from "@calder/config";
-import { createSession } from "./session";
+import { createSession } from "./session.js";
 
 export type OAuthProvider = "google" | "github";
 

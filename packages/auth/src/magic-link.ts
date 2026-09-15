@@ -1,8 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { getDb, magicLinkTokens, users } from "@calder/db";
-import { createSession } from "./session";
-import { acceptPendingInvites, ensureFounderAccess } from "./oauth";
+import { createSession } from "./session.js";
+import { acceptPendingInvites, ensureFounderAccess } from "./oauth.js";
 
 /** Raw magic-link token: 256 bits, hex. Only ever inside the emailed URL. */
 export const MAGIC_LINK_TTL_MINUTES = 15;

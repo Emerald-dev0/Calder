@@ -3,7 +3,7 @@ export {
   createSesProvider,
   getSesAccountStatus,
   type SesAccountStatus,
-} from "./ses";
+} from "./ses.js";
 export {
   GmailTransport,
   createGmailTransport,
@@ -11,8 +11,8 @@ export {
   base64UrlEncode,
   GMAIL_SEND_SCOPE,
   type GmailCredentials,
-} from "./gmail";
-export { CalderEmailProvider, createCalderProvider } from "./calder";
+} from "./gmail.js";
+export { CalderEmailProvider, createCalderProvider } from "./calder.js";
 export { MockEmailProvider } from "@calder/email";
 export type { EmailProvider, EmailMessage, ProviderSendResult } from "@calder/email";
 export {
@@ -20,4 +20,4 @@ export {
   EmailProviderNotConfiguredError,
   type EmailProviderStatus,
   type ResolveEmailProviderOptions,
-} from "./resolve";
+} from "./resolve.js";

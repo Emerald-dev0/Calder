@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { MiddlewareHandler } from "hono";
 import { getConfig } from "@calder/config";
-import { AppError } from "../errors/index";
+import { AppError } from "../errors/index.js";
 
 /**
  * Admin gate for /v1/admin/*. Single shared secret (env ADMIN_API_KEY),

@@ -119,27 +119,27 @@ Record any decision that (a) reverses something already built, or (b) a reasonab
 **Decisions:**
 
 1. Calder supports SMTP alongside REST because beginners and existing stacks
- (WordPress, Laravel, Django, Nodemailer/smtplib users) already speak it,
- meeting them at their protocol beats teaching an abstraction. No invented
- SMTP extensions; standard AUTH/STARTTLS/MAIL/RCPT/DATA/MIME only.
+   (WordPress, Laravel, Django, Nodemailer/smtplib users) already speak it,
+   meeting them at their protocol beats teaching an abstraction. No invented
+   SMTP extensions; standard AUTH/STARTTLS/MAIL/RCPT/DATA/MIME only.
 2. SMTP and REST converge after ingestion into one email model, one queue, one
- worker fleet, one event lifecycle, one usage meter. Two delivery systems are
- banned by design, not just by review.
+   worker fleet, one event lifecycle, one usage meter. Two delivery systems are
+   banned by design, not just by review.
 3. Credentials are project-scoped (never account-global), shown once, hashed at
- rest, unlike the industry default of reusing one API key as the SMTP password.
+   rest, unlike the industry default of reusing one API key as the SMTP password.
 4. The gateway is its own deployable (`apps/smtp-gateway`), sharing queue/pipeline
- packages. Justification under ADR-007: long-lived TCP connections vs short HTTP
- requests (different scaling/failure profile), an abuse-sensitive public ingress
- (different security boundary), and protocol-specific deploy risk. All three map
- to accepted split triggers, this is not "felt cleaner."
+   packages. Justification under ADR-007: long-lived TCP connections vs short HTTP
+   requests (different scaling/failure profile), an abuse-sensitive public ingress
+   (different security boundary), and protocol-specific deploy risk. All three map
+   to accepted split triggers, this is not "felt cleaner."
 5. Load balancing is TCP pass-through (HAProxy/NLB-class, least-conn, health
- checks); TLS terminates at the gateway, never the LB, validated against
- industry practice (STARTTLS lives inside the TCP session; terminating it
- upstream complicates the protocol and the audit trail).
- **Why:** SMTP is the migration path and the beginner path; one pipeline keeps
- billing, events, and guarantees coherent across interfaces.
- **Open (must validate before GA):** managed TCP-LB provider choice; cert rotation
- mechanism; attachment size caps; `X-Calder-*` extension header set.
+   checks); TLS terminates at the gateway, never the LB, validated against
+   industry practice (STARTTLS lives inside the TCP session; terminating it
+   upstream complicates the protocol and the audit trail).
+   **Why:** SMTP is the migration path and the beginner path; one pipeline keeps
+   billing, events, and guarantees coherent across interfaces.
+   **Open (must validate before GA):** managed TCP-LB provider choice; cert rotation
+   mechanism; attachment size caps; `X-Calder-*` extension header set.
 
 ---
 
@@ -217,27 +217,27 @@ premature dollar figures dishonest, and hardcoded prices become lies at scale.
 **Decisions:**
 
 1. Prepaid email packs + add-ons are funded through a `credit_ledger` consumed
- by the same aggregation cron as subscriptions, one meter, two funding
- sources, auditable, never negative.
+   by the same aggregation cron as subscriptions, one meter, two funding
+   sources, auditable, never negative.
 2. Migration tooling is mapping guides + codemods, never API-compatible
- emulation of a competitor's SDK. Guides lower switching cost without legal
- exposure; cloning a proprietary API surface invites it.
+   emulation of a competitor's SDK. Guides lower switching cost without legal
+   exposure; cloning a proprietary API surface invites it.
 3. Queued-but-unsent emails are cancellable (remove from queue + `canceled`
- status + event), the only honest scope of "cancellation." Once accepted by
- a provider, mail cannot be un-sent, and we say so.
- **Why:** card-scarce markets need non-subscription revenue; trust-first
- migration beats compatibility-theater migration.
+   status + event), the only honest scope of "cancellation." Once accepted by
+   a provider, mail cannot be un-sent, and we say so.
+   **Why:** card-scarce markets need non-subscription revenue; trust-first
+   migration beats compatibility-theater migration.
 
 ## ADR-021: Magic-link auth mail sends synchronously (queue exception)
 
 **Status:** Accepted
 **Decision:** The magic-link request route sends its one email via the provider
- abstraction inline instead of the job queue. Tokens are 256-bit random,
- sha256-hashed at rest, single-use, 15-minute expiry, rate-limited 5/min per
- IP and per email, no account enumeration.
+abstraction inline instead of the job queue. Tokens are 256-bit random,
+sha256-hashed at rest, single-use, 15-minute expiry, rate-limited 5/min per
+IP and per email, no account enumeration.
 **Why:** login must not depend on worker liveness; one transactional email is
- the same latency class as the OAuth code exchange. Bulk and tenant mail stay
- on the queue per ADR-002.
+the same latency class as the OAuth code exchange. Bulk and tenant mail stay
+on the queue per ADR-002.
 
 ## ADR-021b: Canonical brand mark (brand sprawl fix)
 
@@ -366,3 +366,33 @@ job" stat went stale while the underlying queue state moved, and the alert
 fired with a 47-day-old value. Live evaluation cannot silently lie. If
 per-request cost ever matters, we add materialized rollups behind the same
 functions, not a parallel truth.
+
+## ADR-029: Vercel Node functions must use the fetch-object shape
+
+**Status:** Accepted (2026-09-15, after a production 100% error-rate incident)
+**Decision:** `apps/api/src/serverless.ts` default-exports `{ fetch(request) }`,
+never a bare `(req: Request) => Response` function. The Vercel Node runtime
+only supports the fetch-object shape, named `GET`/`POST`/… exports, or a
+classic Node `(req, res)` handler; a bare fetch-style function is invoked with
+Node `IncomingMessage`/`ServerResponse`, throws on every request, and reads as
+a generic `FUNCTION_INVOCATION_FAILED` with no hint of the contract mismatch.
+**Why:** the esbuild bundle was proven working under plain Node while
+production 500'd every invocation — the code was correct and the export shape
+was not. A passing build and a green deploy badge say nothing about this;
+only a real `/health` 200 on the deployed URL counts.
+
+## ADR-030: Workspace packages ship compiled dist, not TS sources
+
+**Status:** Accepted (2026-09-15, production served the raw `src/` tree)
+**Decision:** every `packages/*` builds real JS into `dist/` (`tsc` emit,
+`noEmit: false`) and `main`/`exports` point at `dist`, never `src/*.ts`.
+Relative imports use explicit `.js` suffixes (Node ESM style); the one JSON
+import uses `with { type: "json" }`.
+**Why:** Vercel's Hono handling transpiles `apps/api/src` per-file and
+executes it under plain Node, so every bare `@calder/*` import must resolve
+to runnable JS. `exports: ./src/*.ts` only ever worked under `tsx`. tsx,
+vitest, and Next all resolve the dist + `.js`-suffix form fine, so one layout
+serves dev, CI, Docker, and Vercel.
+**Constraint:** dev (`tsx`) now resolves `@calder/*` to `dist`, so rebuild
+packages after changing them (`pnpm build`); `turbo test`/`typecheck` already
+order `^build` first. Never point `exports` back at `src/*.ts`.

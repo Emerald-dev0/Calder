@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp, varchar, jsonb, index } from "drizzle-orm/pg-core";
-import { organizations } from "./organizations";
-import { projects } from "./projects";
+import { organizations } from "./organizations.js";
+import { projects } from "./projects.js";
 
 export const auditLogs = pgTable(
   "audit_logs",

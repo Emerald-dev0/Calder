@@ -117,7 +117,8 @@ export const PLANS: Plan[] = [
     id: "premium",
     name: "Premium",
     promise: "Operate with control.",
-    audience: "For teams where communication is becoming part of the product infrastructure itself.",
+    audience:
+      "For teams where communication is becoming part of the product infrastructure itself.",
     price: { NGN: "₦75,000", USD: "$49" },
     volume: "250,000 emails / month",
     volumeRaw: 250000,

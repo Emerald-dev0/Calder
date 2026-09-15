@@ -15,13 +15,13 @@ import { randomUUID } from "node:crypto";
 import { signUnsubscribeToken } from "@calder/auth";
 import { getConfig } from "@calder/config";
 import { eq, and, desc, count as drizzleCount } from "drizzle-orm";
-import type { Env } from "../app";
-import { AppError, validationError } from "../errors/index";
-import { rateLimitMiddleware } from "../middleware/rate-limit";
-import { adminAuthMiddleware } from "../middleware/admin";
-import { INTERNAL_PROJECT_ID } from "../services/email-service";
-import { WAITLIST_UPDATE_001, renderCampaign } from "../campaigns/waitlist-update-001";
-import { FOUNDER_INTRO } from "../campaigns/founder-intro";
+import type { Env } from "../app.js";
+import { AppError, validationError } from "../errors/index.js";
+import { rateLimitMiddleware } from "../middleware/rate-limit.js";
+import { adminAuthMiddleware } from "../middleware/admin.js";
+import { INTERNAL_PROJECT_ID } from "../services/email-service.js";
+import { WAITLIST_UPDATE_001, renderCampaign } from "../campaigns/waitlist-update-001.js";
+import { FOUNDER_INTRO } from "../campaigns/founder-intro.js";
 
 const admin = new Hono<Env>();
 
@@ -159,7 +159,7 @@ admin.post(
       ).map((r) => r.email)
     );
 
-    const { sendInternalEmail } = await import("../services/email-service");
+    const { sendInternalEmail } = await import("../services/email-service.js");
     const apiBase = getConfig().API_URL.replace(/\/$/, "");
     const appBase = getConfig().APP_URL.replace(/\/$/, "");
     let queued = 0;

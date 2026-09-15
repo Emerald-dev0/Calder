@@ -1,7 +1,29 @@
 import { Hono } from "hono";
 import type { Env } from "../app.js";
-import spec from "../../openapi.json";
+import { createRequire } from "node:module";
 import { pingRedis } from "../lib/redis-ping.js";
+
+// Loaded via require, not a static import: per-file transpilers (esbuild,
+// including Vercel's) drop import attributes, which plain Node then rejects
+// with ERR_IMPORT_ATTRIBUTE_MISSING. Both paths below are string literals so
+// Vercel's file tracer ships openapi.json with the function; src|dist
+// layouts resolve the first, the serverless bundle (apps/api/api/index.js)
+// the second.
+function loadOpenApiSpec(): unknown {
+  const require = createRequire(import.meta.url);
+  try {
+    return require("../../openapi.json") as unknown;
+  } catch {
+    // Fall through to the bundle layout.
+  }
+  try {
+    return require("../openapi.json") as unknown;
+  } catch {
+    // Fall through to the loud error below.
+  }
+  throw new Error("openapi.json not found relative to the health route");
+}
+const spec = loadOpenApiSpec();
 
 const health = new Hono<Env>();
 

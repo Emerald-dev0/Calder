@@ -1,4 +1,4 @@
-import { RedisQueue } from "./redis";
+import { RedisQueue } from "./redis.js";
 
 /**
  * Queue abstraction, all enqueue/dequeue goes through this interface.

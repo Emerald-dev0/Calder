@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp, varchar, index } from "drizzle-orm/pg-core";
-import { organizationRoleEnum } from "./enums";
-import { organizations } from "./organizations";
+import { organizationRoleEnum } from "./enums.js";
+import { organizations } from "./organizations.js";
 
 /**
  * Email-first org invitations. The invitee may not exist yet, so the row keys

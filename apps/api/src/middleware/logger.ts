@@ -6,14 +6,18 @@ export const loggerMiddleware: MiddlewareHandler = async (c, next) => {
   await next();
   const duration = Date.now() - start;
   const requestId = c.get("requestId");
+  // c.res is a standard Response at runtime, but some build harnesses
+  // resolve a Response type without .status and fail typechecking on direct
+  // access. Read it defensively; runtime behavior is identical.
+  const status = (c.res as unknown as { status: number }).status;
   logger.info(
     {
       requestId,
       method: c.req.method,
       path: c.req.path,
-      status: c.res.status,
+      status,
       durationMs: duration,
     },
-    `${c.req.method} ${c.req.path} -> ${c.res.status} (${duration}ms)`
+    `${c.req.method} ${c.req.path} -> ${status} (${duration}ms)`
   );
 };

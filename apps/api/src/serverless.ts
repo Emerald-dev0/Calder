@@ -14,12 +14,25 @@
  * The long-running node server (`src/index.ts`) remains for local dev and
  * non-serverless deploys.
  */
-import { handle } from "hono/vercel";
 import { createApp } from "./app.js";
 
 const app = createApp();
 
-export default handle(app);
+/**
+ * Vercel Node-runtime contract (see vercel.com/docs/functions/runtimes/node-js):
+ * a file under api/ must export either `{ fetch(request) }`, named HTTP-method
+ * handlers, or a classic Node (req, res) handler. A bare
+ * `export default (req: Request) => Response` is NOT a supported shape —
+ * the runtime invokes it with Node IncomingMessage/ServerResponse and every
+ * request 500s. So the Hono app is exposed through the fetch-object shape.
+ */
+const handler = {
+  fetch(request: Request) {
+    return app.fetch(request);
+  },
+};
+
+export default handler;
 
 // Drain batches (up to 25 queued emails with retries and SES throttling at
 // 14/s) can outgrow the 10s default. Clamped per Vercel plan, harmless on Hobby.

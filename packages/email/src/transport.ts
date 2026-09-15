@@ -1,4 +1,4 @@
-import type { EmailProvider, ProviderSendResult } from "./provider";
+import type { EmailProvider, ProviderSendResult } from "./provider.js";
 
 /**
  * EmailTransport, what actually moves a message toward an inbox.

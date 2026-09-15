@@ -1,4 +1,4 @@
-import type { EmailProvider, EmailMessage, ProviderSendResult } from "./provider";
+import type { EmailProvider, EmailMessage, ProviderSendResult } from "./provider.js";
 
 /**
  * EmailService, thin orchestrator around provider abstraction.

@@ -1,5 +1,5 @@
 import { pgEnum, pgTable, text, timestamp, varchar, jsonb, index } from "drizzle-orm/pg-core";
-import { waitlistStatusEnum } from "./enums";
+import { waitlistStatusEnum } from "./enums.js";
 
 /**
  * Early-access waitlist. Public signup, no tenant ownership by design

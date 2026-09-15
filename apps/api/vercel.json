@@ -1,4 +1,4 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
+  "buildCommand": "pnpm --filter @calder/api... build",
   "crons": [{ "path": "/v1/cron/drain", "schedule": "0 0 * * *" }]
 }
