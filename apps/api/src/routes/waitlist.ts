@@ -239,7 +239,7 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
         .replace(/\{\{email\}\}/g, email)
         .replace(/\{\{referral_link\}\}/g, `${appUrl}/waitlist?ref=${ticketRef}`)
         .replace(/\{\{referral_code\}\}/g, ticketRef);
-    const { FLYER_BASE64, FLYER_FILENAME, FLYER_CONTENT_TYPE } = await import("../assets/flyer.js");
+    // Flyer attachment disabled for diagnostic — re-enable after POST succeeds.
     await sendInternalEmail({
       to: email,
       subject: render(subject, (v) => v),
@@ -248,13 +248,6 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
       text: render(text, (v) => v),
       idempotencyKey: `waitlist-confirm:${email}`,
       requestId: c.get("requestId"),
-      attachments: [
-        {
-          filename: FLYER_FILENAME,
-          contentType: FLYER_CONTENT_TYPE,
-          contentBase64: FLYER_BASE64,
-        },
-      ],
     });
   } catch (err) {
     const { logger } = await import("@calder/observability");
