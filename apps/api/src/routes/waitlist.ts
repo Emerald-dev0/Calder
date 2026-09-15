@@ -193,7 +193,12 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
       const winner = await buildTicket(db, email);
       if (winner) return c.json({ data: { ...winner, joined: false } }, 200);
     }
-    throw new AppError("internal_error", "Could not join the waitlist. Please retry.", 500);
+    console.error(`[waitlist-insert] ${err instanceof Error ? err.message : String(err)}`, err);
+    throw new AppError(
+      "internal_error",
+      `Waitlist insert failed: ${err instanceof Error ? err.message : String(err)}`,
+      500
+    );
   }
 
   const ticket = await buildTicket(db, email);
