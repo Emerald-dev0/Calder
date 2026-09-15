@@ -1,6 +1,6 @@
 import { Reveal } from "./reveal";
 import { Logo } from "./logo";
-import { SIGNUP_URL, SUPPORT_EMAIL } from "../lib/site";
+import { SUPPORT_EMAIL } from "../lib/site";
 
 export function FinalCta() {
   return (
@@ -50,12 +50,6 @@ export function FinalCta() {
               yours, you will see it arrive.
             </p>
             <div className="final-ctas">
-              <a className="btn btn-paper" href={SIGNUP_URL}>
-                Create your account{" "}
-                <span className="arrow" aria-hidden="true">
-                  →
-                </span>
-              </a>
               <a className="btn btn-outline-paper" href="/docs/quickstart">
                 Read the quickstart
               </a>

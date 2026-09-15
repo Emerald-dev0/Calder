@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Logo } from "./logo";
-import { SIGNUP_URL, LOGIN_URL } from "../lib/site";
 
 const links = [
   { label: "Product", href: "/#streams" },
@@ -44,20 +43,8 @@ export function Navigation() {
               {l.label}
             </a>
           ))}
-          <a className="nav-links-signin" href={LOGIN_URL} onClick={() => setOpen(false)}>
-            Sign in
-          </a>
         </nav>
         <div className="nav-cta">
-          <a className="btn btn-ghost btn-sm nav-signin" href={LOGIN_URL}>
-            Sign in
-          </a>
-          <a className="btn btn-primary btn-sm" href={SIGNUP_URL}>
-            Start free{" "}
-            <span className="arrow" aria-hidden="true">
-              →
-            </span>
-          </a>
           <button
             className="nav-toggle"
             aria-expanded={open}

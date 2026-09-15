@@ -1,6 +1,5 @@
 import { Reveal } from "./reveal";
 import { CodeBlock } from "./code";
-import { CodeTabs } from "./code-tabs";
 
 /**
  * Sticky narrative column + scrolling code. Three steps, five minutes,
@@ -50,9 +49,6 @@ export function Developers() {
             </Reveal>
           </div>
           <div className="dev-code-stack">
-            <Reveal>
-              <CodeTabs />
-            </Reveal>
             <Reveal delay={100}>
               <CodeBlock title="202 Accepted → webhook event">
                 <span className="tok-dim">{"// 202 Accepted"}</span>

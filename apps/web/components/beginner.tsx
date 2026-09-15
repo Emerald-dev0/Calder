@@ -1,5 +1,4 @@
 import { Reveal } from "./reveal";
-import { CodeBlock } from "./code";
 
 /**
  * Beginner on-ramp: no domain, no SMTP knowledge required. Connect Gmail
@@ -24,34 +23,6 @@ export function BeginnerSection() {
           </p>
         </Reveal>
         <div className="dev-grid">
-          <Reveal>
-            <CodeBlock
-              title="gmail quickstart, same Calder API"
-              copyText={`curl https://api.calder.click/v1/emails -H "Authorization: Bearer calder_sk_test_…" -d '{"from":"myproject@gmail.com", "to":"customer@example.com", "subject":"Welcome!", "html":"<h1>Welcome!</h1>"}'`}
-            >
-              <span className="tok-dim">$</span> <span className="tok-key">curl</span>{" "}
-              <span className="tok-path">https://api.calder.click/v1/emails</span>{" "}
-              <span className="tok-dim">\</span>
-              {"\n"}
-              &nbsp;&nbsp;<span className="tok-dim">-H</span>{" "}
-              <span className="tok-str">&quot;Authorization: Bearer calder_sk_test_…&quot;</span>{" "}
-              <span className="tok-dim">\</span>
-              {"\n"}
-              &nbsp;&nbsp;<span className="tok-dim">-d</span>{" "}
-              <span className="tok-str">
-                &apos;{"{"}
-                &quot;from&quot;:&quot;myproject@gmail.com&quot;,
-                &quot;to&quot;:&quot;customer@example.com&quot;,
-                &quot;subject&quot;:&quot;Welcome!&quot;,
-                &quot;html&quot;:&quot;&lt;h1&gt;Welcome!&lt;/h1&gt;&quot;
-                {"}"}&apos;
-              </span>
-              {"\n\n"}
-              <span className="tok-dim">
-                {"// SDKs (npm install calder) land with v1, the API above is stable now."}
-              </span>
-            </CodeBlock>
-          </Reveal>
           <Reveal delay={120}>
             <div className="pipeline" style={{ marginTop: 0, height: "100%" }}>
               <p className="eyebrow">How you start</p>
