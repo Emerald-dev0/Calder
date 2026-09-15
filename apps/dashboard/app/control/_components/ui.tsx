@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { fmtDelta, fmtInt } from "@/lib/control/format";
+import { Sparkline } from "./charts";
 
 /* Shared Control Plane primitives — server-safe, zero client JS. */
 
@@ -62,28 +63,87 @@ export function Stat({
   delta,
   hint,
   invertDelta,
+  basis,
+  spark,
 }: {
   label: string;
   value: ReactNode;
   delta?: number | null;
   hint?: string;
   invertDelta?: boolean;
+  /** Explicit comparison basis rendered with the delta (REQ-091). */
+  basis?: string;
+  /** Optional server-rendered sparkline (micro-trend, REQ-032). */
+  spark?: number[];
 }) {
   const good = delta === null || delta === undefined ? null : invertDelta ? delta <= 0 : delta >= 0;
   return (
     <div className="cp-stat">
       <p className="cp-stat-label">{label}</p>
       <p className="cp-stat-value">{value}</p>
+      {spark && spark.length > 1 ? <Sparkline data={spark} width={130} height={26} /> : null}
       {delta !== null && delta !== undefined ? (
         <p className="cp-stat-foot">
           <span className={good ? "cp-delta-up" : "cp-delta-down"}>{fmtDelta(delta)}</span>
-          {hint ? <span>{hint}</span> : null}
+          {basis ? <span>{basis}</span> : hint ? <span>{hint}</span> : null}
         </p>
       ) : hint ? (
         <p className="cp-stat-foot">{hint}</p>
       ) : null}
     </div>
   );
+}
+
+/** Open-canvas section label (not a panel head). */
+export function SectionLabel({ children, right }: { children: ReactNode; right?: ReactNode }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "baseline",
+        justifyContent: "space-between",
+        gap: 12,
+        margin: "26px 0 10px",
+      }}
+    >
+      <p className="cp-eyebrow" style={{ margin: 0 }}>
+        {children}
+      </p>
+      {right ? <div style={{ display: "flex", gap: 8, alignItems: "center" }}>{right}</div> : null}
+    </div>
+  );
+}
+
+/** Data-backed observation rows ("Worth knowing") — never motivational. */
+export function InsightList({ items }: { items: string[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      {items.map((t, i) => (
+        <p className="cp-insight" key={i}>
+          {t}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/** Skeleton primitives matching final layout (REQ-092). */
+export function SkeletonStat({ count = 4 }: { count?: number }) {
+  return (
+    <div className="cp-stats">
+      {Array.from({ length: count }).map((_, i) => (
+        <div className="cp-skel-stat" key={i}>
+          <span className="cp-sk" style={{ width: 64, height: 9, display: "block", marginBottom: 10 }} />
+          <span className="cp-sk" style={{ width: 96, height: 22, display: "block" }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function SkeletonBlock({ height = 190 }: { height?: number }) {
+  return <span className="cp-sk" style={{ width: "100%", height, display: "block" }} />;
 }
 
 export function Dot({ tone }: { tone: "ok" | "warn" | "bad" | "info" | "idle" }) {

@@ -396,3 +396,25 @@ serves dev, CI, Docker, and Vercel.
 **Constraint:** dev (`tsx`) now resolves `@calder/*` to `dist`, so rebuild
 packages after changing them (`pnpm build`); `turbo test`/`typecheck` already
 order `^build` first. Never point `exports` back at `src/*.ts`.
+
+## ADR-031: Control Plane light register, first-party analytics, confirmation email versioning
+
+**Status:** Accepted (2026-09-15, founder directive on CR-001)
+**Decision:** (1) The Control Plane adopts the light Paper register
+(#F5F4EF surface, Ink text, cobalt as signal-only accent) per the founder's
+redesign specification, superseding the dark register chosen in ADR-027.
+The "separate layer with its own design system" principle stands — only the
+register changes: `control.css` tokens flipped, class structure preserved.
+(2) Growth analytics gain a first-party event layer: `analytics_events`
+(anonymous visitor/session ids, paths, CTA labels, edge-derived country —
+no PII columns by construction), a rate-limited public `POST /v1/beacon`,
+and a collector on the marketing site. Traffic metrics render explicit
+empty states until data accrues; nothing is fabricated.
+(3) The waitlist confirmation email is versioned: a draft table plus
+immutable published versions materialize into the existing
+`waitlist_confirmation` row, so the API send path is untouched; send-test
+mail is subject-prefixed `[TEST]` and never touches signups or analytics.
+**Why:** the founder command-center spec requires the light editorial
+register and real visitor/CTA/geography analytics; overwriting the
+confirmation email in place destroyed history and made testing impossible
+without polluting the funnel.

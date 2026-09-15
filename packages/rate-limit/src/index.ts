@@ -70,6 +70,9 @@ export const rateLimitPresets = {
   otp: { windowMs: 60_000, max: 5 },
   waitlist: { windowMs: 60_000, max: 5 }, // unauthenticated public signup
   dashboard: { windowMs: 60_000, max: 120 },
+  // First-party analytics beacon: batched events (≤20/batch), real browsers
+  // send a handful of batches per minute; abusive floods get shed cheaply.
+  beacon: { windowMs: 60_000, max: 120 },
 } as const;
 
 export function buildRateLimitKey(dimension: {

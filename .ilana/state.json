@@ -1,0 +1,17 @@
+{
+  "mode": "fleet",
+  "phase": "01-requirements",
+  "lastGatePassed": "G0-intake",
+  "intakeComplete": true,
+  "decisions": {
+    "analytics": "build-first-party-event-layer",
+    "confirmed-semantics": "real-statuses-derived-conversion",
+    "email-editor": "full-with-versions",
+    "charts": "recharts",
+    "date-ranges": "full-set-with-compare",
+    "shell": "rebuild-now",
+    "delivery": "single-pr"
+  },
+  "scope": ["command-center", "growth-overview", "waitlist", "shell", "analytics-events", "email-editor"],
+  "updatedAt": "2026-09-15"
+}

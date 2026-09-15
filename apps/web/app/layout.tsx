@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import AnalyticsCollector from "../components/analytics-collector";
 import { SmoothScroll } from "../components/smooth";
 import { SITE_URL, OG_IMAGE, orgJsonLd, websiteJsonLd, founderJsonLd } from "../lib/seo";
 import "./globals.css";
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: JSON.stringify([orgJsonLd(), websiteJsonLd(), founderJsonLd()]),
           }}
         />
+        <AnalyticsCollector />
         <SmoothScroll>{children}</SmoothScroll>
       </body>
     </html>

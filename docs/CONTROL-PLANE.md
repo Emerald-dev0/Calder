@@ -66,12 +66,20 @@ renders the "No access" page (verified with a support-role session).
 ## 3. What each area does today
 
 ### Command Center
-Four metric strips — **Business** (MRR ₦770,000 · 34 paying orgs · 37 orgs ·
-152 users), **Growth** (waitlist 3,840 · +57 today · 1.5% conversion · 30.8%
-referral rate), **Communication** (emails today, delivered 7d, delivery rate,
-queued now), **Infrastructure** (DB/Redis/queue/alert status with dots) — plus
-a live firing-alerts panel and 30-day send/delivered charts. Answers the four
-questions in one screen.
+Open-canvas founder cockpit on the light Paper register (ADR-031): global
+system state in the header ("All systems operational" or "N issues require
+attention →"), a primary metric strip (Visitors, Waitlist, Submissions,
+Confirmed, Confirmation emails — every delta labeled with its comparison
+basis), the Business strip (MRR, customers, orgs, users), a large
+multi-series growth chart (toggle Visitors / CTA clicks / Submissions /
+Confirmed with hover tooltips), the conversion funnel with per-step rates,
+CTA performance, acquisition-source and country tables (event-layer traffic
+plus signup-time attribution), waitlist and confirmation-email panels
+(sent → delivered/failed pipeline with delivery rate), recent confirmation
+activity, platform health rows, and a "Worth knowing" section of
+data-derived observations only. Date range (Today → All time + custom) and
+refresh live in the founder topbar. Every number is a live query; a dash
+means "no data yet", never a fabricated value.
 
 ### Growth / Waitlist (the priority)
 - Stat strip: total, new today, new this week (+WoW %), conversion

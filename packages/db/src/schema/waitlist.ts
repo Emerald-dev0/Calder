@@ -1,4 +1,14 @@
-import { pgEnum, pgTable, text, timestamp, varchar, jsonb, index } from "drizzle-orm/pg-core";
+import {
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  varchar,
+  jsonb,
+  index,
+  integer,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { waitlistStatusEnum } from "./enums.js";
 
 /**
@@ -47,6 +57,37 @@ export const waitlistConfirmation = pgTable("waitlist_confirmation", {
   text: text("text").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Working copy for the confirmation email editor. Single row (id=internal).
+ * The materialized `waitlist_confirmation` row above stays the source the
+ * API send path reads; the draft only becomes real when published (REQ-073).
+ */
+export const waitlistConfirmationDrafts = pgTable("waitlist_confirmation_drafts", {
+  id: text("id").primaryKey(), // "internal"
+  subject: varchar("subject", { length: 998 }).notNull(),
+  html: text("html").notNull(),
+  text: text("text").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Immutable published snapshots of the confirmation email. Every publish
+ * inserts a new row; restore copies an old version into the draft (REQ-072).
+ */
+export const waitlistConfirmationVersions = pgTable(
+  "waitlist_confirmation_versions",
+  {
+    id: text("id").primaryKey(),
+    version: integer("version").notNull(),
+    subject: varchar("subject", { length: 998 }).notNull(),
+    html: text("html").notNull(),
+    text: text("text").notNull(),
+    publishedBy: varchar("published_by", { length: 320 }),
+    publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("waitlist_confirmation_versions_version_key").on(t.version)]
+);
 
 export type WaitlistSignup = typeof waitlistSignups.$inferSelect;
 export type NewWaitlistSignup = typeof waitlistSignups.$inferInsert;
