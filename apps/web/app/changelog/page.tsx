@@ -6,35 +6,38 @@ import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
   title: "Changelog, Calder",
-  description: "What shipped at Calder, in order. No hype, just the work.",
+  description: "A running record of what we're shipping, improving, and learning as Calder grows.",
 };
 
 const ENTRIES = [
   {
-    date: "Sep 2026",
-    title: "A logo that looks like us",
+    date: "September 2026",
+    tag: "Platform",
+    title: "Calder is live",
     points: [
-      "New wordmark, favicon, and the signal motif you'll see across the product",
-      "Hand-drawn illustration style for the site and dashboard empty states",
-      "A 404 page that reads like a delivery log, because of course it does",
+      "REST API for sending email",
+      "Asynchronous delivery pipeline",
+      "Idempotent requests",
+      "Automatic retries",
+      "Signed webhooks",
+      "Delivery and event history",
+      "SMTP support",
+      "Sending domain verification",
+      "Projects and API keys",
+      "Usage tracking",
     ],
   },
   {
-    date: "Sep 2026",
-    title: "The site you're reading",
+    date: "September 2026",
+    tag: "Website",
+    title: "A new home for Calder",
     points: [
-      "Watch a test email travel queued → sent → delivered, live on the homepage",
-      "Copy-paste sending examples in cURL, Node, and Python",
-      "Pricing in naira and dollars, with the honest math attached",
-    ],
-  },
-  {
-    date: "Sep 2026",
-    title: "The engine room",
-    points: [
-      "Send pipeline live: every request validated, stored, queued, and answered in milliseconds",
-      "Safe retries built in, send the same request twice, deliver exactly once",
-      "Full event history on every email, from queued to opened",
+      "New visual identity",
+      "New homepage",
+      "Developer-focused product pages",
+      "Pricing in ₦ and $",
+      "Interactive delivery lifecycle",
+      "Updated documentation",
     ],
   },
 ];
@@ -48,17 +51,20 @@ export default function ChangelogPage() {
           eyebrow="Changelog"
           title={
             <>
-              What shipped, <em>in order.</em>
+              The Calder <em>build log.</em>
             </>
           }
-          lede="No hype, no 'we're thrilled to announce.' Just the work, newest first, including the unglamorous foundation weeks."
+          lede="A running record of what we're shipping, improving, and learning as Calder grows. No hype. Just the work."
         />
         <section className="section" style={{ paddingTop: 0 }}>
           <div className="wrap">
+            <p className="eyebrow">September 2026</p>
             {ENTRIES.map((e) => (
               <Reveal key={e.title}>
                 <div className="change-entry">
-                  <span className="change-date">{e.date}</span>
+                  <span className="change-date">
+                    {e.date} · {e.tag}
+                  </span>
                   <div>
                     <h3>{e.title}</h3>
                     <ul>
@@ -70,6 +76,9 @@ export default function ChangelogPage() {
                 </div>
               </Reveal>
             ))}
+            <Reveal>
+              <p style={{ marginTop: "2rem", color: "var(--ink-soft)" }}>This is the beginning.</p>
+            </Reveal>
           </div>
         </section>
       </main>

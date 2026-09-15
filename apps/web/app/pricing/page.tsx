@@ -3,8 +3,7 @@ import { pageMeta, pricingJsonLd } from "../../lib/seo";
 import { Navigation } from "../../components/navigation";
 import { Pricing } from "../../components/pricing";
 import { PlanComparison } from "../../components/pricing-table";
-import { Streams } from "../../components/streams";
-import { FinalCta, Footer } from "../../components/closing";
+import { Footer } from "../../components/closing";
 import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
 import { PLANS, PRICING_FAQS } from "../../lib/plans";
@@ -16,20 +15,39 @@ export const metadata: Metadata = pageMeta({
   path: "/pricing",
 });
 
-/** What happens at the limit, answered before anyone has to ask. */
+/** Your quota is a boundary, not a trap. */
 const LIMITS = [
   {
-    title: "You get an error, not a bill",
-    body: "Hitting a quota returns a clear failure that names the limit, your usage, and when it resets. Nothing is charged automatically and nothing is silently dropped.",
+    title: "No surprise overages",
+    body: "When you reach your quota, sending pauses and the API tells you exactly why. You'll see your limit, current usage, and reset time.",
   },
   {
-    title: "Retries never double-count",
-    body: "One accepted send is one email on the meter. Provider retries, idempotent replays, and webhook redeliveries are ours to absorb, not yours to pay for.",
+    title: "Retries don't become extra charges",
+    body: "Calder handles provider retries, idempotent requests, and webhook redelivery without turning infrastructure behavior into another line on your bill.",
   },
   {
-    title: "Test keys never meter",
-    body: "Test sends run the full pipeline, queue, events, webhooks, and are not counted against your plan. Build the integration before you send a single real email.",
+    title: "Test before you send",
+    body: "Test keys let you exercise the API, queue, events, webhooks, and delivery pipeline without sending real mail or consuming your monthly quota.",
   },
+];
+
+const TRANSACTIONAL_KINDS = [
+  "Verification codes",
+  "Password resets",
+  "Receipts",
+  "Invoices",
+  "Security alerts",
+  "Order updates",
+  "Account notifications",
+];
+
+const MARKETING_KINDS = [
+  "Newsletters",
+  "Announcements",
+  "Product launches",
+  "Promotions",
+  "Re-engagement",
+  "Lifecycle communication",
 ];
 
 export default function PricingPage() {
@@ -45,24 +63,85 @@ export default function PricingPage() {
           eyebrow="Pricing"
           title={
             <>
-              A free tier you can <em>build a product on.</em>
+              Infrastructure <em>that starts free.</em>
             </>
           }
-          lede="Five thousand emails a month at ₦0, no card, no trial clock. When your app outgrows it, Pro is $15 or ₦25,000 for fifty thousand sends with production environments. Two currencies, two real prices, no conversion games."
+          lede="Build, ship, and grow without paying before you need to. Every Calder plan includes the core infrastructure for sending, tracking, and understanding application communication. 5,000 emails every month at ₦0. No credit card. No trial clock. No surprise overages."
         />
         <div style={{ paddingBottom: "2rem" }}>
           <Pricing />
         </div>
 
-        <Streams />
+        <section className="section" style={{ paddingTop: 0 }}>
+          <div className="wrap">
+            <Reveal>
+              <p className="eyebrow">One platform</p>
+              <h2 className="h2">
+                Different kinds of <em>communication.</em>
+              </h2>
+              <p className="lede" style={{ marginTop: "1.2rem" }}>
+                Your application sends messages because something happened. Your team sends messages
+                because you have something to say. Calder is designed to support both without
+                treating them as the same workload.
+              </p>
+            </Reveal>
+            <div className="limit-grid">
+              <Reveal>
+                <div className="limit-item">
+                  <h3>Transactional</h3>
+                  <p>
+                    Communication triggered by your application. Fast, event-driven, and built
+                    around delivery reliability.
+                  </p>
+                  <div
+                    style={{ marginTop: "1rem", display: "flex", flexWrap: "wrap", gap: "0.5rem" }}
+                  >
+                    {TRANSACTIONAL_KINDS.map((k) => (
+                      <span className="event-pill" key={k}>
+                        {k}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </Reveal>
+              <Reveal delay={80}>
+                <div className="limit-item">
+                  <h3>Marketing</h3>
+                  <p>
+                    Communication sent to audiences. Audiences, consent, scheduling, automation, and
+                    campaign analytics.
+                  </p>
+                  <div
+                    style={{ marginTop: "1rem", display: "flex", flexWrap: "wrap", gap: "0.5rem" }}
+                  >
+                    {MARKETING_KINDS.map((k) => (
+                      <span className="event-pill" key={k}>
+                        {k}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </Reveal>
+            </div>
+            <Reveal delay={60}>
+              <p className="lede" style={{ marginTop: "2rem" }}>
+                Two streams. One platform. Different operational requirements underneath, the same
+                Calder workspace, event history, APIs, and usage visibility around them.
+              </p>
+            </Reveal>
+          </div>
+        </section>
 
         <section className="section" style={{ paddingTop: 0 }}>
           <div className="wrap">
             <Reveal>
               <p className="eyebrow">At the limit</p>
               <h2 className="h2">
-                What happens when you run out, <em>stated plainly.</em>
+                Your quota is a boundary, <em>not a trap.</em>
               </h2>
+              <p className="lede" style={{ marginTop: "1.2rem" }}>
+                We don&apos;t believe a pricing page should require a calculator.
+              </p>
             </Reveal>
             <div className="limit-grid">
               {LIMITS.map((l, i) => (
@@ -84,7 +163,7 @@ export default function PricingPage() {
             <Reveal>
               <p className="eyebrow">Questions, answered</p>
               <h2 className="h2">
-                Fair questions <em>deserve straight answers.</em>
+                Questions, <em>answered plainly.</em>
               </h2>
             </Reveal>
             <div style={{ marginTop: "2rem" }}>
@@ -102,7 +181,36 @@ export default function PricingPage() {
           </div>
         </section>
 
-        <FinalCta />
+        <section className="section" style={{ paddingTop: 0 }}>
+          <div className="wrap">
+            <Reveal>
+              <div className="final-cta">
+                <p className="eyebrow" style={{ color: "#8FB0FF" }}>
+                  Try it now
+                </p>
+                <h2>
+                  You don&apos;t need to commit <em>to try it.</em>
+                </h2>
+                <p>
+                  5,000 emails. ₦0. Join the waitlist, and see the entire delivery lifecycle for
+                  yourself when your invite lands. No credit card. No sales call. No trial
+                  countdown.
+                </p>
+                <div className="final-ctas">
+                  <a className="btn btn-paper" href="/waitlist">
+                    Join the waitlist{" "}
+                    <span className="arrow" aria-hidden="true">
+                      →
+                    </span>
+                  </a>
+                  <a className="btn btn-outline-paper" href="/docs/quickstart">
+                    Read the quickstart
+                  </a>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        </section>
       </main>
       <Footer />
     </>

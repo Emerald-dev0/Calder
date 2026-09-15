@@ -17,12 +17,12 @@ export function Pricing() {
         <Reveal>
           <p className="eyebrow">Pricing</p>
           <h2 className="h2">
-            Five thousand emails free. <em>Ship for ₦25,000.</em>
+            Start free. <em>Grow when you need to.</em>
           </h2>
           <p className="lede" style={{ marginTop: "1.2rem" }}>
-            Four plans, priced in naira and dollars as separate decisions, not conversions. Hard
-            limits instead of surprise overages, and the marketing suite included in every plan once
-            it ships.
+            Four plans. Straightforward limits. No usage games. We price in naira and dollars
+            separately so both currencies have a real, predictable price. Pick the currency that
+            works for you.
           </p>
         </Reveal>
 
@@ -41,7 +41,8 @@ export function Pricing() {
               ))}
             </div>
             <p className="caption" style={{ marginTop: "0.6rem" }}>
-              Two real prices per plan. Changing the display never changes what you pay.
+              Switching currencies changes the displayed price, not the features or limits of your
+              plan.
             </p>
           </div>
         </Reveal>

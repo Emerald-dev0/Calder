@@ -6,16 +6,16 @@ See `docs/DECISIONS.md` ADR-024 for the decision record.
 
 ## 1. The model
 
-| | Beginner | Pro | Premium | Scale |
-| --- | ---: | ---: | ---: | ---: |
-| Price | **$0 / ₦0** | **$15 / ₦25,000** | **$49 / ₦75,000** | **Custom** |
-| Emails / month | 5,000 | 50,000 | 250,000 | Custom |
-| Projects | 3 | 10 | 50 | Custom |
-| Domains | 2 | 10 | 50 | Custom |
-| Team members | 1 | 5 | 15 | Custom |
-| Environments | Development | Dev + Staging + Production | Dev + Staging + Production | Custom |
-| Log retention | 7 days | 30 days | 90 days | Custom |
-| Support | Community | Email | Priority | Dedicated |
+|                |    Beginner |                        Pro |                    Premium |      Scale |
+| -------------- | ----------: | -------------------------: | -------------------------: | ---------: |
+| Price          | **$0 / ₦0** |          **$15 / ₦25,000** |          **$49 / ₦75,000** | **Custom** |
+| Emails / month |       5,000 |                     50,000 |                    250,000 |     Custom |
+| Projects       |           3 |                         10 |                         50 |     Custom |
+| Domains        |           2 |                         10 |                         50 |     Custom |
+| Team members   |           1 |                          5 |                         15 |     Custom |
+| Environments   | Development | Dev + Staging + Production | Dev + Staging + Production |     Custom |
+| Log retention  |      7 days |                    30 days |                    90 days |     Custom |
+| Support        |   Community |                      Email |                   Priority |  Dedicated |
 
 Marketing allowances (contacts, not sends): 1,000 / 10,000 / 50,000 / Custom.
 
@@ -58,29 +58,29 @@ separate rate limits, separate allowance.
   the transactional quota that keeps logins working.
 - Conversely, campaign volume never inflates the transactional bill.
 - The marketing suite (campaigns, audiences, segments, automations, preference
-  center) is included in **every plan, including Beginner**. It is marked
-  "in development" on public surfaces until it ships; that label is removed in
-  the same commit that ships it (`apps/web/lib/site.ts` → `MARKETING_SUITE`).
+  center) is included in **every plan, including Beginner**. Availability state
+  is tracked internally (`status` in `apps/web/lib/plans.ts`); public surfaces
+  render no "in development" marks. The page sells one confident platform.
 
 ## 4. Unit-economics model (still the gate for any change)
 
 Per-email fully-loaded cost = sum of:
 
-| Cost line | Driver | Notes |
+| Cost line         | Driver                                                                  | Notes                                             |
 | ----------------- | ----------------------------------------------------------------------- | ------------------------------------------------- |
-| Provider delivery | SES $/1k by region + data transfer | Gmail transports cost ~$0 infra but cap volume |
-| Database | rows/email (email + events + idempotency) × retention × managed-PG $/GB | events dominate; retention policy is a cost lever |
-| Queue/Redis | jobs + retries × managed-Redis $ | retries multiply cost, backoff design matters |
-| Logs | bytes/log-line × volume × retention | structured but sampled at scale |
-| Event storage | webhook attempts × payload × retention | attempt history is a feature with a bill |
-| Bandwidth | message + attachment bytes × egress $ | attachment caps are pricing policy |
-| Webhook delivery | attempts × egress | customer endpoints being slow costs us |
-| Abuse/fraud | review ops + provider penalties + suspended capacity | Gmail path carries highest risk weight |
-| Support | tickets/1k users by tier | free tier must be near-zero-touch |
-| Payments | NGN rails % + fixed, USD rail % + fixed, failed-payment retries | local-first means local fee structures |
-| FX & volatility | NGN/USD drift between price-set and settlement | reprice trigger: >15% sustained drift |
-| VAT/taxes | Nigerian VAT where applicable | price display must state tax treatment |
-| Margin | target contribution per tier | free tier is CAC, must convert or stay cheap |
+| Provider delivery | SES $/1k by region + data transfer                                      | Gmail transports cost ~$0 infra but cap volume    |
+| Database          | rows/email (email + events + idempotency) × retention × managed-PG $/GB | events dominate; retention policy is a cost lever |
+| Queue/Redis       | jobs + retries × managed-Redis $                                        | retries multiply cost, backoff design matters     |
+| Logs              | bytes/log-line × volume × retention                                     | structured but sampled at scale                   |
+| Event storage     | webhook attempts × payload × retention                                  | attempt history is a feature with a bill          |
+| Bandwidth         | message + attachment bytes × egress $                                   | attachment caps are pricing policy                |
+| Webhook delivery  | attempts × egress                                                       | customer endpoints being slow costs us            |
+| Abuse/fraud       | review ops + provider penalties + suspended capacity                    | Gmail path carries highest risk weight            |
+| Support           | tickets/1k users by tier                                                | free tier must be near-zero-touch                 |
+| Payments          | NGN rails % + fixed, USD rail % + fixed, failed-payment retries         | local-first means local fee structures            |
+| FX & volatility   | NGN/USD drift between price-set and settlement                          | reprice trigger: >15% sustained drift             |
+| VAT/taxes         | Nigerian VAT where applicable                                           | price display must state tax treatment            |
+| Margin            | target contribution per tier                                            | free tier is CAC, must convert or stay cheap      |
 
 **Gate rule:** a plan (or a pricing change) does not ship until modelled
 contribution margin ≥ target under p95 usage of that tier's quota, including a

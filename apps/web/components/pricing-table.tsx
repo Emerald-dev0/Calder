@@ -5,12 +5,10 @@ import { COMPARISON, MARKETING_ALLOWANCES, PLANS, type ComparisonRow } from "../
  * The full comparison. Two tables on purpose: sending and platform limits,
  * then marketing allowances. Mixing them is how "50,000 emails" quietly turns
  * into "50,000 emails minus your newsletter list".
+ *
+ * Availability state stays in the data (lib/plans.ts) for internal
+ * entitlement, but the public page renders no "in development" marks.
  */
-
-function StatusTag({ status }: { status?: "today" | "dev" }) {
-  if (status !== "dev") return null;
-  return <span className="plan-tag">in development</span>;
-}
 
 function Cell({ value }: { value: string }) {
   const state = value === "✓" ? "yes" : value === "—" ? "no" : "text";
@@ -26,12 +24,6 @@ function Row({ row }: { row: ComparisonRow }) {
     <tr>
       <th scope="row">
         <span className="cmp-label">{row.label}</span>
-        {row.status === "dev" && (
-          <>
-            {" "}
-            <StatusTag status={row.status} />
-          </>
-        )}
         {row.note && <span className="cmp-note">{row.note}</span>}
       </th>
       {row.values.map((v, i) => (
@@ -90,12 +82,11 @@ export function PlanComparison() {
         <Reveal>
           <p className="eyebrow">Every plan, line by line</p>
           <h2 className="h2">
-            Compare properly, <em>not by checkmarks alone.</em>
+            Everything your application <em>needs to communicate.</em>
           </h2>
           <p className="lede" style={{ marginTop: "1.2rem" }}>
-            Anything marked <span className="plan-tag">in development</span> ships inside the plan
-            you are already paying for. We would rather show you the roadmap than a checkmark we
-            have not earned yet.
+            You shouldn&apos;t have to assemble your communication stack feature by feature. Calder
+            brings the infrastructure together.
           </p>
         </Reveal>
 
@@ -111,12 +102,14 @@ export function PlanComparison() {
 
         <Reveal>
           <div className="cmp-group">
-            <h3 className="cmp-group-title">
-              Marketing allowances <span className="plan-tag">in development</span>
-            </h3>
+            <h3 className="cmp-group-title">Marketing belongs to the platform.</h3>
             <p className="cmp-group-desc">
-              Counted in contacts, not sends, and kept apart from your transactional volume. A big
-              list never eats the budget that keeps logins working.
+              Calder&apos;s communication layer isn&apos;t split into separate products. Your
+              application mail, campaigns, audiences, templates, automations, suppression rules, and
+              delivery history are designed to work together. Marketing capabilities are included
+              across the Calder plans, with contact limits separate from your transactional email
+              quota, so a growing audience doesn&apos;t consume the volume your application depends
+              on.
             </p>
             <ComparisonTable rows={MARKETING_ALLOWANCES} label="Marketing allowances" />
           </div>

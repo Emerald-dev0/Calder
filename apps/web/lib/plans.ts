@@ -7,9 +7,9 @@
  *   price. Neither one moves when the exchange rate does.
  * - Nothing here is hardcoded anywhere else. Plan cards, the comparison
  *   table, FAQ answers, and structured data all read from this file.
- * - "In development" marks are deliberately visible. The marketing suite and
- *   a few control features are not built yet, and a pricing page that hides
- *   that is selling something it cannot deliver.
+ * - "In development" marks are maintained in the data for internal
+ *   entitlement state, but the public page no longer displays them. The page
+ *   sells one confident platform, not a roadmap.
  */
 
 export type Currency = "NGN" | "USD";
@@ -47,7 +47,8 @@ export const PLANS: Plan[] = [
     id: "beginner",
     name: "Beginner",
     promise: "Build without worrying about the bill.",
-    audience: "Students, side projects, and your first production users.",
+    audience:
+      "For personal projects, prototypes, early products, and developers getting their first application communication into production.",
     price: { NGN: "₦0", USD: "$0" },
     volume: "5,000 emails / month",
     volumeRaw: 5000,
@@ -58,20 +59,30 @@ export const PLANS: Plan[] = [
     logs: "7 days",
     support: "Community",
     highlights: [
-      "Transactional email — OTPs, receipts, resets, alerts",
-      "REST API, SMTP relay, idempotency, signed webhooks",
-      "2 sending domains with SPF, DKIM and DMARC checks",
-      "Delivery logs and basic analytics",
-      "3 projects, development environment only",
+      "Transactional email",
+      "REST API",
+      "SMTP relay",
+      "Idempotency",
+      "Signed webhooks",
+      "2 sending domains",
+      "5 sender identities",
+      "3 projects",
+      "Development environment",
+      "Delivery logs",
+      "Basic analytics",
+      "7-day log retention",
+      "Basic suppression and bounce handling",
+      "Batch and scheduled sending",
+      "1 team member",
     ],
     cta: "Start free",
-    ctaHref: "https://app.calder.click/signup",
+    ctaHref: "/waitlist",
   },
   {
     id: "pro",
     name: "Pro",
     promise: "Ship with confidence.",
-    audience: "Developers and small teams running real products.",
+    audience: "For products moving beyond development and into real usage.",
     price: { NGN: "₦25,000", USD: "$15" },
     volume: "50,000 emails / month",
     volumeRaw: 50000,
@@ -82,15 +93,25 @@ export const PLANS: Plan[] = [
     logs: "30 days",
     support: "Email",
     highlights: [
-      "Everything in Beginner, at 10× the volume",
-      "Development, staging and production environments",
-      "25 sender identities, scoped API keys",
-      "Webhook replay and delivery trends",
-      "Suppression, unsubscribe and bounce handling",
-      "5 team members with basic roles",
+      "Everything in Beginner, plus:",
+      "Staging and production environments",
+      "10 projects",
+      "10 sending domains",
+      "25 sender identities",
+      "Scoped API keys",
+      "Webhook replay",
+      "Delivery trends",
+      "Advanced delivery history",
+      "Suppression and unsubscribe controls",
+      "30-day log retention",
+      "Queue visibility",
+      "Rate-limit controls",
+      "5 team members",
+      "Roles and permissions",
+      "Email support",
     ],
     cta: "Choose Pro",
-    ctaHref: "https://app.calder.click/signup?plan=pro",
+    ctaHref: "/waitlist",
     popular: true,
   },
   {
@@ -108,21 +129,32 @@ export const PLANS: Plan[] = [
     logs: "90 days",
     support: "Priority",
     highlights: [
-      "Everything in Pro, plus delivery at scale",
-      "Deliverability monitoring and domain reputation",
-      "Custom rate limits and provider routing controls",
-      "Advanced roles, audit logs, security events",
-      "15 team members with organization controls",
-      "Priority support from the people who built it",
+      "Everything in Pro, plus:",
+      "50 projects",
+      "50 sending domains",
+      "Advanced deliverability monitoring",
+      "Domain reputation visibility",
+      "Custom rate limits",
+      "Provider routing controls",
+      "Custom throughput",
+      "Advanced analytics",
+      "90-day log retention",
+      "Advanced roles",
+      "Audit logs",
+      "Security events",
+      "IP allowlisting",
+      "15 team members",
+      "Priority support",
     ],
     cta: "Choose Premium",
-    ctaHref: "https://app.calder.click/signup?plan=premium",
+    ctaHref: "/waitlist",
   },
   {
     id: "scale",
     name: "Scale",
     promise: "Make communication part of your infrastructure.",
-    audience: "Companies where delivery is mission-critical.",
+    audience:
+      "For organizations that need Calder shaped around their architecture, traffic, security, and operational requirements.",
     price: { NGN: "Custom", USD: "Custom" },
     volume: "Custom volume",
     volumeRaw: null,
@@ -133,12 +165,21 @@ export const PLANS: Plan[] = [
     logs: "Custom",
     support: "Dedicated",
     highlights: [
-      "Dedicated IPs with warmup and custom routing",
-      "Custom throughput, redundancy and delivery architecture",
-      "SLA with priority incident response",
-      "SSO/SAML, advanced security controls, custom retention",
-      "Architecture review and migration assistance",
-      "Invoicing and custom commercial terms",
+      "Custom sending volume",
+      "Dedicated infrastructure",
+      "Dedicated IPs",
+      "IP warmup",
+      "Custom throughput",
+      "Provider redundancy",
+      "Advanced routing",
+      "Custom retention",
+      "SSO / SAML",
+      "Advanced security controls",
+      "SLA",
+      "Architecture review",
+      "Migration assistance",
+      "Dedicated support",
+      "Custom contracts and billing",
     ],
     cta: "Talk to Calder",
     ctaHref: "mailto:support@calder.click?subject=Calder%20Scale",
@@ -147,10 +188,10 @@ export const PLANS: Plan[] = [
 
 /** One-line progression shown under the cards. See docs/PRICING.md § narrative. */
 export const PROGRESSION = [
-  { plan: "Beginner", line: "I can build." },
-  { plan: "Pro", line: "I can ship." },
-  { plan: "Premium", line: "I can operate." },
-  { plan: "Scale", line: "I can depend on this." },
+  { plan: "Beginner", line: "Build and experiment." },
+  { plan: "Pro", line: "Ship and grow." },
+  { plan: "Premium", line: "Operate at scale." },
+  { plan: "Scale", line: "Make communication infrastructure." },
 ] as const;
 
 export interface ComparisonRow {
@@ -290,10 +331,7 @@ export const COMPARISON: ComparisonGroup[] = [
 export const MARKETING_ALLOWANCES: ComparisonRow[] = [
   { label: "Contacts", values: ["1,000", "10,000", "50,000", "Custom"] },
   { label: "Campaigns", values: [YES, YES, YES, YES], status: "dev" },
-  {
-    label: "Templates",
-    values: ["Basic", "Advanced", "Advanced", "Custom"],
-  },
+  { label: "Audiences", values: [YES, YES, YES, YES], status: "dev" },
   { label: "Automations", values: ["Basic", YES, "Advanced", "Custom"], status: "dev" },
   { label: "Segments", values: ["Basic", YES, "Advanced", "Custom"], status: "dev" },
   { label: "Analytics", values: ["Basic", "Advanced", "Advanced", "Custom"], status: "dev" },
@@ -310,30 +348,26 @@ export const MARKETING_ALLOWANCES: ComparisonRow[] = [
 export const PRICING_FAQS: Array<{ q: string; a: string }> = [
   {
     q: "What counts as an email?",
-    a: "One accepted send, the 202 you get back from POST /v1/emails. API reads, webhook deliveries and log queries are never metered. Neither are test sends: test keys run the whole pipeline without delivering anything.",
-  },
-  {
-    q: "Are the naira and dollar prices converted?",
-    a: "No. ₦25,000 and $15 are separate prices for the same plan, decided by us, not by an exchange rate that moves every morning. Nigerian customers pay in naira, with local payment rails, at a naira price that stays put.",
+    a: "One accepted send counts as one email. API reads, log queries, webhook deliveries, and test sends don't count toward your sending quota.",
   },
   {
     q: "What happens when I reach my limit?",
-    a: "Sending pauses with a clear error that names your limit, your usage, and when it resets. We do not auto-charge overages and we do not silently drop mail. You will always know before your bill changes.",
+    a: "Sending pauses. The API returns a clear error showing the limit, your current usage, and when the quota resets. There are no automatic overage charges.",
   },
   {
-    q: "Is the marketing suite really included at ₦0?",
-    a: "Yes. Campaigns, audiences, automations and the preference center ship to every plan, including Beginner, with contact limits instead of a separate product line. It is in development today, and your plan includes it when it lands, at no additional cost.",
+    q: "Are the naira and dollar prices converted?",
+    a: "No. ₦25,000 and $15 are intentionally separate prices for the same plan. They aren't tied to a daily exchange-rate calculation.",
   },
   {
-    q: "Why does transactional email get its own stream?",
-    a: "Because an OTP and a newsletter should not share a reputation. Campaigns live on their own stream with their own suppression and consent state, so a rough week of marketing never becomes a broken login for your users.",
+    q: "Can I change plans?",
+    a: "Yes. Upgrade or downgrade from your dashboard. Your projects, API keys, logs, and sending history stay with you.",
   },
   {
     q: "Do I need a domain to start?",
-    a: "No. Connect a Gmail account through Google's own authorization and send through the same API, capped and clearly labeled. When you are ready to send at volume, verify a domain and your code does not change.",
+    a: "No. You can start development through Calder's supported onboarding path and move to a verified sending domain when you're ready for production sending.",
   },
   {
-    q: "Can I move between plans?",
-    a: "Any time, in both directions, from the dashboard. Changing plans never changes your API keys, your logs or your sending history.",
+    q: "Are marketing capabilities included?",
+    a: "Yes. Marketing communication is part of Calder's platform rather than a separate paid product. It uses its own contact allowance and operational boundaries.",
   },
 ];

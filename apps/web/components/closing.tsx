@@ -110,8 +110,7 @@ export function Footer() {
           <div>
             <Logo />
             <p className="caption" style={{ marginTop: "1rem", maxWidth: "24rem" }}>
-              Communication infrastructure for applications. Transactional mail today, marketing
-              mail on its own stream, one API and one event log underneath both.
+              Communication infrastructure for applications.
             </p>
             <p className="caption" style={{ marginTop: "0.6rem" }}>
               <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
