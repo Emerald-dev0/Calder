@@ -1,5 +1,5 @@
 import * as React from "react";
-import { cn } from "../utils";
+import { cn } from "../utils.js";
 
 export const CALDER_MARK_VIEWBOX = "0 0 110 80";
 export const CALDER_MARK_DOT = { cx: 18, cy: 50, r: 9 };

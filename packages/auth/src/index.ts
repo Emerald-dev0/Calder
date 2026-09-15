@@ -4,10 +4,10 @@ export {
   generateApiKey,
   extractKeyPrefix,
   type GeneratedApiKey,
-} from "./api-keys";
-export { type AuthContext, type ApiKeyContext, type SessionContext } from "./types";
-export { requireProjectAccess, requireOrgAccess, assertTenantScope } from "./authorization";
-export { encryptSecret, decryptSecret } from "./crypto";
+} from "./api-keys.js";
+export { type AuthContext, type ApiKeyContext, type SessionContext } from "./types.js";
+export { requireProjectAccess, requireOrgAccess, assertTenantScope } from "./authorization.js";
+export { encryptSecret, decryptSecret } from "./crypto.js";
 export {
   startGmailConnect,
   completeGmailConnect,
@@ -18,15 +18,15 @@ export {
   GMAIL_CONNECT_SCOPES,
   type GmailConnectStart,
   type GmailConnectTokens,
-} from "./gmail-connect";
-export { ensureFounderAccess, acceptPendingInvites } from "./oauth";
+} from "./gmail-connect.js";
+export { ensureFounderAccess, acceptPendingInvites } from "./oauth.js";
 export {
   startOAuth,
   completeOAuth,
   configuredProviders,
   type OAuthProvider,
   type OAuthProfile,
-} from "./oauth";
+} from "./oauth.js";
 export {
   createSession,
   getSessionUser,
@@ -37,8 +37,8 @@ export {
   secureFlag,
   SESSION_COOKIE,
   type SessionUser,
-} from "./session";
-export { signUnsubscribeToken, verifyUnsubscribeToken } from "./unsubscribe";
+} from "./session.js";
+export { signUnsubscribeToken, verifyUnsubscribeToken } from "./unsubscribe.js";
 export {
   requestMagicLink,
   consumeMagicLink,
@@ -49,7 +49,7 @@ export {
   isMagicTokenLive,
   MAGIC_LINK_TTL_MINUTES,
   MAGIC_LINK_FROM,
-} from "./magic-link";
+} from "./magic-link.js";
 export {
   issueEmailCode,
   verifyEmailCode,
@@ -59,7 +59,7 @@ export {
   MAX_CODE_ATTEMPTS,
   type EmailCodePurpose,
   type IssueEmailCodeResult,
-} from "./email-code";
+} from "./email-code.js";
 export {
   hashPassword,
   verifyPassword,
@@ -72,4 +72,4 @@ export {
   MAX_PASSWORD_LEN,
   type SignupWithPasswordResult,
   type LoginWithPasswordResult,
-} from "./password";
+} from "./password.js";

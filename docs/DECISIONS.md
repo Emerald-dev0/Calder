@@ -380,3 +380,19 @@ a generic `FUNCTION_INVOCATION_FAILED` with no hint of the contract mismatch.
 production 500'd every invocation — the code was correct and the export shape
 was not. A passing build and a green deploy badge say nothing about this;
 only a real `/health` 200 on the deployed URL counts.
+
+## ADR-030: Workspace packages ship compiled dist, not TS sources
+
+**Status:** Accepted (2026-09-15, production served the raw `src/` tree)
+**Decision:** every `packages/*` builds real JS into `dist/` (`tsc` emit,
+`noEmit: false`) and `main`/`exports` point at `dist`, never `src/*.ts`.
+Relative imports use explicit `.js` suffixes (Node ESM style); the one JSON
+import uses `with { type: "json" }`.
+**Why:** Vercel's Hono handling transpiles `apps/api/src` per-file and
+executes it under plain Node, so every bare `@calder/*` import must resolve
+to runnable JS. `exports: ./src/*.ts` only ever worked under `tsx`. tsx,
+vitest, and Next all resolve the dist + `.js`-suffix form fine, so one layout
+serves dev, CI, Docker, and Vercel.
+**Constraint:** dev (`tsx`) now resolves `@calder/*` to `dist`, so rebuild
+packages after changing them (`pnpm build`); `turbo test`/`typecheck` already
+order `^build` first. Never point `exports` back at `src/*.ts`.

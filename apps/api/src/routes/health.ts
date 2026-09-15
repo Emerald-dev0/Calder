@@ -1,7 +1,25 @@
 import { Hono } from "hono";
 import type { Env } from "../app.js";
-import spec from "../../openapi.json";
+import { createRequire } from "node:module";
 import { pingRedis } from "../lib/redis-ping.js";
+
+// Loaded via require, not a static import: per-file transpilers (esbuild,
+// including Vercel's) drop import attributes, which plain Node then rejects
+// with ERR_IMPORT_ATTRIBUTE_MISSING. The spec is resolved relative to this
+// file, so both layouts work: src|dist/routes/*.js use ../../, while the
+// serverless bundle (apps/api/api/index.js) uses ../.
+function loadOpenApiSpec(): unknown {
+  const require = createRequire(import.meta.url);
+  for (const rel of ["../../openapi.json", "../openapi.json"]) {
+    try {
+      return require(rel) as unknown;
+    } catch {
+      // Try the next layout.
+    }
+  }
+  throw new Error("openapi.json not found relative to the health route");
+}
+const spec = loadOpenApiSpec();
 
 const health = new Hono<Env>();
 

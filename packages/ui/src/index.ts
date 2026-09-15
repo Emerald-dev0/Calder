@@ -1,4 +1,4 @@
-export { cn } from "./utils";
+export { cn } from "./utils.js";
 export { Button, type ButtonProps } from "./components/button";
 export {
   CalderMark,
@@ -15,4 +15,4 @@ export { Badge } from "./components/badge";
 export { CalderSignal } from "./illustrations/calder-signal";
 export { OnboardingPath } from "./illustrations/onboarding-path";
 export { EmptyStateAbstract } from "./illustrations/empty-state-abstract";
-export * from "./tokens";
+export * from "./tokens.js";

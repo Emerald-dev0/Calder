@@ -1,4 +1,4 @@
-import { getDb, organizations, projects, plans, planPrices } from "./index";
+import { getDb, organizations, projects, plans, planPrices } from "./index.js";
 
 /**
  * Idempotent bootstrap: the founder-owned internal tenant that Calder's own

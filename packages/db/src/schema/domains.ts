@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp, varchar, index, uniqueIndex } from "drizzle-orm/pg-core";
-import { domainStatusEnum, domainVerificationMethodEnum } from "./enums";
-import { projects } from "./projects";
+import { domainStatusEnum, domainVerificationMethodEnum } from "./enums.js";
+import { projects } from "./projects.js";
 
 export const domains = pgTable(
   "domains",

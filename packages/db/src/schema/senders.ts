@@ -7,9 +7,9 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { projects } from "./projects";
-import { projectTransports } from "./transports";
-import { senderStatusEnum, senderTypeEnum } from "./enums";
+import { projects } from "./projects.js";
+import { projectTransports } from "./transports.js";
+import { senderStatusEnum, senderTypeEnum } from "./enums.js";
 
 /**
  * Sender identities: the named, scoped, verifiable "who" behind a send.
