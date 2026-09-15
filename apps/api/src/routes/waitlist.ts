@@ -88,40 +88,62 @@ async function buildTicket(db: ReturnType<typeof getDb>, email: string): Promise
 /**
  * Default confirmation copy, used when no dynamic template row exists.
  * `firstName` is already defaulted by the caller (null → "there").
+ * Matches the frontend success state and the hosted flyer at /calder-flyer.png
+ * (also attached as Calder-admission.png). Uses table layout + inline styles
+ * for email clients.
  */
 function DEFAULT_CONFIRMATION_HTML(firstName: string): string {
+  const safe = escapeHtml(firstName);
   return [
-    `<p style="margin-bottom:24px;">Hi ${escapeHtml(firstName)},</p>`,
-    `<p style="margin-bottom:24px;"><b>You&rsquo;re officially on the Calder waitlist.</b> 🎉</p>`,
-    `<p style="margin-bottom:24px;">Honestly, thank you for joining us this early. There&rsquo;s something pretty exciting about having people here before everything is finished.</p>`,
-    `<p style="margin-bottom:24px;">We&rsquo;re working on the product, refining the experience, and putting the infrastructure behind it together piece by piece.</p>`,
-    `<div style="background-color:#F5F4EF; border-radius:12px; padding:24px; margin-bottom:24px; border:1px solid #E5E5E5;">`,
-    `<p style="margin:0 0 12px; font-size:14px; color:#737373; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; text-transform:uppercase; letter-spacing:0.05em;">Flyer attached</p>`,
-    `<p style="margin:0; font-size:15px; line-height:1.6;">I&rsquo;ve attached our <b>early-access flyer</b> below. Feel free to share it with anyone building products that need dependable communication infrastructure.</p>`,
-    `</div>`,
-    `<p style="margin-bottom:24px;">Over the coming weeks, you&rsquo;ll hear from us a little more: new features as they come together, early access opportunities, and some of the thinking behind Calder. We don&rsquo;t want this to feel like one of those waitlists where you sign up and disappear into a database.</p>`,
-    `<p style="margin-bottom:24px;">You&rsquo;re part of the early Calder community now.</p>`,
-    `<p style="margin-bottom:8px;">Thanks for being here,</p>`,
-    `<p style="margin:0;"><b>The Calder Team</b><br><span style="color:#737373; font-size:14px;">Communication infrastructure for modern applications.</span></p>`,
+    `<!doctype html>`,
+    `<html><body style="margin:0; padding:0; background:#F5F4EF;">`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5F4EF; padding:32px 16px;">`,
+    `<tr><td align="center">`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px; background:#FFFFFF; border:1px solid #E5E5E5; border-radius:12px; overflow:hidden;">`,
+    `<tr><td style="padding:32px 32px 0; text-align:center;">`,
+    `<p style="margin:0; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:#737373;">YOU&apos;RE IN &middot; CALDER</p>`,
+    `</td></tr>`,
+    `<tr><td style="padding:24px 32px 0;">`,
+    `<img src="https://calder.click/calder-flyer.png" alt="Calder admission — Admission confirmed" width="496" style="width:100%; max-width:496px; height:auto; display:block; border-radius:8px; border:1px solid #E5E5E5; margin:0 auto;" />`,
+    `</td></tr>`,
+    `<tr><td style="padding:24px 32px;">`,
+    `<h1 style="margin:0 0 16px; font-family:Georgia,serif; font-size:24px; line-height:1.25; color:#0B0C0E; font-weight:700;">Welcome aboard, ${safe}.</h1>`,
+    `<p style="margin:0 0 16px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; font-size:15px; line-height:1.6; color:#0B0C0E;">You&apos;re officially on the <strong style="font-weight:600;">Calder list</strong>.</p>`,
+    `<p style="margin:0 0 16px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; font-size:15px; line-height:1.6; color:#0B0C0E;">We&apos;re building something we&apos;re genuinely excited about, and you&apos;ll be <strong>hearing from us as it takes shape</strong>.</p>`,
+    `<p style="margin:0 0 16px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; font-size:15px; line-height:1.6; color:#0B0C0E;">Over the coming days and weeks, our founder and the Calder team may drop into your inbox with <strong>product updates</strong>, things we&apos;re working on, and a few <strong>behind-the-scenes looks</strong> at what&apos;s coming.</p>`,
+    `<p style="margin:0 0 16px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; font-size:15px; line-height:1.6; color:#0B0C0E;">Thanks for getting here early.</p>`,
+    `<p style="margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; font-size:15px; line-height:1.6; color:#0B0C0E;">We&apos;ll see you around.</p>`,
+    `<p style="margin:24px 0 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; font-size:15px; line-height:1.6; color:#0B0C0E;">&mdash; <strong>The Calder Team</strong><br><span style="color:#737373; font-size:13px;">Communication infrastructure for applications.</span></p>`,
+    `</td></tr>`,
+    `<tr><td style="padding:0 32px 32px; text-align:center;">`,
+    `<p style="margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; font-size:12px; color:#737373;">Your ticket is attached as <strong>Calder-admission.png</strong>. You can also <a href="https://calder.click/calder-flyer.png" style="color:#0B0C0E; text-decoration:underline;">download it here</a>.</p>`,
+    `</td></tr>`,
+    `</table>`,
+    `</td></tr></table>`,
+    `</body></html>`,
   ].join("");
 }
 
 function DEFAULT_CONFIRMATION_TEXT(firstName: string): string {
   return [
-    `Hi ${firstName},`,
+    `YOU'RE IN · CALDER`,
     ``,
-    `You're officially on the Calder waitlist. 🎉`,
+    `Welcome aboard, ${firstName}.`,
     ``,
-    `Honestly, thank you for joining us this early. Calder is still being built, and we're putting the infrastructure together piece by piece.`,
+    `You're officially on the Calder list.`,
     ``,
-    `I've attached our early-access flyer to this email—feel free to share it with anyone building products that need dependable infrastructure.`,
+    `We're building something we're genuinely excited about, and you'll be hearing from us as it takes shape.`,
     ``,
-    `Over the coming weeks, you'll hear from us as features come together. You're part of the early Calder community now.`,
+    `Over the coming days and weeks, our founder and the Calder team may drop into your inbox with product updates, things we're working on, and a few behind-the-scenes looks at what's coming.`,
     ``,
-    `Thanks for being here,`,
+    `Thanks for getting here early.`,
     ``,
-    `The Calder Team`,
-    `Communication infrastructure for modern applications.`,
+    `We'll see you around.`,
+    ``,
+    `-- The Calder Team`,
+    `Communication infrastructure for applications.`,
+    ``,
+    `Your ticket is attached as Calder-admission.png. Download: https://calder.click/calder-flyer.png`,
   ].join("\n");
 }
 
