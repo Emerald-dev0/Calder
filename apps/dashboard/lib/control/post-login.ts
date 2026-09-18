@@ -36,8 +36,7 @@ export function sanitizeNext(next: string | null | undefined): string | null {
 /** Pure target resolution — unit-tested, no I/O. */
 export function resolvePostLoginTarget(input: PostLoginTargetInput): string {
   const email = input.email.toLowerCase().trim();
-  const hasAccess =
-    resolvePlatformRole(email, input.dbRole, input.founderEmails) !== null;
+  const hasAccess = resolvePlatformRole(email, input.dbRole, input.founderEmails) !== null;
   const safe = sanitizeNext(input.next);
   if (safe) {
     if (!safe.startsWith("/control")) return safe;
@@ -61,16 +60,11 @@ async function dbRoleForEmail(email: string): Promise<PlatformRole | null> {
 export async function hasControlAccess(email: string): Promise<boolean> {
   const normalized = email.toLowerCase().trim();
   const dbRole = await dbRoleForEmail(normalized);
-  return (
-    resolvePlatformRole(normalized, dbRole, getConfig().FOUNDER_EMAILS) !== null
-  );
+  return resolvePlatformRole(normalized, dbRole, getConfig().FOUNDER_EMAILS) !== null;
 }
 
 /** Full server-side helper for auth routes: email (+ optional next) → path. */
-export async function postLoginRedirect(
-  email: string,
-  next?: string | null
-): Promise<string> {
+export async function postLoginRedirect(email: string, next?: string | null): Promise<string> {
   const normalized = email.toLowerCase().trim();
   const dbRole = await dbRoleForEmail(normalized);
   return resolvePostLoginTarget({
