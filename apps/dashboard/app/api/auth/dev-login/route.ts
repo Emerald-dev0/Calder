@@ -10,6 +10,7 @@ import {
   sealSessionCookie,
   sessionCookieHeader,
 } from "@calder/auth";
+import { postLoginRedirect } from "../../../../lib/control/post-login";
 
 /**
  * DEV-ONLY login bypass so the founder can preview the dashboard before
@@ -49,7 +50,7 @@ export async function POST(req: Request): Promise<Response> {
 
   const sessionId = await createSession(userId);
   const sealed = await sealSessionCookie(sessionId);
-  const res = NextResponse.redirect(new URL("/", req.url));
+  const res = NextResponse.redirect(new URL(await postLoginRedirect(email), req.url));
   res.headers.append("Set-Cookie", sessionCookieHeader(sealed, 30 * 24 * 60 * 60));
   return res;
 }

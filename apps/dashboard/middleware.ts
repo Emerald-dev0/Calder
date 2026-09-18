@@ -28,7 +28,15 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
   if (!req.cookies.get(SESSION_COOKIE)) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    // Preserve the deep link so post-login routing can honor it (the API
+    // only honors /control* targets for platform roles). "/" is excluded so
+    // a founder landing on the root still gets the /control default.
+    if (pathname === "/") {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+    const login = new URL("/login", req.url);
+    login.searchParams.set("next", pathname + req.nextUrl.search);
+    return NextResponse.redirect(login);
   }
   return NextResponse.next();
 }

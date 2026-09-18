@@ -80,8 +80,12 @@ export function SignupForm({ providers }: SignupFormProps) {
         throw new Error(data.error || "Verification failed.");
       }
 
-      // Success: session cookie is set, enter the app
-      window.location.href = "/";
+      // Success: session cookie is set, enter the app (founders land on
+      // /control via the server-derived redirectTo, never a client check).
+      window.location.href =
+        typeof data.redirectTo === "string" && data.redirectTo.startsWith("/")
+          ? data.redirectTo
+          : "/";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verification failed.");
       setBusy(false);

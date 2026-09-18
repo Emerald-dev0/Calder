@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
-import { consumeMagicLink, sealSessionCookie, sessionCookieHeader } from "@calder/auth";
+import {
+  consumeMagicLink,
+  getSessionUser,
+  sealSessionCookie,
+  sessionCookieHeader,
+} from "@calder/auth";
+import { postLoginRedirect } from "../../../../../lib/control/post-login";
 
 /**
  * GET /api/auth/magic-link/callback?token=… — redeem a one-time sign-in link.
  * Consumes the token (single-use), links-or-creates the user, seals the
- * session, enters the app. Failures land back on /login with an error flag,
+ * session, enters the app (founders land on /control via the server-side
+ * platform-role check). Failures land back on /login with an error flag,
  * never a stack trace.
  */
 export async function GET(req: Request): Promise<Response> {
@@ -13,7 +20,9 @@ export async function GET(req: Request): Promise<Response> {
   try {
     const sessionId = await consumeMagicLink(token);
     const sealed = await sealSessionCookie(sessionId);
-    const res = NextResponse.redirect(new URL("/", url.origin));
+    const sessionUser = await getSessionUser(sealed);
+    const target = sessionUser ? await postLoginRedirect(sessionUser.email) : "/";
+    const res = NextResponse.redirect(new URL(target, url.origin));
     res.headers.append("Set-Cookie", sessionCookieHeader(sealed, 30 * 24 * 60 * 60));
     return res;
   } catch {
