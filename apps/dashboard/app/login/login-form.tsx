@@ -44,6 +44,15 @@ export function LoginForm({ providers, initialError, devLogin }: LoginFormProps)
     return () => clearInterval(timer);
   }, [mode, resendSeconds]);
 
+  // ?next= deep link (e.g. /login?next=/control after a guard bounce).
+  // It is sent to the API, which validates it and only honors /control*
+  // targets when the session holds a platform role — the client never
+  // decides authorization itself, it only follows the returned redirectTo.
+  const readNext = (): string | null => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("next");
+  };
+
   // Handle standard password login
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +64,7 @@ export function LoginForm({ providers, initialError, devLogin }: LoginFormProps)
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, next: readNext() }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -72,8 +81,11 @@ export function LoginForm({ providers, initialError, devLogin }: LoginFormProps)
         return;
       }
 
-      // Logged in: redirect to dashboard
-      window.location.href = "/";
+      // Logged in: founders land on /control, everyone else on the dashboard.
+      window.location.href =
+        typeof data.redirectTo === "string" && data.redirectTo.startsWith("/")
+          ? data.redirectTo
+          : "/";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed.");
     } finally {
@@ -96,7 +108,12 @@ export function LoginForm({ providers, initialError, devLogin }: LoginFormProps)
       const res = await fetch("/api/auth/email-code/verify", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, code: finalCode, purpose: "verification" }),
+        body: JSON.stringify({
+          email,
+          code: finalCode,
+          purpose: "verification",
+          next: readNext(),
+        }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -104,7 +121,10 @@ export function LoginForm({ providers, initialError, devLogin }: LoginFormProps)
         throw new Error(data.error || "Verification failed.");
       }
 
-      window.location.href = "/";
+      window.location.href =
+        typeof data.redirectTo === "string" && data.redirectTo.startsWith("/")
+          ? data.redirectTo
+          : "/";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verification failed.");
       setBusy(false);

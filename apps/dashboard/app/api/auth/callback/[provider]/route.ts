@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import {
   completeOAuth,
+  getSessionUser,
   sealSessionCookie,
   sessionCookieHeader,
   secureFlag,
   type OAuthProvider,
 } from "@calder/auth";
+import { postLoginRedirect } from "../../../../../lib/control/post-login";
 
 /** OAuth landing: validate, link-or-create user, seal session, enter app. */
 export async function GET(
@@ -31,7 +33,10 @@ export async function GET(
   try {
     const sessionId = await completeOAuth(provider, code, state, storedState, codeVerifier);
     const sealed = await sealSessionCookie(sessionId);
-    const res = NextResponse.redirect(new URL("/", url.origin));
+    // Role-derived landing: founders enter at /control, everyone else at /.
+    const sessionUser = await getSessionUser(sealed);
+    const target = sessionUser ? await postLoginRedirect(sessionUser.email) : "/";
+    const res = NextResponse.redirect(new URL(target, url.origin));
     res.headers.append("Set-Cookie", sessionCookieHeader(sealed, 30 * 24 * 60 * 60));
     const clear = `Path=/; HttpOnly; Max-Age=0; SameSite=Lax${secureFlag()}`;
     res.headers.append("Set-Cookie", `calder_oauth_state=; ${clear}`);

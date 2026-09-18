@@ -7,8 +7,10 @@ import { CalderLockup } from "@calder/ui";
 import { PlanBadge } from "../../components/plan-gate";
 
 function isFounder(email: string): boolean {
+  // Same parsing as lib/control/roles.ts resolvePlatformRole: split on ","
+  // then trim, so "a@x.com,b@y.com" and "a@x.com, b@y.com" both work.
   const founders = (getConfig().FOUNDER_EMAILS ?? "")
-    .split(", ")
+    .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
   return founders.includes(email.toLowerCase());

@@ -21,8 +21,12 @@ query.
 1. **Same identity, two worlds.** Emerald logs in once. The customer dashboard
    is the normal Calder product (orgs, projects, sending). The Control Plane is
    reached from the sidebar link "Control Plane" and renders only for people
-   with a platform role. Eventually the Control Plane moves to a separate
-   subdomain; nothing in the code assumes same-origin.
+   with a platform role. A platform operator lands directly on `/control`
+   (the Command Center) after login; regular customers land on `/` — the
+   target is derived server-side from the platform-role system
+   (`lib/control/post-login.ts` over `resolvePlatformRole`), never from a
+   client-side email comparison. Eventually the Control Plane moves to a
+   separate subdomain; nothing in the code assumes same-origin.
 2. **The founder is also a customer.** Emerald owns "Calder" (org `org_avenor`,
    project `proj_website`) and dogfoods the product like any user. Platform
    role never spills into tenant data.

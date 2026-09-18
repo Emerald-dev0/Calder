@@ -250,8 +250,10 @@ export async function ensureFounderAccess(
   userId: string,
   email: string
 ): Promise<void> {
+  // Same parsing as the dashboard's resolvePlatformRole: split on ","
+  // then trim, so multi-email lists work with or without a space.
   const founders = (getConfig().FOUNDER_EMAILS ?? "")
-    .split(", ")
+    .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
   if (!founders.includes(email.toLowerCase())) return;
