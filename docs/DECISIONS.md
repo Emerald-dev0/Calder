@@ -418,3 +418,63 @@ mail is subject-prefixed `[TEST]` and never touches signups or analytics.
 register and real visitor/CTA/geography analytics; overwriting the
 confirmation email in place destroyed history and made testing impossible
 without polluting the funnel.
+
+## ADR-032: Idempotency claims are atomic, claim-first, replay-on-conflict
+
+**Status:** Accepted (2026-09-19, Phase 0 / M0.1)
+**Decision:** A send carrying an `Idempotency-Key` inserts the claim row
+FIRST, inside the same transaction as the `emails` + `email_events` rows
+(`INSERT ... ON CONFLICT (project_id, key) DO UPDATE ... WHERE
+expires_at < now() RETURNING`). A concurrent same-key request waits on the
+conflict until the winner commits, then replays the stored response (`200`,
+same id) instead of inserting a second row; a key whose winner is still in
+flight returns `409 idempotency_conflict`; an expired claim (24h) is
+atomically refreshed and re-claimed. A persist failure in production is a
+500, never a pretend-202 (the dev-only in-memory fallback is unchanged).
+**Why:** the old lookup-then-insert race let N concurrent same-key requests
+persist N rows and double-send, violating the API contract. The unique
+indexes on `idempotency_keys(project_id, key)` and `emails(project_id,
+idempotency_key)` become the enforcement mechanism instead of a crash source.
+**Do not:** reintroduce a pre-check SELECT as the concurrency mechanism (it
+can only ever be a fast-path; the claim transaction is the authority), or
+return 202 before the row is durable.
+
+## ADR-033: Webhook signing secrets are shown once, single encryption scheme
+
+**Status:** Accepted (2026-09-19, Phase 0 / M0.3)
+**Decision:** `POST /v1/webhooks` (and the dashboard manager) generate
+`whsec_<48hex>`, return it in the create response EXACTLY ONCE, and store
+only `@calder/auth` AES-256-GCM envelope ciphertext under the
+`webhook_signing` context. Both surfaces share that one scheme so the
+delivery engine (Phase 3) decrypts against a single contract. `GET
+/v1/webhooks` never returns secret material (raw or ciphertext). There is
+no read-back; losing a secret means rotating via delete + re-create. A
+failed insert is a 500, never a fabricated 201 with a phantom id.
+**Why:** the old REST route stored sha256(secret) and discarded the raw
+secret, which made HMAC verification impossible for the customer AND for
+our own signer, registry without delivery, and its catch block fabricated a
+fake webhook id. Note the dashboard previously used a second, incompatible
+`whsec:`-prefixed key derivation; ciphertexts created before this ADR are
+not decryptable under the unified scheme (acceptable: nothing decrypted
+them yet and secrets rotate by re-creation).
+**Do not:** log the secret, return it from any endpoint other than create,
+or introduce another key-derivation variant.
+
+## ADR-034: One delivery drain, leased with FOR UPDATE SKIP LOCKED
+
+**Status:** Accepted (2026-09-19, Phase 0 / M0.2)
+**Decision:** `apps/api/src/lib/drain.ts` (behind `/v1/cron/drain`) is the
+ONLY delivery-drain implementation; the ~320-line dashboard twin
+(`apps/dashboard/app/api/cron/drain/route.ts`) and its Vercel cron entry
+are deleted. Rows are claimed atomically,
+`queued → sending` via `UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP
+LOCKED)`, so overlapping invocations (scheduled tick + post-accept
+kickDrain, multi-invocation serverless) own disjoint rows and can never
+double-send. Claims are 10-minute leases: rows stuck in `sending`
+(crash mid-flight) become re-claimable. Transient failures release the row
+back to `queued` for the next tick.
+**Why:** the twin implementations had already drifted, and the bare UPDATE
+claim raced itself: two overlapping drains read the same `queued` rows and
+sent the same email twice (a scheduled double-send in production).
+**Do not:** add delivery logic to the dashboard again, or grep-replace the
+claim with a read-then-update; the lease IS the correctness property.

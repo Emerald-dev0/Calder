@@ -13,6 +13,25 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
+    services:
+      # Live Postgres for *.integration.test.ts (RUN_INTEGRATION_TESTS=1).
+      # Without this, every integration test silently skips and CI never
+      # proves the pipeline joints (idempotency races, drain lease, secrets).
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: calder
+          POSTGRES_PASSWORD: calder
+          POSTGRES_DB: calder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U calder"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - uses: actions/checkout@v4
 
@@ -37,10 +56,17 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Migrate database
+        run: pnpm --filter @calder/db db:migrate
+        env:
+          DATABASE_URL: postgresql://calder:calder@localhost:5432/calder
+
       - name: Test
         run: pnpm test
         env:
           NODE_ENV: test
+          DATABASE_URL: postgresql://calder:calder@localhost:5432/calder
+          RUN_INTEGRATION_TESTS: "1"
 
       - name: Build
         run: pnpm build

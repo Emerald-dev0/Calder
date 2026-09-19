@@ -1,4 +1,6 @@
-import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
+import { sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import {
   getDb,
   emails,
@@ -6,9 +8,9 @@ import {
   suppressions,
   projectTransports,
   senderIdentities,
+  type DbClient,
 } from "@calder/db";
-import { eq, and, lte, or, isNull } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
+import { logger } from "@calder/observability";
 import {
   createEmailService,
   pickDefaultTransport,
@@ -19,29 +21,59 @@ import { GmailTransport, resolveEmailProvider } from "@calder/providers";
 import { getGmailRefreshToken } from "@calder/auth";
 import { isTransientError } from "@calder/queue";
 
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+export const DRAIN_BATCH = 25;
+export const DRAIN_MAX_ATTEMPTS = 5;
+/** A claimed ("sending") row abandoned mid-drain becomes claimable again after this window. */
+export const DRAIN_STALE_CLAIM_MINUTES = 10;
 
-const BATCH = 25;
-const MAX_ATTEMPTS = 5;
+/**
+ * Delivery drain: the single implementation that turns persisted "queued"
+ * rows into provider sends on serverless hosts (the queue has no
+ * long-running consumer there; the worker deliverable is separate).
+ *
+ * Concurrency: rows are atomically claimed with
+ *   UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED)
+ * flipping them queued → sending in one statement. Overlapping drains
+ * (scheduled tick + kickDrain wake-up, multiple invocations) each get a
+ * disjoint set of rows, so one email can never be sent twice. Claims are
+ * leases: a row stuck in "sending" (crashed mid-flight) becomes claimable
+ * again after DRAIN_STALE_CLAIM_MINUTES.
+ */
 
-function authorized(req: Request): boolean {
-  const auth = req.headers.get("authorization") ?? "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  const cronSecret = process.env.CRON_SECRET ?? "";
-  const adminKey = process.env.ADMIN_API_KEY ?? "";
-  if (cronSecret && token === cronSecret) return true;
-  if (adminKey && token === adminKey) return true;
-  if (!cronSecret && req.headers.get("x-vercel-cron") === "1") return true;
-  return false;
+/** Row shape claimed for delivery (snake_case RETURNING aliased to camelCase). */
+export type ClaimedEmail = {
+  id: string;
+  projectId: string;
+  from: string;
+  to: string;
+  subject: string;
+  html: string | null;
+  text: string | null;
+  metadata: Record<string, unknown> | null;
+  attachments: Array<{ filename: string; contentType?: string; contentBase64: string }> | null;
+  attemptCount: number;
+  senderIdentityId: string | null;
+} & Record<string, unknown>;
+
+export interface DrainResult {
+  ok: true;
+  checked: number;
+  sent: number;
+  failed: number;
+  skipped: number;
 }
 
+/**
+ * Provider selection is centralized in @calder/providers: a production deploy
+ * without AWS credentials must fail loudly rather than simulate delivery.
+ * Per-project transports (Gmail, SES) are chosen later in the drain loop.
+ */
 function getProvider() {
   return resolveEmailProvider().provider;
 }
 
 async function buildGmail(
-  db: ReturnType<typeof getDb>,
+  db: DbClient,
   projectId: string,
   chosen: {
     label: string;
@@ -58,18 +90,23 @@ async function buildGmail(
     .from(emails)
     .where(and(eq(emails.projectId, projectId), gte(emails.createdAt, dayStart)));
   const today = (sent[0] as { value: number } | undefined)?.value ?? 0;
-  if (today >= cap)
-    throw Object.assign(new Error(`Gmail daily cap reached (${today}/${cap}). Add a domain.`), {
-      code: "gmail_cap",
-      transient: false,
-      statusCode: 429,
-    });
-  if (!chosen.encryptedCredentials)
+  if (today >= cap) {
+    throw Object.assign(
+      new Error(`Gmail daily cap reached (${today}/${cap}). Add a domain to graduate.`),
+      {
+        code: "gmail_cap",
+        transient: false,
+        statusCode: 429,
+      }
+    );
+  }
+  if (!chosen.encryptedCredentials) {
     throw Object.assign(new Error("Gmail credentials missing."), {
       code: "sender_not_ready",
       transient: false,
       statusCode: 422,
     });
+  }
   const refreshToken = getGmailRefreshToken(chosen.encryptedCredentials as never);
   return {
     service: createEmailService(
@@ -79,11 +116,10 @@ async function buildGmail(
   };
 }
 
-async function resolveChain(projectId: string, senderIdentityId: string | null) {
+async function resolveChain(db: DbClient, projectId: string, senderIdentityId: string | null) {
   const fallback = { service: createEmailService(getProvider()), transport: "default" };
   const chain: Array<{ service: ReturnType<typeof createEmailService>; transport: string }> = [];
   try {
-    const db = getDb();
     const rows = await db
       .select()
       .from(projectTransports)
@@ -108,12 +144,13 @@ async function resolveChain(projectId: string, senderIdentityId: string | null) 
         .where(eq(senderIdentities.id, senderIdentityId))
         .limit(1);
       if (sender && sender.projectId === projectId) {
-        if (sender.status !== "verified" && sender.status !== "connected")
+        if (sender.status !== "verified" && sender.status !== "connected") {
           throw Object.assign(new Error(`Sender ${sender.email} is ${sender.status}.`), {
             code: "sender_not_ready",
             transient: false,
             statusCode: 422,
           });
+        }
         const linked = sender.transportId ? byId.get(sender.transportId) : undefined;
         if (linked && linked.status === "active" && (!def || linked.id !== def.id)) {
           if (linked.type === "gmail") chain.push(await buildGmail(db, projectId, linked as never));
@@ -131,39 +168,67 @@ async function resolveChain(projectId: string, senderIdentityId: string | null) 
       (err instanceof Error && (err as { code?: string }).code === "sender_not_ready")
     )
       throw err;
+    logger.warn({ err }, "drain: transport resolution fallback");
   }
   chain.push(fallback);
   return chain;
 }
 
-export async function GET(req: Request) {
-  if (!authorized(req))
-    return NextResponse.json(
-      {
-        error: {
-          code: "unauthorized",
-          message: "Invalid cron secret. Set Authorization: Bearer $CRON_SECRET or x-vercel-cron",
-        },
-      },
-      { status: 401 }
-    );
-  const db = getDb();
-  const now = new Date();
-  const pending = await db
-    .select()
-    .from(emails)
-    .where(
-      and(
-        eq(emails.status, "queued"),
-        or(isNull(emails.scheduledFor), lte(emails.scheduledFor, now))
-      )
+/**
+ * Atomically claim up to `limit` deliverable rows by flipping them to
+ * "sending". Postgres' FOR UPDATE SKIP LOCKED guarantees two concurrent
+ * drains never claim the same row; stale claims past the lease window are
+ * re-claimable (crash recovery).
+ */
+export async function claimDrainBatch(
+  db: DbClient,
+  limit: number = DRAIN_BATCH,
+  staleMinutes: number = DRAIN_STALE_CLAIM_MINUTES
+): Promise<ClaimedEmail[]> {
+  const claimed = await db.execute<ClaimedEmail>(sql`
+    UPDATE emails
+    SET status = 'sending', updated_at = now()
+    WHERE id IN (
+      SELECT id FROM emails
+      WHERE
+        (status = 'queued' AND (scheduled_for IS NULL OR scheduled_for <= now()))
+        OR (status = 'sending' AND updated_at < now() - make_interval(mins => ${staleMinutes}))
+      ORDER BY created_at
+      LIMIT ${limit}
+      FOR UPDATE SKIP LOCKED
     )
-    .limit(BATCH);
-  let sent = 0,
-    failed = 0,
-    skipped = 0;
-  for (const row of pending) {
-    if ((row.attemptCount ?? 0) >= MAX_ATTEMPTS) {
+    RETURNING
+      id,
+      project_id AS "projectId",
+      "from",
+      "to",
+      subject,
+      html,
+      text,
+      metadata,
+      attachments,
+      attempt_count AS "attemptCount",
+      sender_identity_id AS "senderIdentityId"
+  `);
+  return claimed as unknown as ClaimedEmail[];
+}
+
+/**
+ * Claim one batch and deliver it. Idempotent and safe to overlap with
+ * itself: the claim lease makes row ownership exclusive.
+ */
+export async function drainPendingEmails(
+  db: DbClient = getDb(),
+  opts: { batch?: number } = {}
+): Promise<DrainResult> {
+  const now = new Date();
+  const claimed = await claimDrainBatch(db, opts.batch ?? DRAIN_BATCH);
+
+  let sent = 0;
+  let failed = 0;
+  let skipped = 0;
+  for (const row of claimed) {
+    if ((row.attemptCount ?? 0) >= DRAIN_MAX_ATTEMPTS) {
       await db
         .update(emails)
         .set({ status: "failed", lastError: "Exhausted retries", updatedAt: now })
@@ -171,6 +236,7 @@ export async function GET(req: Request) {
       failed++;
       continue;
     }
+    // Suppression check
     const sup = await db
       .select()
       .from(suppressions)
@@ -191,10 +257,13 @@ export async function GET(req: Request) {
       skipped++;
       continue;
     }
+
+    // Claim attempt
     await db
       .update(emails)
       .set({ attemptCount: (row.attemptCount ?? 0) + 1, updatedAt: now })
       .where(eq(emails.id, row.id));
+
     const headers =
       typeof row.metadata === "object" &&
       row.metadata !== null &&
@@ -213,47 +282,41 @@ export async function GET(req: Request) {
           ? (row.attachments as never)
           : undefined,
     };
+
+    const chain = await resolveChain(db, row.projectId, row.senderIdentityId ?? null);
     let result: { providerMessageId: string; provider: string } | null = null;
     let transportName = "default";
     let lastErr: unknown = null;
-    let isCap = false,
-      senderNotReady = false;
-    try {
-      const chain = await resolveChain(
-        row.projectId,
-        (row as { senderIdentityId?: string | null }).senderIdentityId ?? null
-      );
-      for (let i = 0; i < chain.length; i++) {
-        const leg = chain[i]!;
-        try {
-          const r = await leg.service.send(payload as never);
-          result = r;
-          transportName = leg.transport;
-          break;
-        } catch (err) {
-          lastErr = err;
-          if (err instanceof Error && (err as { code?: string }).code === "gmail_cap") {
-            isCap = true;
-            break;
-          }
-          if (err instanceof Error && (err as { code?: string }).code === "sender_not_ready") {
-            senderNotReady = true;
-            break;
-          }
-          const transient = isProviderError(err)
-            ? (err as { transient: boolean }).transient
-            : isTransientError(err);
-          if (transient && i < chain.length - 1) continue;
+    let isCap = false;
+    let senderNotReady = false;
+    for (let i = 0; i < chain.length; i++) {
+      const leg = chain[i]!;
+      try {
+        const r = await leg.service.send(payload as never);
+        result = r;
+        transportName = leg.transport;
+        break;
+      } catch (err) {
+        lastErr = err;
+        if (err instanceof Error && (err as { code?: string }).code === "gmail_cap") {
+          isCap = true;
           break;
         }
+        if (err instanceof Error && (err as { code?: string }).code === "sender_not_ready") {
+          senderNotReady = true;
+          break;
+        }
+        const transient = isProviderError(err)
+          ? (err as { transient: boolean }).transient
+          : isTransientError(err);
+        const moreLegs = i < chain.length - 1;
+        if (transient && moreLegs) continue;
+        break;
       }
-    } catch (err) {
-      lastErr = err;
-      if (err instanceof Error && (err as { code?: string }).code === "gmail_cap") isCap = true;
-      if (err instanceof Error && (err as { code?: string }).code === "sender_not_ready")
-        senderNotReady = true;
     }
+
     if (result) {
+      const done = new Date();
       await db
         .update(emails)
         .set({
@@ -262,7 +325,7 @@ export async function GET(req: Request) {
           transport: transportName,
           provider: result.provider,
           lastError: null,
-          updatedAt: new Date(),
+          updatedAt: done,
         })
         .where(eq(emails.id, row.id));
       await db.insert(emailEvents).values({
@@ -279,6 +342,9 @@ export async function GET(req: Request) {
       sent++;
       continue;
     }
+
+    // Failure path
+    const transient = isTransientError(lastErr);
     const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
     if (isCap || senderNotReady) {
       await db
@@ -295,11 +361,12 @@ export async function GET(req: Request) {
       failed++;
       continue;
     }
-    const transient = isTransientError(lastErr);
-    if (transient && (row.attemptCount ?? 0) + 1 < MAX_ATTEMPTS) {
+    if (transient && (row.attemptCount ?? 0) + 1 < DRAIN_MAX_ATTEMPTS) {
+      // Release the claim back to the pool: row returns to "queued" for the
+      // next tick instead of hanging on this drain's lease.
       await db
         .update(emails)
-        .set({ lastError: msg, updatedAt: new Date() })
+        .set({ status: "queued", lastError: msg, updatedAt: new Date() })
         .where(eq(emails.id, row.id));
       failed++;
       continue;
@@ -317,5 +384,6 @@ export async function GET(req: Request) {
     });
     failed++;
   }
-  return NextResponse.json({ ok: true, checked: pending.length, sent, failed, skipped });
+
+  return { ok: true, checked: claimed.length, sent, failed, skipped };
 }

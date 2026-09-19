@@ -1,7 +1,15 @@
 {
  "$schema": "https://turbo.build/schema.json",
  "globalDependencies": ["**/.env.*local"],
- "globalEnv": ["DATABASE_URL", "REDIS_URL", "NODE_ENV", "API_URL", "APP_URL", "DASHBOARD_URL"],
+  "globalEnv": [
+    "DATABASE_URL",
+    "REDIS_URL",
+    "NODE_ENV",
+    "API_URL",
+    "APP_URL",
+    "DASHBOARD_URL",
+    "RUN_INTEGRATION_TESTS"
+  ],
  "tasks": {
  "build": {
  "dependsOn": ["^build"],

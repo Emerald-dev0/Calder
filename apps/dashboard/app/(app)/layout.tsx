@@ -16,7 +16,9 @@ function isFounder(email: string): boolean {
   return founders.includes(email.toLowerCase());
 }
 
-const NAV_GROUPS: Array<{ heading: string; items: Array<{ label: string; href: string | null; tier?: "PRO" | "PREMIUM" | "SCALE"; founder?: boolean }> }> = [
+// Every item must have a real href, a null href once rendered a "soon" span,
+// which is dead code removed in Phase 0 (routes are live or removed).
+const NAV_GROUPS: Array<{ heading: string; items: Array<{ label: string; href: string; tier?: "PRO" | "PREMIUM" | "SCALE"; founder?: boolean }> }> = [
   { heading: "Workspace", items: [{ label: "Overview", href: "/" }] },
   {
     heading: "SEND",
@@ -97,19 +99,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {visibleGroups.map((group) => (
             <div key={group.heading} style={{ marginBottom: group.heading ? 14 : 0 }}>
               {group.heading && <div style={{ fontSize: 10, letterSpacing: "0.08em", color: "var(--color-muted)", margin: "10px 0 6px", fontWeight: 700 }}>{group.heading}</div>}
-              {group.items.map((item) =>
-                item.href ? (
-                  <Link key={item.label} href={item.href} className="dash-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span>{item.label}</span>
-                    {item.tier && <PlanBadge tier={item.tier} />}
-                  </Link>
-                ) : (
-                  <span key={item.label} className="dash-link dash-soon">
-                    {item.label}
-                    <span className="mono" style={{ fontSize: 10 }}>soon</span>
-                  </span>
-                )
-              )}
+              {group.items.map((item) => (
+                <Link key={item.label} href={item.href} className="dash-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span>{item.label}</span>
+                  {item.tier && <PlanBadge tier={item.tier} />}
+                </Link>
+              ))}
             </div>
           ))}
         </nav>
@@ -143,17 +138,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <ContextSwitcher memberships={memberships} compact />
         </div>
         <nav aria-label="Dashboard" className="dash-tabs">
-          {visibleGroups.flatMap((g) => g.items).map((item) =>
-            item.href ? (
-              <Link key={item.label} href={item.href} className="dash-tab" style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-                {item.label} {item.tier && <span style={{ fontSize: 9, border: "1px solid var(--color-border)", padding: "0 4px", borderRadius: 3 }}>{item.tier}</span>}
-              </Link>
-            ) : (
-              <span key={item.label} className="dash-tab dash-soon">
-                {item.label}
-              </span>
-            )
-          )}
+          {visibleGroups.flatMap((g) => g.items).map((item) => (
+            <Link key={item.label} href={item.href} className="dash-tab" style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+              {item.label} {item.tier && <span style={{ fontSize: 9, border: "1px solid var(--color-border)", padding: "0 4px", borderRadius: 3 }}>{item.tier}</span>}
+            </Link>
+          ))}
         </nav>
         <main className="dash-main">{children}</main>
       </div>
