@@ -34,7 +34,7 @@ query.
    The only bootstrap is the `FOUNDER_EMAILS` environment allowlist, evaluated
    at session creation: a founder email with a lesser DB role is elevated to
    founder; a non-founder email never gains anything from the env var.
-   Locked by unit tests in `apps/dashboard/lib/control/roles.test.ts`:
+   Locked by unit tests (`resolvePlatformRole` cases in `apps/dashboard/lib/control/stats.test.ts`, redirect cases in `apps/dashboard/lib/control/post-login.test.ts`):
    - `(email, dbRole "support", self email)` → **founder** (bootstrap wins)
    - `(email, dbRole "support", other founder email)` → **support** (no leak)
    - DB `founder` role > env bootstrap for non-allowlisted emails.
@@ -44,8 +44,7 @@ query.
    from customer-facing audit pages.
 5. **Live over stale.** Command Center metrics and alert rules are evaluated
    per request against current state — no snapshot tables to go quietly stale.
-   The alert library is pure and unit-tested (`lib/control/alerts.ts`,
-   `stats.test.ts`).
+   Alert rules are evaluated per request by `evaluateAlerts()` in `lib/control/queries.ts` (no snapshot tables).
 
 ## 2. Navigation (implemented)
 
@@ -63,7 +62,7 @@ query.
 | OPERATIONS | Feature Flags, Maintenance, Status Page |
 | ADMINISTRATION | Administrators, Roles, Audit Logs, Settings |
 
-Access is gated per section by `requireSection()` (`lib/control/gate.ts`);
+Access is gated per section by `requireSection()` (`lib/control/guard.ts`);
 unauthenticated `/control` requests redirect to login; insufficient role
 renders the "No access" page (verified with a support-role session).
 
@@ -169,8 +168,9 @@ Audit Logs (actor/action/target/time/metadata, filterable), Settings
 
 - Paths: pages in `apps/dashboard/app/control/**`, shared components in
   `app/control/_components` (ui.tsx, charts.tsx, page.tsx shell), logic in
-  `apps/dashboard/lib/control/**` (gate.ts, roles.ts, stats.ts, alerts.ts,
-  audit re-export). tsconfig aliases `@/control/*` and `@/*` — never import
+   `apps/dashboard/lib/control/**` (guard.ts, roles.ts, post-login.ts,
+   queries.ts, analytics-queries.ts, range.ts, format.ts, editor-actions.ts).
+   tsconfig aliases `@/control/*` and `@/*` — never import
   with relative `../../../lib/control`.
 - Server actions are inline `"use server"` closures (bound functions fail
   typecheck in this Next version). Every mutation writes an audit row inside

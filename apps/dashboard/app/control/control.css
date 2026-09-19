@@ -2,7 +2,7 @@
    A separate operational surface: light (Paper), dense, precise. Same visual
    universe as the product (Editorial Infrastructure, docs/DESIGN.md); the
    register is a control room, not a marketing page. Light register adopted
-   per ADR-029 (supersedes ADR-027's dark register). Cobalt stays a signal. */
+   per ADR-031 (supersedes ADR-027's dark register). Cobalt stays a signal. */
 
 .cp {
   --cp-bg: #f5f4ef;
