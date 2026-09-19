@@ -10,7 +10,7 @@
 Client (SDK / SMTP / dashboard)
  │ POST /v1/emails + Bearer key + Idempotency-Key
  ▼
-API (Hono, :3002) ── validate → auth → idempotency-check → persist email ( Postgres )
+API (Hono, :3002) ── validate → auth → suppression check → atomic idempotency claim → persist email (Postgres)
  │ enqueue { emailId, projectId }
  ▼
 Queue (Redis via BullMQ; InMemory ONLY in tests/single-process dev)
@@ -38,21 +38,43 @@ organizationId, env }`. No key → 401. Wrong project → 403.
 4. `sendEmailSchema` (zod) validates the body. Invalid → 400 with code
  `validation_error`. Every error is `{ error: { code, message, request_id } }`.
 5. `handleSendEmail` (`apps/api/src/services/email-service.ts`):
- - Idempotency: `(projectId, key)` lookup in `idempotency_keys`. Hit →
- return stored response, send nothing. This is what makes retries safe.
- - Persist `emails` row (`status: queued`) + `email_events` row (`queued`).
+ - Sender identity and template resolution first (400/404 on gaps, before
+ anything is claimed).
+ - Suppression checked at ingest: a suppressed recipient is rejected `422
+ { error.code: "suppressed" }` with the reason, nothing is persisted or
+ queued. Worker and drain re-check before delivery (unsubscribes landing
+ after acceptance stay honored).
+ - Idempotency: the `(projectId, key)` claim is inserted FIRST, inside the
+ same transaction as the `emails` row (`status: queued`) + `email_events`
+ row (`queued`). `INSERT ... ON CONFLICT` makes a concurrent same-key
+ request wait for the winner's commit, then replay the stored response
+ (`200`, same id) instead of double-sending; an expired claim (24h) is
+ atomically refreshed/re-claimed. A live claim without a stored response
+ (winner still in flight) gets `409 { error.code: "idempotency_conflict" }`.
  - Enqueue `{ emailId, projectId }` on `email:send`. **Durable first, queue
- second**, a crash between them is reconciled, never silently lost.
+ second**, a crash between them is reconciled by the drain, never silently
+ lost. A persist failure is a 500, never a pretend-202.
  - Returns `202 { id, status: queued }`.
 6. Worker (`apps/worker/src/worker.ts`) picks up the job from Redis:
  - Loads the email scoped to the job's `projectId` (tenant check, a job can
- never send another project's mail).
+ never send another project's mail). **Missing row → fail closed:** log
+ `email_record_missing`, drop the job, send nothing. (The old synthetic-send
+ scaffold was deleted, fabricating mail is a red line.) A storage outage
+ marks the error transient so the queue retries with backoff.
  - Checks `suppressions`. Suppressed → status `suppressed` + event, no send.
  - Calls the provider. Transient failure → requeue with exponential backoff +
  jitter (max 5). Permanent failure → status `failed` + event, no retry.
  Exhausted → dead-letter state (reason, attempts, last error, replayable).
  - Success → status `sent` + `providerMessageId`, event recorded, webhook job
  enqueued, usage counted.
+6b. Drain (`apps/api/src/lib/drain.ts`, the ONLY delivery drain; the
+ dashboard twin was deleted): claims rows atomically,
+ `UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED)` flipping
+ `queued → sending` in one statement. Overlapping invocations (scheduled
+ cron + post-accept kick) own disjoint rows, so one email can never be
+ sent twice. Claims are 10-minute leases; a row abandoned mid-send becomes
+ re-claimable. Transient failures release the row back to `queued` for the
+ next tick.
 7. Provider selection is currently GLOBAL to the worker process: SES if AWS
  creds are present, else Mock. Per-email test/live routing is NOT yet
  implemented, in dev (no SES creds) everything flows through Mock; in prod

@@ -17,7 +17,14 @@ calder_pk_live_... calder_sk_live_...
 
 ## Idempotency
 
-`Idempotency-Key: <client-generated-key>` on mutating requests where duplication causes harm. Repeated key returns original result.
+`Idempotency-Key: <client-generated-key>` on mutating requests where duplication causes harm. Claims are atomic: the first request wins, and any other request with the same key replays the stored response (`200` with the original body), never double-executes, so a retried send can never produce duplicate mail. A key whose first request is still in flight returns `409` with `error.code: "idempotency_conflict"`, retry the same key after a moment. Keys expire 24h after first use.
+
+## Send-time errors
+
+Beyond validation (`400`), send endpoints can fail at ingest with:
+
+- `422 { error: { code: "suppressed" } }`, the recipient is on the project's suppression list; the message gives the reason (`bounce`/`complaint`/`unsubscribe`/`manual`). Nothing is persisted or queued for a suppressed send.
+- `409 { error: { code: "idempotency_conflict" } }`, see above.
 
 ## Error shape
 

@@ -165,13 +165,11 @@ function getProvider() {
   return status.provider;
 }
 
-export async function startWorker() {
-  const defaultService = createEmailService(getProvider());
+/** Terminal outcomes of processing one job. A throw signals "retry with backoff". */
+export type ProcessOutcome = "sent" | "failed" | "suppressed" | "exhausted" | "missing_record";
 
-  // Shared queue, InMemory for scaffold; RedisQueue in production
-  const queue = createQueue<EmailJobData>("email:send", { maxAttempts: 5 });
-
-  queue.process(async (job: QueueJob<EmailJobData>) => {
+export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<ProcessOutcome> {
+  {
     const { emailId, projectId } = job.data;
     const jobLogger = logger.child({
       jobId: job.id,
@@ -231,7 +229,29 @@ export async function startWorker() {
           };
         }
       } catch (dbErr) {
-        jobLogger.warn({ err: dbErr }, "DB lookup failed, trying in-memory fallback");
+        // A storage outage is transient, not a reason to abandon the job:
+        // throw so the queue retries with backoff (status → isTransientError).
+        jobLogger.error({ err: dbErr }, "DB lookup failed");
+        throw Object.assign(
+          new Error(
+            `Storage unavailable while loading email record (503): ${
+              dbErr instanceof Error ? dbErr.message : String(dbErr)
+            }`
+          ),
+          { status: 503 }
+        );
+      }
+
+      if (!email) {
+        // Missing row: NEVER fabricate a send. The old scaffold synthesized
+        // a fake email here, which is a red line. A job without a durable
+        // record is a bug (dangling/delayed job, deleted row); log it
+        // diagnosably, drop the job without retrying, send nothing.
+        jobLogger.error(
+          { code: "email_record_missing", emailId, projectId },
+          "Email record not found; dropping job without sending"
+        );
+        return "missing_record";
       }
 
       // ── Suppression check, before any provider call ────────
@@ -239,7 +259,7 @@ export async function startWorker() {
       // deliverable and must not be the path that mails someone who
       // bounced, complained or opted out. See the sending-path checklist
       // in AGENTS.md.
-      if (email) {
+      {
         try {
           const { getDb, emails, emailEvents, suppressions } = await import("@calder/db");
           const { eq, and } = await import("drizzle-orm");
@@ -263,7 +283,7 @@ export async function startWorker() {
               data: { reason: sup[0]!.reason, source: "worker" },
             });
             jobLogger.info({ reason: sup[0]!.reason }, "Recipient suppressed, not sending");
-            return;
+            return "suppressed";
           }
         } catch (supErr) {
           // Never send on an unverifiable suppression state. Fail closed:
@@ -271,28 +291,6 @@ export async function startWorker() {
           jobLogger.error({ err: supErr }, "Suppression check failed, refusing to send");
           throw supErr;
         }
-      }
-
-      // In-memory fallback for scaffold without DB (API's memoryEmails not shared across processes;
-      // for single-process dev where API and worker share queue, we need to fetch via HTTP or shared store.
-      // For scaffold vertical slice, if email not found in DB, we simulate with job data.
-      // In production, email MUST exist in DB, this is a scaffold resilience fallback.
-      if (!email) {
-        jobLogger.warn("Email record not found in DB; using job data as fallback (scaffold mode)");
-        // Create a synthetic email for mock provider to process, not persisted
-        email = {
-          id: emailId,
-          from: "scaffold@calder.dev",
-          to: "test@example.com",
-          subject: "Scaffold test email",
-          html: "<p>Hello from Calder scaffold</p>",
-          text: "Hello from Calder scaffold",
-          status: "queued",
-          headers: {},
-          attachments: [],
-          senderIdentityId: null,
-        };
-        // Try to persist a fallback event anyway
       }
 
       // ── Resolve chain, then send with failover ─────────────
@@ -384,6 +382,8 @@ export async function startWorker() {
         );
         // Don't throw, provider succeeded; we log and continue. Event persistence will be retried via reconciliation.
       }
+
+      return "sent";
     } catch (err) {
       const transient = isTransientError(err);
       const attempt = job.attempts + 1;
@@ -416,7 +416,7 @@ export async function startWorker() {
         } catch (persistErr) {
           logger.error({ err: persistErr }, "Failed to persist failed event");
         }
-        return; // don't rethrow, permanent failure handled
+        return "failed"; // don't rethrow, permanent failure handled
       }
 
       // Transient, if attempts remain, rethrow to trigger retry with backoff
@@ -455,7 +455,17 @@ export async function startWorker() {
       } catch (persistErr) {
         logger.error({ err: persistErr }, "Failed to persist dead-letter");
       }
+      return "exhausted";
     }
+  }
+}
+
+export async function startWorker() {
+  // Shared queue, InMemory for scaffold; RedisQueue in production
+  const queue = createQueue<EmailJobData>("email:send", { maxAttempts: 5 });
+
+  queue.process(async (job: QueueJob<EmailJobData>) => {
+    await processEmailJob(job);
   });
 
   logger.info("Worker consumer started on queue email:send");

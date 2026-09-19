@@ -24,7 +24,7 @@ Standard, non-custom session/token mechanisms. Every data access scoped by organ
 
 ## 6. Webhooks
 
-Outgoing webhooks are signed. Incoming webhooks (payment/email provider) are verified before being trusted, never processed on shape alone.
+Outgoing webhooks are signed (HMAC-SHA256). The signing secret is shown to the customer exactly once at creation, is stored only AES-256-GCM encrypted (recoverable so our delivery engine can sign, never plaintext, never one-way hashed), and one encryption scheme is shared by the REST API and the dashboard manager (`webhook_signing` context). There is no read-back endpoint. Incoming webhooks (payment/email provider) are verified before being trusted, never processed on shape alone.
 
 ## 7. Abuse prevention
 

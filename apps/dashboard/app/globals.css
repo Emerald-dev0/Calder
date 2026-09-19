@@ -83,14 +83,6 @@ body {
   background: var(--color-paper);
 }
 
-.dash-soon {
-  color: #b5b5b5;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: default;
-}
-
 .dash-signout {
   background: none;
   border: none;

@@ -1,6 +1,7 @@
 import { desc, inArray } from "drizzle-orm";
 import { getDb, emails, usageRecords, plans, planPrices } from "@calder/db";
 import { getTenantContext } from "../../../lib/auth";
+import { pricingUrl } from "../../../lib/pricing";
 
 const PLAN_QUOTAS: Record<string, number> = {
  free: 3000,
@@ -79,11 +80,15 @@ export default async function UsagePage() {
  marginBottom: 24,
  }}
  >
- {tiers.length === 0 && (
- <p style={{ color: "#737373", fontSize: 14 }}>
- Plans seed at launch, see /pricing for the schedule.
- </p>
- )}
+            {tiers.length === 0 && (
+              <p style={{ color: "#737373", fontSize: 14 }}>
+                Plans seed at launch, see{" "}
+                <a href={pricingUrl()} style={{ color: "inherit", textDecoration: "underline" }}>
+                  pricing
+                </a>{" "}
+                for the schedule.
+              </p>
+            )}
  {tiers.map((t) => {
  const ngn = priceOf(t.id, "NGN");
  const usd = priceOf(t.id, "USD");
