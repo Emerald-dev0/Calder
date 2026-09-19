@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   verifySignupCode,
+  checkEmailCode,
   normalizeEmail,
   isPlausibleEmail,
   sealSessionCookie,
@@ -62,13 +63,12 @@ export async function POST(req: Request): Promise<Response> {
       return res;
     }
 
-    // For password reset verification:
-    // We only verify validity here (we consume or verify in the final password-reset step,
-    // or verify here without consuming, or verify during POST /api/auth/password-reset).
-    // To allow the client to transition to the new password input, we check the code.
-    // If the reset endpoint will burn the code, let's verify without double-burning,
-    // or let this endpoint return ok so the UI moves to step 3.
-    // Let's check:
+    // Password reset step 2: ACTUALLY verify the code, but without consuming
+    // it, the final POST /api/auth/password-reset consumes the same challenge.
+    // (Previously this branch returned ok for ANY code, which let the UI's
+    // step 2 pretend the code was checked.) A wrong code is a 400 here and
+    // still burns one of the 5 allowed attempts.
+    await checkEmailCode(email, code, "reset");
     return NextResponse.json({ ok: true, verified: true });
   } catch (err) {
     return NextResponse.json(

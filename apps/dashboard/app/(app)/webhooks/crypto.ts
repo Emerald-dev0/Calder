@@ -1,29 +1,26 @@
-import { randomBytes, createCipheriv, createDecipheriv, createHash } from "node:crypto";
-import { getConfig } from "@calder/config";
+import { randomBytes } from "node:crypto";
+import {
+  encryptSecret as encryptWithContext,
+  decryptSecret as decryptWithContext,
+} from "@calder/auth";
 
 /**
  * Webhook signing secrets must be recoverable (HMAC needs the raw secret),
  * so they are AES-256-GCM encrypted, never plaintext, never one-way hashed.
+ *
+ * Exactly one encryption scheme is used across the platform: @calder/auth's
+ * context-separated envelope encryption under "webhook_signing". The REST
+ * API (apps/api/src/routes/webhooks.ts) encrypts with the same scheme so the
+ * delivery engine (webhook signer) has a single contract to decrypt against.
  */
-function encKey(): Buffer {
-  const secret = getConfig().AUTH_SECRET;
-  if (secret.length < 32) throw new Error("AUTH_SECRET must be at least 32 characters.");
-  return createHash("sha256").update(`whsec:${secret}`).digest();
-}
+const CONTEXT = "webhook_signing";
 
 export function encryptSecret(raw: string): string {
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", encKey(), iv);
-  const ct = Buffer.concat([cipher.update(raw, "utf8"), cipher.final()]);
-  return `${iv.toString("hex")}:${ct.toString("hex")}:${cipher.getAuthTag().toString("hex")}`;
+  return encryptWithContext(raw, CONTEXT);
 }
 
 export function decryptSecret(stored: string): string {
-  const [ivHex, ctHex, tagHex] = stored.split(":");
-  if (!ivHex || !ctHex || !tagHex) throw new Error("Malformed secret.");
-  const decipher = createDecipheriv("aes-256-gcm", encKey(), Buffer.from(ivHex, "hex"));
-  decipher.setAuthTag(Buffer.from(tagHex, "hex"));
-  return decipher.update(Buffer.from(ctHex, "hex"), undefined, "utf8") + decipher.final("utf8");
+  return decryptWithContext(stored, CONTEXT);
 }
 
 export function newWebhookSecret(): string {

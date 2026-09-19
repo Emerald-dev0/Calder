@@ -2,9 +2,14 @@ import { randomUUID } from "node:crypto";
 import type { SendEmailInput } from "@calder/validation";
 import { createQueue } from "@calder/queue";
 import { logger } from "@calder/observability";
-import { getConfig } from "@calder/config";
+import { getConfig, isProduction } from "@calder/config";
 import { AppError } from "../errors/index.js";
 import type { DbClient } from "@calder/db";
+
+/** postgres.js unique-violation error shape (SQLSTATE 23505). */
+function isUniqueViolation(err: unknown): boolean {
+  return typeof err === "object" && err !== null && (err as { code?: string }).code === "23505";
+}
 
 /**
  * Thin service layer, business logic outside HTTP handlers.
@@ -168,6 +173,44 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
     delayMs = Math.max(0, scheduledFor.getTime() - Date.now());
   }
 
+  // ── Suppression check (ARCHITECTURE §9: before every send) ──
+  // Checked at ingest so a suppressed recipient is rejected with a reason
+  // (4xx) instead of being persisted, queued and blocked silently later.
+  // Worker and drain re-check before delivery, so an unsubscribe landing
+  // after acceptance is still honored.
+  try {
+    const { getDb, suppressions } = await import("@calder/db");
+    const { and, eq } = await import("drizzle-orm");
+    const db = getDb();
+    const sup = await db
+      .select({ reason: suppressions.reason })
+      .from(suppressions)
+      .where(and(eq(suppressions.projectId, projectId), eq(suppressions.email, input.to)))
+      .limit(1);
+    if (sup.length > 0) {
+      throw new AppError(
+        "suppressed",
+        `Recipient is suppressed for this project (${sup[0]!.reason}). The email was not queued.`,
+        422,
+        undefined,
+        "Remove the address from the suppression list first, or send to a different recipient."
+      );
+    }
+  } catch (supErr) {
+    if (supErr instanceof AppError) throw supErr;
+    // Never send on an unverifiable suppression state. In production this
+    // fails closed; without a DB (local scaffold) it degrades with a warning.
+    if (isProduction()) {
+      logger.error({ err: supErr, projectId }, "Suppression check failed at ingest");
+      throw new AppError(
+        "internal_error",
+        "Suppression state unavailable; the send was not accepted.",
+        500
+      );
+    }
+    logger.warn({ err: supErr, projectId }, "Suppression check unavailable, skipping (dev)");
+  }
+
   const emailRecord = {
     id: emailId,
     projectId,
@@ -192,11 +235,20 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
     attemptCount: 0,
   };
 
+  const response = { id: emailId, status: "queued" as const, message: "Email queued for delivery" };
+
+  // ── Persist + atomic idempotency claim ─────────────────────
+  // With an Idempotency-Key the claim row is inserted FIRST, inside the
+  // same transaction as the email row. INSERT ... ON CONFLICT waits for a
+  // concurrent transaction holding the same key, then either replays the
+  // committed response (no second row, no second send) or becomes the
+  // winner when the loser rolled back. Concurrent same-key sends can no
+  // longer produce duplicate deliveries.
   let persisted = false;
   try {
-    const { getDb, emails, emailEvents } = await import("@calder/db");
+    const { getDb, emails, emailEvents, idempotencyKeys } = await import("@calder/db");
     const db = getDb();
-    await db.insert(emails).values({
+    const insertEmail = {
       id: emailRecord.id,
       projectId: emailRecord.projectId,
       idempotencyKey: emailRecord.idempotencyKey,
@@ -213,56 +265,115 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       metadata: emailRecord.metadata,
       scheduledFor: emailRecord.scheduledFor,
       attachments: emailRecord.attachments,
-      status: "queued",
+      status: "queued" as const,
       attemptCount: 0,
-    });
-    // Record created event
-    await db.insert(emailEvents).values({
+    };
+    const queuedEvent = {
       id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
       emailId,
       projectId,
-      type: "queued",
+      type: "queued" as const,
       data: { requestId, env },
-    });
+    };
 
-    // Also persist idempotency record if key provided
     if (idempotencyKey) {
-      const { idempotencyKeys } = await import("@calder/db");
-      const responseBody = { id: emailId, status: "queued", message: "Email queued for delivery" };
-      await db
-        .insert(idempotencyKeys)
-        .values({
-          id: `idm_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
-          projectId,
-          key: idempotencyKey,
-          responseStatus: 202,
-          responseBody,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        })
-        .onConflictDoNothing();
+      const { and, eq, lt } = await import("drizzle-orm");
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const claimed = await db.transaction(async (tx) => {
+        const rows = await tx
+          .insert(idempotencyKeys)
+          .values({
+            id: `idm_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+            projectId,
+            key: idempotencyKey,
+            responseStatus: null,
+            responseBody: null,
+            expiresAt,
+          })
+          .onConflictDoUpdate({
+            target: [idempotencyKeys.projectId, idempotencyKeys.key],
+            // An expired claim may be refreshed and re-claimed. A live
+            // claim fails this WHERE, RETURNING comes back empty, and the
+            // committed response is replayed below instead.
+            set: { expiresAt, responseStatus: null, responseBody: null },
+            setWhere: lt(idempotencyKeys.expiresAt, new Date()),
+          })
+          .returning({ id: idempotencyKeys.id });
+
+        if (rows.length === 0) return false;
+
+        await tx.insert(emails).values(insertEmail);
+        await tx.insert(emailEvents).values(queuedEvent);
+        await tx
+          .update(idempotencyKeys)
+          .set({ responseStatus: 202, responseBody: response })
+          .where(
+            and(eq(idempotencyKeys.projectId, projectId), eq(idempotencyKeys.key, idempotencyKey))
+          );
+        return true;
+      });
+
+      if (!claimed) {
+        // ON CONFLICT waits for the winner's transaction to commit, so the
+        // stored response is visible by now.
+        const stored = await lookupIdempotency(projectId, idempotencyKey);
+        if (stored) {
+          logger.info({ projectId, idempotencyKey, requestId }, "Idempotent replay (concurrent)");
+          return {
+            response: stored.responseBody as { id: string; status: string; message: string },
+            idempotentReplay: true,
+          };
+        }
+        throw new AppError(
+          "idempotency_conflict",
+          "A request with this Idempotency-Key is already in flight.",
+          409,
+          undefined,
+          "Retry with the same Idempotency-Key in a few seconds."
+        );
+      }
+    } else {
+      await db.insert(emails).values(insertEmail);
+      await db.insert(emailEvents).values(queuedEvent);
     }
 
     persisted = true;
   } catch (err) {
-    // Fallback to in-memory if DB unavailable (scaffold dev)
+    if (err instanceof AppError) throw err;
+    if (idempotencyKey && isUniqueViolation(err)) {
+      // Defensive: claim won but the email row already existed. The
+      // original response is the correct reply.
+      const stored = await lookupIdempotency(projectId, idempotencyKey);
+      if (stored) {
+        return {
+          response: stored.responseBody as { id: string; status: string; message: string },
+          idempotentReplay: true,
+        };
+      }
+      throw new AppError(
+        "idempotency_conflict",
+        "A send with this Idempotency-Key already exists.",
+        409,
+        undefined,
+        "Retry with the same Idempotency-Key in a few seconds."
+      );
+    }
+    if (isProduction()) {
+      // Fail closed: a 202 without a durable row is a lost send.
+      logger.error({ err, projectId, emailId }, "Failed to persist send");
+      throw new AppError("internal_error", "Could not persist the send; nothing was queued.", 500);
+    }
+    // Dev scaffold without a database: keep the in-memory fallback alive.
     logger.warn({ err, projectId, emailId }, "DB persist failed, using in-memory fallback");
     memoryEmails.set(emailId, emailRecord);
-    if (idempotencyKey) {
-      // will be set after enqueue below
-    }
   }
 
-  // ── Suppression check (before enqueue) ─────────────────────
-  // In production: check suppressions table; scaffold: skip
-
   // ── Enqueue ────────────────────────────────────────────────
-  const response = { id: emailId, status: "queued" as const, message: "Email queued for delivery" };
-
-  // Test keys never trigger real delivery but still enqueue for mock processing
+  // A persisted "queued" row is the durable record; the cron drain is the
+  // backstop that picks it up even if this enqueue call fails, so on
+  // failure we log loudly rather than failing a send that is already safe.
   const queue = getEmailQueue();
 
-  // Wire queue to worker handler if available (in-process for scaffold vertical slice)
-  // The worker will also poll; this ensures local dev works without separate process
   try {
     if (delayMs !== undefined && delayMs > 0) {
       await queue.enqueueDelayed("send-email", { emailId, projectId }, delayMs);
@@ -272,18 +383,17 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       logger.info({ emailId, projectId, requestId, env }, "Email enqueued");
     }
   } catch (queueErr) {
-    logger.error({ err: queueErr, emailId }, "Failed to enqueue email");
-    // Update status to failed but still return ID for observability
+    logger.error(
+      { err: queueErr, emailId, projectId, persisted },
+      persisted
+        ? "Enqueue failed; send remains queued and the scheduled drain will pick it up"
+        : "Enqueue failed for an unpersisted (dev in-memory) send"
+    );
   }
 
-  // In-memory idempotencyStore fallback
+  // Dev scaffold without a database also tracks idempotency in memory.
   if (!persisted && idempotencyKey) {
     memoryIdempotency.set(`${projectId}:${idempotencyKey}`, { status: 202, body: response });
-  }
-
-  // If DB failed but we are in test/dev, also persist in memory for GET lookups
-  if (!persisted) {
-    // already in memoryEmails
   }
 
   return { response, idempotentReplay: false };

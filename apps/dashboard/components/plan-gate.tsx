@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { pricingUrl } from "../lib/pricing";
 
 type Tier = "PRO" | "PREMIUM" | "SCALE";
 
@@ -54,12 +55,12 @@ export function PlanGate({ title, description, tier, features, preview }: PlanGa
         </div>
       )}
       <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-        <Link href="/pricing" style={{ background: "var(--color-ink)", color: "#fff", padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
+        <a href={pricingUrl()} style={{ background: "var(--color-ink)", color: "#fff", padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
           {tierCTA[tier]}
-        </Link>
-        <Link href="/pricing" style={{ border: "1px solid var(--color-border)", color: "var(--color-ink)", padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
+        </a>
+        <a href={pricingUrl()} style={{ border: "1px solid var(--color-border)", color: "var(--color-ink)", padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
           Compare plans
-        </Link>
+        </a>
       </div>
     </div>
   );
@@ -95,9 +96,9 @@ export function LimitState({ title, description, used, limit, tier }: { title: s
       <div style={{ height: 6, background: "var(--color-paper)", borderRadius: 3, overflow: "hidden", maxWidth: 320, margin: "0 auto 16px" }}>
         <div style={{ width: `${Math.min(100, (used / limit) * 100)}%`, height: "100%", background: "var(--color-ink)" }} />
       </div>
-      <Link href="/pricing" style={{ background: "var(--color-ink)", color: "#fff", padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
+      <a href={pricingUrl()} style={{ background: "var(--color-ink)", color: "#fff", padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
         {tierCTA[tier]}
-      </Link>
+      </a>
     </div>
   );
 }

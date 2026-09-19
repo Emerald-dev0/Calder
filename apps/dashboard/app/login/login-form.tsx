@@ -159,7 +159,9 @@ export function LoginForm({ providers, initialError, devLogin }: LoginFormProps)
     }
   };
 
-  // Handle forgot password step 2: advance to new password
+  // Handle forgot password step 2: verify the code server-side (without
+  // consuming it, the final reset call consumes), then advance. A wrong
+  // code shows the API's error and stays on this step.
   const handleForgotCodeSubmit = async (codeToCheck?: string) => {
     const finalCode = (codeToCheck || code).trim();
     if (finalCode.length !== 6) {
@@ -167,7 +169,26 @@ export function LoginForm({ providers, initialError, devLogin }: LoginFormProps)
       return;
     }
     setError(null);
-    setMode("forgot-new-password");
+    setBusy(true);
+
+    try {
+      const res = await fetch("/api/auth/email-code/verify", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, code: finalCode, purpose: "reset" }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Verification failed. Check the code and try again.");
+      }
+
+      setMode("forgot-new-password");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Verification failed.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   // Handle forgot password step 3: reset password

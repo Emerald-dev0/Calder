@@ -91,18 +91,17 @@ export async function issueEmailCode(
 }
 
 /**
- * Verify a 6-digit code for a given email and purpose.
- * Enforces:
- * - single active unexpired challenge
- * - attempt counter (burns after 5 attempts)
- * - constant-time hash comparison
- * - consumes the challenge on success
+ * Shared evaluation for verify/check: finds the live challenge, enforces the
+ * attempt counter (burns after 5 failures), compares hashes in constant time.
+ * Returns the matching challenge WITHOUT touching consumedAt, the caller
+ * decides whether a match consumes (verify) or merely confirms (check).
+ * Every failure path throws.
  */
-export async function verifyEmailCode(
+async function evaluateChallenge(
   email: string,
   rawCode: string,
   purpose: EmailCodePurpose
-): Promise<{ valid: boolean; challengeId: string }> {
+): Promise<{ id: string }> {
   const normalized = normalizeEmail(email);
   const cleanCode = rawCode.trim();
 
@@ -163,11 +162,45 @@ export async function verifyEmailCode(
     throw new Error("Invalid code. Please check and try again.");
   }
 
+  return { id: challenge.id };
+}
+
+/**
+ * Verify a 6-digit code for a given email and purpose.
+ * Enforces:
+ * - single active unexpired challenge
+ * - attempt counter (burns after 5 attempts)
+ * - constant-time hash comparison
+ * - consumes the challenge on success
+ */
+export async function verifyEmailCode(
+  email: string,
+  rawCode: string,
+  purpose: EmailCodePurpose
+): Promise<{ valid: boolean; challengeId: string }> {
+  const challenge = await evaluateChallenge(email, rawCode, purpose);
+
   // Code matches! Burn challenge
+  const db = getDb();
   await db
     .update(emailCodeChallenges)
-    .set({ consumedAt: now })
+    .set({ consumedAt: new Date() })
     .where(eq(emailCodeChallenges.id, challenge.id));
 
+  return { valid: true, challengeId: challenge.id };
+}
+
+/**
+ * Check a 6-digit code WITHOUT consuming it.
+ * Same identity/attempt/constant-time guarantees as verifyEmailCode, but a
+ * match leaves the challenge live so a follow-up step (e.g. the final
+ * password-reset call) can still consume it. Wrong codes still burn attempts.
+ */
+export async function checkEmailCode(
+  email: string,
+  rawCode: string,
+  purpose: EmailCodePurpose
+): Promise<{ valid: boolean; challengeId: string }> {
+  const challenge = await evaluateChallenge(email, rawCode, purpose);
   return { valid: true, challengeId: challenge.id };
 }

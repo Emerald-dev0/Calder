@@ -53,6 +53,7 @@ export {
 export {
   issueEmailCode,
   verifyEmailCode,
+  checkEmailCode,
   generateOtpCode,
   hashCode as hashOtpCode,
   EMAIL_CODE_TTL_MINUTES,
