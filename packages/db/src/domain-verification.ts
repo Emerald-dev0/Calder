@@ -64,9 +64,13 @@ export async function sweepExpiredChallenges(db: Db, projectId?: string): Promis
     ne(domains.status, "expired"),
   ];
   if (projectId) conds.push(eq(domains.projectId, projectId));
-  const rows = await db.update(domains).set({ status: "expired" }).where(and(...conds)).returning({
-    id: domains.id,
-  });
+  const rows = await db
+    .update(domains)
+    .set({ status: "expired" })
+    .where(and(...conds))
+    .returning({
+      id: domains.id,
+    });
   return rows.length;
 }
 
@@ -84,7 +88,13 @@ export async function createChallenge(
   const [foreignVerified] = await db
     .select({ id: domains.id })
     .from(domains)
-    .where(and(eq(domains.domain, domain), ne(domains.projectId, input.projectId), eq(domains.status, "verified")))
+    .where(
+      and(
+        eq(domains.domain, domain),
+        ne(domains.projectId, input.projectId),
+        eq(domains.status, "verified")
+      )
+    )
     .limit(1);
   if (foreignVerified) return { kind: "cross_tenant" };
 
@@ -123,7 +133,9 @@ export async function regenerateChallenge(
   db: Db,
   projectId: string,
   domainId: string
-): Promise<{ kind: "ok"; token: string; expiresAt: Date } | { kind: "not_found" } | { kind: "verified" }> {
+): Promise<
+  { kind: "ok"; token: string; expiresAt: Date } | { kind: "not_found" } | { kind: "verified" }
+> {
   const token = newVerificationToken();
   const expiresAt = new Date(Date.now() + CHALLENGE_TTL_MS);
   const [row] = await db
@@ -180,9 +192,10 @@ export async function attemptVerification(
   if (!row.verificationToken) return { kind: "expired", retryAfterSec: null };
 
   // Rolling one-hour attempt window.
-  const windowStart = row.verifyWindowStart && now < new Date(row.verifyWindowStart.getTime() + VERIFY_WINDOW_MS)
-    ? row.verifyWindowStart
-    : now;
+  const windowStart =
+    row.verifyWindowStart && now < new Date(row.verifyWindowStart.getTime() + VERIFY_WINDOW_MS)
+      ? row.verifyWindowStart
+      : now;
   const attempts = windowStart === now ? 0 : row.verifyAttempts;
   if (attempts >= VERIFY_RATE_LIMIT) {
     return {
@@ -209,7 +222,13 @@ export async function attemptVerification(
         verifyWindowStart: windowStart,
         updatedAt: now,
       })
-      .where(and(eq(domains.id, row.id), eq(domains.projectId, projectId), ne(domains.status, "verified")))
+      .where(
+        and(
+          eq(domains.id, row.id),
+          eq(domains.projectId, projectId),
+          ne(domains.status, "verified")
+        )
+      )
       .returning({ id: domains.id });
     if (flipped.length === 0) {
       // Concurrent attempt landed first — treat as verified.
@@ -232,8 +251,7 @@ export async function attemptVerification(
     return { kind: "verified", domain: row.domain, verifiedAt };
   }
 
-  const errorNote =
-    verdict.kind === "dns_error" ? verdict.message : `TXT mismatch at ${host}`;
+  const errorNote = verdict.kind === "dns_error" ? verdict.message : `TXT mismatch at ${host}`;
   await db
     .update(domains)
     .set({
@@ -276,14 +294,15 @@ export function publicDomainProjection(row: {
     id: row.id,
     domain: row.domain,
     status: row.status,
-    verification: challengeVisible && row.verificationToken
-      ? {
-          method: "dns_txt" as const,
-          host: expectedTxtHost(row.domain),
-          value: expectedTxtValue(row.verificationToken),
-          expiresAt: row.verificationExpiresAt?.toISOString() ?? null,
-        }
-      : null,
+    verification:
+      challengeVisible && row.verificationToken
+        ? {
+            method: "dns_txt" as const,
+            host: expectedTxtHost(row.domain),
+            value: expectedTxtValue(row.verificationToken),
+            expiresAt: row.verificationExpiresAt?.toISOString() ?? null,
+          }
+        : null,
     lastVerifyError: row.lastVerifyError,
     verifyAttempts: row.verifyAttempts,
     ses: {

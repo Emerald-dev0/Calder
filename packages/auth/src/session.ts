@@ -113,7 +113,13 @@ export async function listLiveSessions(userId: string) {
       expiresAt: sessions.expiresAt,
     })
     .from(sessions)
-    .where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt), gt(sessions.expiresAt, new Date())))
+    .where(
+      and(
+        eq(sessions.userId, userId),
+        isNull(sessions.revokedAt),
+        gt(sessions.expiresAt, new Date())
+      )
+    )
     .orderBy(sessions.lastSeenAt);
 }
 

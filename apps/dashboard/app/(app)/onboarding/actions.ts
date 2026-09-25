@@ -378,7 +378,9 @@ export async function checkDomainDns(domainId: string) {
         detail: "Challenge expired (72h). Mint a fresh token below.",
       };
     case "rate_limited":
-      throw new Error(`Too many attempts — try again in ${Math.ceil(outcome.retryAfterSec / 60)}m.`);
+      throw new Error(
+        `Too many attempts — try again in ${Math.ceil(outcome.retryAfterSec / 60)}m.`
+      );
     case "dns_error":
       return { verified: false as const, detail: `DNS lookup failed: ${outcome.message}` };
     case "mismatch":

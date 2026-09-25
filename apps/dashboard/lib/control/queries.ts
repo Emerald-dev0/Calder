@@ -1094,7 +1094,11 @@ export async function gmailCapUsage() {
     .where(eq(projectTransports.type, "gmail"))
     .orderBy(desc(projectTransports.lastUsedAt))
     .limit(50);
-  return rows.map((r) => ({ ...r, sentToday: Number(r.sentToday), sentLastHour: Number(r.sentLastHour) }));
+  return rows.map((r) => ({
+    ...r,
+    sentToday: Number(r.sentToday),
+    sentLastHour: Number(r.sentLastHour),
+  }));
 }
 
 /** Recent Gmail watch / revocation / appeal actions from the audit trail. */
@@ -1495,7 +1499,8 @@ export async function systemAudiences(): Promise<AudienceCount[]> {
       p.tier === "free"
         ? `Organizations on the ${p.name} plan (no active subscription)`
         : `Organizations with an active ${p.name} subscription`,
-    count: p.tier === "free" ? Math.max(0, activeOrgs - activeSubbed) : (planCountBy.get(p.id) ?? 0),
+    count:
+      p.tier === "free" ? Math.max(0, activeOrgs - activeSubbed) : (planCountBy.get(p.id) ?? 0),
     href: `/control/customers/organizations?plan=${p.tier}`,
   }));
   return [

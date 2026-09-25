@@ -38,7 +38,6 @@ gate("gmail abuse watch (live Postgres)", async () => {
   } = await import("@calder/db");
   const { eq, and, count, sql } = await import("drizzle-orm");
   const { drainPendingEmails } = await import("./drain.js");
-  
 
   const suffix = randomBytes(4).toString("hex");
   const rid = (p: string) => `${p}_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
@@ -91,8 +90,8 @@ gate("gmail abuse watch (live Postgres)", async () => {
       isDefault: true,
       encryptedCredentials: { iv: "AA==", ciphertext: "AA==", tag: "AA==" },
       dailyCap: 10_000, // keep the daily cap above all velocity probes
+    });
   });
-});
 
   afterAll(async () => {
     if (!(await reachable())) return;
@@ -211,10 +210,7 @@ gate("gmail abuse watch (live Postgres)", async () => {
       .select({ value: count() })
       .from(auditLogs)
       .where(
-        and(
-          eq(auditLogs.action, "transport.gmail_suspended"),
-          eq(auditLogs.targetId, transportId)
-        )
+        and(eq(auditLogs.action, "transport.gmail_suspended"), eq(auditLogs.targetId, transportId))
       );
     expect(Number(auditRows[0]?.value ?? 0)).toBe(1);
 
@@ -228,10 +224,7 @@ gate("gmail abuse watch (live Postgres)", async () => {
       .select({ value: count() })
       .from(auditLogs)
       .where(
-        and(
-          eq(auditLogs.action, "transport.gmail_suspended"),
-          eq(auditLogs.targetId, transportId)
-        )
+        and(eq(auditLogs.action, "transport.gmail_suspended"), eq(auditLogs.targetId, transportId))
       );
     expect(Number(auditRows2[0]?.value ?? 0)).toBe(1);
   }, 60_000);

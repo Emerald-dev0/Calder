@@ -138,7 +138,8 @@ export async function completeOAuth(
   state: string,
   storedState: string | null,
   codeVerifier: string | null,
-  meta: Parameters<typeof createSession>[1] = {}): Promise<string> {
+  meta: Parameters<typeof createSession>[1] = {}
+): Promise<string> {
   if (!storedState || !statesEqual(state, storedState)) {
     throw new Error("OAuth state mismatch. Please try signing in again.");
   }
@@ -190,10 +191,7 @@ export async function completeOAuth(
       // Conversely: a provider-verified email proves control at link time —
       // mark the Calder side verified too if it wasn't yet.
       if (same[0].emailVerifiedAt == null) {
-        await db
-          .update(users)
-          .set({ emailVerifiedAt: new Date() })
-          .where(eq(users.id, same[0].id));
+        await db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.id, same[0].id));
       }
       userId = same[0].id;
     } else {

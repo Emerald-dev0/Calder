@@ -38,10 +38,7 @@ describe("assessGmailVelocity — M2.5 policy table", () => {
   });
 
   it("sustained outgrowth + cap-reached-today limits even below hourly lines", () => {
-    const v = assessGmailVelocity(
-      { lastHour: 30, today: 400, dailyAvg7d: 150 },
-      T
-    );
+    const v = assessGmailVelocity({ lastHour: 30, today: 400, dailyAvg7d: 150 }, T);
     expect(v.level).toBe("limit");
   });
 

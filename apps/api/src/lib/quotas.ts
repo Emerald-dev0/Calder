@@ -40,7 +40,14 @@ export async function checkSendQuota(
     return { allowed: true, tier: "n/a", limit: null, usage: 0, period, reason: "test-env" };
   }
   if (organizationId === INTERNAL_ORG_ID) {
-    return { allowed: true, tier: "internal", limit: null, usage: 0, period, reason: "internal-org" };
+    return {
+      allowed: true,
+      tier: "internal",
+      limit: null,
+      usage: 0,
+      period,
+      reason: "internal-org",
+    };
   }
   const [tier, usage] = await Promise.all([
     resolveOrgTier(db, organizationId),

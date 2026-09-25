@@ -9,7 +9,9 @@ const config = getConfig();
 
 // M6.1: production w/ REDIS_URL gets exact cross-instance limits (ADR-041);
 // prod WITHOUT it logs loudly (limits become per-instance approximations).
-await configureRateLimiterFromEnv().then((mode) => logger.info({ limiterMode: mode }, "rate limiter configured"));
+await configureRateLimiterFromEnv().then((mode) =>
+  logger.info({ limiterMode: mode }, "rate limiter configured")
+);
 const app = createApp();
 
 // Serverless runtimes (Vercel) import this module and serve the default

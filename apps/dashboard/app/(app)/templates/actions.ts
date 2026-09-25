@@ -145,6 +145,9 @@ export async function testSendTemplate(
     return { emailId: body.id };
   } finally {
     // One-time key revoked immediately after use.
-    await db.delete(apiKeys).where(eq(apiKeys.id, keyId)).catch(() => {});
+    await db
+      .delete(apiKeys)
+      .where(eq(apiKeys.id, keyId))
+      .catch(() => {});
   }
 }

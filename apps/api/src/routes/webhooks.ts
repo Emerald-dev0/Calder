@@ -124,7 +124,9 @@ webhooks.get("/:id/deliveries", authMiddleware, async (c) => {
       createdAt: webhookDeliveries.createdAt,
     })
     .from(webhookDeliveries)
-    .where(and(eq(webhookDeliveries.webhookId, id), eq(webhookDeliveries.projectId, auth.projectId)))
+    .where(
+      and(eq(webhookDeliveries.webhookId, id), eq(webhookDeliveries.projectId, auth.projectId))
+    )
     .orderBy(desc(webhookDeliveries.createdAt))
     .limit(25);
   return c.json({ data: rows });
@@ -160,7 +162,8 @@ webhooks.post("/:id/deliveries/:deliveryId/replay", authMiddleware, async (c) =>
     data,
     webhookId: id, // replay targets THIS endpoint only
   });
-  if (created === 0) throw new AppError("validation_error", "Webhook is disabled or unsubscribed.", 400);
+  if (created === 0)
+    throw new AppError("validation_error", "Webhook is disabled or unsubscribed.", 400);
   return c.json({ data: { replayed: true, event: src.event } }, 201);
 });
 

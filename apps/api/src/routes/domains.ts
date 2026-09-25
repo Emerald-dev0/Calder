@@ -109,7 +109,11 @@ domains.post("/:id/verify", authMiddleware, async (c) => {
       );
     case "verified":
       return c.json({
-        data: { status: "verified", domain: outcome.domain, verifiedAt: outcome.verifiedAt.toISOString() },
+        data: {
+          status: "verified",
+          domain: outcome.domain,
+          verifiedAt: outcome.verifiedAt.toISOString(),
+        },
       });
     case "dns_error":
       return c.json(
@@ -150,8 +154,7 @@ domains.post("/:id/token", authMiddleware, async (c) => {
   const db = getDb();
   const result = await regenerateChallenge(db, auth.projectId, id);
   if (result.kind === "not_found") throw new AppError("not_found", "Domain not found", 404);
-  if (result.kind === "verified")
-    throw new AppError("conflict", "Domain is already verified", 409);
+  if (result.kind === "verified") throw new AppError("conflict", "Domain is already verified", 409);
   const [row] = await db
     .select({ domain: domainsTable.domain })
     .from(domainsTable)
@@ -182,7 +185,6 @@ domains.delete("/:id", authMiddleware, async (c) => {
   return c.json({ data: { id, deleted: true } });
 });
 
-
 // ---- M4.2: SES identity linkage + DKIM storage -----------------------------
 
 /** Suggested SPF record (returned for display; tenants may already have one). */
@@ -199,7 +201,11 @@ domains.post("/:id/ses/link", authMiddleware, async (c) => {
     .limit(1);
   if (!row) throw new AppError("not_found", "Domain not found", 404);
   if (row.status !== "verified")
-    throw new AppError("conflict", "Verify DNS ownership first (POST /v1/domains/:id/verify).", 409);
+    throw new AppError(
+      "conflict",
+      "Verify DNS ownership first (POST /v1/domains/:id/verify).",
+      409
+    );
 
   const { createSesDomainIdentity } = await import("@calder/providers");
   let link: { records: { name: string; type: string; value: string }[]; dkimStatus: string };
@@ -212,7 +218,11 @@ domains.post("/:id/ses/link", authMiddleware, async (c) => {
       .set({ sesIdentityStatus: "failed", lastVerifyError: msg, updatedAt: new Date() })
       .where(eq(domainsTable.id, row.id));
     if (/throttl/i.test(msg))
-      throw new AppError("rate_limit_error", "SES is throttling identity creation — retry shortly.", 429);
+      throw new AppError(
+        "rate_limit_error",
+        "SES is throttling identity creation — retry shortly.",
+        429
+      );
     throw new AppError("provider_error", `SES identity creation failed: ${msg}`, 502);
   }
   await db

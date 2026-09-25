@@ -139,9 +139,7 @@ function internalLinks(): Array<{ file: string; path: string }> {
 describe("M5.3 dead-link crawl", () => {
   it("every internal href in the app shell resolves to a real route", () => {
     const missing = internalLinks().filter(({ path }) => !routeExists(path));
-    expect(
-      missing.map(({ file, path }) => `${file} -> /${path}`)
-    ).toEqual([]);
+    expect(missing.map(({ file, path }) => `${file} -> /${path}`)).toEqual([]);
   });
 });
 
@@ -152,7 +150,10 @@ describe("M5.3 no fabricated numbers", () => {
       .filter(({ file, text }) => {
         if (skip(file)) return false;
         if (!file.includes("(app)") && !file.includes("components/")) return false;
-        return /["'`](?![^"'`]*%)\d{1,3}(?:,\d{3})+["'`]/.test(text) || />\d{1,3}(?:,\d{3})+[ ,<]/.test(text);
+        return (
+          /["'`](?![^"'`]*%)\d{1,3}(?:,\d{3})+["'`]/.test(text) ||
+          />\d{1,3}(?:,\d{3})+[ ,<]/.test(text)
+        );
       })
       .map(({ file }) => file);
     expect(offenders).toEqual([]);

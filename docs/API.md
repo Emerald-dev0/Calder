@@ -38,6 +38,31 @@ Beyond validation (`400`), send endpoints can fail at ingest with:
 }
 ```
 
+Errors that carry machine-readable context add `details`; errors with a
+known remedy add `fix` (plain language, safe to show a user):
+
+```json
+{
+ "error": {
+ "code": "plan_limit_reached",
+ "message": "The Free plan allows 5,000 emails per billing period; 5,000 already used this period.",
+ "request_id": "req_...",
+ "details": {
+ "limit": 5000,
+ "usage": 5000,
+ "tier": "free",
+ "periodStart": "2026-09-01T00:00:00.000Z",
+ "periodEnd": "2026-10-01T00:00:00.000Z"
+ },
+ "fix": "Upgrade at https://app.calder.click/usage or wait for the period reset."
+ }
+}
+```
+
+Validation failures (`400 validation_error`) put per-field issues in
+`details` (`fieldErrors`/`formErrors`). Stack traces and provider secrets are
+never returned.
+
 ## Rate limits
 
 Per API key, project, and organization; different limits for sending vs. verification vs. dashboard endpoints. Responses include limit/remaining/reset.

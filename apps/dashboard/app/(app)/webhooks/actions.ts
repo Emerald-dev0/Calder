@@ -91,7 +91,9 @@ export async function listWebhookDeliveries(projectId: string, webhookId: string
       createdAt: webhookDeliveries.createdAt,
     })
     .from(webhookDeliveries)
-    .where(and(eq(webhookDeliveries.webhookId, webhookId), eq(webhookDeliveries.projectId, projectId)))
+    .where(
+      and(eq(webhookDeliveries.webhookId, webhookId), eq(webhookDeliveries.projectId, projectId))
+    )
     .orderBy(desc(webhookDeliveries.createdAt))
     .limit(limit);
   return rows.map((r) => ({
@@ -123,7 +125,10 @@ export async function replayDelivery(projectId: string, webhookId: string, deliv
     )
     .limit(1);
   if (!src) throw new Error("Delivery not found.");
-  const data = ((src.payload as { data?: Record<string, unknown> })?.data ?? {}) as Record<string, unknown>;
+  const data = ((src.payload as { data?: Record<string, unknown> })?.data ?? {}) as Record<
+    string,
+    unknown
+  >;
   const created = await enqueueWebhookDeliveries(db, {
     projectId,
     event: src.event,

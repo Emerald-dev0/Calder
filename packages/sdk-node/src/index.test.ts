@@ -1,9 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import Calder, {
-  CalderAuthError,
-  CalderRateLimitError,
-  CalderRequestError,
-} from "./index.js";
+import Calder, { CalderAuthError, CalderRateLimitError, CalderRequestError } from "./index.js";
 
 function jsonResponse(status: number, body: unknown, headers: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), {
@@ -88,9 +84,7 @@ describe("error mapping", () => {
   });
 
   it("422 → CalderRequestError carrying the API message", async () => {
-    const { sdk } = clientWithMock(() =>
-      jsonResponse(422, { error: "Domain not verified." })
-    );
+    const { sdk } = clientWithMock(() => jsonResponse(422, { error: "Domain not verified." }));
     const err = await sdk.emails
       .send({ from: "a@b.co", to: "c@d.co", subject: "s", text: "x" })
       .catch((e) => e);

@@ -2,7 +2,12 @@ import { pgEnum } from "drizzle-orm/pg-core";
 
 export const organizationRoleEnum = pgEnum("organization_role", ["owner", "admin", "member"]);
 export const apiKeyEnvEnum = pgEnum("api_key_env", ["test", "live"]);
-export const domainStatusEnum = pgEnum("domain_status", ["pending", "verified", "failed", "expired"]);
+export const domainStatusEnum = pgEnum("domain_status", [
+  "pending",
+  "verified",
+  "failed",
+  "expired",
+]);
 export const domainVerificationMethodEnum = pgEnum("domain_verification_method", [
   "dns",
   "vercel",

@@ -66,7 +66,17 @@ export function currentUsagePeriod(
     // Guarded to 240 cycles (20 years) so a corrupt period can't hang ingest.
     for (let i = 0; i < 240 && now.getTime() >= end.getTime(); i++) {
       start = new Date(end);
-      end = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, end.getUTCDate(), end.getUTCHours(), end.getUTCMinutes(), end.getUTCSeconds(), end.getUTCMilliseconds()));
+      end = new Date(
+        Date.UTC(
+          end.getUTCFullYear(),
+          end.getUTCMonth() + 1,
+          end.getUTCDate(),
+          end.getUTCHours(),
+          end.getUTCMinutes(),
+          end.getUTCSeconds(),
+          end.getUTCMilliseconds()
+        )
+      );
     }
     return { start, end };
   }

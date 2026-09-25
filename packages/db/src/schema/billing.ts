@@ -1,4 +1,13 @@
-import { pgTable, text, timestamp, varchar, integer, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  timestamp,
+  varchar,
+  integer,
+  jsonb,
+  index,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { planTierEnum, subscriptionStatusEnum } from "./enums.js";
 import { organizations } from "./organizations.js";
 

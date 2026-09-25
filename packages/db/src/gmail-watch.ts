@@ -92,8 +92,14 @@ export async function gmailVelocitySnapshot(
   const sevenDaysAgo = new Date(dayStart.getTime() - 7 * 24 * 60 * 60 * 1000);
   const base = and(eq(emails.projectId, projectId), eq(emails.transport, "gmail"));
   const [hourRow, todayRow, weekRow] = await Promise.all([
-    db.select({ value: count() }).from(emails).where(and(base, gte(emails.createdAt, hourAgo))),
-    db.select({ value: count() }).from(emails).where(and(base, gte(emails.createdAt, dayStart))),
+    db
+      .select({ value: count() })
+      .from(emails)
+      .where(and(base, gte(emails.createdAt, hourAgo))),
+    db
+      .select({ value: count() })
+      .from(emails)
+      .where(and(base, gte(emails.createdAt, dayStart))),
     db
       .select({ value: count() })
       .from(emails)
@@ -213,6 +219,17 @@ export async function enforceGmailVelocity(
 }
 
 /**
+ * Refusal for a transport that already carries an abuse-suspension verdict.
+ * Sending must not silently fall through to the platform default — that would
+ * move an abuse-flagged project's traffic onto Calder's own reputation. The
+ * message names the remedy (graduation to a verified domain/SES transport).
+ */
+export async function refuseSuspendedGmail(db: DbClient, projectId: string): Promise<never> {
+  const snap = await gmailVelocitySnapshot(db, projectId);
+  throw new GmailWatchError({ level: "suspend", lastHour: snap.lastHour });
+}
+
+/**
  * M2.4: the provider said `gmail_revoked` (refresh token dead). Flip the
  * transport to `revoked` exactly once, audit the transition, so every
  * subsequent chain skips this leg instead of re-failing mail forever.
@@ -249,7 +266,6 @@ export async function gmailNeedsGraduation(
 ): Promise<{ needed: boolean; dailyAvg7d: number; today: number; cap: number }> {
   const cap = dailyCap ?? DEFAULT_GMAIL_WATCH.dailyCap;
   const snap = await gmailVelocitySnapshot(db, projectId);
-  const needed =
-    snap.dailyAvg7d >= DEFAULT_GMAIL_WATCH.graduateDailyAvg || snap.today >= cap;
+  const needed = snap.dailyAvg7d >= DEFAULT_GMAIL_WATCH.graduateDailyAvg || snap.today >= cap;
   return { needed, dailyAvg7d: snap.dailyAvg7d, today: snap.today, cap };
 }

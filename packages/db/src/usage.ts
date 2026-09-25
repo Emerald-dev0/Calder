@@ -14,11 +14,7 @@
  */
 
 import { and, count, eq, gte, lt, sql } from "drizzle-orm";
-import {
-  currentUsagePeriod,
-  METRIC_EMAILS_SENT,
-  type UsagePeriod,
-} from "@calder/config";
+import { currentUsagePeriod, METRIC_EMAILS_SENT, type UsagePeriod } from "@calder/config";
 import type { DbClient } from "./client.js";
 import { emails } from "./schema/emails.js";
 import { plans } from "./schema/billing.js";
@@ -32,7 +28,9 @@ export async function resolveOrgTier(db: DbClient, organizationId: string): Prom
     .select({ tier: plans.tier })
     .from(subscriptions)
     .innerJoin(plans, eq(plans.id, subscriptions.planId))
-    .where(and(eq(subscriptions.organizationId, organizationId), eq(subscriptions.status, "active")))
+    .where(
+      and(eq(subscriptions.organizationId, organizationId), eq(subscriptions.status, "active"))
+    )
     .limit(1);
   return row?.tier ?? "free";
 }
@@ -168,7 +166,11 @@ export async function aggregateUsageNow(
 }
 
 /** Usage page helper: tier, period, accepted live usage, and metered ledger total. */
-export async function orgUsageSnapshot(db: DbClient, organizationId: string, now: Date = new Date()) {
+export async function orgUsageSnapshot(
+  db: DbClient,
+  organizationId: string,
+  now: Date = new Date()
+) {
   const period = await orgUsagePeriod(db, organizationId, now);
   const [tier, accepted, ledger, summary] = await Promise.all([
     resolveOrgTier(db, organizationId),
@@ -184,13 +186,18 @@ export async function orgUsageSnapshot(db: DbClient, organizationId: string, now
         )
       )
       .then((r) => r[0]),
-    db.select().from(usageSummaries).where(
-      and(
-        eq(usageSummaries.organizationId, organizationId),
-        eq(usageSummaries.metric, METRIC_EMAILS_SENT),
-        eq(usageSummaries.periodStart, period.start)
+    db
+      .select()
+      .from(usageSummaries)
+      .where(
+        and(
+          eq(usageSummaries.organizationId, organizationId),
+          eq(usageSummaries.metric, METRIC_EMAILS_SENT),
+          eq(usageSummaries.periodStart, period.start)
+        )
       )
-    ).limit(1).then((r) => r[0] ?? null),
+      .limit(1)
+      .then((r) => r[0] ?? null),
   ]);
   return {
     tier,
@@ -200,4 +207,3 @@ export async function orgUsageSnapshot(db: DbClient, organizationId: string, now
     summaryQuantity: summary?.quantity ?? null,
   };
 }
-

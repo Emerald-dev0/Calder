@@ -91,9 +91,8 @@ export async function sendComposerEmail(
   // apps/api/src/lib/quotas.ts (INTERNAL_ORG_ID) — never throttle Calder's
   // own transactional mail.
   {
-    const { projects, orgAcceptedLiveInPeriod, orgUsagePeriod, resolveOrgTier } = await import(
-      "@calder/db"
-    );
+    const { projects, orgAcceptedLiveInPeriod, orgUsagePeriod, resolveOrgTier } =
+      await import("@calder/db");
     const { planEmailsLimit, PLAN_LIMITS } = await import("@calder/config");
     const [proj] = await db
       .select({ organizationId: projects.organizationId })

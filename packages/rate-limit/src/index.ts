@@ -175,7 +175,11 @@ export async function configureRateLimiterFromEnv(): Promise<"redis" | "memory">
   if (url) {
     const { default: IORedis } = await import("ioredis");
     // Structural cast: the limiter only needs a MULTI-able surface.
-    setRateLimiter(new RedisRateLimiter(new IORedis(url, { maxRetriesPerRequest: 2 }) as unknown as RedisClientLike));
+    setRateLimiter(
+      new RedisRateLimiter(
+        new IORedis(url, { maxRetriesPerRequest: 2 }) as unknown as RedisClientLike
+      )
+    );
     return "redis";
   }
   if (isProd) {

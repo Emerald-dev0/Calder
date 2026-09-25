@@ -82,7 +82,12 @@ export class CalderError extends Error {
     this.body = body;
     if (body && typeof body === "object" && "error" in body) {
       const e = (body as { error?: unknown }).error;
-      if (e && typeof e === "object" && "code" in e && typeof (e as { code?: unknown }).code === "string") {
+      if (
+        e &&
+        typeof e === "object" &&
+        "code" in e &&
+        typeof (e as { code?: unknown }).code === "string"
+      ) {
         this.code = (e as { code: string }).code;
       }
     }
@@ -169,7 +174,11 @@ export class Calder {
   async request<T>(
     method: string,
     path: string,
-    opts: { body?: unknown; query?: Record<string, string | undefined>; idempotencyKey?: string } = {}
+    opts: {
+      body?: unknown;
+      query?: Record<string, string | undefined>;
+      idempotencyKey?: string;
+    } = {}
   ): Promise<T> {
     const url = new URL(`${this.baseUrl}${path}`);
     for (const [k, v] of Object.entries(opts.query ?? {})) {
@@ -222,11 +231,7 @@ export class Calder {
       if (res.status === 401 || res.status === 403) throw new CalderAuthError(message, body);
       if (res.status === 429) {
         const retryAfter = res.headers.get("retry-after");
-        throw new CalderRateLimitError(
-          message,
-          retryAfter ? Number(retryAfter) : undefined,
-          body
-        );
+        throw new CalderRateLimitError(message, retryAfter ? Number(retryAfter) : undefined, body);
       }
       if (res.status >= 500) {
         lastError = new CalderError(message, res.status, body);

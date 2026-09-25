@@ -280,6 +280,10 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       id: emailRecord.id,
       projectId: emailRecord.projectId,
       idempotencyKey: emailRecord.idempotencyKey,
+      // Stamped from the accepting API key. Omitting it would fall back to the
+      // column default ("live"), which would meter test traffic against the
+      // plan and route sandbox mail through the real provider chain.
+      env: emailRecord.env,
       from: emailRecord.from,
       senderIdentityId: emailRecord.senderIdentityId,
       fromName: emailRecord.fromName,

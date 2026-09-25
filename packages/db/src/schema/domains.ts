@@ -1,4 +1,13 @@
-import { pgTable, text, timestamp, varchar, index, uniqueIndex, integer, jsonb } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  timestamp,
+  varchar,
+  index,
+  uniqueIndex,
+  integer,
+  jsonb,
+} from "drizzle-orm/pg-core";
 import { domainStatusEnum, domainVerificationMethodEnum } from "./enums.js";
 import { projects } from "./projects.js";
 

@@ -5,7 +5,7 @@ import {
   expectedTxtValue,
   newVerificationToken,
   TXT_VALUE_PREFIX,
-} from "@calder/db";;
+} from "@calder/db";
 
 /**
  * M4.1 unit tests: pure challenge mechanics + verdict mapping.

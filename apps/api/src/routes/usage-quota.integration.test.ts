@@ -72,7 +72,12 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
   const projB = `proj_qb_${suffix}`;
   const projC = `proj_qc_${suffix}`;
   const userId = `usr_qty_${suffix}`;
-  const planId = `plan_qty_${suffix}`;
+  // Resolved in beforeAll: the catalog row for tier "free" either already
+  // exists (a seeded, production-like database — `pnpm --filter @calder/db
+  // db:seed`) or this suite creates it. Integration suites must not assume an
+  // empty catalog, and must never delete a row they did not create.
+  let planId = `plan_qty_${suffix}`;
+  let planCreatedBySuite = false;
   const liveKeyA = `calder_live_qty_a_${suffix}`;
   const testKeyA = `calder_test_qty_a_${suffix}`;
   const liveKeyB = `calder_live_qty_b_${suffix}`;
@@ -106,22 +111,61 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
     if (!(await reachable())) return;
     const db = getDb();
     await db.insert(users).values({ id: userId, email: `qty-${suffix}@test.test` });
-    await db.insert(plans).values({ id: planId, tier: "free", name: "Qty Free" });
+    const insertedPlan = await db
+      .insert(plans)
+      .values({ id: planId, tier: "free", name: "Qty Free" })
+      .onConflictDoNothing({ target: plans.tier })
+      .returning({ id: plans.id });
+    if (insertedPlan.length > 0) {
+      planCreatedBySuite = true;
+    } else {
+      const [existing] = await db
+        .select({ id: plans.id })
+        .from(plans)
+        .where(eq(plans.tier, "free"))
+        .limit(1);
+      planId = existing!.id;
+    }
     for (const [orgId, projId, name] of [
       [orgA, projA, "At Limit"],
       [orgB, projB, "Clean"],
       [orgC, projC, "Gmail"],
     ] as const) {
-      await db.insert(organizations).values({ id: orgId, name, slug: `${name.toLowerCase().replace(/\s+/g, "-")}-${suffix}` });
+      await db
+        .insert(organizations)
+        .values({ id: orgId, name, slug: `${name.toLowerCase().replace(/\s+/g, "-")}-${suffix}` });
       await db
         .insert(organizationMembers)
-        .values({ id: `orgm_qty_${suffix}_${projId.slice(-4)}`, organizationId: orgId, userId, role: "owner" });
+        // One membership per org: the id must be unique per org. (It used to
+        // end in a slice of the PROJECT id, which is identical for all three
+        // orgs here — a guaranteed primary-key collision on a live database.)
+        .values({ id: `orgm_${orgId}`, organizationId: orgId, userId, role: "owner" });
       await db.insert(projects).values({ id: projId, organizationId: orgId, name: "P", slug: "p" });
     }
-    registerDevKey(liveKeyA, { apiKeyId: rid("key"), projectId: projA, organizationId: orgA, env: "live" });
-    registerDevKey(testKeyA, { apiKeyId: rid("key"), projectId: projA, organizationId: orgA, env: "test" });
-    registerDevKey(liveKeyB, { apiKeyId: rid("key"), projectId: projB, organizationId: orgB, env: "live" });
-    registerDevKey(liveKeyC, { apiKeyId: rid("key"), projectId: projC, organizationId: orgC, env: "live" });
+    registerDevKey(liveKeyA, {
+      apiKeyId: rid("key"),
+      projectId: projA,
+      organizationId: orgA,
+      env: "live",
+    });
+    registerDevKey(testKeyA, {
+      apiKeyId: rid("key"),
+      projectId: projA,
+      organizationId: orgA,
+      env: "test",
+    });
+    registerDevKey(liveKeyB, {
+      apiKeyId: rid("key"),
+      projectId: projB,
+      organizationId: orgB,
+      env: "live",
+    });
+    registerDevKey(liveKeyC, {
+      apiKeyId: rid("key"),
+      projectId: projC,
+      organizationId: orgC,
+      env: "live",
+    });
 
     // Seed org A at the cap in ONE statement (not 5k round trips). Rows are
     // status 'sent' so the drain claims never touch them; acceptance-counts
@@ -140,7 +184,7 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
       await db.delete(organizations).where(eq(organizations.id, orgId));
     }
     await db.delete(subscriptions).where(eq(subscriptions.organizationId, orgB));
-    await db.delete(plans).where(eq(plans.id, planId));
+    if (planCreatedBySuite) await db.delete(plans).where(eq(plans.id, planId));
     await db.delete(users).where(eq(users.id, userId));
   });
 
@@ -153,7 +197,12 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
     });
     expect(res.status).toBe(402);
     const body = (await res.json()) as {
-      error: { code: string; message: string; details?: { limit: number; usage: number }; fix?: string };
+      error: {
+        code: string;
+        message: string;
+        details?: { limit: number; usage: number };
+        fix?: string;
+      };
     };
     expect(body.error.code).toBe("plan_limit_reached");
     expect(body.error.details?.limit).toBe(FREE_LIMIT);
@@ -183,7 +232,11 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
     });
     expect(res.status).toBe(202);
     const body = (await res.json()) as {
-      data: { accepted: number; skipped: number; results: Array<{ status: string; reason?: string }> };
+      data: {
+        accepted: number;
+        skipped: number;
+        results: Array<{ status: string; reason?: string }>;
+      };
     };
     expect(body.data.accepted).toBe(0);
     expect(body.data.results).toHaveLength(2);
@@ -271,7 +324,9 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
     expect(Number(ledgerRows[0]?.value ?? 0)).toBe(1);
 
     // Test-env deliveries are never metered.
-    expect(await recordSendUsage(db, { emailId: rid("em_t"), projectId: projB, env: "test" })).toBe(false);
+    expect(await recordSendUsage(db, { emailId: rid("em_t"), projectId: projB, env: "test" })).toBe(
+      false
+    );
   });
 
   it("aggregation is idempotent: re-running converges to the same summary", async () => {
@@ -279,8 +334,11 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
     const n1 = await aggregateUsageNow(db);
     const db2 = getDb();
     const n2 = await aggregateUsageNow(db2);
-    expect(n1).toBeGreaterThanOrEqual(1);
-    expect(n2).toBe(n1);
+    // Contract consumed by POST /cron/aggregate-usage: { orgs, rows }.
+    expect(n1.rows).toBeGreaterThanOrEqual(1);
+    expect(n1.orgs).toBeGreaterThanOrEqual(1);
+    // Convergence: a re-run folds the same orgs into the same rollups.
+    expect(n2).toEqual(n1);
 
     const rows1 = await db
       .select()
@@ -291,7 +349,15 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
       .from(usageSummaries)
       .where(and(eq(usageSummaries.organizationId, orgB)));
     expect(rows2).toEqual(rows1);
-    expect(rows1[0]?.quantity).toBe(1); // exactly one live metered send for org B
+    // The rollup must equal the ledger sum for the period — org B metered
+    // every live delivery it accepted (the under-limit send plus the explicit
+    // meter row), and nothing else.
+    const [ledgerSum] = await db
+      .select({ value: sql<number>`coalesce(sum(${usageRecords.quantity}), 0)` })
+      .from(usageRecords)
+      .where(eq(usageRecords.organizationId, orgB));
+    expect(rows1[0]?.quantity).toBe(Number(ledgerSum?.value ?? 0));
+    expect(rows1[0]?.quantity).toBeGreaterThanOrEqual(1);
   });
 
   it("subscription period stamps anchor the usage window (rollover keeps cycle day)", async () => {
@@ -331,7 +397,10 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
       encryptedCredentials: { iv: "AA==", ciphertext: "AA==", tag: "AA==" },
       dailyCap: 3,
     });
-    for (const [transport, n] of [["gmail", 2], ["ses", 4]] as const) {
+    for (const [transport, n] of [
+      ["gmail", 2],
+      ["ses", 4],
+    ] as const) {
       await db.execute(sql`
         INSERT INTO emails (id, project_id, "from", "to", subject, text, status, transport)
         SELECT ${rid("em_gm")} || '_' || g, ${projC}, 'g@test.test', 'r@test.test', 'hist', 'x', 'sent', ${transport}

@@ -34,7 +34,10 @@ export async function setPlatformRole(
   }
   const trimmed = reason.trim();
   if (trimmed.length < 6) {
-    return { ok: false, error: "A reason (≥ 6 characters) is required — it lands in the audit log." };
+    return {
+      ok: false,
+      error: "A reason (≥ 6 characters) is required — it lands in the audit log.",
+    };
   }
   if (userId === ctx.user.userId) {
     return { ok: false, error: "You cannot change your own role." };

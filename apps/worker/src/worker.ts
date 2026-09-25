@@ -402,7 +402,7 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
       );
 
       // ── Persist success event + update email status ─────────
-        try {
+      try {
         const { getDb, emails, emailEvents, recordSendUsage } = await import("@calder/db");
         const { eq } = await import("drizzle-orm");
         const db = getDb();

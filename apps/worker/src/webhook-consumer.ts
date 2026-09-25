@@ -2,11 +2,7 @@ import { createQueue, type QueueJob } from "@calder/queue";
 import { decryptSecret } from "@calder/auth";
 import { logger } from "@calder/observability";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import {
-  WEBHOOK_SECRET_CONTEXT,
-  WEBHOOK_MAX_ATTEMPTS,
-  nextRetryDelayMs,
-} from "@calder/db";
+import { WEBHOOK_SECRET_CONTEXT, WEBHOOK_MAX_ATTEMPTS, nextRetryDelayMs } from "@calder/db";
 
 /** User-facing delivery budget per attempt. */
 export const DELIVERY_TIMEOUT_MS = 10_000;
@@ -33,7 +29,8 @@ export function isPublicWebhookUrl(url: string): boolean {
   }
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
   const host = parsed.hostname.toLowerCase();
-  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal")) return false;
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal"))
+    return false;
   // IPv6 in brackets; IPv4 dotted quads; hostname keywords.
   const bare = host.replace(/^\[|\]$/g, "");
   if (bare === "::1" || bare.startsWith("fe80:") || bare.startsWith("fc") || bare.startsWith("fd"))
@@ -93,7 +90,12 @@ async function processDelivery(job: QueueJob<DeliverJob>): Promise<void> {
   if (delivery.status !== "pending") return; // replay paths create new rows; old ones are frozen
 
   const [hook] = await db
-    .select({ id: webhooks.id, url: webhooks.url, secret: webhooks.secret, enabled: webhooks.enabled })
+    .select({
+      id: webhooks.id,
+      url: webhooks.url,
+      secret: webhooks.secret,
+      enabled: webhooks.enabled,
+    })
     .from(webhooks)
     .where(eq(webhooks.id, delivery.webhookId))
     .limit(1);
@@ -171,9 +173,10 @@ async function processDelivery(job: QueueJob<DeliverJob>): Promise<void> {
       responseStatus: res.status,
     });
   } catch (err) {
-    const msg = err instanceof Error && err.name === "AbortError"
-      ? `endpoint timed out after ${DELIVERY_TIMEOUT_MS}ms`
-      : `endpoint unreachable: ${err instanceof Error ? err.message : String(err)}`;
+    const msg =
+      err instanceof Error && err.name === "AbortError"
+        ? `endpoint timed out after ${DELIVERY_TIMEOUT_MS}ms`
+        : `endpoint unreachable: ${err instanceof Error ? err.message : String(err)}`;
     await fail(msg, false, { latencyMs: Date.now() - started });
   }
 }

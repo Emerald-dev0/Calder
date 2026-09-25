@@ -29,7 +29,10 @@ export async function setSubscription(
   }
   const trimmed = reason.trim();
   if (trimmed.length < 6) {
-    return { ok: false, error: "A reason (≥ 6 characters) is required — it lands in the audit log." };
+    return {
+      ok: false,
+      error: "A reason (≥ 6 characters) is required — it lands in the audit log.",
+    };
   }
   if (!TIERS.includes(planTier as (typeof TIERS)[number])) {
     return { ok: false, error: "Unknown plan tier." };
@@ -73,7 +76,7 @@ export async function setSubscription(
       action: "subscription.set",
       targetType: "subscription",
       targetId: id,
-        metadata: { plan: planTier, months: m, reason: trimmed },
+      metadata: { plan: planTier, months: m, reason: trimmed },
     });
   } catch {
     // Audit must never break the operation it records.

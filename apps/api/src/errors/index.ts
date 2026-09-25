@@ -68,6 +68,8 @@ export interface PublicErrorBody {
   code: string;
   message: string;
   request_id: string;
+  /** Always machine-readable; only ever set from AppError constructions. */
+  details?: unknown;
   fix?: string;
 }
 
@@ -82,6 +84,9 @@ export function toPublicError(
       request_id: requestId,
     };
     if (err.fix) body.fix = err.fix;
+    // `details` carries deliberate, client-actionable context (quota limit /
+    // usage / reset window, field-level validation issues). Never stacks.
+    if (err.details !== undefined) body.details = err.details;
     return { status: err.status, body: { error: body } };
   }
   // Zod validation errors
