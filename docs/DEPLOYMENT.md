@@ -62,18 +62,20 @@ pnpm launch-check          # exits non-zero when the path is not launch-ready
 
 `launch-check` verifies, in order of what actually breaks launches:
 
-| Check             | Passes when                                                                                          |
-| ----------------- | ---------------------------------------------------------------------------------------------------- |
-| email provider    | `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` present, provider is SES                               |
-| SES account       | production access enabled, not sandbox (sandbox only mails verified recipients)                      |
-| Calder sender     | `AUTH_EMAIL_FROM` set to a verified SES identity (defaults to `Calder <hello@calder.click>`)         |
-| database          | reachable, migrations applied, internal tenant (`org_avenor` / `proj_website`) seeded                |
-| waitlist template | dynamic confirmation template present (editable without a deploy)                                    |
-| queue             | `REDIS_URL` set, so retries and delayed sends survive a restart                                      |
-| delivery wake-up  | `CRON_SECRET` set, so a `202` leaves immediately instead of waiting for the scheduled drain          |
-| admin access      | `ADMIN_API_KEY` set, so broadcasts and template edits work                                           |
-| secrets           | `AUTH_SECRET` and `WEBHOOK_SIGNING_SECRET` are no longer development defaults                        |
-| allowed origins   | `ALLOWED_ORIGINS` lists the first-party origins (`https://calder.click`, `https://app.calder.click`) |
+| Check             | Passes when                                                                                                                                                                    |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| email provider    | `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` present, provider is SES                                                                                                         |
+| SES account       | production access enabled, not sandbox (sandbox only mails verified recipients)                                                                                                |
+| sending identity  | `SES_FROM_DOMAIN` is verified for sending with DKIM `SUCCESS` — an unverified identity rejects every live send while everything else looks healthy                             |
+| delivery truth    | a configuration set is in play (`SES_CONFIGURATION_SET`, or the identity's own default) AND `SES_SNS_TOPIC_ARNS` is set — without both, bounces and complaints never come back |
+| Calder sender     | `AUTH_EMAIL_FROM` set (the address itself must be verified in SES — launch-check cannot see inside the header value)                                                           |
+| database          | reachable, migrations applied, internal tenant (`org_avenor` / `proj_website`) seeded                                                                                          |
+| waitlist template | dynamic confirmation template present (editable without a deploy)                                                                                                              |
+| queue             | `REDIS_URL` set, so retries and delayed sends survive a restart                                                                                                                |
+| delivery wake-up  | `CRON_SECRET` set, so a `202` leaves immediately instead of waiting for the scheduled drain                                                                                    |
+| admin access      | `ADMIN_API_KEY` set, so broadcasts and template edits work                                                                                                                     |
+| secrets           | `AUTH_SECRET` and `WEBHOOK_SIGNING_SECRET` are no longer development defaults                                                                                                  |
+| allowed origins   | `ALLOWED_ORIGINS` lists the first-party origins (`https://calder.click`, `https://app.calder.click`)                                                                           |
 
 ### Environment variables by project
 
