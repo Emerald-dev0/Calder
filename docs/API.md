@@ -48,7 +48,7 @@ Per API key, project, and organization; different limits for sending vs. verific
 
 ## Reputation streams
 
-Every send carries a `stream`: `transactional` (default) or `marketing`. The streams are recorded independently and are intended to map to separate sender identities/configuration sets so promotional traffic cannot contaminate transactional reputation. Bulk sends default to `marketing`; clients should set the stream explicitly for long-lived integrations. Stream selection does not bypass consent, suppression, quota, or sender verification.
+Every send may carry a `stream`: `transactional` (default) or `marketing`. The streams are recorded independently and can map to separate sender identities/configuration sets so promotional traffic cannot contaminate transactional reputation. Existing integrations remain transactional by default; marketing clients should opt in explicitly. Stream selection does not bypass consent, suppression, quota, or sender verification.
 
 ```json
 {

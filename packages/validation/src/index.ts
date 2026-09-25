@@ -80,7 +80,7 @@ export type SendEmailInput = z.infer<typeof sendEmailSchema>;
 // Bulk: up to 100 messages, one shared idempotency base in the header.
 export const bulkSendSchema = z.object({
   from: senderRefSchema,
-  stream: z.enum(["transactional", "marketing"]).default("marketing"),
+  stream: z.enum(["transactional", "marketing"]).default("transactional"),
   messages: z
     .array(
       z.object({
