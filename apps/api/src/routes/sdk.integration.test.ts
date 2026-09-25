@@ -59,6 +59,22 @@ gate("Node SDK against the live API (documented integration path)", async () => 
 
   const sdk = sdkFor(testKey);
 
+  /**
+   * Wait for the row to reach a terminal state. The send route auto-kicks a
+   * drain, so an explicit drain call may find the row already claimed and
+   * mid-flight — asserting immediately after one drain call races it.
+   */
+  async function waitSettled(emailId: string, timeoutMs = 20_000) {
+    const db = getDb();
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const [row] = await db.select().from(emails).where(eq(emails.id, emailId)).limit(1);
+      if (row && (row.status === "sent" || row.status === "failed")) return row;
+      if (Date.now() > deadline) return row;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  }
+
   beforeAll(async () => {
     if (!(await reachable())) return;
     const db = getDb();
@@ -101,7 +117,9 @@ gate("Node SDK against the live API (documented integration path)", async () => 
     expect(sent.status).toBe("queued");
 
     // Test-env rows never leave the mock provider (M2.3 isolation).
-    await drainPendingEmails(getDb(), { batch: 50 });
+    await drainPendingEmails(getDb(), { batch: 50 }).catch(() => {});
+    const settled = await waitSettled(sent.id);
+    expect(settled?.status).toBe("sent");
 
     const email = await sdk.emails.get(sent.id);
     expect(email.id).toBe(sent.id);

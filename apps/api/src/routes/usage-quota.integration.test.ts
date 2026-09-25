@@ -284,9 +284,12 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
       .limit(1);
     expect(testRow).toBeTruthy();
 
-    await drainPendingEmails(getDb(), { batch: 100 });
+    // The route auto-kicks a drain, so this row may already be claimed and
+    // mid-flight; our explicit kick can be a no-op. Wait for it to settle
+    // instead of assuming one drain call finished the job.
+    await drainPendingEmails(getDb(), { batch: 100 }).catch(() => {});
+    const after = await waitSettled(testRow!.id);
 
-    const [after] = await db.select().from(emails).where(eq(emails.id, testRow!.id)).limit(1);
     expect(after?.status).toBe("sent");
     expect(after?.provider).toBe("mock");
     expect(after?.transport).toBe("mock");
