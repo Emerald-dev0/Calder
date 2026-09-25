@@ -352,7 +352,12 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
           break;
         } catch (err) {
           lastErr = err;
-          const transient = isProviderError(err) ? err.transient : false;
+          // Providers state their own verdict; anything else (a network drop
+          // while talking to the provider, a timeout) falls back to the shared
+          // classifier rather than being assumed permanent. Previously a raw
+          // transport error skipped failover entirely and burned a queue retry
+          // while a healthy SES leg sat unused.
+          const transient = isProviderError(err) ? err.transient : isTransientError(err);
           const moreLegs = i < chain.length - 1;
           if (isCapError(err)) throw err;
           if (err instanceof Error && (err as { code?: string }).code === "sender_not_ready") {

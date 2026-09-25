@@ -276,7 +276,13 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
     expect(row?.providerMessageId).toMatch(new RegExp(`^0100-live-\\d+-${suffix}$`));
 
     // And the wire request was a real, correct SES SendEmail payload.
-    const sent = captured.filter((c) => c.path === "/v2/email/outbound-emails");
+    // Match on our own sender: the drain is global, so a shared database can
+    // legitimately carry other projects' queued live rows to the endpoint.
+    const sent = captured.filter(
+      (c) =>
+        c.path === "/v2/email/outbound-emails" &&
+        (c.body as { FromEmailAddress?: string }).FromEmailAddress === from
+    );
     expect(sent).toHaveLength(1);
     const payload = sent[0]!.body as {
       FromEmailAddress: string;
