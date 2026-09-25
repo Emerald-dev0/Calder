@@ -1,3 +1,5 @@
+import Redis from "ioredis";
+
 /**
  * Centralized rate limiting, supports IP, user, org, project, apiKey, endpoint dimensions.
  * Abstraction over Redis-compatible store; InMemory fallback for dev/test.
@@ -61,6 +63,26 @@ export class InMemoryRateLimiter implements RateLimiter {
   }
 }
 
+export class RedisRateLimiter implements RateLimiter {
+  constructor(private readonly redis: import("ioredis").default, private readonly prefix = "calder:rl") {}
+
+  async check(key: string, opts: RateLimitOptions): Promise<RateLimitResult> {
+    const bucket = `${this.prefix}:${opts.keyPrefix ?? "window"}:${key}:${Math.floor(Date.now() / opts.windowMs)}`;
+    const count = await this.redis.incr(bucket);
+    if (count === 1) await this.redis.pexpire(bucket, opts.windowMs);
+    const ttl = Math.max(1, await this.redis.pttl(bucket));
+    const allowed = count <= opts.max;
+    return { allowed, limit: opts.max, remaining: Math.max(0, opts.max - count), resetAt: new Date(Date.now() + ttl), retryAfterMs: allowed ? undefined : ttl };
+  }
+
+  async reset(key: string): Promise<void> {
+    const pattern = `${this.prefix}:*:${key}:*`;
+    const keys: string[] = [];
+    for await (const found of this.redis.scanStream({ match: pattern, count: 100 })) keys.push(...(found as string[]));
+    if (keys.length) await this.redis.del(...keys);
+  }
+}
+
 // Predefined limit categories per ARCHITECTURE.md §10
 export const rateLimitPresets = {
   sending: { windowMs: 60_000, max: 100 }, // 100 sends / min per key
@@ -95,7 +117,15 @@ export function buildRateLimitKey(dimension: {
 let defaultLimiter: RateLimiter | null = null;
 
 export function getRateLimiter(): RateLimiter {
-  if (!defaultLimiter) defaultLimiter = new InMemoryRateLimiter();
+  if (!defaultLimiter) {
+    const redisUrl = process.env.REDIS_URL;
+    if (redisUrl) {
+      // The Redis client is created once per process; callers share the limiter.
+      defaultLimiter = new RedisRateLimiter(new Redis(redisUrl));
+    } else {
+      defaultLimiter = new InMemoryRateLimiter();
+    }
+  }
   return defaultLimiter;
 }
 

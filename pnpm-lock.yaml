@@ -470,6 +470,9 @@ importers:
 
   packages/rate-limit:
     dependencies:
+      ioredis:
+        specifier: ^5.4.1
+        version: 5.11.1
       zod:
         specifier: ^3.23.8
         version: 3.25.76
