@@ -1,9 +1,0 @@
-pyproject.toml
-src/calder/__init__.py
-src/calder/client.py
-src/calder/errors.py
-src/calder.egg-info/PKG-INFO
-src/calder.egg-info/SOURCES.txt
-src/calder.egg-info/dependency_links.txt
-src/calder.egg-info/top_level.txt
-tests/test_client.py

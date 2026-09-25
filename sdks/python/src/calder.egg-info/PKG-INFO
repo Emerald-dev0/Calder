@@ -1,6 +1,0 @@
-Metadata-Version: 2.4
-Name: calder
-Version: 0.1.0
-Summary: Official Python client for the Calder email API
-License: MIT
-Requires-Python: >=3.9
