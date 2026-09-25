@@ -25,9 +25,16 @@ const attachmentSchema = z.object({
   contentBase64: z.string().min(1),
 });
 
+// Reputation lanes. `transactional` is the default for BOTH single and bulk
+// sends so existing integrations never silently change lane; `marketing` is an
+// explicit opt-in. Stream selection never bypasses suppression, quotas,
+// consent, or sender verification — those gates run at ingest regardless.
+const emailStreamSchema = z.enum(["transactional", "marketing"]).default("transactional");
+
 export const sendEmailSchema = z
   .object({
     from: senderRefSchema,
+    stream: emailStreamSchema,
     to: z.string().email().max(320),
     cc: z.string().email().max(320).optional(),
     bcc: z.string().email().max(320).optional(),
@@ -78,6 +85,9 @@ export type SendEmailInput = z.infer<typeof sendEmailSchema>;
 // Bulk: up to 100 messages, one shared idempotency base in the header.
 export const bulkSendSchema = z.object({
   from: senderRefSchema,
+  // Same default as single sends: bulk is not automatically marketing —
+  // promotional sends opt in explicitly.
+  stream: emailStreamSchema,
   messages: z
     .array(
       z.object({

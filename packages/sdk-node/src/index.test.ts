@@ -186,6 +186,37 @@ describe("construction", () => {
   });
 });
 
+describe("email streams", () => {
+  it("forwards an explicit marketing stream", async () => {
+    const { sdk, fetchImpl } = clientWithMock(() =>
+      jsonResponse(200, { id: "em_mkt", status: "queued" })
+    );
+    await sdk.emails.send({
+      from: "updates@acme.com",
+      stream: "marketing",
+      to: "subscriber@example.com",
+      subject: "News",
+      text: "body",
+    });
+    const body = JSON.parse(String(fetchImpl.mock.calls[0]![1]?.body));
+    expect(body.stream).toBe("marketing");
+  });
+
+  it("leaves stream unset by default so the API keeps sends transactional", async () => {
+    const { sdk, fetchImpl } = clientWithMock(() =>
+      jsonResponse(200, { id: "em_txn", status: "queued" })
+    );
+    await sdk.emails.send({
+      from: "app@acme.com",
+      to: "you@example.com",
+      subject: "Receipt",
+      text: "body",
+    });
+    const body = JSON.parse(String(fetchImpl.mock.calls[0]![1]?.body));
+    expect(body.stream).toBeUndefined();
+  });
+});
+
 describe("structured API error shape", () => {
   it("extracts message + code from { error: { code, message } }", async () => {
     const { sdk } = clientWithMock(() =>

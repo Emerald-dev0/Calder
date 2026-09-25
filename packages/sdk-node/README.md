@@ -19,6 +19,10 @@ const { id, status } = await calder.emails.send({
   // Idempotent by default: a UUID is generated when omitted. Bind to your
   // own entity for cross-restart safety:
   idempotencyKey: "order_123:receipt",
+  // Optional reputation lane: "transactional" (default) | "marketing".
+  // Omit to stay transactional; marketing is an explicit opt-in and never
+  // bypasses suppression, quotas, consent, or sender verification.
+  stream: "transactional",
 });
 
 const email = await calder.emails.get(id);           // status + timestamps

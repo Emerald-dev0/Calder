@@ -8,6 +8,10 @@ export const domainVerificationMethodEnum = pgEnum("domain_verification_method",
   "vercel",
   "http",
 ]);
+// Reputation lanes: recorded per email so promotional traffic can be tracked
+// (and later routed) independently of transactional traffic. Annotation only —
+// it never changes suppression, quota, consent or sender-verification checks.
+export const emailStreamEnum = pgEnum("email_stream", ["transactional", "marketing"]);
 export const emailStatusEnum = pgEnum("email_status", [
   "created",
   "queued",

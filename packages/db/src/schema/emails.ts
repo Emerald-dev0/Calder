@@ -8,7 +8,7 @@ import {
   uniqueIndex,
   integer,
 } from "drizzle-orm/pg-core";
-import { emailStatusEnum, emailEventTypeEnum } from "./enums.js";
+import { emailStatusEnum, emailEventTypeEnum, emailStreamEnum } from "./enums.js";
 import { projects } from "./projects.js";
 import { senderIdentities } from "./senders.js";
 
@@ -45,6 +45,11 @@ export const emails = pgTable(
     }> | null>(),
     // hold delivery until this time (scheduled sends ride delayed queue jobs)
     scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
+    // Reputation lane this send belongs to. Defaults to transactional: bulk
+    // and promotional traffic must opt in to `marketing` explicitly. Purely
+    // an annotation — it never bypasses suppression, quotas, consent, or
+    // sender verification.
+    stream: emailStreamEnum("stream").notNull().default("transactional"),
     status: emailStatusEnum("status").notNull().default("created"),
     providerMessageId: varchar("provider_message_id", { length: 255 }),
     // Which API-key environment accepted this email (stamped at ingest, never
@@ -64,6 +69,8 @@ export const emails = pgTable(
     index("emails_project_idx").on(t.projectId),
     index("emails_status_idx").on(t.status),
     index("emails_created_at_idx").on(t.createdAt),
+    // Reputation-lane reporting: per-stream volumes over time.
+    index("emails_stream_created_idx").on(t.stream, t.createdAt),
     uniqueIndex("emails_project_idempotency_unique").on(t.projectId, t.idempotencyKey),
   ]
 );

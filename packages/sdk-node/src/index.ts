@@ -23,6 +23,12 @@ export interface CalderClientOptions {
 export interface SendEmailInput {
   /** Verified sender, e.g. "app@yourdomain.com" (or `sender_…` id). */
   from: string;
+  /**
+   * Reputation lane, `transactional` (default) or `marketing`. Omit to stay
+   * transactional; promotional traffic must opt in explicitly. The lane never
+   * bypasses suppression, quotas, consent or sender verification.
+   */
+  stream?: "transactional" | "marketing";
   to: string | string[];
   subject: string;
   text?: string;

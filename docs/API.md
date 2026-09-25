@@ -46,6 +46,27 @@ Per API key, project, and organization; different limits for sending vs. verific
 
 `test` keys never trigger real external delivery, simulated events and webhook deliveries only.
 
+## Reputation streams
+
+Every send records a `stream`: `transactional` (default) or `marketing`. Both
+single sends (`POST /v1/emails`) and bulk sends (`POST /v1/emails/batch`)
+default to `transactional`, so existing integrations never change lane;
+marketing clients opt in explicitly via the request body. The streams are
+recorded independently and can map to separate sender identities/configuration
+sets so promotional traffic cannot contaminate transactional reputation.
+Stream selection does not bypass consent, suppression, quota, or sender
+verification — those gates run at ingest regardless of stream.
+
+```json
+{
+  "from": "updates@example.com",
+  "stream": "marketing",
+  "to": "subscriber@example.com",
+  "subject": "Product news",
+  "text": "..."
+}
+```
+
 ## Sender rules (`from`)
 
 The `from` address must resolve to an identity the project's active transport owns:

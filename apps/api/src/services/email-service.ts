@@ -31,6 +31,20 @@ function getEmailQueue() {
 const memoryEmails = new Map<string, unknown>();
 const memoryIdempotency = new Map<string, { status: number; body: unknown }>();
 
+/**
+ * Reputation lane for a send: `transactional` unless the caller explicitly
+ * opted in to `marketing`. Callers that bypass the request schema (internal
+ * mail, legacy code paths) therefore stay transactional, and the column can
+ * never be written empty. This function is an ANNOTATION ONLY — suppression,
+ * quota, consent and sender-verification checks run before it and are never
+ * stream-conditional (see the gates in handleSendEmail).
+ */
+export function resolveEmailStream(input: {
+  stream?: "transactional" | "marketing";
+}): "transactional" | "marketing" {
+  return input.stream === "marketing" ? "marketing" : "transactional";
+}
+
 export interface HandleSendEmailParams {
   projectId: string;
   organizationId: string;
@@ -242,6 +256,9 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       ...((input.metadata as Record<string, unknown> | undefined) ?? {}),
       ...(Object.keys(safeHeaders).length > 0 ? { headers: safeHeaders } : {}),
     },
+    // Annotation recorded after every gate (sender, suppression, quota) has
+    // passed; it cannot grant a bypass of any of them.
+    stream: resolveEmailStream(input),
     status: "queued" as const,
     attemptCount: 0,
   };
@@ -276,6 +293,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       metadata: emailRecord.metadata,
       scheduledFor: emailRecord.scheduledFor,
       attachments: emailRecord.attachments,
+      stream: emailRecord.stream,
       status: "queued" as const,
       attemptCount: 0,
     };
@@ -567,6 +585,9 @@ export async function sendInternalEmail(
     idempotencyKey: params.idempotencyKey,
     input: {
       from: await resolveInternalSender(db, params.from),
+      // Calder's own mail (auth codes, receipts, lifecycle) is transactional
+      // by definition and must never ride the marketing lane.
+      stream: "transactional",
       to: params.to,
       subject: params.subject,
       html: brandEmail(params.html, {
