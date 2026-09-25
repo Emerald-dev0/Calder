@@ -82,14 +82,20 @@ marketing.post("/campaigns/:id/send", authMiddleware, async (c) => {
   const { handleSendEmail } = await import("../services/email-service.js");
   await db.update(marketingCampaigns).set({ status: "sending", recipientCount: contacts.length, updatedAt: new Date() }).where(eq(marketingCampaigns.id, campaign.id));
   let accepted = 0;
+  let failed = 0;
   for (const contact of contacts) {
     try {
       await handleSendEmail({ projectId: a.projectId, organizationId: a.organizationId, apiKeyId: a.apiKeyId, env: a.env, requestId: c.get("requestId"), idempotencyKey: `campaign:${campaign.id}:${contact.email}`, input: { from: campaign.from, to: contact.email, subject: campaign.subject, html: campaign.html ?? undefined, text: campaign.text ?? undefined, stream: "marketing" } });
       accepted++;
-    } catch { /* individual suppressions/provider failures are reflected by their email records */ }
+    } catch {
+      // Keep the campaign auditable: a provider or policy failure must not be
+      // reported as a successful send. Individual email records retain details.
+      failed++;
+    }
   }
-  await db.update(marketingCampaigns).set({ status: "sent", sentAt: new Date(), updatedAt: new Date() }).where(eq(marketingCampaigns.id, campaign.id));
-  return c.json({ data: { campaign_id: campaign.id, accepted, skipped: contacts.length - accepted, recipients: contacts.length } });
+  const finalStatus = failed > 0 ? (accepted > 0 ? "partially_sent" : "failed") : "sent";
+  await db.update(marketingCampaigns).set({ status: finalStatus, sentAt: new Date(), updatedAt: new Date() }).where(eq(marketingCampaigns.id, campaign.id));
+  return c.json({ data: { campaign_id: campaign.id, status: finalStatus, accepted, failed, skipped: contacts.length - accepted - failed, recipients: contacts.length } });
 });
 
 export default marketing;
