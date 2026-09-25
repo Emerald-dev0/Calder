@@ -14,4 +14,5 @@ export * from "./sessions.js";
 export * from "./transports.js";
 export * from "./senders.js";
 export * from "./invitations.js";
+export * from "./marketing.js";
 export * from "./provider-events.js";

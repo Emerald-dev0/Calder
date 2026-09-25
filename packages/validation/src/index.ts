@@ -199,6 +199,24 @@ export const createTemplateVersionSchema = z.object({
   text: z.string().max(1_000_000).optional(),
 });
 
+// ── Marketing ────────────────────────────────────────────────
+
+export const createContactSchema = z.object({
+  email: z.string().email().max(320).transform((v) => v.toLowerCase().trim()),
+  first_name: z.string().max(255).optional(),
+  last_name: z.string().max(255).optional(),
+  consent_status: z.enum(["unknown", "subscribed", "unsubscribed"]).default("unknown"),
+  consent_source: z.string().max(255).optional(),
+  attributes: z.record(z.unknown()).optional(),
+});
+export const createListSchema = z.object({ name: z.string().min(1).max(255), description: z.string().max(2000).optional() });
+export const addListMemberSchema = z.object({ contact_id: z.string().min(1).max(100) });
+export const createCampaignSchema = z.object({
+  name: z.string().min(1).max(255), from: z.string().email().max(320), subject: z.string().min(1).max(998),
+  html: z.string().max(1_000_000).optional(), text: z.string().max(1_000_000).optional(),
+  list_ids: z.array(z.string().max(100)).min(1).max(100), scheduled_at: z.string().datetime({ offset: true }).optional(),
+}).refine((v) => v.html || v.text, { message: "Campaign needs html or text content" });
+
 // ── Suppressions ─────────────────────────────────────────────
 
 export const createSuppressionSchema = z.object({

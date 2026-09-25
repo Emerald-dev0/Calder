@@ -148,6 +148,13 @@
       "when": 1789491200000,
       "tag": "0020_usage_streams",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789491300000,
+      "tag": "0021_marketing_foundation",
+      "breakpoints": true
     }
   ]
 }
