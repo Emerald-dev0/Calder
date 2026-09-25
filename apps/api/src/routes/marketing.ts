@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, desc, eq, inArray, count } from "drizzle-orm";
+import { and, desc, eq, inArray, count, like } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { Env } from "../app.js";
 import { authMiddleware, requireScope, type AuthContext } from "../middleware/auth.js";
@@ -26,6 +26,15 @@ marketing.post("/contacts", authMiddleware, async (c) => {
   const contact = { id: id("ct"), projectId: a.projectId, email: parsed.data.email, firstName: parsed.data.first_name, lastName: parsed.data.last_name, consentStatus: parsed.data.consent_status, consentSource: parsed.data.consent_source, consentedAt: parsed.data.consent_status === "subscribed" ? now : null, unsubscribedAt: parsed.data.consent_status === "unsubscribed" ? now : null, attributes: parsed.data.attributes ?? {}, updatedAt: now };
   const [row] = await getDb().insert(marketingContacts).values(contact).onConflictDoUpdate({ target: [marketingContacts.projectId, marketingContacts.email], set: { firstName: contact.firstName, lastName: contact.lastName, consentStatus: contact.consentStatus, consentSource: contact.consentSource, consentedAt: contact.consentedAt, unsubscribedAt: contact.unsubscribedAt, attributes: contact.attributes, updatedAt: now } }).returning();
   return c.json({ data: row }, 201);
+});
+
+marketing.post("/contacts/:id/unsubscribe", authMiddleware, async (c) => {
+  const a = getAuth(c); requireScope(a, "manage"); const { getDb, marketingContacts, suppressions } = await import("@calder/db");
+  const db = getDb();
+  const [contact] = await db.update(marketingContacts).set({ consentStatus: "unsubscribed", unsubscribedAt: new Date(), updatedAt: new Date() }).where(and(eq(marketingContacts.id, c.req.param("id")), eq(marketingContacts.projectId, a.projectId))).returning();
+  if (!contact) throw new AppError("not_found", "Contact not found", 404);
+  await db.insert(suppressions).values({ id: id("sup"), projectId: a.projectId, email: contact.email, reason: "marketing_unsubscribe" }).onConflictDoNothing();
+  return c.json({ data: { id: contact.id, email: contact.email, consent_status: contact.consentStatus, unsubscribed_at: contact.unsubscribedAt } });
 });
 
 marketing.delete("/contacts/:id", authMiddleware, async (c) => {
@@ -59,6 +68,15 @@ marketing.post("/lists/:listId/members", authMiddleware, async (c) => {
 });
 
 marketing.get("/campaigns", authMiddleware, async (c) => { const a = getAuth(c); const { getDb, marketingCampaigns } = await import("@calder/db"); return c.json({ data: await getDb().select().from(marketingCampaigns).where(eq(marketingCampaigns.projectId, a.projectId)).orderBy(desc(marketingCampaigns.createdAt)) }); });
+
+marketing.get("/campaigns/:id/analytics", authMiddleware, async (c) => {
+  const a = getAuth(c); const { getDb, marketingCampaigns, emails, emailEvents } = await import("@calder/db"); const db = getDb();
+  const [campaign] = await db.select({ id: marketingCampaigns.id, recipientCount: marketingCampaigns.recipientCount, status: marketingCampaigns.status }).from(marketingCampaigns).where(and(eq(marketingCampaigns.id, c.req.param("id")), eq(marketingCampaigns.projectId, a.projectId))).limit(1);
+  if (!campaign) throw new AppError("not_found", "Campaign not found", 404);
+  const rows = await db.select({ type: emailEvents.type, count: count(emailEvents.id) }).from(emailEvents).innerJoin(emails, eq(emails.id, emailEvents.emailId)).where(and(eq(emailEvents.projectId, a.projectId), like(emails.idempotencyKey, `campaign:${campaign.id}:%`))).groupBy(emailEvents.type);
+  const events = Object.fromEntries(rows.map((row) => [row.type, Number(row.count)]));
+  return c.json({ data: { ...campaign, events, delivered: events.delivered ?? 0, bounced: events.bounced ?? 0, opened: events.opened ?? 0, clicked: events.clicked ?? 0, complained: events.complained ?? 0 } });
+});
 
 marketing.post("/campaigns", authMiddleware, async (c) => {
   const a = getAuth(c); requireScope(a, "manage"); const parsed = createCampaignSchema.safeParse(await c.req.json().catch(() => null));
