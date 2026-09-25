@@ -20,7 +20,7 @@ const areaStyle: React.CSSProperties = {
   height: "auto",
   minHeight: 160,
   padding: 10,
-  fontFamily: "var(--font-mono, monospace)",
+  fontFamily: "var(--type-mono-family, monospace)",
   fontSize: 12,
   lineHeight: 1.5,
   resize: "vertical",
