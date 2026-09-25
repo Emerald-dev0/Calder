@@ -1,0 +1,14 @@
+{
+  "name": "@calder/sdk",
+  "version": "0.1.0",
+  "description": "Official TypeScript client for the Calder email API",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist", "README.md"],
+  "scripts": { "build": "tsc --project tsconfig.json", "test": "vitest run", "typecheck": "tsc --noEmit", "prepublishOnly": "pnpm build" },
+  "engines": { "node": ">=18" },
+  "publishConfig": { "access": "public" },
+  "license": "MIT"
+}

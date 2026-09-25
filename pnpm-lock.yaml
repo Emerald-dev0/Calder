@@ -484,6 +484,8 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@22.20.1)
 
+  packages/sdk-node: {}
+
   packages/ui:
     dependencies:
       clsx:
