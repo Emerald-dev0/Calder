@@ -32,7 +32,10 @@ export default async function NewEmailPage({
     })
     .from(senderIdentities)
     .where(eq(senderIdentities.projectId, scope.project.id));
-  const def = rows.find((r) => r.isDefault) ?? rows.find((r) => r.status === "verified" || r.status === "connected") ?? null;
+  const def =
+    rows.find((r) => r.isDefault) ??
+    rows.find((r) => r.status === "verified" || r.status === "connected") ??
+    null;
 
   return (
     <div>

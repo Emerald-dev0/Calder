@@ -2,7 +2,13 @@ import { and, desc, eq, ilike, inArray } from "drizzle-orm";
 import { getDb, auditLogs } from "@calder/db";
 import { getTenantContext } from "../../../lib/auth";
 import { EmptyState } from "../../../components/empty-state";
-import { decodeCursor, cursorWhere, encodeCursor, stringParam, PAGE_SIZE } from "../../../lib/pagination";
+import {
+  decodeCursor,
+  cursorWhere,
+  encodeCursor,
+  stringParam,
+  PAGE_SIZE,
+} from "../../../lib/pagination";
 import Link from "next/link";
 
 export const metadata = { title: "Calder — Audit Logs" };
@@ -52,7 +58,8 @@ export default async function AuditLogsPage({
   const hasMore = rows.length > PAGE_SIZE;
   const page = rows.slice(0, PAGE_SIZE);
   const last = page[page.length - 1];
-  const nextCursor = hasMore && last ? encodeCursor({ createdAt: last.createdAt, id: last.id }) : null;
+  const nextCursor =
+    hasMore && last ? encodeCursor({ createdAt: last.createdAt, id: last.id }) : null;
   const qs = (extra: Record<string, string | undefined>) =>
     "?" +
     Object.entries({ action: actionFilter, ...extra })

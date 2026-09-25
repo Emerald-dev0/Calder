@@ -6,11 +6,7 @@ import { SdkHub } from "./client";
 
 export const metadata = { title: "Calder — SDKs" };
 
-export default async function SdksPage({
-  searchParams,
-}: {
-  searchParams: { project?: string };
-}) {
+export default async function SdksPage({ searchParams }: { searchParams: { project?: string } }) {
   const ctx = await getTenantContext();
   const projects = ctx.memberships.flatMap((m) => m.projects);
   const scope = resolveProject(ctx, searchParams.project);

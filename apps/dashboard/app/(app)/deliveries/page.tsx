@@ -2,7 +2,13 @@ import { and, desc, eq, ilike, inArray, count, or } from "drizzle-orm";
 import { getDb, emails } from "@calder/db";
 import { getTenantContext } from "../../../lib/auth";
 import { EmptyState } from "../../../components/empty-state";
-import { decodeCursor, cursorWhere, encodeCursor, stringParam, PAGE_SIZE } from "../../../lib/pagination";
+import {
+  decodeCursor,
+  cursorWhere,
+  encodeCursor,
+  stringParam,
+  PAGE_SIZE,
+} from "../../../lib/pagination";
 import Link from "next/link";
 
 export const metadata = { title: "Calder — Deliveries" };
@@ -30,7 +36,12 @@ export default async function DeliveriesPage({
     return (
       <div>
         <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px" }}>Deliveries</h1>
-        <EmptyState title="No project yet" description="Create a project and your deliveries will appear here." actionLabel="Create project" actionHref="/onboarding" />
+        <EmptyState
+          title="No project yet"
+          description="Create a project and your deliveries will appear here."
+          actionLabel="Create project"
+          actionHref="/onboarding"
+        />
       </div>
     );
   }
@@ -43,13 +54,20 @@ export default async function DeliveriesPage({
   const conds = [inArray(emails.projectId, projectIds)];
   if (statusFilter)
     conds.push(eq(emails.status, statusFilter as (typeof emails.status.enumValues)[number]));
-  if (q)
-    conds.push(or(ilike(emails.to, `%${q}%`), ilike(emails.subject, `%${q}%`))!);
+  if (q) conds.push(or(ilike(emails.to, `%${q}%`), ilike(emails.subject, `%${q}%`))!);
   const cw = cursorWhere(cursor, emails.createdAt, emails.id);
   if (cw) conds.push(cw);
 
   const rows = await db
-    .select({ id: emails.id, to: emails.to, subject: emails.subject, status: emails.status, from: emails.from, provider: emails.provider, createdAt: emails.createdAt })
+    .select({
+      id: emails.id,
+      to: emails.to,
+      subject: emails.subject,
+      status: emails.status,
+      from: emails.from,
+      provider: emails.provider,
+      createdAt: emails.createdAt,
+    })
     .from(emails)
     .where(and(...conds))
     .orderBy(desc(emails.createdAt), desc(emails.id))
@@ -147,7 +165,10 @@ export default async function DeliveriesPage({
     return (
       <div>
         <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px" }}>Deliveries</h1>
-        <p style={{ color: "var(--color-muted)", fontSize: 13, margin: "0 0 16px" }}>Delivery intelligence per sender, domain, and provider.{terminal > 0 ? ` · ${rate}% delivered of ${terminal} completed` : ""}</p>
+        <p style={{ color: "var(--color-muted)", fontSize: 13, margin: "0 0 16px" }}>
+          Delivery intelligence per sender, domain, and provider.
+          {terminal > 0 ? ` · ${rate}% delivered of ${terminal} completed` : ""}
+        </p>
         {filterBar}
         <EmptyState
           title={q || statusFilter ? "Nothing matches these filters" : "No deliveries yet"}
@@ -172,27 +193,96 @@ export default async function DeliveriesPage({
       {filterBar}
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
         {byStatus.map((s) => (
-          <span key={s.status} style={{ fontSize: 11, border: "1px solid var(--color-border)", padding: "4px 8px", borderRadius: 6, background: "#fff" }}>
+          <span
+            key={s.status}
+            style={{
+              fontSize: 11,
+              border: "1px solid var(--color-border)",
+              padding: "4px 8px",
+              borderRadius: 6,
+              background: "#fff",
+            }}
+          >
             {s.status}: {s.value}
           </span>
         ))}
       </div>
-      <div style={{ background: "#fff", border: "1px solid var(--color-border)", borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr 0.6fr 0.5fr", gap: 0, padding: "10px 14px", fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-muted)", borderBottom: "1px solid var(--color-border)", background: "var(--color-paper)" }}>
+      <div
+        style={{
+          background: "#fff",
+          border: "1px solid var(--color-border)",
+          borderRadius: 12,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1.2fr 0.8fr 0.6fr 0.5fr",
+            gap: 0,
+            padding: "10px 14px",
+            fontSize: 11,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            color: "var(--color-muted)",
+            borderBottom: "1px solid var(--color-border)",
+            background: "var(--color-paper)",
+          }}
+        >
           <span>Recipient / Subject</span>
           <span>From</span>
           <span>Status</span>
           <span>Provider</span>
         </div>
         {page.map((r) => (
-          <div key={r.id} style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr 0.6fr 0.5fr", gap: 8, padding: "12px 14px", borderBottom: "1px solid #f5f5f5", fontSize: 13, alignItems: "center" }}>
+          <div
+            key={r.id}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1.2fr 0.8fr 0.6fr 0.5fr",
+              gap: 8,
+              padding: "12px 14px",
+              borderBottom: "1px solid #f5f5f5",
+              fontSize: 13,
+              alignItems: "center",
+            }}
+          >
             <span style={{ minWidth: 0 }}>
-              <b style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.subject || "(no subject)"}</b>
+              <b
+                style={{
+                  display: "block",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {r.subject || "(no subject)"}
+              </b>
               <span style={{ color: "var(--color-muted)", fontSize: 12 }}>{r.to}</span>
             </span>
-            <span style={{ fontSize: 12, color: "var(--color-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.from}</span>
-            <span style={{ fontSize: 11, fontWeight: 600, color: statusColor[r.status] ?? "var(--color-muted)" }}>{r.status}</span>
-            <span className="mono" style={{ fontSize: 11, color: "var(--color-muted)" }}>{r.provider ?? "—"}</span>
+            <span
+              style={{
+                fontSize: 12,
+                color: "var(--color-muted)",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {r.from}
+            </span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: statusColor[r.status] ?? "var(--color-muted)",
+              }}
+            >
+              {r.status}
+            </span>
+            <span className="mono" style={{ fontSize: 11, color: "var(--color-muted)" }}>
+              {r.provider ?? "—"}
+            </span>
           </div>
         ))}
       </div>

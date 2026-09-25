@@ -15,14 +15,28 @@ type SessionRow = {
 
 function describeAgent(ua: string | null): string {
   if (!ua) return "Unknown device";
-  const browser =
-    /Edg\//.test(ua) ? "Edge"
-    : /Chrome\//.test(ua) ? "Chrome"
-    : /Firefox\//.test(ua) ? "Firefox"
-    : /Safari\//.test(ua) && !/Chrome/.test(ua) ? "Safari"
-    : /curl\//.test(ua) ? "curl"
-    : "Other";
-  const os = /Windows/.test(ua) ? "Windows" : /Mac OS X/.test(ua) ? "macOS" : /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iOS" : /Linux/.test(ua) ? "Linux" : "";
+  const browser = /Edg\//.test(ua)
+    ? "Edge"
+    : /Chrome\//.test(ua)
+      ? "Chrome"
+      : /Firefox\//.test(ua)
+        ? "Firefox"
+        : /Safari\//.test(ua) && !/Chrome/.test(ua)
+          ? "Safari"
+          : /curl\//.test(ua)
+            ? "curl"
+            : "Other";
+  const os = /Windows/.test(ua)
+    ? "Windows"
+    : /Mac OS X/.test(ua)
+      ? "macOS"
+      : /Android/.test(ua)
+        ? "Android"
+        : /iPhone|iPad/.test(ua)
+          ? "iOS"
+          : /Linux/.test(ua)
+            ? "Linux"
+            : "";
   return `${browser}${os ? ` on ${os}` : ""}`;
 }
 
@@ -42,7 +56,15 @@ export function SessionsCard({ sessions }: { sessions: SessionRow[] }) {
         marginBottom: 20,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
         <p style={{ fontWeight: 600, margin: 0 }}>Active sessions ({sessions.length})</p>
         {sessions.length > 1 && (
           <button
@@ -93,11 +115,16 @@ export function SessionsCard({ sessions }: { sessions: SessionRow[] }) {
             <div>
               <b>{describeAgent(s.userAgent)}</b>{" "}
               {s.current && (
-                <span style={{ fontSize: 11, color: "#16A34A", fontWeight: 600 }}>· this device</span>
+                <span style={{ fontSize: 11, color: "#16A34A", fontWeight: 600 }}>
+                  · this device
+                </span>
               )}
               <span style={{ display: "block", fontSize: 12, color: "#737373" }}>
                 {s.ip ?? "ip unknown"} · signed in{" "}
-                {new Date(s.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                {new Date(s.createdAt).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                })}
                 {s.lastSeenAt
                   ? ` · last seen ${new Date(s.lastSeenAt).toLocaleString("en-GB", {
                       day: "numeric",

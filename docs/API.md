@@ -6,17 +6,17 @@ Conventions only, endpoint-level detail lives in generated docs/SDK types, which
 
 Everything integrator-facing lives under `/v1`:
 
-| Resource | Routes |
-|---|---|
-| Send | `POST /v1/emails`, `POST /v1/emails/batch`, `GET /v1/emails`, `GET /v1/emails/:id` |
-| Senders | `GET|POST /v1/senders`, `GET|PATCH|DELETE /v1/senders/:id`, `POST /v1/senders/:id/default`, `POST /v1/senders/:id/test` |
-| Domains | `GET|POST /v1/domains`, `POST /v1/domains/:id/verify`, `POST /v1/domains/:id/token`, `POST /v1/domains/:id/ses/link`, `POST /v1/domains/:id/ses/refresh`, `DELETE /v1/domains/:id` |
-| Templates | `GET|POST /v1/templates`, `GET|DELETE /v1/templates/:id`, `GET|POST /v1/templates/:id/versions` |
-| Suppressions | `GET|POST /v1/suppressions`, `DELETE /v1/suppressions/:id` |
-| Webhooks | `GET|POST /v1/webhooks`, `DELETE /v1/webhooks/:id`, `POST /v1/webhooks/:id/rotate`, `GET /v1/webhooks/:id/deliveries`, `POST /v1/webhooks/:id/deliveries/:deliveryId/replay` |
-| Keys | `GET|POST /v1/keys`, `POST /v1/keys/:id/revoke` |
-| Projects | `GET /v1/projects` |
-| Unsubscribe | `GET|POST /v1/unsubscribe` (token in the signed link; no API key) |
+| Resource     | Routes                                                                             |
+| ------------ | ---------------------------------------------------------------------------------- |
+| Send         | `POST /v1/emails`, `POST /v1/emails/batch`, `GET /v1/emails`, `GET /v1/emails/:id` |
+| Senders      | `GET                                                                               | POST /v1/senders`, `GET                                                                                                                                                       | PATCH                           | DELETE /v1/senders/:id`, `POST /v1/senders/:id/default`, `POST /v1/senders/:id/test` |
+| Domains      | `GET                                                                               | POST /v1/domains`, `POST /v1/domains/:id/verify`, `POST /v1/domains/:id/token`, `POST /v1/domains/:id/ses/link`, `POST /v1/domains/:id/ses/refresh`, `DELETE /v1/domains/:id` |
+| Templates    | `GET                                                                               | POST /v1/templates`, `GET                                                                                                                                                     | DELETE /v1/templates/:id`, `GET | POST /v1/templates/:id/versions`                                                     |
+| Suppressions | `GET                                                                               | POST /v1/suppressions`, `DELETE /v1/suppressions/:id`                                                                                                                         |
+| Webhooks     | `GET                                                                               | POST /v1/webhooks`, `DELETE /v1/webhooks/:id`, `POST /v1/webhooks/:id/rotate`, `GET /v1/webhooks/:id/deliveries`, `POST /v1/webhooks/:id/deliveries/:deliveryId/replay`       |
+| Keys         | `GET                                                                               | POST /v1/keys`, `POST /v1/keys/:id/revoke`                                                                                                                                    |
+| Projects     | `GET /v1/projects`                                                                 |
+| Unsubscribe  | `GET                                                                               | POST /v1/unsubscribe` (token in the signed link; no API key)                                                                                                                  |
 
 `/v1/openapi.json` is the machine-readable source of truth for shapes and
 status codes; this page covers the conventions it cannot express. Internal
@@ -47,11 +47,11 @@ Beyond validation (`400`), send endpoints can fail at ingest with:
 
 ```json
 {
- "error": {
- "code": "domain_not_verified",
- "message": "The sending domain has not been verified.",
- "request_id": "req_..."
- }
+  "error": {
+    "code": "domain_not_verified",
+    "message": "The sending domain has not been verified.",
+    "request_id": "req_..."
+  }
 }
 ```
 
@@ -60,19 +60,19 @@ known remedy add `fix` (plain language, safe to show a user):
 
 ```json
 {
- "error": {
- "code": "plan_limit_reached",
- "message": "The Free plan allows 5,000 emails per billing period; 5,000 already used this period.",
- "request_id": "req_...",
- "details": {
- "limit": 5000,
- "usage": 5000,
- "tier": "free",
- "periodStart": "2026-09-01T00:00:00.000Z",
- "periodEnd": "2026-10-01T00:00:00.000Z"
- },
- "fix": "Upgrade at https://app.calder.click/usage or wait for the period reset."
- }
+  "error": {
+    "code": "plan_limit_reached",
+    "message": "The Free plan allows 5,000 emails per billing period; 5,000 already used this period.",
+    "request_id": "req_...",
+    "details": {
+      "limit": 5000,
+      "usage": 5000,
+      "tier": "free",
+      "periodStart": "2026-09-01T00:00:00.000Z",
+      "periodEnd": "2026-10-01T00:00:00.000Z"
+    },
+    "fix": "Upgrade at https://app.calder.click/usage or wait for the period reset."
+  }
 }
 ```
 
@@ -115,7 +115,7 @@ The `from` address must resolve to an identity the project's active transport ow
 
 - **Verified domain** (SES/managed transports): any address on the domain.
 - **Connected Gmail** (gmail transport): exactly the connected address, the
- transport pins the sender, spoofing is structurally impossible.
+  transport pins the sender, spoofing is structurally impossible.
 
 Unowned senders fail closed (`domain_not_verified` / `550`) with an explanation
 pointing at verification or graduation, never silent, never delivered anyway.
@@ -167,8 +167,12 @@ losing it means rotating.
 One JSON POST per event, envelope identical to the stored delivery row:
 
 ```json
-{ "id": "<deliveryId>", "type": "email.delivered",
-  "createdAt": "...", "data": { "emailId": "...", "...": "..." } }
+{
+  "id": "<deliveryId>",
+  "type": "email.delivered",
+  "createdAt": "...",
+  "data": { "emailId": "...", "...": "..." }
+}
 ```
 
 Headers:
@@ -181,8 +185,13 @@ webhook-signature: t=1758657600,v1=<hex hmac-sha256>
 **Verify before trusting** (Node):
 
 ```js
-const [t, v1] = h("webhook-signature").split(",").map(kv => kv.slice(2));
-const mac = crypto.createHmac("sha256", SECRET).update(t + "." + rawBody, "utf8").digest("hex");
+const [t, v1] = h("webhook-signature")
+  .split(",")
+  .map((kv) => kv.slice(2));
+const mac = crypto
+  .createHmac("sha256", SECRET)
+  .update(t + "." + rawBody, "utf8")
+  .digest("hex");
 if (Math.abs(Date.now() / 1000 - t) > 300) return res.status(401).end(); // replay window
 if (!crypto.timingSafeEqual(Buffer.from(v1, "hex"), Buffer.from(mac, "hex")))
   return res.status(401).end();
@@ -212,7 +221,7 @@ retries.
   never auto-deduped: dedupe on the business id inside `data` (e.g.
   `emailId`) if you must.
 
-The dashboard's *Webhooks* page shows the same log with per-delivery replay
+The dashboard's _Webhooks_ page shows the same log with per-delivery replay
 and secret rotation.
 
 ## Domains (`/v1/domains`)
@@ -230,7 +239,7 @@ flowchart LR
 ```
 
 - `POST /v1/domains` `{domain}` → 201 with `{host: "_calder.<domain>",
-  value: "calder-verification=cvt_…", expiresAt}`. 409 if another
+value: "calder-verification=cvt_…", expiresAt}`. 409 if another
   organization already verified it. Re-POSTing your own domain is
   idempotent (returns the existing row).
 - `POST /v1/domains/:id/verify` → one attempt. Responses: `verified`;

@@ -18,7 +18,15 @@ function isFounder(email: string): boolean {
 
 // Every item must have a real href, a null href once rendered a "soon" span,
 // which is dead code removed in Phase 0 (routes are live or removed).
-const NAV_GROUPS: Array<{ heading: string; items: Array<{ label: string; href: string; tier?: "PRO" | "PREMIUM" | "SCALE"; founder?: boolean }> }> = [
+const NAV_GROUPS: Array<{
+  heading: string;
+  items: Array<{
+    label: string;
+    href: string;
+    tier?: "PRO" | "PREMIUM" | "SCALE";
+    founder?: boolean;
+  }>;
+}> = [
   { heading: "Workspace", items: [{ label: "Overview", href: "/" }] },
   {
     heading: "SEND",
@@ -64,13 +72,22 @@ const NAV_GROUPS: Array<{ heading: string; items: Array<{ label: string; href: s
     heading: "ORGANIZATION",
     items: [{ label: "Audit Logs", href: "/audit-logs" }],
   },
-  { heading: "", items: [{ label: "Settings", href: "/settings" }, { label: "Control Plane", href: "/control", founder: true }] },
+  {
+    heading: "",
+    items: [
+      { label: "Settings", href: "/settings" },
+      { label: "Control Plane", href: "/control", founder: true },
+    ],
+  },
 ];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getTenantContext();
   const showAdmin = isFounder(ctx.user.email);
-  const visibleGroups = NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => !(i.founder && !showAdmin)) })).filter((g) => g.items.length > 0);
+  const visibleGroups = NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((i) => !(i.founder && !showAdmin)),
+  })).filter((g) => g.items.length > 0);
   const memberships = ctx.memberships.map((m) => ({
     organization: { id: m.organization.id, name: m.organization.name, slug: m.organization.slug },
     role: m.role,
@@ -95,9 +112,26 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <nav aria-label="Dashboard" className="dash-nav">
           {visibleGroups.map((group) => (
             <div key={group.heading} style={{ marginBottom: group.heading ? 14 : 0 }}>
-              {group.heading && <div style={{ fontSize: 10, letterSpacing: "0.08em", color: "var(--color-muted)", margin: "10px 0 6px", fontWeight: 700 }}>{group.heading}</div>}
+              {group.heading && (
+                <div
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.08em",
+                    color: "var(--color-muted)",
+                    margin: "10px 0 6px",
+                    fontWeight: 700,
+                  }}
+                >
+                  {group.heading}
+                </div>
+              )}
               {group.items.map((item) => (
-                <Link key={item.label} href={item.href} className="dash-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="dash-link"
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                >
                   <span>{item.label}</span>
                   {item.tier && <PlanBadge tier={item.tier} />}
                 </Link>
@@ -135,11 +169,30 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <ContextSwitcher memberships={memberships} compact />
         </div>
         <nav aria-label="Dashboard" className="dash-tabs">
-          {visibleGroups.flatMap((g) => g.items).map((item) => (
-            <Link key={item.label} href={item.href} className="dash-tab" style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-              {item.label} {item.tier && <span style={{ fontSize: 9, border: "1px solid var(--color-border)", padding: "0 4px", borderRadius: 3 }}>{item.tier}</span>}
-            </Link>
-          ))}
+          {visibleGroups
+            .flatMap((g) => g.items)
+            .map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="dash-tab"
+                style={{ display: "inline-flex", gap: 6, alignItems: "center" }}
+              >
+                {item.label}{" "}
+                {item.tier && (
+                  <span
+                    style={{
+                      fontSize: 9,
+                      border: "1px solid var(--color-border)",
+                      padding: "0 4px",
+                      borderRadius: 3,
+                    }}
+                  >
+                    {item.tier}
+                  </span>
+                )}
+              </Link>
+            ))}
         </nav>
         <main className="dash-main">{children}</main>
       </div>

@@ -104,7 +104,11 @@ export function WaitlistTable({
       {selected.size > 0 ? (
         <div
           className="cp-filters"
-          style={{ padding: "10px 16px", borderBottom: "1px solid var(--cp-border-soft)", margin: 0 }}
+          style={{
+            padding: "10px 16px",
+            borderBottom: "1px solid var(--cp-border-soft)",
+            margin: 0,
+          }}
         >
           <b style={{ fontSize: 12.5 }}>{selected.size} selected</b>
           <Link className="cp-btn" href={`/control/growth/waitlist/export?${exportParams()}`}>
@@ -206,16 +210,8 @@ export function WaitlistTable({
           Showing {(page - 1) * perPage + 1}–{Math.min(page * perPage, total)} of {fmtInt(total)}
         </span>
         <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          {page > 1 ? (
-            <Link href={pageLink(page - 1)}>
-              ← Prev
-            </Link>
-          ) : null}
-          {page < pages ? (
-            <Link href={pageLink(page + 1)}>
-              Next →
-            </Link>
-          ) : null}
+          {page > 1 ? <Link href={pageLink(page - 1)}>← Prev</Link> : null}
+          {page < pages ? <Link href={pageLink(page + 1)}>Next →</Link> : null}
         </span>
       </div>
     </>

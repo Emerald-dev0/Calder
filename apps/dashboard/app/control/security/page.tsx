@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { fmtInt, fmtPct } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
-import { abuseCandidates, emailTotals, gmailCapUsage, gmailWatchEvents } from "@/lib/control/queries";
+import {
+  abuseCandidates,
+  emailTotals,
+  gmailCapUsage,
+  gmailWatchEvents,
+} from "@/lib/control/queries";
 import { reactivateGmailTransport } from "./actions";
 import { Badge, BarList, Dot, PageHeader, Panel, Stat } from "@/control/_components/ui";
 
@@ -31,10 +36,23 @@ export default async function AbusePage() {
       />
 
       <div className="cp-stats">
-        <Stat label="Suspicious senders (7d)" value={fmtInt(abuse.suspicious.length)} hint="≥10% bounces or any complaint" />
+        <Stat
+          label="Suspicious senders (7d)"
+          value={fmtInt(abuse.suspicious.length)}
+          hint="≥10% bounces or any complaint"
+        />
         <Stat label="Bounces (7d)" value={fmtInt(totals.bounced)} invertDelta />
-        <Stat label="Complaints (7d)" value={fmtInt(totals.complained)} invertDelta hint="any is critical" />
-        <Stat label="Restricted transports" value={fmtInt(abuse.suspensions)} hint="suspended or revoked" />
+        <Stat
+          label="Complaints (7d)"
+          value={fmtInt(totals.complained)}
+          invertDelta
+          hint="any is critical"
+        />
+        <Stat
+          label="Restricted transports"
+          value={fmtInt(abuse.suspensions)}
+          hint="suspended or revoked"
+        />
       </div>
 
       <Panel title="Sender review queue" caption="candidate abusers from the last 7 days" flush>
@@ -65,9 +83,13 @@ export default async function AbusePage() {
                     <td className="cp-num">{fmtInt(s.sent)}</td>
                     <td className="cp-num">{fmtInt(s.bounced)}</td>
                     <td>
-                      <Badge tone={s.bounceRate >= 20 ? "bad" : "warn"}>{fmtPct(s.bounceRate)}</Badge>
+                      <Badge tone={s.bounceRate >= 20 ? "bad" : "warn"}>
+                        {fmtPct(s.bounceRate)}
+                      </Badge>
                     </td>
-                    <td className="cp-num">{s.complained > 0 ? <Badge tone="bad">{s.complained}</Badge> : "0"}</td>
+                    <td className="cp-num">
+                      {s.complained > 0 ? <Badge tone="bad">{s.complained}</Badge> : "0"}
+                    </td>
                     <td style={{ color: "var(--cp-muted)" }}>investigate</td>
                   </tr>
                 ))}
@@ -78,32 +100,65 @@ export default async function AbusePage() {
       </Panel>
 
       <div className="cp-grid cp-grid-2">
-        <Panel title="Response ladder" caption="proportionate escalation, always audited — the steps, not made-up volumes">
+        <Panel
+          title="Response ladder"
+          caption="proportionate escalation, always audited — the steps, not made-up volumes"
+        >
           <ol style={{ margin: 0, padding: "12px 16px 14px 34px", display: "grid", gap: 10 }}>
             {[
-              { step: "Warn the customer", detail: "bounce rate ≥ 5% or first complaint — email with guidance, no restriction" },
-              { step: "Rate limit the project", detail: "sustained ≥ 5% — cap that project while the customer fixes the list" },
-              { step: "Require verification", detail: "suspected purchased/scraped list — proof of consent before further sends" },
-              { step: "Pause sending", detail: "complaints continue or verification refused — transports frozen pending review" },
-              { step: "Suspend project / organization", detail: "abuse is the product (spam operation) — everything stops, egress locked" },
-              { step: "Restore (with note)", detail: "appeal accepted or remediation confirmed — restriction lifted, note on file" },
+              {
+                step: "Warn the customer",
+                detail: "bounce rate ≥ 5% or first complaint — email with guidance, no restriction",
+              },
+              {
+                step: "Rate limit the project",
+                detail: "sustained ≥ 5% — cap that project while the customer fixes the list",
+              },
+              {
+                step: "Require verification",
+                detail: "suspected purchased/scraped list — proof of consent before further sends",
+              },
+              {
+                step: "Pause sending",
+                detail:
+                  "complaints continue or verification refused — transports frozen pending review",
+              },
+              {
+                step: "Suspend project / organization",
+                detail: "abuse is the product (spam operation) — everything stops, egress locked",
+              },
+              {
+                step: "Restore (with note)",
+                detail:
+                  "appeal accepted or remediation confirmed — restriction lifted, note on file",
+              },
             ].map((r, i) => (
               <li key={r.step} style={{ fontSize: 13.5 }}>
                 <b>
                   {i + 1} · {r.step}
                 </b>
-                <span style={{ display: "block", color: "var(--cp-faint)", fontSize: 12.5, marginTop: 2 }}>
+                <span
+                  style={{
+                    display: "block",
+                    color: "var(--cp-faint)",
+                    fontSize: 12.5,
+                    marginTop: 2,
+                  }}
+                >
                   {r.detail}
                 </span>
               </li>
             ))}
           </ol>
           <p className="cp-panel-caption" style={{ padding: "4px 16px 0 34px" }}>
-            Enforcement actions execute through Security → Restrictions once wired; every step writes an audit record
-            with actor, reason, and before/after.
+            Enforcement actions execute through Security → Restrictions once wired; every step
+            writes an audit record with actor, reason, and before/after.
           </p>
         </Panel>
-        <Panel title="Gmail pressure watch" caption="conservative limits by design — Gmail accounts get the tightest caps in the system">
+        <Panel
+          title="Gmail pressure watch"
+          caption="conservative limits by design — Gmail accounts get the tightest caps in the system"
+        >
           <BarList
             items={nearCap.map((g) => ({
               label: `${g.label} · ${g.sentToday}/${g.dailyCap ?? 400}`,
@@ -150,7 +205,9 @@ export default async function AbusePage() {
               <tbody>
                 {gmail.map((g) => (
                   <tr key={g.id}>
-                    <td className="mono wrap" style={{ fontSize: 12.5, whiteSpace: "normal" }}>{g.label}</td>
+                    <td className="mono wrap" style={{ fontSize: 12.5, whiteSpace: "normal" }}>
+                      {g.label}
+                    </td>
                     <td>
                       <span className="mono" style={{ fontSize: 12.5 }}>
                         {g.organizationName} / {g.projectName}
@@ -161,11 +218,17 @@ export default async function AbusePage() {
                       {fmtInt(g.sentToday)} / {fmtInt(g.dailyCap ?? 400)}
                     </td>
                     <td>
-                      <Badge tone={g.status === "active" ? "ok" : g.status === "suspended" ? "warn" : "bad"}>
+                      <Badge
+                        tone={
+                          g.status === "active" ? "ok" : g.status === "suspended" ? "warn" : "bad"
+                        }
+                      >
                         {g.status}
                       </Badge>
                     </td>
-                    <td className="cp-num">{g.lastUsedAt ? g.lastUsedAt.toISOString().slice(0, 10) : "—"}</td>
+                    <td className="cp-num">
+                      {g.lastUsedAt ? g.lastUsedAt.toISOString().slice(0, 10) : "—"}
+                    </td>
                     <td>
                       {g.status === "suspended" ? (
                         <form action={reactivateGmailTransport.bind(null, g.id)}>
@@ -197,7 +260,8 @@ export default async function AbusePage() {
         {watchEvents.length === 0 ? (
           <div className="cp-empty">
             <b>No watch actions yet</b>
-            Warn, limit, suspend, revoke and reactivate entries land here from the drain, worker and this page.
+            Warn, limit, suspend, revoke and reactivate entries land here from the drain, worker and
+            this page.
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -213,7 +277,9 @@ export default async function AbusePage() {
               <tbody>
                 {watchEvents.map((e) => (
                   <tr key={e.id}>
-                    <td className="cp-num">{e.createdAt.toISOString().replace("T", " ").slice(0, 16)}</td>
+                    <td className="cp-num">
+                      {e.createdAt.toISOString().replace("T", " ").slice(0, 16)}
+                    </td>
                     <td>
                       <Badge
                         tone={
@@ -227,7 +293,9 @@ export default async function AbusePage() {
                         {e.action.replace("transport.gmail_", "")}
                       </Badge>
                     </td>
-                    <td className="mono" style={{ fontSize: 12 }}>{e.targetId ?? "—"}</td>
+                    <td className="mono" style={{ fontSize: 12 }}>
+                      {e.targetId ?? "—"}
+                    </td>
                     <td className="mono" style={{ fontSize: 12, color: "var(--cp-muted)" }}>
                       {e.metadata ? JSON.stringify(e.metadata).slice(0, 90) : ""}
                     </td>
@@ -241,7 +309,8 @@ export default async function AbusePage() {
 
       <p className="cp-caption">
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <Dot tone="info" /> Suppression list: {fmtInt(abuse.suppressedCount)} addresses protected platform-wide.
+          <Dot tone="info" /> Suppression list: {fmtInt(abuse.suppressedCount)} addresses protected
+          platform-wide.
         </span>
       </p>
     </>

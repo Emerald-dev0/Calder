@@ -489,7 +489,7 @@ AWS-specified canonical string, with three hard gates, in order:
 
 1. **Cert origin allowlist** — the signing certificate is fetched only from
    `https://sns.<region>.amazonaws.com(.cn)`; any other URL (http, lookalike
-   host, userinfo trick, IP literal) is rejected *before* any fetch. Only
+   host, userinfo trick, IP literal) is rejected _before_ any fetch. Only
    `SignatureVersion: "1"` is accepted.
 2. **Signature verification** — RSA verify against the fetched certificate's
    public key over the exact field ordering AWS specifies (Subject included
@@ -507,7 +507,7 @@ message ids are ledgered with `unmatched: true` and 200'd (someone else's
 topic noise must not redeliver forever, and the ledger keeps forensics).
 
 `emails.status` is monotonic (`created < queued < sending < sent < delivered`;
-opened/clicked are *events only* — the schema deliberately has no such
+opened/clicked are _events only_ — the schema deliberately has no such
 status, matching Resend's model) and sticky (`bounced`/`complained`/`failed`/
 `suppressed` are terminal, never overridden by late happy-path events).
 Permanent bounces and complaints auto-insert `suppressions` rows (unique on
@@ -533,7 +533,7 @@ of which are PRICING §5 made mechanical.
    `usage_records` with id `ur_<emailId>`, quantity 1, plus the org's
    period stamps. INSERT ON CONFLICT (id) DO NOTHING makes retries,
    idempotent replays, overlapping drains and double-enqueues provable
-   no-ops: the database key *is* the dedupe. Because `emails.id` is unique
+   no-ops: the database key _is_ the dedupe. Because `emails.id` is unique
    and metering keys on it, there is physically no way to double-count a
    send through the code paths that deliver mail.
 
@@ -569,22 +569,22 @@ of which are PRICING §5 made mechanical.
    place. Re-running the cron always converges to the same row; the usage
    page never trusts the summary alone — it reads the live
    accepted-mail count directly, so the bars are truthful even between
-   cron runs. The Gmail daily cap also moved to *exact* accounting: only
+   cron runs. The Gmail daily cap also moved to _exact_ accounting: only
    sends whose `transport = 'gmail'` (i.e. mail that actually went through
    Gmail) count toward it; SES volume can no longer exhaust a Gmail quota.
-**Why:** a pricing promise that isn't enforced is false advertising, and
-the previous draft quotas on the usage page (3,000/25,000/…) contradicted
-PRICING.md — one table in config removes that drift class. Counting at
-ingest-acceptance (not provider-accept) is what makes burst-limit holds;
-metering at provider-accept is what makes the invoice match reality; both
-are true simultaneously because they answer different questions (throttle
-vs bill).
-**Do not:** meter at ingest (queued mail that never delivers must not be
-billed); meter more than one unit per row (per-recipient pricing is a
-future pricing change, not an implementation detail); let test-env rows
-reach `resolveChain`/`resolveServiceChain` even to "peek"; trust
-`usage_summaries` for quota decisions (it lags by a cron interval); or
-reintroduce a per-app local quota table — `PLAN_LIMITS` is the only copy.
+   **Why:** a pricing promise that isn't enforced is false advertising, and
+   the previous draft quotas on the usage page (3,000/25,000/…) contradicted
+   PRICING.md — one table in config removes that drift class. Counting at
+   ingest-acceptance (not provider-accept) is what makes burst-limit holds;
+   metering at provider-accept is what makes the invoice match reality; both
+   are true simultaneously because they answer different questions (throttle
+   vs bill).
+   **Do not:** meter at ingest (queued mail that never delivers must not be
+   billed); meter more than one unit per row (per-recipient pricing is a
+   future pricing change, not an implementation detail); let test-env rows
+   reach `resolveChain`/`resolveServiceChain` even to "peek"; trust
+   `usage_summaries` for quota decisions (it lags by a cron interval); or
+   reintroduce a per-app local quota table — `PLAN_LIMITS` is the only copy.
 
 ## ADR-037: Gmail is an on-ramp, not infrastructure — revocation auto-marks, velocity graduates from warn to suspension, every step audit-logged
 
@@ -607,11 +607,11 @@ deliverability infrastructure:
    `assessGmailVelocity` maps (lastHour, today, 7-day average) onto
    `ok | warn | limit | suspend`: warn ≥ 40/h writes a debounced
    (24h) `transport.gmail_velocity_warn` audit row and lets mail run;
-   limit ≥ 120/h refuses the leg *transiently* (429, retry-in-this-hour,
+   limit ≥ 120/h refuses the leg _transiently_ (429, retry-in-this-hour,
    failover-friendly); suspend ≥ 600/h — or sustained outgrowth (7-day avg
    ≥ 100 with today's cap already reached) as a limit, not suspension —
    flips the transport to `suspended` (same exact-once transition trick),
-   audits once, and refuses *permanently* (403) with a message that names
+   audits once, and refuses _permanently_ (403) with a message that names
    the remedy. Thresholds live behind env vars
    (`GMAIL_WATCH_WARN_PER_HOUR`/`_LIMIT_`/`_SUSPEND_`) over
    `DEFAULT_GMAIL_WATCH`. The audit trail is written from the drain AND the
@@ -632,17 +632,17 @@ deliverability infrastructure:
    cap reached), the Senders page shows an outgrowth banner pointing at
    domain verification: SES takes over with no code change. The banner is
    informative; the velocity ladder is the enforcement.
-**Why:** PRICING.md's Beginner tier cannot stay generous if one connected
-Gmail account can become a relay, but banning Gmail upfront strangles
-activation. Graded pressure with an audit trail converts the risk into a
-funnel: warn (visible), limit (recoverable), suspend (appealable) — and the
-escape hatch is always "verify a domain, deliver properly".
-**Do not:** swallow abuse-watch errors into a silent SES fallback (a
-swallowed "suspended" is a silent bulk path — only `gmail_cap`,
-`sender_not_ready` and generic resolution errors may fall back);
-re-activate revoked transports from control; run the velocity assessment
-after decryption (watch before secrets); or warn more than once per 24h per
-transport (rate-limit your own rate-limiting alerts).
+   **Why:** PRICING.md's Beginner tier cannot stay generous if one connected
+   Gmail account can become a relay, but banning Gmail upfront strangles
+   activation. Graded pressure with an audit trail converts the risk into a
+   funnel: warn (visible), limit (recoverable), suspend (appealable) — and the
+   escape hatch is always "verify a domain, deliver properly".
+   **Do not:** swallow abuse-watch errors into a silent SES fallback (a
+   swallowed "suspended" is a silent bulk path — only `gmail_cap`,
+   `sender_not_ready` and generic resolution errors may fall back);
+   re-activate revoked transports from control; run the velocity assessment
+   after decryption (watch before secrets); or warn more than once per 24h per
+   transport (rate-limit your own rate-limiting alerts).
 
 ## ADR-038: Webhook deliveries are durable-first, signed Stripe-style, retried on an exponential ladder, and replay creates new rows
 
@@ -654,14 +654,14 @@ transport (rate-limit your own rate-limiting alerts).
    the API replay path and the worker emit path in
    `@calder/db/webhook-deliveries`). If the queue leg throws we still have the
    durable row; a reconciler can re-and-queue from `pending` + `next_attempt_at
-   <= now`. Consumers that find a dangling job with no row log and drop — they
+<= now`. Consumers that find a dangling job with no row log and drop — they
    never invent rows.
 
 2. **Signing follows the Stripe/Resend convention.** Every POST carries
    `webhook-id: <deliveryId>` and `webhook-signature: t=<unix>,v1=<hex>` where
    `v1 = HMAC-SHA256(secret, "<t>.<body>")` and the body is the exact JSON of
    the stored `webhook_deliveries.payload` envelope `{id, type, createdAt,
-   data}`. Verification = parse `t`/`v1`, recompute, **timing-safe** compare,
+data}`. Verification = parse `t`/`v1`, recompute, **timing-safe** compare,
    reject when `|now − t| > 300s` (replay-window defense). `verifySignature`
    ships in `@calder/worker/webhook-consumer` for SDK extraction later.
 
@@ -752,7 +752,7 @@ system already wrote — no new truth was invented for the UI.
 **Why not:** checking `example.com TXT` at apex (forces SPF merges and
 breaks multi-tenant CNAME consumers); cron-swept expiry (non-deterministic
 at read time); trusting clients to self-report verification (Phase-3
-theater pattern this replaces); a *compat window* for legacy tokens
+theater pattern this replaces); a _compat window_ for legacy tokens
 (neither the API nor the dashboard ever verifiably accepted them).
 **Consequences:** `domains.verifyAttempts/windowStart/expiresAt/lastError`
 +dKIM columns shipped in migration `0021_domain_trust`; SES linkage needs
@@ -795,7 +795,7 @@ manual pass is pending a live DNS zone + AWS credentials.
 4. **OTP storage upgrades to v2 peppered HMAC** (v1 was bare sha256 over a
    6-digit ≈ 1M-entry space — offline-bruteforceable in seconds if hashes
    ever leak). v2 = `HMAC-SHA256(AUTH_SECRET||"email-code-v2",
-   purpose|email|code)`: purpose+email binding also closes the
+purpose|email|code)`: purpose+email binding also closes the
    reset-code-as-verification-code confusion. Dual-accept window: issued
    rows keep verifying under v1 for their ≤10-minute TTL post-deploy;
    everything new issues v2. Timing comparison preserved.

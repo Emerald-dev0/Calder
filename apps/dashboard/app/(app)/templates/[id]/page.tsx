@@ -7,11 +7,7 @@ import { TemplateEditor } from "../editor";
 export const metadata = { title: "Calder — Template" };
 
 /** View, edit (new version), preview with sample vars, and test-send a template. */
-export default async function TemplateDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function TemplateDetailPage({ params }: { params: { id: string } }) {
   const ctx = await getTenantContext();
   const projectIds = ctx.memberships.flatMap((m) => m.projects.map((p) => p.id));
   if (projectIds.length === 0) {
@@ -52,7 +48,10 @@ export default async function TemplateDetailPage({
     <div>
       <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px" }}>
         {tpl.name}{" "}
-        <span className="mono" style={{ fontSize: 12, color: "var(--color-muted)", fontWeight: 400 }}>
+        <span
+          className="mono"
+          style={{ fontSize: 12, color: "var(--color-muted)", fontWeight: 400 }}
+        >
           alias: {tpl.alias}
         </span>
       </h1>

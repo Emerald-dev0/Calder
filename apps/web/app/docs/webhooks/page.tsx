@@ -121,13 +121,14 @@ export default function WebhooksGuide() {
         The URL must be public HTTPS — loopback and private RFC1918 addresses are rejected both at
         registration <em>and again at delivery time</em> (DNS-rebinding defense). You get back the
         endpoint ID and a signing secret (<span className="mono">whsec_…</span>), shown exactly
-        once. Rotate it any time with{" "}
-        <span className="mono">POST /v1/webhooks/:id/rotate</span>; the old secret stops signing
-        immediately.
+        once. Rotate it any time with <span className="mono">POST /v1/webhooks/:id/rotate</span>;
+        the old secret stops signing immediately.
       </p>
 
       <h2>2. What arrives</h2>
-      <CodeBlock title="one delivery" copyText={ENVELOPE}>{ENVELOPE}</CodeBlock>
+      <CodeBlock title="one delivery" copyText={ENVELOPE}>
+        {ENVELOPE}
+      </CodeBlock>
       <p>
         The signature is over the <em>timestamp plus the body</em>:{" "}
         <span className="mono">v1 = HMAC-SHA256(secret, t + &quot;.&quot; + raw_body)</span>. The
@@ -140,31 +141,38 @@ export default function WebhooksGuide() {
         Verify with a constant-time comparison and reject stale timestamps. No official SDKs are
         required — every example below is stdlib-only:
       </p>
-      <CodeBlock title="verify.ts (Node 18+, built-in crypto)" copyText={NODE_VERIFY}>{NODE_VERIFY}</CodeBlock>
-      <CodeBlock title="verify.py (stdlib)" copyText={PYTHON_VERIFY}>{PYTHON_VERIFY}</CodeBlock>
-      <CodeBlock title="verify.rb (stdlib + rack)" copyText={RUBY_VERIFY}>{RUBY_VERIFY}</CodeBlock>
-      <CodeBlock title="verify.php (built-ins)" copyText={PHP_VERIFY}>{PHP_VERIFY}</CodeBlock>
+      <CodeBlock title="verify.ts (Node 18+, built-in crypto)" copyText={NODE_VERIFY}>
+        {NODE_VERIFY}
+      </CodeBlock>
+      <CodeBlock title="verify.py (stdlib)" copyText={PYTHON_VERIFY}>
+        {PYTHON_VERIFY}
+      </CodeBlock>
+      <CodeBlock title="verify.rb (stdlib + rack)" copyText={RUBY_VERIFY}>
+        {RUBY_VERIFY}
+      </CodeBlock>
+      <CodeBlock title="verify.php (built-ins)" copyText={PHP_VERIFY}>
+        {PHP_VERIFY}
+      </CodeBlock>
 
       <h2>4. Acknowledge fast, work later</h2>
       <p>
         Respond <span className="mono">2xx within 10&nbsp;seconds</span>. Anything else — timeout,
         4xx, 5xx — counts as a failed attempt. Retries fire at{" "}
-        <span className="mono">5s → 30s → 2m → 10m → 30m → 2h → 6h</span>; after the eighth
-        failed attempt the delivery lands in the dead-letter state (<span className="mono">failed</span>)
-        and stops retrying. Deleting or disabling the endpoint fails in-flight deliveries
-        terminally instead of burning the ladder.
+        <span className="mono">5s → 30s → 2m → 10m → 30m → 2h → 6h</span>; after the eighth failed
+        attempt the delivery lands in the dead-letter state (<span className="mono">failed</span>)
+        and stops retrying. Deleting or disabling the endpoint fails in-flight deliveries terminally
+        instead of burning the ladder.
       </p>
 
       <h2>5. Inspect and replay</h2>
       <p>
         Every attempt is recorded with HTTP status, latency, error message, and next-retry time —
         browse it in the dashboard (Webhooks → endpoint → <em>Deliveries</em>) or pull the last 25
-        from <span className="mono">GET /v1/webhooks/:id/deliveries</span>. Replay a single
-        delivery with{" "}
-        <span className="mono">POST /v1/webhooks/:id/deliveries/:deliveryId/replay</span> (or
+        from <span className="mono">GET /v1/webhooks/:id/deliveries</span>. Replay a single delivery
+        with <span className="mono">POST /v1/webhooks/:id/deliveries/:deliveryId/replay</span> (or
         the replay button): it creates a <em>new</em> delivery carrying the original{" "}
-        <span className="mono">data</span>. Replays are deliberately never auto-deduped — dedupe
-        on the business id inside <span className="mono">data</span> (e.g.{" "}
+        <span className="mono">data</span>. Replays are deliberately never auto-deduped — dedupe on
+        the business id inside <span className="mono">data</span> (e.g.{" "}
         <span className="mono">emailId</span>) if you must.
       </p>
 
@@ -172,7 +180,8 @@ export default function WebhooksGuide() {
         <strong>Why the timestamp.</strong> Body-only HMACs prove a sender knew the secret, but not
         <em>when</em>. The <span className="mono">t,v1</span> format lets you reject a captured,
         re-played request — Calder&rsquo;s implementation of it is timing-safe and covered by six
-        signature-vector tests (<a href="https://github.com/Emerald-dev0/Calder/blob/main/docs/DECISIONS.md">ADR-038</a>).
+        signature-vector tests (
+        <a href="https://github.com/Emerald-dev0/Calder/blob/main/docs/DECISIONS.md">ADR-038</a>).
       </div>
     </>
   );

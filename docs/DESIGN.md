@@ -11,13 +11,13 @@ Not: _"This is another developer SaaS dashboard."_
 
 Every page must have an articulable visual idea. "It's just a dashboard" is not sufficient.
 
-| Surface | Visual idea |
+| Surface     | Visual idea                                         |
 | ----------- | --------------------------------------------------- |
-| Homepage | Invisible communication infrastructure made visible |
-| Pricing | Simple, predictable infrastructure economics |
-| Docs | Clarity and speed |
-| Status page | Trust through transparency |
-| Onboarding | From zero to first successful delivery |
+| Homepage    | Invisible communication infrastructure made visible |
+| Pricing     | Simple, predictable infrastructure economics        |
+| Docs        | Clarity and speed                                   |
+| Status page | Trust through transparency                          |
+| Onboarding  | From zero to first successful delivery              |
 
 ## 1. Personality
 

@@ -23,16 +23,40 @@ export default async function SettingsPage() {
         <KV k="Dashboard URL" v={config.DASHBOARD_URL} mono />
         <KV k="API URL" v={config.API_URL} mono />
         <KV k="Redis" v={process.env.REDIS_URL ? "configured" : "default (localhost)"} mono />
-        <KV k="AWS / SES" v={config.AWS_ACCESS_KEY_ID ? `region ${config.AWS_REGION}` : "not configured (mock in dev)"} mono />
-        <KV k="Billing (Bachs)" v={config.BACHS_API_KEY ? "configured" : "not integrated yet"} mono />
+        <KV
+          k="AWS / SES"
+          v={
+            config.AWS_ACCESS_KEY_ID
+              ? `region ${config.AWS_REGION}`
+              : "not configured (mock in dev)"
+          }
+          mono
+        />
+        <KV
+          k="Billing (Bachs)"
+          v={config.BACHS_API_KEY ? "configured" : "not integrated yet"}
+          mono
+        />
         <KV
           k="Admin API key"
-          v={config.ADMIN_API_KEY ? <Badge tone="ok">configured</Badge> : <Badge tone="warn">unset — /v1/admin disabled</Badge>}
+          v={
+            config.ADMIN_API_KEY ? (
+              <Badge tone="ok">configured</Badge>
+            ) : (
+              <Badge tone="warn">unset — /v1/admin disabled</Badge>
+            )
+          }
           mono
         />
         <KV
           k="Founder bootstrap"
-          v={config.FOUNDER_EMAILS ? `${config.FOUNDER_EMAILS.split(",").length} email(s) on the list` : <Badge tone="warn">unset</Badge>}
+          v={
+            config.FOUNDER_EMAILS ? (
+              `${config.FOUNDER_EMAILS.split(",").length} email(s) on the list`
+            ) : (
+              <Badge tone="warn">unset</Badge>
+            )
+          }
           mono
         />
         <KV
@@ -65,7 +89,9 @@ export default async function SettingsPage() {
             process.env.REDIS_URL ? (
               <Badge tone="ok">Redis fixed-window — exact across instances (ADR-041)</Badge>
             ) : config.NODE_ENV === "production" ? (
-              <Badge tone="warn">no REDIS_URL — per-instance approximation, boot warning emitted</Badge>
+              <Badge tone="warn">
+                no REDIS_URL — per-instance approximation, boot warning emitted
+              </Badge>
             ) : (
               "in-memory (dev single instance)"
             )
@@ -89,8 +115,8 @@ export default async function SettingsPage() {
             "Every change requires recent re-authentication and is audit-logged",
           ]}
         >
-          Runtime-mutable settings land with the maintenance controls — configuration that can change without a deploy,
-          safely.
+          Runtime-mutable settings land with the maintenance controls — configuration that can
+          change without a deploy, safely.
         </Planned>
       </Panel>
     </>

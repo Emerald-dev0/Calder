@@ -36,7 +36,10 @@ export function EmailEditor({ initialState }: { initialState: EditorState }) {
         setState((s) => ({ ...s, hasDraft: s.hasDraft || okText.startsWith("Draft") }));
         setMessage({ kind: "ok", text: result || okText });
       } catch (err) {
-        setMessage({ kind: "err", text: err instanceof Error ? err.message : "Something went wrong." });
+        setMessage({
+          kind: "err",
+          text: err instanceof Error ? err.message : "Something went wrong.",
+        });
       }
     });
   }
@@ -44,7 +47,9 @@ export function EmailEditor({ initialState }: { initialState: EditorState }) {
   const previewHtml = useMemo(() => {
     // Preview only: render the draft with a sample name. Server-side send
     // rendering applies escaping and the branded layout at send time.
-    return html.replaceAll("{{first_name}}", SAMPLE_NAME).replaceAll("{{email}}", "sarah@example.com");
+    return html
+      .replaceAll("{{first_name}}", SAMPLE_NAME)
+      .replaceAll("{{email}}", "sarah@example.com");
   }, [html]);
 
   return (
@@ -54,7 +59,9 @@ export function EmailEditor({ initialState }: { initialState: EditorState }) {
           {state.currentVersion !== null ? (
             <>
               Current version · <b>v{state.currentVersion}</b>
-              {state.currentPublishedAt ? ` · published ${new Date(state.currentPublishedAt).toISOString().slice(0, 10)}` : ""}
+              {state.currentPublishedAt
+                ? ` · published ${new Date(state.currentPublishedAt).toISOString().slice(0, 10)}`
+                : ""}
             </>
           ) : (
             "No published version yet — the shipped default copy is in use"
@@ -83,7 +90,9 @@ export function EmailEditor({ initialState }: { initialState: EditorState }) {
         <div className="cp-panel" style={{ marginBottom: 14 }}>
           <div className="cp-panel-head">
             <h2 className="cp-panel-title">Version history</h2>
-            <span className="cp-panel-caption">Immutable · restore copies a version into your draft</span>
+            <span className="cp-panel-caption">
+              Immutable · restore copies a version into your draft
+            </span>
           </div>
           <div className="cp-panel-body cp-flush">
             {state.versions.length === 0 ? (
@@ -95,7 +104,15 @@ export function EmailEditor({ initialState }: { initialState: EditorState }) {
               state.versions.map((v) => (
                 <div className="cp-healthrow" key={v.id}>
                   <span className="cp-health-name mono">v{v.version}</span>
-                  <span style={{ color: "var(--cp-muted)", fontSize: 12.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <span
+                    style={{
+                      color: "var(--cp-muted)",
+                      fontSize: 12.5,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
                     {v.subject}
                   </span>
                   <span className="cp-health-state mono">
@@ -109,7 +126,9 @@ export function EmailEditor({ initialState }: { initialState: EditorState }) {
                     onClick={() =>
                       run(async () => {
                         await restoreVersion(v.version);
-                        const s = await import("@/lib/control/editor-actions").then((m) => m.getEditorState());
+                        const s = await import("@/lib/control/editor-actions").then((m) =>
+                          m.getEditorState()
+                        );
                         setSubject(s.subject);
                         setHtml(s.html);
                         setText(s.text);
@@ -136,14 +155,21 @@ export function EmailEditor({ initialState }: { initialState: EditorState }) {
           <div className="cp-panel-body">
             <label className="cp-field">
               <span className="cp-field-label">Subject</span>
-              <input className="cp-input" value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={998} />
+              <input
+                className="cp-input"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                maxLength={998}
+              />
             </label>
             <label className="cp-field">
               <span className="cp-field-label">Preview text</span>
               <input
                 className="cp-input"
                 value={text.split("\n")[0] ?? ""}
-                onChange={(e) => setText(e.target.value + "\n" + text.split("\n").slice(1).join("\n"))}
+                onChange={(e) =>
+                  setText(e.target.value + "\n" + text.split("\n").slice(1).join("\n"))
+                }
                 maxLength={200}
               />
             </label>
@@ -158,19 +184,23 @@ export function EmailEditor({ initialState }: { initialState: EditorState }) {
             <div className="cp-field">
               <span className="cp-field-label">Variables</span>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {["{{first_name}}", "{{email}}", "{{referral_code}}", "{{referral_link}}"].map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    className="cp-series"
-                    onClick={() => {
-                      setHtml((h) => `${h} ${v}`);
-                    }}
-                    title={`Insert ${v} into the body`}
-                  >
-                    <span className="mono" style={{ fontSize: 11 }}>{v}</span>
-                  </button>
-                ))}
+                {["{{first_name}}", "{{email}}", "{{referral_code}}", "{{referral_link}}"].map(
+                  (v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      className="cp-series"
+                      onClick={() => {
+                        setHtml((h) => `${h} ${v}`);
+                      }}
+                      title={`Insert ${v} into the body`}
+                    >
+                      <span className="mono" style={{ fontSize: 11 }}>
+                        {v}
+                      </span>
+                    </button>
+                  )
+                )}
               </div>
             </div>
           </div>
@@ -180,7 +210,9 @@ export function EmailEditor({ initialState }: { initialState: EditorState }) {
         <section className="cp-panel">
           <div className="cp-panel-head">
             <h2 className="cp-panel-title">Content</h2>
-            <span className="cp-panel-caption">HTML body · rendered inside the Calder layout at send time</span>
+            <span className="cp-panel-caption">
+              HTML body · rendered inside the Calder layout at send time
+            </span>
           </div>
           <div className="cp-panel-body">
             <label className="cp-field">
@@ -190,7 +222,12 @@ export function EmailEditor({ initialState }: { initialState: EditorState }) {
                 value={html}
                 onChange={(e) => setHtml(e.target.value)}
                 rows={18}
-                style={{ fontFamily: "ui-monospace, monospace", fontSize: 12.5, lineHeight: 1.55, resize: "vertical" }}
+                style={{
+                  fontFamily: "ui-monospace, monospace",
+                  fontSize: 12.5,
+                  lineHeight: 1.55,
+                  resize: "vertical",
+                }}
                 spellCheck={false}
               />
             </label>
@@ -201,7 +238,12 @@ export function EmailEditor({ initialState }: { initialState: EditorState }) {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 rows={6}
-                style={{ fontFamily: "ui-monospace, monospace", fontSize: 12.5, lineHeight: 1.55, resize: "vertical" }}
+                style={{
+                  fontFamily: "ui-monospace, monospace",
+                  fontSize: 12.5,
+                  lineHeight: 1.55,
+                  resize: "vertical",
+                }}
                 spellCheck={false}
               />
             </label>
@@ -213,10 +255,20 @@ export function EmailEditor({ initialState }: { initialState: EditorState }) {
           <div className="cp-panel-head">
             <h2 className="cp-panel-title">Preview</h2>
             <div style={{ display: "flex", gap: 6 }}>
-              <button type="button" className="cp-series" data-on={device === "desktop"} onClick={() => setDevice("desktop")}>
+              <button
+                type="button"
+                className="cp-series"
+                data-on={device === "desktop"}
+                onClick={() => setDevice("desktop")}
+              >
                 Desktop
               </button>
-              <button type="button" className="cp-series" data-on={device === "mobile"} onClick={() => setDevice("mobile")}>
+              <button
+                type="button"
+                className="cp-series"
+                data-on={device === "mobile"}
+                onClick={() => setDevice("mobile")}
+              >
                 Mobile
               </button>
             </div>
@@ -232,8 +284,17 @@ export function EmailEditor({ initialState }: { initialState: EditorState }) {
                 transition: "max-width 160ms ease",
               }}
             >
-              <div style={{ padding: "10px 14px", borderBottom: "1px solid #eceae2", fontSize: 11, color: "#737373" }}>
-                <div><b style={{ color: "#0b0c0e" }}>{subject || "(no subject)"}</b></div>
+              <div
+                style={{
+                  padding: "10px 14px",
+                  borderBottom: "1px solid #eceae2",
+                  fontSize: 11,
+                  color: "#737373",
+                }}
+              >
+                <div>
+                  <b style={{ color: "#0b0c0e" }}>{subject || "(no subject)"}</b>
+                </div>
                 <div className="mono">Calder &lt;hello@calder.click&gt;</div>
               </div>
               <iframe
@@ -304,7 +365,9 @@ export function EmailEditor({ initialState }: { initialState: EditorState }) {
           onClick={() =>
             run(async () => {
               const result = await publishEmail({ subject, html, text });
-              const s = await import("@/lib/control/editor-actions").then((m) => m.getEditorState());
+              const s = await import("@/lib/control/editor-actions").then((m) =>
+                m.getEditorState()
+              );
               setState(s);
               return `Published as v${result.version}.`;
             }, "publish")
@@ -314,8 +377,8 @@ export function EmailEditor({ initialState }: { initialState: EditorState }) {
         </button>
       </div>
       <p className="cp-caption">
-        Test sends never enter the waitlist, never modify analytics, and are marked [TEST]. Publishing
-        materializes the draft for the signup pipeline and records an immutable version.
+        Test sends never enter the waitlist, never modify analytics, and are marked [TEST].
+        Publishing materializes the draft for the signup pipeline and records an immutable version.
       </p>
     </div>
   );

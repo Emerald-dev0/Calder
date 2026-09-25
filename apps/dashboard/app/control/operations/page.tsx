@@ -9,14 +9,30 @@ export const dynamic = "force-dynamic";
  * that lies is worse than no flag.
  */
 const FLAGS: Array<{ name: string; state: "on" | "off" | "rollout" | "internal"; note: string }> = [
-  { name: "Gmail Transport", state: "on", note: "OAuth quickstart, capped daily, graduates to domains" },
+  {
+    name: "Gmail Transport",
+    state: "on",
+    note: "OAuth quickstart, capped daily, graduates to domains",
+  },
   { name: "SMTP Gateway", state: "on", note: "same pipeline, project-scoped credentials" },
   { name: "Inbound Email", state: "off", note: "specified post-MVP (user → Calder → app webhook)" },
-  { name: "Marketing Campaigns", state: "off", note: "campaign engine is post-MVP; Gmail excluded by rule" },
+  {
+    name: "Marketing Campaigns",
+    state: "off",
+    note: "campaign engine is post-MVP; Gmail excluded by rule",
+  },
   { name: "Marketing Automations", state: "off", note: "lands after campaigns" },
-  { name: "Advanced Analytics", state: "rollout", note: "plan-gated (Pro+) in the customer dashboard" },
+  {
+    name: "Advanced Analytics",
+    state: "rollout",
+    note: "plan-gated (Pro+) in the customer dashboard",
+  },
   { name: "OTP Infrastructure", state: "off", note: "MVP vs post-MVP still undecided (PRD §9)" },
-  { name: "Broadcasts (internal)", state: "on", note: "/v1/admin/waitlist/broadcast, admin-key gated" },
+  {
+    name: "Broadcasts (internal)",
+    state: "on",
+    note: "/v1/admin/waitlist/broadcast, admin-key gated",
+  },
 ];
 
 const TONE = { on: "ok", off: "bad", rollout: "warn", internal: "info" } as const;
@@ -31,7 +47,11 @@ export default async function FeatureFlagsPage() {
         subtitle="What is live, what is dark, and what is rolling. Targeting (user / org / plan / percentage) arrives with the flag service."
       />
 
-      <Panel title="Capability registry" caption="honest state, from how things actually ship" flush>
+      <Panel
+        title="Capability registry"
+        caption="honest state, from how things actually ship"
+        flush
+      >
         <div style={{ overflowX: "auto" }}>
           <table className="cp-table">
             <thead>
@@ -47,7 +67,13 @@ export default async function FeatureFlagsPage() {
                   <td style={{ fontWeight: 600 }}>{f.name}</td>
                   <td>
                     <Badge tone={TONE[f.state]}>
-                      {f.state === "on" ? "ON" : f.state === "off" ? "OFF" : f.state === "rollout" ? "PLAN-GATED" : "INTERNAL"}
+                      {f.state === "on"
+                        ? "ON"
+                        : f.state === "off"
+                          ? "OFF"
+                          : f.state === "rollout"
+                            ? "PLAN-GATED"
+                            : "INTERNAL"}
                     </Badge>
                   </td>
                   <td style={{ color: "var(--cp-muted)" }}>{f.note}</td>
@@ -67,8 +93,8 @@ export default async function FeatureFlagsPage() {
             "Audit trail: who changed what, when, and why",
           ]}
         >
-          Today capability gating lives in code and plan checks. A runtime flag service earns its place the first time
-          a rollout needs to be reversed in seconds, not minutes.
+          Today capability gating lives in code and plan checks. A runtime flag service earns its
+          place the first time a rollout needs to be reversed in seconds, not minutes.
         </Planned>
       </Panel>
     </>

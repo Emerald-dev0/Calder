@@ -2,7 +2,13 @@ import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { getDb, emails, emailEvents } from "@calder/db";
 import { getTenantContext } from "../../../lib/auth";
 import { EmptyState } from "../../../components/empty-state";
-import { decodeCursor, cursorWhere, encodeCursor, stringParam, PAGE_SIZE } from "../../../lib/pagination";
+import {
+  decodeCursor,
+  cursorWhere,
+  encodeCursor,
+  stringParam,
+  PAGE_SIZE,
+} from "../../../lib/pagination";
 import Link from "next/link";
 
 export const metadata = { title: "Calder — Logs" };
@@ -205,8 +211,8 @@ export default async function LogsPage({
             ))}
           </div>
           <p style={{ fontSize: 11, color: "var(--color-muted)", marginTop: 8 }}>
-            Timeline: Request → Validated → Queued → Provider accepted → Delivered (truthful
-            states, never fake Delivered).
+            Timeline: Request → Validated → Queued → Provider accepted → Delivered (truthful states,
+            never fake Delivered).
             {nextCursor && (
               <>
                 {" · "}

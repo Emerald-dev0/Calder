@@ -141,7 +141,9 @@ export function Composer({
   const sender = senders.find((s) => s.id === senderId) ?? null;
   const badTo = to.filter((e) => !EMAIL_RE.test(e));
 
-  async function readFiles(list: File[]): Promise<Array<{ filename: string; contentType?: string; contentBase64: string }>> {
+  async function readFiles(
+    list: File[]
+  ): Promise<Array<{ filename: string; contentType?: string; contentBase64: string }>> {
     const out = [];
     for (const f of list.slice(0, 10)) {
       const buf = await f.arrayBuffer();
@@ -186,20 +188,45 @@ export function Composer({
   }
 
   const canSend =
-    sender !== null && to.length > 0 && badTo.length === 0 && subject.trim() !== "" && text.trim() !== "";
+    sender !== null &&
+    to.length > 0 &&
+    badTo.length === 0 &&
+    subject.trim() !== "" &&
+    text.trim() !== "";
 
   if (sentId) {
     return (
-      <div style={{ background: "#fff", border: "1px solid #E5E5E5", borderRadius: 12, padding: 32, textAlign: "center", maxWidth: 520 }}>
-        <p style={{ fontSize: 15, fontWeight: 700, margin: "0 0 8px" }}>✓ Accepted{sender ? ` as ${sender.displayName}` : ""}.</p>
-        <p className="mono" style={{ fontSize: 12, color: "#737373", margin: "0 0 20px" }}>{sentId}</p>
+      <div
+        style={{
+          background: "#fff",
+          border: "1px solid #E5E5E5",
+          borderRadius: 12,
+          padding: 32,
+          textAlign: "center",
+          maxWidth: 520,
+        }}
+      >
+        <p style={{ fontSize: 15, fontWeight: 700, margin: "0 0 8px" }}>
+          ✓ Accepted{sender ? ` as ${sender.displayName}` : ""}.
+        </p>
+        <p className="mono" style={{ fontSize: 12, color: "#737373", margin: "0 0 20px" }}>
+          {sentId}
+        </p>
         <p style={{ fontSize: 13, color: "#737373", margin: "0 0 20px" }}>
           Queued for delivery. Watch its actual state, we report acceptance only.
         </p>
         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
           <a
             href={`/emails?project=${projectId}`}
-            style={{ background: "#0B0C0E", color: "#fff", borderRadius: 8, padding: "10px 18px", fontSize: 14, fontWeight: 600, textDecoration: "none" }}
+            style={{
+              background: "#0B0C0E",
+              color: "#fff",
+              borderRadius: 8,
+              padding: "10px 18px",
+              fontSize: 14,
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
           >
             View delivery
           </a>
@@ -213,7 +240,15 @@ export function Composer({
               setFiles([]);
               setConfirming(false);
             }}
-            style={{ background: "#fff", border: "1px solid #D4D4D4", borderRadius: 8, padding: "10px 18px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+            style={{
+              background: "#fff",
+              border: "1px solid #D4D4D4",
+              borderRadius: 8,
+              padding: "10px 18px",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
           >
             Write another
           </button>
@@ -228,10 +263,21 @@ export function Composer({
         <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
           From
         </label>
-        <SenderSelector senders={senders} value={senderId} onChange={(id) => { setSenderId(id); setConfirming(false); }} />
+        <SenderSelector
+          senders={senders}
+          value={senderId}
+          onChange={(id) => {
+            setSenderId(id);
+            setConfirming(false);
+          }}
+        />
         {senders.length === 0 && (
           <p style={{ fontSize: 12, color: "#B45309", margin: "8px 0 0" }}>
-            No senders on this project yet. <a href={`/senders?project=${projectId}`} style={{ color: "#0B0C0E" }}>Add one first</a>.
+            No senders on this project yet.{" "}
+            <a href={`/senders?project=${projectId}`} style={{ color: "#0B0C0E" }}>
+              Add one first
+            </a>
+            .
           </p>
         )}
       </div>
@@ -246,7 +292,16 @@ export function Composer({
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           placeholder="Welcome to Calder"
-          style={{ width: "100%", height: 42, border: "1px solid #D4D4D4", borderRadius: 10, padding: "0 14px", fontSize: 14, background: "#fff", boxSizing: "border-box" }}
+          style={{
+            width: "100%",
+            height: 42,
+            border: "1px solid #D4D4D4",
+            borderRadius: 10,
+            padding: "0 14px",
+            fontSize: 14,
+            background: "#fff",
+            boxSizing: "border-box",
+          }}
         />
       </div>
 
@@ -259,7 +314,17 @@ export function Composer({
           onChange={(e) => setText(e.target.value)}
           placeholder="Hello…"
           rows={8}
-          style={{ width: "100%", border: "1px solid #D4D4D4", borderRadius: 10, padding: 14, fontSize: 14, fontFamily: "inherit", background: "#fff", boxSizing: "border-box", resize: "vertical" }}
+          style={{
+            width: "100%",
+            border: "1px solid #D4D4D4",
+            borderRadius: 10,
+            padding: 14,
+            fontSize: 14,
+            fontFamily: "inherit",
+            background: "#fff",
+            boxSizing: "border-box",
+            resize: "vertical",
+          }}
         />
       </div>
 
@@ -267,35 +332,72 @@ export function Composer({
         type="button"
         onClick={() => setShowAdvanced((s) => !s)}
         aria-expanded={showAdvanced}
-        style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "4px 0", marginBottom: 8 }}
+        style={{
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          fontSize: 13,
+          fontWeight: 600,
+          padding: "4px 0",
+          marginBottom: 8,
+        }}
       >
         Advanced options {showAdvanced ? "▾" : "▸"}
       </button>
       {showAdvanced && (
-        <div style={{ background: "#fff", border: "1px solid #E5E5E5", borderRadius: 12, padding: 16, marginBottom: 14 }}>
+        <div
+          style={{
+            background: "#fff",
+            border: "1px solid #E5E5E5",
+            borderRadius: 12,
+            padding: 16,
+            marginBottom: 14,
+          }}
+        >
           <ChipInput label="Cc" values={cc} onChange={setCc} placeholder="cc@example.com" />
           <ChipInput label="Bcc" values={bcc} onChange={setBcc} placeholder="bcc@example.com" />
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Reply-to</label>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+              Reply-to
+            </label>
             <input
               value={replyTo}
               onChange={(e) => setReplyTo(e.target.value)}
               placeholder="support@example.com"
-              style={{ width: "100%", height: 40, border: "1px solid #D4D4D4", borderRadius: 8, padding: "0 12px", fontSize: 14, background: "#fff", boxSizing: "border-box" }}
+              style={{
+                width: "100%",
+                height: 40,
+                border: "1px solid #D4D4D4",
+                borderRadius: 8,
+                padding: "0 12px",
+                fontSize: 14,
+                background: "#fff",
+                boxSizing: "border-box",
+              }}
             />
           </div>
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Send at (optional)</label>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+              Send at (optional)
+            </label>
             <input
               type="datetime-local"
               value={scheduledAt}
               onChange={(e) => setScheduledAt(e.target.value)}
-              style={{ height: 40, border: "1px solid #D4D4D4", borderRadius: 8, padding: "0 12px", fontSize: 14, background: "#fff" }}
+              style={{
+                height: 40,
+                border: "1px solid #D4D4D4",
+                borderRadius: 8,
+                padding: "0 12px",
+                fontSize: 14,
+                background: "#fff",
+              }}
             />
           </div>
           <div>
             <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-              Attachments <span style={{ fontWeight: 400, color: "#737373" }}>(max 10, 25 MB total)</span>
+              Attachments{" "}
+              <span style={{ fontWeight: 400, color: "#737373" }}>(max 10, 25 MB total)</span>
             </label>
             <input
               type="file"
@@ -306,7 +408,9 @@ export function Composer({
             {files.length > 0 && (
               <ul style={{ fontSize: 12, color: "#525252", margin: "8px 0 0", paddingLeft: 18 }}>
                 {files.map((f) => (
-                  <li key={f.name + f.size}>{f.name} · {(f.size / 1024).toFixed(0)} KB</li>
+                  <li key={f.name + f.size}>
+                    {f.name} · {(f.size / 1024).toFixed(0)} KB
+                  </li>
                 ))}
               </ul>
             )}
@@ -314,38 +418,77 @@ export function Composer({
         </div>
       )}
 
-      {error && <p className="login-error" style={{ margin: "0 0 12px" }}>{error}</p>}
+      {error && (
+        <p className="login-error" style={{ margin: "0 0 12px" }}>
+          {error}
+        </p>
+      )}
 
       {!confirming ? (
         <button
           type="button"
           disabled={!canSend || busy}
           onClick={() => setConfirming(true)}
-          style={{ background: !canSend || busy ? "#A3A3A3" : "#0B0C0E", color: "#fff", border: "none", borderRadius: 10, padding: "0 26px", height: 46, fontSize: 15, fontWeight: 600, cursor: !canSend || busy ? "not-allowed" : "pointer" }}
+          style={{
+            background: !canSend || busy ? "#A3A3A3" : "#0B0C0E",
+            color: "#fff",
+            border: "none",
+            borderRadius: 10,
+            padding: "0 26px",
+            height: 46,
+            fontSize: 15,
+            fontWeight: 600,
+            cursor: !canSend || busy ? "not-allowed" : "pointer",
+          }}
         >
           Review & send →
         </button>
       ) : (
-        <div style={{ background: "#fff", border: "1px solid #0B0C0E", borderRadius: 12, padding: 16 }}>
+        <div
+          style={{ background: "#fff", border: "1px solid #0B0C0E", borderRadius: 12, padding: 16 }}
+        >
           <p style={{ fontSize: 13, color: "#737373", margin: "0 0 4px" }}>Sending as</p>
           <p style={{ fontSize: 15, fontWeight: 700, margin: "0 0 2px" }}>{sender?.displayName}</p>
-          <p className="mono" style={{ fontSize: 12, color: "#525252", margin: "0 0 4px" }}>{sender?.email}</p>
+          <p className="mono" style={{ fontSize: 12, color: "#525252", margin: "0 0 4px" }}>
+            {sender?.email}
+          </p>
           <p style={{ fontSize: 13, color: "#737373", margin: "0 0 14px" }}>
-            To {to.length} recipient{to.length > 1 ? "s" : ""}{scheduledAt ? ` · scheduled ${scheduledAt}` : ""}{files.length > 0 ? ` · ${files.length} attachment${files.length > 1 ? "s" : ""}` : ""}.
+            To {to.length} recipient{to.length > 1 ? "s" : ""}
+            {scheduledAt ? ` · scheduled ${scheduledAt}` : ""}
+            {files.length > 0 ? ` · ${files.length} attachment${files.length > 1 ? "s" : ""}` : ""}.
           </p>
           <div style={{ display: "flex", gap: 8 }}>
             <button
               type="button"
               disabled={busy}
               onClick={send}
-              style={{ background: "#0B0C0E", color: "#fff", border: "none", borderRadius: 8, padding: "0 20px", height: 42, fontSize: 14, fontWeight: 600, cursor: busy ? "wait" : "pointer" }}
+              style={{
+                background: "#0B0C0E",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                padding: "0 20px",
+                height: 42,
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: busy ? "wait" : "pointer",
+              }}
             >
               {busy ? "Sending…" : "Send email →"}
             </button>
             <button
               type="button"
               onClick={() => setConfirming(false)}
-              style={{ background: "#fff", border: "1px solid #D4D4D4", borderRadius: 8, padding: "0 18px", height: 42, fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+              style={{
+                background: "#fff",
+                border: "1px solid #D4D4D4",
+                borderRadius: 8,
+                padding: "0 18px",
+                height: 42,
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
             >
               Back
             </button>

@@ -210,12 +210,13 @@ export function DomainRow({
     return () => clearInterval(id);
   }, [dkim.length, dkimStatus]);
 
-  const tone = {
-    verified: "#16A34A",
-    expired: "#B45309",
-    failed: "#DC2626",
-    pending: "#B45309",
-  }[state] ?? "#B45309";
+  const tone =
+    {
+      verified: "#16A34A",
+      expired: "#B45309",
+      failed: "#DC2626",
+      pending: "#B45309",
+    }[state] ?? "#B45309";
 
   return (
     <div style={{ padding: "14px 16px", fontSize: 14 }}>
@@ -279,8 +280,11 @@ export function DomainRow({
               <RecordCard h={challenge.host} t="TXT" v={challenge.value} />
               {challenge.expiresAt && (
                 <p style={{ fontSize: 12, color: "#737373", margin: "6px 0 0" }}>
-                  Expires {new Date(challenge.expiresAt).toLocaleDateString(
-                    "en-GB", { day: "numeric", month: "short" })}
+                  Expires{" "}
+                  {new Date(challenge.expiresAt).toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "short",
+                  })}
                   . Propagation can take minutes; check as often as you like (10/hr).
                 </p>
               )}
@@ -303,9 +307,7 @@ export function DomainRow({
               </button>
             </>
           )}
-          {detail && (
-            <p style={{ fontSize: 13, color: "#B91C1C", margin: "8px 0 0" }}>{detail}</p>
-          )}
+          {detail && <p style={{ fontSize: 13, color: "#B91C1C", margin: "8px 0 0" }}>{detail}</p>}
         </div>
       )}
 
@@ -326,8 +328,8 @@ export function DomainRow({
           {dkim.length === 0 ? (
             <>
               <p style={{ fontSize: 13, color: "#737373", margin: "0 0 8px" }}>
-                Link the domain to SES to get its DKIM CNAME set. Unbranded sending continues
-                to work; branded signing starts once DKIM is live.
+                Link the domain to SES to get its DKIM CNAME set. Unbranded sending continues to
+                work; branded signing starts once DKIM is live.
               </p>
               <button onClick={() => void linkSes()} disabled={busy} style={btnGhost}>
                 Generate DKIM records
@@ -343,7 +345,9 @@ export function DomainRow({
                 <button onClick={() => void pollDkim()} disabled={busy} style={btnGhost}>
                   {dkimStatus === "SUCCESS" ? "Recheck status" : "Check propagation"}
                 </button>
-                <span style={{ fontSize: 12, color: dkimStatus === "SUCCESS" ? "#16A34A" : "#737373" }}>
+                <span
+                  style={{ fontSize: 12, color: dkimStatus === "SUCCESS" ? "#16A34A" : "#737373" }}
+                >
                   {dkimStatus === "SUCCESS"
                     ? "DKIM verified — branded signing live."
                     : `SES sees: ${dkimStatus ?? "PENDING"}. CNAMEs usually publish in minutes, worst case hours. Polling automatically every 20s.`}
@@ -351,9 +355,7 @@ export function DomainRow({
               </div>
             </>
           )}
-          {detail && (
-            <p style={{ fontSize: 13, color: "#B91C1C", margin: "8px 0 0" }}>{detail}</p>
-          )}
+          {detail && <p style={{ fontSize: 13, color: "#B91C1C", margin: "8px 0 0" }}>{detail}</p>}
         </div>
       )}
     </div>

@@ -22,16 +22,29 @@ export default async function ReferralsPage() {
 
       <div className="cp-stats">
         <Stat label="Referred signups" value={fmtInt(overview.referred)} hint="all time" />
-        <Stat label="Referral rate" value={fmtPct(overview.total ? (overview.referred / overview.total) * 100 : 0)} hint="of all signups" />
-        <Stat label="Top referrer" value={top[0] ? fmtInt(top[0].invites) : "—"} hint={top[0]?.email ?? "nobody yet"} />
+        <Stat
+          label="Referral rate"
+          value={fmtPct(overview.total ? (overview.referred / overview.total) * 100 : 0)}
+          hint="of all signups"
+        />
+        <Stat
+          label="Top referrer"
+          value={top[0] ? fmtInt(top[0].invites) : "—"}
+          hint={top[0]?.email ?? "nobody yet"}
+        />
         <Stat label="Median (top 20)" value={fmtInt(medianInvites)} hint="invites per referrer" />
       </div>
 
-      <Panel title="Leaderboard" caption={`${fmtInt(totalInvites)} invites from the top ${top.length} referrers`} flush>
+      <Panel
+        title="Leaderboard"
+        caption={`${fmtInt(totalInvites)} invites from the top ${top.length} referrers`}
+        flush
+      >
         {top.length === 0 ? (
           <div className="cp-empty">
             <b>No referrals yet</b>
-            Every person gets a code at <span className="mono">/waitlist?ref=…</span> — shares will land here.
+            Every person gets a code at <span className="mono">/waitlist?ref=…</span> — shares will
+            land here.
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -52,7 +65,9 @@ export default async function ReferralsPage() {
                       {i + 1}
                     </td>
                     <td>
-                      <Link href={`/control/growth/waitlist?q=${encodeURIComponent(r.email ?? r.code)}`}>
+                      <Link
+                        href={`/control/growth/waitlist?q=${encodeURIComponent(r.email ?? r.code)}`}
+                      >
                         {r.email ?? r.code}
                       </Link>
                     </td>
@@ -78,8 +93,8 @@ export default async function ReferralsPage() {
           ]}
         />
         <p className="cp-panel-caption" style={{ marginTop: 10 }}>
-          Rewards (skip-the-line, extra seats) are specified but deliberately unbuilt until the waitlist proves the
-          referral loop is working organically.
+          Rewards (skip-the-line, extra seats) are specified but deliberately unbuilt until the
+          waitlist proves the referral loop is working organically.
         </p>
       </Panel>
     </>

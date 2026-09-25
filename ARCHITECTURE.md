@@ -59,17 +59,17 @@ SMTP client → TCP LB (pass-through, no TLS termination)
 ```
 
 - Credentials are per-project: generated secret shown once, hashed at rest,
- rotatable, revocable, last-used tracked, audit-logged. TLS + AUTH mandatory;
- anonymous relay impossible by construction.
+  rotatable, revocable, last-used tracked, audit-logged. TLS + AUTH mandatory;
+  anonymous relay impossible by construction.
 - Sender authorization: envelope-from must belong to a verified project identity
- (own domain, or Calder-managed identity for onboarding), spoofing fails closed.
+  (own domain, or Calder-managed identity for onboarding), spoofing fails closed.
 - Rate limits reuse the central limiter at IP/project/org/credential/connection/
- message/recipient dimensions; Redis-backed counters.
+  message/recipient dimensions; Redis-backed counters.
 - Billing meters at the canonical accepted-send event, identical for API and SMTP.
 - Observability: connections, auth success/failure, SMTP codes, submission→message
- ID→job→provider ID trace, all correlatable in the dashboard.
+  ID→job→provider ID trace, all correlatable in the dashboard.
 - Full protocol/support-matrix spec: `docs/SMTP.md`. Service-boundary justification:
- ADR-014.
+  ADR-014.
 
 ## 5c. Transports & graduation
 
@@ -85,19 +85,19 @@ job → load project_transports → pickDefaultTransport()
 ```
 
 - The API, keys, logs, templates, events, and usage meter never change when the
- transport does. Graduation (Gmail → verified domain → managed infra) is a row
- update, not a reintegration, the onboarding "how do you want to send?" choice
- (Connect Gmail vs Add domain) writes the first default transport.
+  transport does. Graduation (Gmail → verified domain → managed infra) is a row
+  update, not a reintegration, the onboarding "how do you want to send?" choice
+  (Connect Gmail vs Add domain) writes the first default transport.
 - Gmail credentials: OAuth refresh tokens, AES-256-GCM encrypted, minimum
- `gmail.send` scope, decrypted only in-memory at send time. No passwords, ever.
+  `gmail.send` scope, decrypted only in-memory at send time. No passwords, ever.
 - Caps enforced pre-send per UTC day (default 400 Gmail); over-cap fails
- permanently with an explainable error pointing at graduation, never silently,
- never over Google's limits.
+  permanently with an explainable error pointing at graduation, never silently,
+  never over Google's limits.
 - Interface: `EmailTransport` extends `EmailProvider` (+ capabilities, health).
- New transports implement the interface; the pipeline never branches on type.
+  New transports implement the interface; the pipeline never branches on type.
 - Campaigns (post-MVP) build on audiences/consent/scheduling tables that do not
- exist yet, deliberately. Transactional sends never share reputation pools or
- code paths with future bulk sending.
+  exist yet, deliberately. Transactional sends never share reputation pools or
+  code paths with future bulk sending.
 
 ## 6. Queue & retries
 

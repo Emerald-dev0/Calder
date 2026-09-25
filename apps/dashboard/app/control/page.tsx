@@ -67,28 +67,47 @@ export default async function CommandCenter({
     }
   };
 
-  const [traffic, trafficSeries, wl, wlWindow, wlDaily, convDaily, convTotal, ctas, sources, countries, wlCountries, confirm, confirmEvents, alerts, db, redis, queue, billing, customers] =
-    await Promise.all([
-      safe(trafficTotals(window), null),
-      safe(trafficDailySeries(window), []),
-      safe(waitlistOverview(), null),
-      safe(waitlistWindowCounts(window), { current: 0, previous: null }),
-      safe(waitlistDailyInWindow(window), []),
-      safe(conversionsDaily(window), []),
-      safe(conversionsInWindow(window), 0),
-      safe(ctaBreakdown(window), []),
-      safe(sourceBreakdown(window), []),
-      safe(countryBreakdown(window), []),
-      safe(waitlistCountryInWindow(window), []),
-      safe(confirmationTotals(window), null),
-      safe(recentConfirmationEvents(8), []),
-      safe(evaluateAlerts(), []),
-      safe(dbHealth(), null),
-      safe(redisHealth(), null),
-      safe(queueDerived(), null),
-      safe(billingOverview(), null),
-      safe(customerTotals(), null),
-    ]);
+  const [
+    traffic,
+    trafficSeries,
+    wl,
+    wlWindow,
+    wlDaily,
+    convDaily,
+    convTotal,
+    ctas,
+    sources,
+    countries,
+    wlCountries,
+    confirm,
+    confirmEvents,
+    alerts,
+    db,
+    redis,
+    queue,
+    billing,
+    customers,
+  ] = await Promise.all([
+    safe(trafficTotals(window), null),
+    safe(trafficDailySeries(window), []),
+    safe(waitlistOverview(), null),
+    safe(waitlistWindowCounts(window), { current: 0, previous: null }),
+    safe(waitlistDailyInWindow(window), []),
+    safe(conversionsDaily(window), []),
+    safe(conversionsInWindow(window), 0),
+    safe(ctaBreakdown(window), []),
+    safe(sourceBreakdown(window), []),
+    safe(countryBreakdown(window), []),
+    safe(waitlistCountryInWindow(window), []),
+    safe(confirmationTotals(window), null),
+    safe(recentConfirmationEvents(8), []),
+    safe(evaluateAlerts(), []),
+    safe(dbHealth(), null),
+    safe(redisHealth(), null),
+    safe(queueDerived(), null),
+    safe(billingOverview(), null),
+    safe(customerTotals(), null),
+  ]);
 
   const now = new Date();
   const wlDense = denseDailyFromWindow(window, wlDaily, now);
@@ -96,16 +115,37 @@ export default async function CommandCenter({
 
   // Chart data: merge series by day. Visitors/clicks only exist where the
   // event layer has data (honest zeros otherwise — REQ-083).
-  const dayMap = new Map<string, { day: string; visitors: number; clicks: number; submissions: number; confirmed: number }>();
+  const dayMap = new Map<
+    string,
+    { day: string; visitors: number; clicks: number; submissions: number; confirmed: number }
+  >();
   for (const r of trafficSeries)
-    dayMap.set(r.day, { day: r.day, visitors: r.visitors, clicks: r.clicks, submissions: 0, confirmed: 0 });
+    dayMap.set(r.day, {
+      day: r.day,
+      visitors: r.visitors,
+      clicks: r.clicks,
+      submissions: 0,
+      confirmed: 0,
+    });
   for (const r of wlDense) {
-    const row = dayMap.get(r.day) ?? { day: r.day, visitors: 0, clicks: 0, submissions: 0, confirmed: 0 };
+    const row = dayMap.get(r.day) ?? {
+      day: r.day,
+      visitors: 0,
+      clicks: 0,
+      submissions: 0,
+      confirmed: 0,
+    };
     row.submissions = r.count;
     dayMap.set(r.day, row);
   }
   for (const r of convDense) {
-    const row = dayMap.get(r.day) ?? { day: r.day, visitors: 0, clicks: 0, submissions: 0, confirmed: 0 };
+    const row = dayMap.get(r.day) ?? {
+      day: r.day,
+      visitors: 0,
+      clicks: 0,
+      submissions: 0,
+      confirmed: 0,
+    };
     row.confirmed = r.count;
     dayMap.set(r.day, row);
   }
@@ -167,15 +207,22 @@ export default async function CommandCenter({
         <header className="cp-head">
           <p className="cp-eyebrow">Command Center</p>
           <h1 className="cp-title">Calder at a glance</h1>
-          <p className="cp-subtitle" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <p
+            className="cp-subtitle"
+            style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}
+          >
             Everything important happening across the platform ·{" "}
             {issueCount === 0 ? (
               <>
                 <Dot tone="ok" /> All systems operational
               </>
             ) : (
-              <Link href="/control/observability/alerts" style={{ color: "inherit", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <Dot tone={critical > 0 ? "bad" : "warn"} /> {issueCount} issue{issueCount === 1 ? "" : "s"} require attention →
+              <Link
+                href="/control/observability/alerts"
+                style={{ color: "inherit", display: "inline-flex", alignItems: "center", gap: 6 }}
+              >
+                <Dot tone={critical > 0 ? "bad" : "warn"} /> {issueCount} issue
+                {issueCount === 1 ? "" : "s"} require attention →
               </Link>
             )}
           </p>
@@ -194,7 +241,11 @@ export default async function CommandCenter({
           >
             {alerts.slice(0, 5).map((a) => (
               <div className="cp-alert" key={a.id}>
-                <Dot tone={a.severity === "critical" ? "bad" : a.severity === "warning" ? "warn" : "info"} />
+                <Dot
+                  tone={
+                    a.severity === "critical" ? "bad" : a.severity === "warning" ? "warn" : "info"
+                  }
+                />
                 <div style={{ minWidth: 0 }}>
                   <div className="cp-alert-title">{a.title}</div>
                   <div className="cp-alert-detail">{a.detail}</div>
@@ -207,14 +258,24 @@ export default async function CommandCenter({
           </Panel>
         ) : null}
 
-        <SectionLabel right={<span className="cp-caption" style={{ margin: 0 }}>{window.compareLabel}</span>}>
+        <SectionLabel
+          right={
+            <span className="cp-caption" style={{ margin: 0 }}>
+              {window.compareLabel}
+            </span>
+          }
+        >
           Primary metrics
         </SectionLabel>
         <div className="cp-stats">
           <Stat
             label="Visitors"
             value={hasTrafficData ? fmtInt(visitors) : "—"}
-            hint={hasTrafficData ? `${fmtInt(traffic?.sessions ?? 0)} sessions` : "first-party analytics is collecting its first data"}
+            hint={
+              hasTrafficData
+                ? `${fmtInt(traffic?.sessions ?? 0)} sessions`
+                : "first-party analytics is collecting its first data"
+            }
           />
           <Stat
             label="Waitlist"
@@ -224,29 +285,60 @@ export default async function CommandCenter({
             hint={`${fmtInt(submissions)} joined in this period`}
             spark={sparkRows(wlDense)}
           />
-          <Stat label="Submissions" value={fmtInt(submissions)} hint={`${fmtInt(wl?.newToday ?? 0)} today`} />
+          <Stat
+            label="Submissions"
+            value={fmtInt(submissions)}
+            hint={`${fmtInt(wl?.newToday ?? 0)} today`}
+          />
           <Stat
             label="Confirmed"
             value={fmtInt(confirmed)}
-            hint={visitors > 0 ? `${fmtPct(overallConv ?? 0)} visitor → confirmed` : "conversion needs visitor data"}
+            hint={
+              visitors > 0
+                ? `${fmtPct(overallConv ?? 0)} visitor → confirmed`
+                : "conversion needs visitor data"
+            }
           />
           <Stat
             label="Confirmation emails"
             value={confirm && confirm.hasData ? fmtInt(confirm.sent) : "—"}
-            hint={confirm?.deliveryRate != null ? `${fmtPct(confirm.deliveryRate)} delivered` : "no sends in this window"}
+            hint={
+              confirm?.deliveryRate != null
+                ? `${fmtPct(confirm.deliveryRate)} delivered`
+                : "no sends in this window"
+            }
           />
         </div>
 
         <SectionLabel>Business</SectionLabel>
         <div className="cp-stats">
-          <Stat label="MRR" value={billing ? fmtMoney(billing.mrrCents) : "—"} hint="active subscriptions" />
-          <Stat label="Customers" value={billing ? fmtInt(billing.activeCount) : "—"} hint="paying organizations" />
-          <Stat label="Organizations" value={customers ? fmtInt(customers.orgs) : "—"} hint={customers ? `${fmtInt(customers.projectsCount)} projects` : undefined} />
-          <Stat label="Users" value={customers ? fmtInt(customers.total) : "—"} hint={customers ? `+${fmtInt(customers.new7d)} this week` : undefined} />
+          <Stat
+            label="MRR"
+            value={billing ? fmtMoney(billing.mrrCents) : "—"}
+            hint="active subscriptions"
+          />
+          <Stat
+            label="Customers"
+            value={billing ? fmtInt(billing.activeCount) : "—"}
+            hint="paying organizations"
+          />
+          <Stat
+            label="Organizations"
+            value={customers ? fmtInt(customers.orgs) : "—"}
+            hint={customers ? `${fmtInt(customers.projectsCount)} projects` : undefined}
+          />
+          <Stat
+            label="Users"
+            value={customers ? fmtInt(customers.total) : "—"}
+            hint={customers ? `+${fmtInt(customers.new7d)} this week` : undefined}
+          />
         </div>
 
         <SectionLabel>Growth</SectionLabel>
-        <Panel title="Growth" caption="Visitors, engagement, and conversions over time · toggle series, hover for detail">
+        <Panel
+          title="Growth"
+          caption="Visitors, engagement, and conversions over time · toggle series, hover for detail"
+        >
           <TrendChart
             data={chartData}
             series={[
@@ -267,7 +359,7 @@ export default async function CommandCenter({
           <Panel title="Conversion" caption="From visit to confirmed user">
             <div className="cp-funnel">
               {funnel.map((step, i) => {
-                const prev = i > 0 ? funnel[i - 1]?.value ?? 0 : null;
+                const prev = i > 0 ? (funnel[i - 1]?.value ?? 0) : null;
                 const rate = prev && prev > 0 ? (step.value / prev) * 100 : null;
                 return (
                   <div className="cp-funnel-step" key={step.label}>
@@ -283,7 +375,10 @@ export default async function CommandCenter({
                           : "overall conversion needs visitor data"}
                     </span>
                     <span className="cp-funnel-track">
-                      <span className="cp-funnel-fill" style={{ width: `${Math.max(2, rate ?? 100)}%` }} />
+                      <span
+                        className="cp-funnel-fill"
+                        style={{ width: `${Math.max(2, rate ?? 100)}%` }}
+                      />
                     </span>
                   </div>
                 );
@@ -335,7 +430,10 @@ export default async function CommandCenter({
             )}
           </Panel>
 
-          <Panel title="Where people are discovering Calder" caption="Country-level aggregates only — never individual location">
+          <Panel
+            title="Where people are discovering Calder"
+            caption="Country-level aggregates only — never individual location"
+          >
             {countries.length === 0 && wlCountries.length === 0 ? (
               <Empty title="No geography data yet" />
             ) : (
@@ -353,7 +451,11 @@ export default async function CommandCenter({
                       <tr key={`t-${c.country}`}>
                         <td>{c.country}</td>
                         <td className="cp-num">{fmtInt(c.visitors)}</td>
-                        <td className="cp-num">{fmtInt(wlCountries.find((w) => w.country === c.country)?.submissions ?? 0)}</td>
+                        <td className="cp-num">
+                          {fmtInt(
+                            wlCountries.find((w) => w.country === c.country)?.submissions ?? 0
+                          )}
+                        </td>
                       </tr>
                     ))}
                     {wlCountries
@@ -414,12 +516,16 @@ export default async function CommandCenter({
                     <div className="cp-pipe-num">{fmtInt(confirm.delivered)}</div>
                     <div className="cp-pipe-label">Delivered</div>
                   </div>
-                  <div className={`cp-pipe-stage ${confirm.failed + confirm.bounced > 0 ? "bad" : ""}`}>
+                  <div
+                    className={`cp-pipe-stage ${confirm.failed + confirm.bounced > 0 ? "bad" : ""}`}
+                  >
                     <div className="cp-pipe-num">{fmtInt(confirm.failed + confirm.bounced)}</div>
                     <div className="cp-pipe-label">Failed</div>
                   </div>
                   <div className="cp-pipe-stage">
-                    <div className="cp-pipe-num">{confirm.deliveryRate !== null ? fmtPct(confirm.deliveryRate) : "—"}</div>
+                    <div className="cp-pipe-num">
+                      {confirm.deliveryRate !== null ? fmtPct(confirm.deliveryRate) : "—"}
+                    </div>
                     <div className="cp-pipe-label">Rate</div>
                   </div>
                 </div>
@@ -443,7 +549,15 @@ export default async function CommandCenter({
             ) : (
               confirmEvents.map((e, i) => (
                 <div className="cp-alert" key={i}>
-                  <Dot tone={e.status === "delivered" ? "ok" : e.status === "failed" || e.status === "bounced" ? "bad" : "warn"} />
+                  <Dot
+                    tone={
+                      e.status === "delivered"
+                        ? "ok"
+                        : e.status === "failed" || e.status === "bounced"
+                          ? "bad"
+                          : "warn"
+                    }
+                  />
                   <div style={{ minWidth: 0 }}>
                     <div className="cp-alert-title">
                       {e.status === "delivered"
@@ -466,13 +580,17 @@ export default async function CommandCenter({
             <div className="cp-healthrow">
               <Dot tone={db?.reachable ? "ok" : "bad"} />
               <span className="cp-health-name">Database</span>
-              <span className="cp-health-state mono">{db?.reachable ? `${db.latencyMs ?? "?"}ms` : "unreachable"}</span>
+              <span className="cp-health-state mono">
+                {db?.reachable ? `${db.latencyMs ?? "?"}ms` : "unreachable"}
+              </span>
             </div>
             <div className="cp-healthrow">
               <Dot tone={redis?.reachable ? "ok" : "warn"} />
               <span className="cp-health-name">Redis</span>
               <span className="cp-health-state mono">
-                {redis?.reachable ? `${fmtInt(redis.opsPerSec ?? 0)} ops/s` : "fallback to Postgres"}
+                {redis?.reachable
+                  ? `${fmtInt(redis.opsPerSec ?? 0)} ops/s`
+                  : "fallback to Postgres"}
               </span>
             </div>
             <div className="cp-healthrow">
@@ -483,9 +601,13 @@ export default async function CommandCenter({
               </span>
             </div>
             <div className="cp-healthrow">
-              <Dot tone={confirm?.deliveryRate != null && confirm.deliveryRate < 99 ? "warn" : "ok"} />
+              <Dot
+                tone={confirm?.deliveryRate != null && confirm.deliveryRate < 99 ? "warn" : "ok"}
+              />
               <span className="cp-health-name">Email delivery</span>
-              <span className="cp-health-state mono">{confirm?.deliveryRate != null ? fmtPct(confirm.deliveryRate) : "—"}</span>
+              <span className="cp-health-state mono">
+                {confirm?.deliveryRate != null ? fmtPct(confirm.deliveryRate) : "—"}
+              </span>
             </div>
             <div style={{ padding: "10px 16px" }}>
               <Link className="cp-btn" href="/control/infrastructure">
@@ -505,8 +627,8 @@ export default async function CommandCenter({
         ) : null}
 
         <p className="cp-caption">
-          Every number on this page is a live query; dashes mean the data does not exist yet, never a
-          fabricated value. Comparisons are {window.compareLabel.replace("vs ", "")}.
+          Every number on this page is a live query; dashes mean the data does not exist yet, never
+          a fabricated value. Comparisons are {window.compareLabel.replace("vs ", "")}.
         </p>
       </main>
     </>

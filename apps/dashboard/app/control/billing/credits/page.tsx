@@ -22,8 +22,9 @@ export default async function CreditsPage() {
             "Distinct from discounts: the subscription stays intact, the balance absorbs usage",
           ]}
         >
-          The ledger is a billing-integration primitive — credits without a payments rail to reconcile against would
-          be guesswork. The reason codes and audit trail are already specified; the ledger lands with Bachs.
+          The ledger is a billing-integration primitive — credits without a payments rail to
+          reconcile against would be guesswork. The reason codes and audit trail are already
+          specified; the ledger lands with Bachs.
         </Planned>
       </Panel>
     </>

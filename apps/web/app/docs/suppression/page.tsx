@@ -25,8 +25,8 @@ export default function Suppression() {
       <h2>Why a send was blocked</h2>
       <p>
         The error names the address, the reason (bounce, complaint, unsubscribe, or a manual entry)
-        and the date. A blocked send is usually pointing at list hygiene worth fixing upstream, so it
-        is reported rather than dropped.
+        and the date. A blocked send is usually pointing at list hygiene worth fixing upstream, so
+        it is reported rather than dropped.
       </p>
 
       <h2>Manual entries</h2>

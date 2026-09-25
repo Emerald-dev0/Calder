@@ -20,8 +20,8 @@ export function Pricing() {
             Start free. <em>Grow when you need to.</em>
           </h2>
           <p className="lede" style={{ marginTop: "1.2rem" }}>
-            Five thousand emails every month. No card. No sales call. No artificial &ldquo;try it&rdquo;
-            experience. Build, ship, and grow without paying before you need to.
+            Five thousand emails every month. No card. No sales call. No artificial &ldquo;try
+            it&rdquo; experience. Build, ship, and grow without paying before you need to.
           </p>
         </Reveal>
 

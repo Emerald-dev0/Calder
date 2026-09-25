@@ -6,7 +6,12 @@ import { createTestKey } from "../onboarding/actions";
 
 const KEY_PLACEHOLDER = "calder_sk_test_…";
 
-const SNIPPETS: Array<{ id: string; label: string; filename: string; code: (key: string) => string }> = [
+const SNIPPETS: Array<{
+  id: string;
+  label: string;
+  filename: string;
+  code: (key: string) => string;
+}> = [
   {
     id: "node",
     label: "Node.js",
@@ -174,9 +179,10 @@ export function SdkHub({ projectId, hasKeys }: { projectId: string; hasKeys: boo
   return (
     <div>
       <p style={{ fontSize: 13, color: "var(--color-muted)", margin: "0 0 12px" }}>
-        Official SDK packages live in the Calder repository (Node + Python tested in-repo; Ruby / PHP
-        source-available) and publish to npm/PyPI with the launch checklist — the Node SDK / Python SDK
-        tabs mirror exactly what lands there. Every SDK and raw snippet sends idempotently by default.
+        Official SDK packages live in the Calder repository (Node + Python tested in-repo; Ruby /
+        PHP source-available) and publish to npm/PyPI with the launch checklist — the Node SDK /
+        Python SDK tabs mirror exactly what lands there. Every SDK and raw snippet sends
+        idempotently by default.
       </p>
       <div
         style={{
@@ -187,7 +193,9 @@ export function SdkHub({ projectId, hasKeys }: { projectId: string; hasKeys: boo
           marginBottom: 16,
         }}
       >
-        <label style={{ fontSize: 12, color: "var(--color-muted)", display: "block", marginBottom: 6 }}>
+        <label
+          style={{ fontSize: 12, color: "var(--color-muted)", display: "block", marginBottom: 6 }}
+        >
           Paste an API key to inject it into every snippet below (never sent to the server —
           substitution happens in your browser):
         </label>
@@ -307,8 +315,9 @@ export function SdkHub({ projectId, hasKeys }: { projectId: string; hasKeys: boo
       </div>
 
       <p style={{ fontSize: 12, color: "var(--color-muted)", marginTop: 10 }}>
-        Full contract: <a href="https://calder.click/docs/api-reference">API reference</a> · templates by alias ·{" "}
-        <a href="https://calder.click/docs/webhooks">webhook verification</a> snippets in the same four languages.
+        Full contract: <a href="https://calder.click/docs/api-reference">API reference</a> ·
+        templates by alias · <a href="https://calder.click/docs/webhooks">webhook verification</a>{" "}
+        snippets in the same four languages.
       </p>
     </div>
   );

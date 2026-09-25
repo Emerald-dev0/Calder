@@ -12,9 +12,13 @@ export default async function ProvidersPage() {
   const [fleet, gmail] = await Promise.all([transportFleet(), gmailCapUsage()]);
 
   const sesConfigured = Boolean(config.AWS_ACCESS_KEY_ID && config.AWS_SECRET_ACCESS_KEY);
-  const gmailCount = fleet.filter((f) => f.type === "gmail").reduce((n, f) => n + Number(f.value), 0);
+  const gmailCount = fleet
+    .filter((f) => f.type === "gmail")
+    .reduce((n, f) => n + Number(f.value), 0);
   const sesCount = fleet.filter((f) => f.type === "ses").reduce((n, f) => n + Number(f.value), 0);
-  const suspended = fleet.filter((f) => f.status !== "active").reduce((n, f) => n + Number(f.value), 0);
+  const suspended = fleet
+    .filter((f) => f.status !== "active")
+    .reduce((n, f) => n + Number(f.value), 0);
 
   return (
     <>
@@ -27,31 +31,48 @@ export default async function ProvidersPage() {
       <div className="cp-stats">
         <div className="cp-stat">
           <p className="cp-stat-label">SES</p>
-          <p className="cp-stat-value" style={{ fontSize: 17, display: "flex", alignItems: "center", gap: 8 }}>
-            <Dot tone={sesConfigured ? "ok" : "warn"} /> {sesConfigured ? "Configured" : "Not configured"}
+          <p
+            className="cp-stat-value"
+            style={{ fontSize: 17, display: "flex", alignItems: "center", gap: 8 }}
+          >
+            <Dot tone={sesConfigured ? "ok" : "warn"} />{" "}
+            {sesConfigured ? "Configured" : "Not configured"}
           </p>
           <p className="cp-stat-foot">
-            {sesConfigured ? `region ${config.AWS_REGION}` : "AWS credentials absent — mock provider in dev"}
+            {sesConfigured
+              ? `region ${config.AWS_REGION}`
+              : "AWS credentials absent — mock provider in dev"}
           </p>
         </div>
         <div className="cp-stat">
           <p className="cp-stat-label">Gmail transports</p>
-          <p className="cp-stat-value" style={{ fontSize: 17 }}>{fmtInt(gmailCount)}</p>
+          <p className="cp-stat-value" style={{ fontSize: 17 }}>
+            {fmtInt(gmailCount)}
+          </p>
           <p className="cp-stat-foot">customer OAuth connections · capped daily</p>
         </div>
         <div className="cp-stat">
           <p className="cp-stat-label">SES transports</p>
-          <p className="cp-stat-value" style={{ fontSize: 17 }}>{fmtInt(sesCount)}</p>
+          <p className="cp-stat-value" style={{ fontSize: 17 }}>
+            {fmtInt(sesCount)}
+          </p>
           <p className="cp-stat-foot">project-configured</p>
         </div>
         <div className="cp-stat">
           <p className="cp-stat-label">Suspended / revoked</p>
-          <p className="cp-stat-value" style={{ fontSize: 17 }}>{fmtInt(suspended)}</p>
-          <p className="cp-stat-foot">{suspended > 0 ? "failing closed — inspect" : "all active"}</p>
+          <p className="cp-stat-value" style={{ fontSize: 17 }}>
+            {fmtInt(suspended)}
+          </p>
+          <p className="cp-stat-foot">
+            {suspended > 0 ? "failing closed — inspect" : "all active"}
+          </p>
         </div>
       </div>
 
-      <Panel title="Gmail cap usage" caption="sends today vs daily cap — enforced pre-send, over-cap fails permanently and explainably">
+      <Panel
+        title="Gmail cap usage"
+        caption="sends today vs daily cap — enforced pre-send, over-cap fails permanently and explainably"
+      >
         {gmail.length === 0 ? (
           <p className="cp-panel-caption" style={{ padding: "4px 0" }}>
             No Gmail transports connected.
@@ -84,7 +105,10 @@ export default async function ProvidersPage() {
                       <td className="cp-num">{fmtInt(cap)}</td>
                       <td>
                         <div className="cp-bartrack" style={{ width: 140 }}>
-                          <div className={`cp-barfill${pct > 80 ? "" : " ok"}`} style={{ width: `${pct}%` }} />
+                          <div
+                            className={`cp-barfill${pct > 80 ? "" : "ok"}`}
+                            style={{ width: `${pct}%` }}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -98,12 +122,17 @@ export default async function ProvidersPage() {
 
       <Panel title="Routing" caption="transport resolution at send time">
         <KV k="Resolution" v="job → project_transports → pickDefaultTransport()" mono />
-        <KV k="Graduation" v="gmail → verified domain (SES) → managed infra: a row update, not a reintegration" mono />
-        <KV k="Credentials" v="AES-256-GCM at rest, decrypted in-memory at send, never logged" mono />
         <KV
-          k="Failover"
-          v={<Badge>multi-provider failover: Later (PRD §7)</Badge>}
+          k="Graduation"
+          v="gmail → verified domain (SES) → managed infra: a row update, not a reintegration"
+          mono
         />
+        <KV
+          k="Credentials"
+          v="AES-256-GCM at rest, decrypted in-memory at send, never logged"
+          mono
+        />
+        <KV k="Failover" v={<Badge>multi-provider failover: Later (PRD §7)</Badge>} />
       </Panel>
     </>
   );

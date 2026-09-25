@@ -11,17 +11,37 @@ const ENDPOINTS = [
   ["GET", "/v1/emails", "List emails in your project, newest first."],
   ["GET", "/v1/emails/:id", "Fetch one email with its current status."],
   ["GET/POST", "/v1/domains", "List domains / add a domain (returns a 72h DNS-TXT challenge)."],
-  ["POST", "/v1/domains/:id/verify", "Attempt verification; failures return expected-vs-found diagnostics (10/hr)."],
+  [
+    "POST",
+    "/v1/domains/:id/verify",
+    "Attempt verification; failures return expected-vs-found diagnostics (10/hr).",
+  ],
   ["POST", "/v1/domains/:id/token", "Reissue the challenge after expiry."],
   ["DELETE", "/v1/domains/:id", "Remove a domain."],
-  ["POST", "/v1/domains/:id/ses/link", "Register the SES identity; returns 3 DKIM CNAMEs (requires verified ownership)."],
+  [
+    "POST",
+    "/v1/domains/:id/ses/link",
+    "Register the SES identity; returns 3 DKIM CNAMEs (requires verified ownership).",
+  ],
   ["POST", "/v1/domains/:id/ses/refresh", "Poll DKIM/identity status until SES verifies."],
   ["GET", "/v1/projects", "List projects in your organization."],
-  ["GET/POST", "/v1/webhooks", "List endpoints / register an endpoint (public https only; secret shown once)."],
+  [
+    "GET/POST",
+    "/v1/webhooks",
+    "List endpoints / register an endpoint (public https only; secret shown once).",
+  ],
   ["DELETE", "/v1/webhooks/:id", "Delete an endpoint; in-flight deliveries fail terminally."],
-  ["POST", "/v1/webhooks/:id/rotate", "Rotate the signing secret (shown once; old secret dead immediately)."],
+  [
+    "POST",
+    "/v1/webhooks/:id/rotate",
+    "Rotate the signing secret (shown once; old secret dead immediately).",
+  ],
   ["GET", "/v1/webhooks/:id/deliveries", "Last 25 delivery attempts with status/latency/error."],
-  ["POST", "/v1/webhooks/:id/deliveries/:deliveryId/replay", "Re-enqueue one delivery with its original data."],
+  [
+    "POST",
+    "/v1/webhooks/:id/deliveries/:deliveryId/replay",
+    "Re-enqueue one delivery with its original data.",
+  ],
 ] as const;
 
 export default function ApiReference() {

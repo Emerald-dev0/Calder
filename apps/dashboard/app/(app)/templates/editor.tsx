@@ -2,12 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import {
-  addTemplateVersion,
-  createTemplate,
-  deleteTemplate,
-  testSendTemplate,
-} from "./actions";
+import { addTemplateVersion, createTemplate, deleteTemplate, testSendTemplate } from "./actions";
 import { extractVariables } from "./vars";
 
 const inputStyle: React.CSSProperties = {
@@ -118,7 +113,12 @@ export function TemplateEditor({
       <div style={{ display: "grid", gap: 12, maxWidth: 760 }}>
         {mode === "create" && (
           <>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Template name (e.g. Password reset)" style={inputStyle} />
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Template name (e.g. Password reset)"
+              style={inputStyle}
+            />
             <input
               value={alias}
               onChange={(e) => setAlias(e.target.value.toLowerCase())}
@@ -127,9 +127,24 @@ export function TemplateEditor({
             />
           </>
         )}
-        <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject ({{variables}} OK)" style={inputStyle} />
-        <textarea value={html} onChange={(e) => setHtml(e.target.value)} placeholder={"<p>Hi {{name}},</p>\n<p>Reset link: {{reset_url}}</p>"} style={areaStyle} />
-        <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Plain-text fallback (optional)" style={{ ...areaStyle, minHeight: 90 }} />
+        <input
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          placeholder="Subject ({{variables}} OK)"
+          style={inputStyle}
+        />
+        <textarea
+          value={html}
+          onChange={(e) => setHtml(e.target.value)}
+          placeholder={"<p>Hi {{name}},</p>\n<p>Reset link: {{reset_url}}</p>"}
+          style={areaStyle}
+        />
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Plain-text fallback (optional)"
+          style={{ ...areaStyle, minHeight: 90 }}
+        />
 
         {foundVars.length > 0 && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -180,8 +195,20 @@ export function TemplateEditor({
         )}
 
         {mode === "edit" && (
-          <div style={{ display: "flex", gap: 8, borderTop: "1px solid var(--color-border)", paddingTop: 12 }}>
-            <input value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="test recipient (e.g. yours+tpl@example.com)" style={{ ...inputStyle, maxWidth: 340 }} />
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              borderTop: "1px solid var(--color-border)",
+              paddingTop: 12,
+            }}
+          >
+            <input
+              value={testTo}
+              onChange={(e) => setTestTo(e.target.value)}
+              placeholder="test recipient (e.g. yours+tpl@example.com)"
+              style={{ ...inputStyle, maxWidth: 340 }}
+            />
             <button
               onClick={async () => {
                 setBusy(true);
@@ -214,7 +241,14 @@ export function TemplateEditor({
             sandbox=""
             title="Template preview"
             srcDoc={`<!doctype html><html><body style="margin:0;padding:16px;font-family:sans-serif"><p style="color:#737373;font-size:12px;margin:0 0 12px;padding:0">Subject: ${fillVars(subject, vars).replace(/</g, "&lt;")}</p>${previewHtml}</body></html>`}
-            style={{ width: "100%", maxWidth: 760, height: 320, border: "1px solid var(--color-border)", borderRadius: 12, background: "#fff" }}
+            style={{
+              width: "100%",
+              maxWidth: 760,
+              height: 320,
+              border: "1px solid var(--color-border)",
+              borderRadius: 12,
+              background: "#fff",
+            }}
           />
         </div>
       )}

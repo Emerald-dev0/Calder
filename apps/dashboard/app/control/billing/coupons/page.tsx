@@ -23,9 +23,10 @@ export default async function CouponsPage() {
             "Founder-only creation, every application audit-logged",
           ]}
         >
-          Coupons need a billing provider to discount against — the schema lands with the Bachs integration so codes
-          are real from day one rather than promises in a table. Until then, custom deals are expressed through plan
-          grants (temporary upgrades with an explicit return date).
+          Coupons need a billing provider to discount against — the schema lands with the Bachs
+          integration so codes are real from day one rather than promises in a table. Until then,
+          custom deals are expressed through plan grants (temporary upgrades with an explicit return
+          date).
         </Planned>
       </Panel>
     </>

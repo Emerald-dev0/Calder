@@ -4,20 +4,20 @@
 
 /* Calder Editorial Infrastructure, base layer */
 @layer base {
- :root {
- --color-ink: #0b0c0e;
- --color-paper: #f5f4ef;
- --color-surface: #ffffff;
- --color-muted: #737373;
- --color-accent: #1e3a8a;
- --color-border: #e5e5e5;
- }
- body {
- background: var(--color-paper);
- color: var(--color-ink);
- font-feature-settings:
- "rlig" 1,
- "calt" 1;
- -webkit-font-smoothing: antialiased;
- }
+  :root {
+    --color-ink: #0b0c0e;
+    --color-paper: #f5f4ef;
+    --color-surface: #ffffff;
+    --color-muted: #737373;
+    --color-accent: #1e3a8a;
+    --color-border: #e5e5e5;
+  }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
+    -webkit-font-smoothing: antialiased;
+  }
 }

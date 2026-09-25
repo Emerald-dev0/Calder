@@ -33,7 +33,12 @@ export default async function AdministratorsPage({
   const q = searchParams.q;
   const candidates = q
     ? await db
-        .select({ id: users.id, email: users.email, name: users.name, platformRole: users.platformRole })
+        .select({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          platformRole: users.platformRole,
+        })
         .from(users)
         .where(or(ilike(users.email, `%${q}%`), ilike(users.name, `%${q}%`)))
         .limit(8)
@@ -50,7 +55,11 @@ export default async function AdministratorsPage({
       <div className="cp-stats">
         <Stat label="Administrators" value={fmtInt(admins.length)} />
         <Stat label="Active sessions (platform-wide)" value={fmtInt(activeSessions)} />
-        <Stat label="Read-only roles" value={fmtInt(READ_ONLY_ROLES.length)} hint="analyst observes, never modifies" />
+        <Stat
+          label="Read-only roles"
+          value={fmtInt(READ_ONLY_ROLES.length)}
+          hint="analyst observes, never modifies"
+        />
       </div>
 
       {!isFounder ? (
@@ -60,7 +69,11 @@ export default async function AdministratorsPage({
           </Empty>
         </Panel>
       ) : (
-        <Panel title="Find a user to manage" caption="search accounts, then grant or revoke a role" flush>
+        <Panel
+          title="Find a user to manage"
+          caption="search accounts, then grant or revoke a role"
+          flush
+        >
           <form className="cp-filters" method="get" style={{ padding: "12px 16px 4px" }}>
             <input
               className="cp-input"
@@ -106,13 +119,15 @@ export default async function AdministratorsPage({
                       </td>
                       <td>
                         {u.platformRole === "founder" ? (
-                          <span style={{ color: "var(--cp-faint)", fontSize: 12.5 }}>managed out-of-band</span>
+                          <span style={{ color: "var(--cp-faint)", fontSize: 12.5 }}>
+                            managed out-of-band
+                          </span>
                         ) : (
                           <RoleControls
-                              userId={u.id}
-                              current={(u.platformRole as PlatformRole | null) ?? null}
-                              assignable={ASSIGNABLE}
-                            />
+                            userId={u.id}
+                            current={(u.platformRole as PlatformRole | null) ?? null}
+                            assignable={ASSIGNABLE}
+                          />
                         )}
                       </td>
                     </tr>
@@ -145,7 +160,9 @@ export default async function AdministratorsPage({
                 {admins.map((a) => (
                   <tr key={a.user.id}>
                     <td>
-                      <Link href={`/control/customers/users/${a.user.id}`}>{a.user.name ?? "—"}</Link>
+                      <Link href={`/control/customers/users/${a.user.id}`}>
+                        {a.user.name ?? "—"}
+                      </Link>
                     </td>
                     <td className="mono" style={{ fontSize: 12.5 }}>
                       {a.user.email}
@@ -168,8 +185,8 @@ export default async function AdministratorsPage({
       </Panel>
 
       <p className="cp-caption">
-        Role capabilities: <Link href="/control/administration/roles">Roles matrix →</Link> · Every grant and revoke is
-        audit-logged with actor, before, and after.
+        Role capabilities: <Link href="/control/administration/roles">Roles matrix →</Link> · Every
+        grant and revoke is audit-logged with actor, before, and after.
       </p>
     </>
   );

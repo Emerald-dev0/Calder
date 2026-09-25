@@ -51,8 +51,8 @@ export default async function SuppressionsPage({
     <div>
       <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px" }}>Suppressions</h1>
       <p style={{ color: "var(--color-muted)", fontSize: 13, margin: "0 0 12px" }}>
-        {rows.length} blocked {rows.length === 1 ? "address" : "addresses"} on{" "}
-        {scope.project.name}. Sends to these are refused before any provider call.
+        {rows.length} blocked {rows.length === 1 ? "address" : "addresses"} on {scope.project.name}.
+        Sends to these are refused before any provider call.
       </p>
       <ProjectPicker
         projects={projects.map((p) => ({ id: p.id, slug: p.slug }))}
