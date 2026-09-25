@@ -83,5 +83,29 @@ jobs:
           if-no-files-found: ignore
           retention-days: 5
 
+      # Annotations are readable through the checks API even when the job log
+      # and artifacts are not (GitHub's results blob store has been returning
+      # EOF). This puts the failing test names where a reader can see them.
+      - name: Report failing tests as annotations
+        if: failure()
+        shell: bash
+        run: |
+          if [ ! -f test-output.log ]; then
+            echo "::error::Test step failed before producing output"
+            exit 0
+          fi
+          emit() {
+            local line="$1"
+            line="${line//'%'/'%25'}"
+            line="${line//$'\r'/'%0D'}"
+            echo "::error::${line:0:600}"
+          }
+          while IFS= read -r line; do emit "$line"; done < <(
+            { grep -aE "Test Files +[0-9]+ failed|Tests +[0-9]+ failed" test-output.log || true
+              grep -aE "FAIL " test-output.log || true
+              grep -aE "AssertionError|Error: " test-output.log | head -5 || true
+            } | head -12 | sort -u
+          )
+
       - name: Build
         run: pnpm build
