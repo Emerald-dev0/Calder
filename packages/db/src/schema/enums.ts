@@ -8,6 +8,7 @@ export const domainVerificationMethodEnum = pgEnum("domain_verification_method",
   "vercel",
   "http",
 ]);
+export const emailStreamEnum = pgEnum("email_stream", ["transactional", "marketing"]);
 export const emailStatusEnum = pgEnum("email_status", [
   "created",
   "queued",

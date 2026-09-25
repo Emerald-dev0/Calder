@@ -1,5 +1,5 @@
 export type CalderError = { code?: string; message: string; request_id?: string };
-export type EmailRequest = { from: string; to: string; subject: string; html?: string; text?: string; cc?: string; bcc?: string; reply_to?: string; metadata?: Record<string, unknown> };
+export type EmailRequest = { from: string; stream?: "transactional" | "marketing"; to: string; subject: string; html?: string; text?: string; cc?: string; bcc?: string; reply_to?: string; metadata?: Record<string, unknown> };
 export type EmailResponse = { id: string; status: string; [key: string]: unknown };
 
 export class CalderApiError extends Error {

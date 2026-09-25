@@ -134,6 +134,13 @@
       "when": 1789491000000,
       "tag": "0018_provider_events",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789491100000,
+      "tag": "0019_email_streams",
+      "breakpoints": true
     }
   ]
 }

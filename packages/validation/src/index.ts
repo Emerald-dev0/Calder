@@ -28,6 +28,8 @@ const attachmentSchema = z.object({
 export const sendEmailSchema = z
   .object({
     from: senderRefSchema,
+    // Separate reputational lanes: marketing must never silently share transactional defaults.
+    stream: z.enum(["transactional", "marketing"]).default("transactional"),
     to: z.string().email().max(320),
     cc: z.string().email().max(320).optional(),
     bcc: z.string().email().max(320).optional(),
@@ -78,6 +80,7 @@ export type SendEmailInput = z.infer<typeof sendEmailSchema>;
 // Bulk: up to 100 messages, one shared idempotency base in the header.
 export const bulkSendSchema = z.object({
   from: senderRefSchema,
+  stream: z.enum(["transactional", "marketing"]).default("marketing"),
   messages: z
     .array(
       z.object({

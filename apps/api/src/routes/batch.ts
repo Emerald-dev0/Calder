@@ -82,6 +82,7 @@ batch.post("/", authMiddleware, rateLimitMiddleware("sending"), async (c) => {
         idempotencyKey: baseKey ? `${baseKey}:${i}` : undefined,
         input: {
           from: shared.from,
+          stream: parsed.data.stream,
           to,
           subject,
           ...(html !== undefined ? { html } : {}),

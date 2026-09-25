@@ -231,6 +231,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       ...((input.metadata as Record<string, unknown> | undefined) ?? {}),
       ...(Object.keys(safeHeaders).length > 0 ? { headers: safeHeaders } : {}),
     },
+    stream: input.stream,
     status: "queued" as const,
     attemptCount: 0,
   };
@@ -265,6 +266,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       metadata: emailRecord.metadata,
       scheduledFor: emailRecord.scheduledFor,
       attachments: emailRecord.attachments,
+      stream: emailRecord.stream,
       status: "queued" as const,
       attemptCount: 0,
     };
@@ -554,6 +556,7 @@ export async function sendInternalEmail(
     idempotencyKey: params.idempotencyKey,
     input: {
       from: await resolveInternalSender(db, params.from),
+      stream: "transactional",
       to: params.to,
       subject: params.subject,
       html: brandEmail(params.html, {
