@@ -1,0 +1,45 @@
+{
+  "name": "calder",
+  "version": "0.1.0",
+  "description": "Official Calder Node.js SDK — transactional email with durable delivery, idempotent sends, and honest delivery outcomes.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.17"
+  },
+  "keywords": [
+    "email",
+    "transactional-email",
+    "calder",
+    "sdk"
+  ],
+  "author": "Calder",
+  "license": "MIT",
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p .",
+    "test": "vitest run --pool=forks",
+    "typecheck": "tsc --noEmit -p .",
+    "prepublishOnly": "pnpm build && pnpm test"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "5.6.3",
+    "vitest": "^2.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

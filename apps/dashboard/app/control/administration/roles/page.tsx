@@ -1,5 +1,11 @@
 import { requireSection } from "@/lib/control/guard";
-import { ALL_SECTIONS, CONTROL_ROLE_LABEL, FOUNDER_ONLY_ACTIONS, READ_ONLY_ROLES, ROLE_SECTIONS } from "@/lib/control/roles";
+import {
+  ALL_SECTIONS,
+  CONTROL_ROLE_LABEL,
+  FOUNDER_ONLY_ACTIONS,
+  READ_ONLY_ROLES,
+  ROLE_SECTIONS,
+} from "@/lib/control/roles";
 import { Badge, PageHeader, Panel } from "@/control/_components/ui";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +24,15 @@ const SECTION_LABEL: Record<string, string> = {
   administration: "Administration",
 };
 
-const ROLES = ["founder", "platform_admin", "support", "billing", "infrastructure", "security", "analyst"] as const;
+const ROLES = [
+  "founder",
+  "platform_admin",
+  "support",
+  "billing",
+  "infrastructure",
+  "security",
+  "analyst",
+] as const;
 
 export default async function RolesPage() {
   await requireSection("administration");
@@ -64,21 +78,31 @@ export default async function RolesPage() {
       </Panel>
 
       <Panel title="Founder-only actions" caption="cannot be delegated, by code and by policy">
-        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13.5, color: "var(--cp-muted)", lineHeight: 1.9 }}>
+        <ul
+          style={{
+            margin: 0,
+            paddingLeft: 18,
+            fontSize: 13.5,
+            color: "var(--cp-muted)",
+            lineHeight: 1.9,
+          }}
+        >
           {FOUNDER_ONLY_ACTIONS.map((a) => (
             <li key={a}>{a}</li>
           ))}
         </ul>
         <p className="cp-panel-caption" style={{ marginTop: 10 }}>
-          <Badge tone="ok">Founder</Badge> = every admin permission + platform ownership + the dangerous actions +
-          business controls. Nobody promotes themselves into it, and it cannot be revoked through the product.
+          <Badge tone="ok">Founder</Badge> = every admin permission + platform ownership + the
+          dangerous actions + business controls. Nobody promotes themselves into it, and it cannot
+          be revoked through the product.
         </p>
       </Panel>
 
       <Panel title="Read-only roles" caption="observe, never modify">
         <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: 0, lineHeight: 1.6 }}>
-          {READ_ONLY_ROLES.map((r) => CONTROL_ROLE_LABEL[r]).join(" and ")} see the same live numbers as operators but
-          every mutating server action rejects them — enforcement lives in the actions, not the interface.
+          {READ_ONLY_ROLES.map((r) => CONTROL_ROLE_LABEL[r]).join(" and ")} see the same live
+          numbers as operators but every mutating server action rejects them — enforcement lives in
+          the actions, not the interface.
         </p>
       </Panel>
     </>

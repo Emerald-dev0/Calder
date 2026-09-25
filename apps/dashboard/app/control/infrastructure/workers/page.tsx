@@ -24,7 +24,12 @@ export default async function WorkersPage() {
         <Stat label="Processed (24h)" value={fmtInt(sent24h)} hint="sent + delivered" />
         <Stat label="Throughput" value={`${fmtInt(avgPerHour)}/h`} hint="average per active hour" />
         <Stat label="Waiting" value={fmtInt(queue.inFlight)} hint="queue depth" />
-        <Stat label="Failures (24h)" value={fmtInt(queue.failedRecent)} invertDelta hint="needs a look if rising" />
+        <Stat
+          label="Failures (24h)"
+          value={fmtInt(queue.failedRecent)}
+          invertDelta
+          hint="needs a look if rising"
+        />
       </div>
 
       <Panel title="Processing rate" caption="messages moved to sent/delivered per hour · last 24h">
@@ -34,7 +39,10 @@ export default async function WorkersPage() {
         />
       </Panel>
 
-      <Panel title="Planned: fleet instrumentation" caption="per-worker CPU, memory, restarts, uptime">
+      <Panel
+        title="Planned: fleet instrumentation"
+        caption="per-worker CPU, memory, restarts, uptime"
+      >
         <Planned
           title="Worker fleet panel"
           bullets={[
@@ -44,8 +52,8 @@ export default async function WorkersPage() {
             "Concurrency and restart counters",
           ]}
         >
-          Workers are separate deployables (apps/worker) with structured logs already; the fleet panel lands with
-          runtime metrics emission.
+          Workers are separate deployables (apps/worker) with structured logs already; the fleet
+          panel lands with runtime metrics emission.
         </Planned>
       </Panel>
     </>

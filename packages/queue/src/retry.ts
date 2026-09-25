@@ -36,6 +36,12 @@ export function getRetryDelay(attempt: number, opts: RetryOptions = defaultRetry
  */
 export function isTransientError(error: unknown): boolean {
   if (error instanceof Error) {
+    // A provider adapter that already decided is authoritative: SES and Gmail
+    // both stamp `transient` from the response they actually received. Guessing
+    // past that verdict from the message text is how a 429 gets retried or
+    // dropped depending on wording.
+    const verdict = (error as { transient?: unknown }).transient;
+    if (typeof verdict === "boolean") return verdict;
     const msg = error.message.toLowerCase();
     if (msg.includes("timeout") || msg.includes("econnreset") || msg.includes("etimedout"))
       return true;
@@ -46,12 +52,17 @@ export function isTransientError(error: unknown): boolean {
       msg.includes("502")
     )
       return true;
-    // Provider throttling is transient
-    if ((error as { code?: string }).code === "Throttling") return true;
+    // Provider throttling is transient. Matched loosely: SESv2 reports
+    // `TooManyRequestsException`, legacy surfaces use `Throttling*`.
+    const code = (error as { code?: string }).code ?? "";
+    if (code.includes("Throttling") || code.includes("TooManyRequests")) return true;
   }
-  const status = (error as { status?: number })?.status;
-  if (status && status >= 500 && status < 600) return true;
-  if (status === 429) return true;
+  // Providers stamp `statusCode`; some callers use `status`. Accept both —
+  // reading only `status` silently classified provider 429/5xx as permanent.
+  const { status, statusCode } = error as { status?: number; statusCode?: number };
+  const effective = status ?? statusCode;
+  if (effective && effective >= 500 && effective < 600) return true;
+  if (effective === 429) return true;
   return false;
 }
 

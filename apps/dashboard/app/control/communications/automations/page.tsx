@@ -12,7 +12,10 @@ export default async function AutomationsPage() {
         title="Automations"
         subtitle="Event → condition → delay → email. Lifecycle sequences that run without an operator pressing send."
       />
-      <Panel title="Status" caption="specified in the PRD, priced separately, deliberately post-MVP">
+      <Panel
+        title="Status"
+        caption="specified in the PRD, priced separately, deliberately post-MVP"
+      >
         <Planned
           title="Automation engine"
           bullets={[
@@ -22,9 +25,9 @@ export default async function AutomationsPage() {
             "Transactional automations (OTP flows) stay in the transactional path, not here",
           ]}
         >
-          Automations are a marketing-surface feature for customers and an internal lifecycle tool for the team. They
-          ship after the campaign engine proves audiences, consent, and scheduling — never before the foundations
-          they stand on.
+          Automations are a marketing-surface feature for customers and an internal lifecycle tool
+          for the team. They ship after the campaign engine proves audiences, consent, and
+          scheduling — never before the foundations they stand on.
         </Planned>
       </Panel>
     </>

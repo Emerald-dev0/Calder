@@ -27,9 +27,9 @@ export default function SmtpPage() {
       >
         <p style={{ fontWeight: 600, margin: "0 0 8px" }}>SMTP relay is not available yet.</p>
         <p style={{ color: "var(--color-muted)", margin: "0 0 8px" }}>
-          The SMTP gateway is specified and on the roadmap, but it is not shipping yet, there is
-          no host to connect to and no SMTP credentials to create. Anything claiming otherwise is
-          a bug.
+          The SMTP gateway is specified and on the roadmap, but it is not shipping yet, there is no
+          host to connect to and no SMTP credentials to create. Anything claiming otherwise is a
+          bug.
         </p>
         <p style={{ color: "var(--color-muted)", margin: 0 }}>
           Today, send with the REST API: create an API key under{" "}

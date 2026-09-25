@@ -29,12 +29,19 @@ export default async function AcquisitionPage() {
           value={fmtPct((overview.referred / total) * 100)}
           hint="referred by another person"
         />
-        <Stat label="Direct share" value={fmtPct(((sorted.find((s) => s.label === "direct")?.count ?? 0) / total) * 100)} hint="no source captured" />
+        <Stat
+          label="Direct share"
+          value={fmtPct(((sorted.find((s) => s.label === "direct")?.count ?? 0) / total) * 100)}
+          hint="no source captured"
+        />
       </div>
 
       <div className="cp-grid cp-grid-2">
         <Panel title="Signups by source" caption="all time">
-          <BarsChart data={sorted.map((s) => ({ label: s.label, value: s.count }))} caption="signups by source" />
+          <BarsChart
+            data={sorted.map((s) => ({ label: s.label, value: s.count }))}
+            caption="signups by source"
+          />
         </Panel>
         <Panel title="Share by source" caption="percentage of total signups">
           <BarList
@@ -51,16 +58,18 @@ export default async function AcquisitionPage() {
         <div className="cp-planned">
           <b>Conversion &amp; revenue by source</b>
           <p>
-            Once accounts convert and billing settles, this page joins acquisition source → plan → revenue so you can
-            see which channel brings paying customers, not just signups. UTM capture on the public waitlist form is
-            the prerequisite and lands with the marketing surface.
+            Once accounts convert and billing settles, this page joins acquisition source → plan →
+            revenue so you can see which channel brings paying customers, not just signups. UTM
+            capture on the public waitlist form is the prerequisite and lands with the marketing
+            surface.
           </p>
         </div>
       </Panel>
 
       <p className="cp-caption">
-        Source capture is stored per signup at join time. Historic rows without a captured source show as{" "}
-        <span className="mono">direct</span>. <Link href="/control/growth/waitlist">Open the waitlist →</Link>
+        Source capture is stored per signup at join time. Historic rows without a captured source
+        show as <span className="mono">direct</span>.{" "}
+        <Link href="/control/growth/waitlist">Open the waitlist →</Link>
       </p>
     </>
   );

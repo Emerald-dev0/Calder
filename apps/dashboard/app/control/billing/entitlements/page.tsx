@@ -25,7 +25,7 @@ export default async function EntitlementsPage() {
             margin: "0 0 14px",
           }}
         >
-{`Customer: Acme
+          {`Customer: Acme
   Plan (base):    Pro
     50,000 emails · 10 projects · 10 domains
   Override:       +100,000 emails, +5 projects
@@ -41,8 +41,9 @@ export default async function EntitlementsPage() {
             "Enforced at the same dimension the usage meter checks",
           ]}
         >
-          Overrides are the difference between pricing you can defend and pricing that bends silently. The system is
-          specified so custom deals never require inventing a new plan tier at 11pm.
+          Overrides are the difference between pricing you can defend and pricing that bends
+          silently. The system is specified so custom deals never require inventing a new plan tier
+          at 11pm.
         </Planned>
       </Panel>
     </>

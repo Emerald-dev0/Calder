@@ -1138,7 +1138,7 @@ export function OnboardingWizard({
                   run(async () => {
                     if (!projectId) return;
                     const r = await addDomain(projectId, domain);
-                    setDomainId(r.domainId);
+                    setDomainId(r.id);
                     setRecords(r.records);
                     setDomainState("pending");
                   })

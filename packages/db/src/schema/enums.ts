@@ -2,12 +2,21 @@ import { pgEnum } from "drizzle-orm/pg-core";
 
 export const organizationRoleEnum = pgEnum("organization_role", ["owner", "admin", "member"]);
 export const apiKeyEnvEnum = pgEnum("api_key_env", ["test", "live"]);
-export const domainStatusEnum = pgEnum("domain_status", ["pending", "verified", "failed"]);
+export const domainStatusEnum = pgEnum("domain_status", [
+  "pending",
+  "verified",
+  "failed",
+  "expired",
+]);
 export const domainVerificationMethodEnum = pgEnum("domain_verification_method", [
   "dns",
   "vercel",
   "http",
 ]);
+// Reputation lanes: recorded per email so promotional traffic can be tracked
+// (and later routed) independently of transactional traffic. Annotation only —
+// it never changes suppression, quota, consent or sender-verification checks.
+export const emailStreamEnum = pgEnum("email_stream", ["transactional", "marketing"]);
 export const emailStatusEnum = pgEnum("email_status", [
   "created",
   "queued",

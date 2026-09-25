@@ -22,8 +22,9 @@ export default async function MetricsPage() {
             "Provider latency percentiles",
           ]}
         >
-          Every metric the platform defines in ARCHITECTURE §12 is either already live on a Control Plane page or
-          listed here as the remaining aggregation work. Nothing is double-counted and nothing is invented.
+          Every metric the platform defines in ARCHITECTURE §12 is either already live on a Control
+          Plane page or listed here as the remaining aggregation work. Nothing is double-counted and
+          nothing is invented.
         </Planned>
       </Panel>
     </>

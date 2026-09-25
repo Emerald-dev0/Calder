@@ -73,7 +73,9 @@ export function Developers() {
               <span className="tok-dim">\</span>
               {"\n"}
               &nbsp;&nbsp;<span className="tok-dim">-H</span>{" "}
-              <span className="tok-str">&quot;Authorization: Bearer calder_sk_test_&hellip;&quot;</span>{" "}
+              <span className="tok-str">
+                &quot;Authorization: Bearer calder_sk_test_&hellip;&quot;
+              </span>{" "}
               <span className="tok-dim">\</span>
               {"\n"}
               &nbsp;&nbsp;<span className="tok-dim">-d</span>{" "}

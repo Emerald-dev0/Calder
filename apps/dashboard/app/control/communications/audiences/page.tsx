@@ -18,7 +18,11 @@ export default async function AudiencesPage() {
         subtitle="System-generated audiences, computed live from platform state. When you send, these are the address books — no stale exports, no made-up counts."
       />
 
-      <Panel title="Internal audiences" caption={`${audiences.length} audiences · live counts`} flush>
+      <Panel
+        title="Internal audiences"
+        caption={`${audiences.length} audiences · live counts`}
+        flush
+      >
         <div style={{ overflowX: "auto" }}>
           <table className="cp-table">
             <thead>
@@ -45,13 +49,16 @@ export default async function AudiencesPage() {
         </div>
       </Panel>
 
-      <Panel title="Planned: customer-facing audiences" caption="the marketing surface customers get, not the Control Plane">
+      <Panel
+        title="Planned: customer-facing audiences"
+        caption="the marketing surface customers get, not the Control Plane"
+      >
         <div className="cp-planned">
           <b>Custom segments &amp; dynamic filters</b>
           <p>
-            Customers get their own audience builder (country = Nigeria AND plan = Pro AND last active &lt; 30 days).
-            Internal audiences stay system-generated so operator mail can never silently widen. Custom internal segments
-            arrive with the campaign engine.
+            Customers get their own audience builder (country = Nigeria AND plan = Pro AND last
+            active &lt; 30 days). Internal audiences stay system-generated so operator mail can
+            never silently widen. Custom internal segments arrive with the campaign engine.
           </p>
         </div>
       </Panel>

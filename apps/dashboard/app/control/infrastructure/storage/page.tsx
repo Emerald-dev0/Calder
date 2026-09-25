@@ -21,8 +21,8 @@ export default async function StoragePage() {
             "Growth trend + quota alerts",
           ]}
         >
-          Email attachments currently ride the message payload with a hard cap; dedicated object storage arrives with
-          bulk export and archive features, and this page activates with it.
+          Email attachments currently ride the message payload with a hard cap; dedicated object
+          storage arrives with bulk export and archive features, and this page activates with it.
         </Planned>
       </Panel>
     </>

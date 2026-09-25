@@ -346,6 +346,27 @@
         "responses": { "201": { "description": "Domain" } }
       }
     },
+    "/v1/domains/{id}": {
+      "delete": {
+        "summary": "Remove a domain and its DNS challenge",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Deleted" } }
+      }
+    },
+    "/v1/domains/{id}/token": {
+      "post": {
+        "summary": "Re-issue the DNS verification token",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Challenge (host + value)" },
+          "409": { "description": "Already verified" }
+        }
+      }
+    },
     "/v1/domains/{id}/verify": {
       "post": {
         "summary": "Check DNS and verify",
@@ -355,11 +376,82 @@
         "responses": { "200": { "description": "Domain" } }
       }
     },
+    "/v1/domains/{id}/ses/link": {
+      "post": {
+        "summary": "Attach a verified SES identity (returns DKIM + SPF records)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Identity pending; add the returned records" },
+          "409": { "description": "Verify DNS ownership first" },
+          "429": { "description": "SES throttling, retry shortly" },
+          "502": { "description": "SES identity creation failed" }
+        }
+      }
+    },
+    "/v1/domains/{id}/ses/refresh": {
+      "post": {
+        "summary": "Refresh SES identity and DKIM status",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Status snapshot" } }
+      }
+    },
+    "/v1/projects": {
+      "get": {
+        "summary": "List projects in the organization",
+        "responses": { "200": { "description": "Projects" } }
+      }
+    },
     "/v1/webhooks": {
       "get": { "summary": "List webhooks", "responses": { "200": { "description": "Webhooks" } } },
       "post": {
         "summary": "Add a webhook (secret hashed, shown never)",
         "responses": { "201": { "description": "Webhook" } }
+      }
+    },
+    "/v1/webhooks/{id}": {
+      "delete": {
+        "summary": "Delete a webhook (deliveries stop immediately)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Deleted" } }
+      }
+    },
+    "/v1/webhooks/{id}/rotate": {
+      "post": {
+        "summary": "Rotate the signing secret (returned once)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "New secret" } }
+      }
+    },
+    "/v1/webhooks/{id}/deliveries": {
+      "get": {
+        "summary": "List recent delivery attempts with response codes",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Deliveries" } }
+      }
+    },
+    "/v1/webhooks/{id}/deliveries/{deliveryId}/replay": {
+      "post": {
+        "summary": "Replay a delivery (fresh signature, fresh attempt count)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          {
+            "name": "deliveryId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "201": { "description": "Replayed" } }
       }
     },
     "/v1/openapi.json": {

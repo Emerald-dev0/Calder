@@ -6,14 +6,14 @@ Decision record: ADR-014.
 
 ## 1. Endpoint
 
-| Setting | Value |
+| Setting                       | Value                                    |
 | ----------------------------- | ---------------------------------------- |
-| Host | `smtp.calder.click` |
-| Port (STARTTLS, recommended) | `587` |
-| Port (implicit TLS, reserved) | `465` |
-| Auth | `AUTH PLAIN`, `AUTH LOGIN` over TLS only |
-| Username | Project-scoped SMTP username |
-| Password | Generated SMTP secret (shown once) |
+| Host                          | `smtp.calder.click`                      |
+| Port (STARTTLS, recommended)  | `587`                                    |
+| Port (implicit TLS, reserved) | `465`                                    |
+| Auth                          | `AUTH PLAIN`, `AUTH LOGIN` over TLS only |
+| Username                      | Project-scoped SMTP username             |
+| Password                      | Generated SMTP secret (shown once)       |
 
 Plaintext AUTH is rejected. Anonymous relay is impossible by construction and
 covered by tests that attempt it.
@@ -53,14 +53,14 @@ Anything else → `550` + logged rejection. This is the anti-spoofing core.
 
 ## 5. Errors (protocol → developer meaning)
 
-| SMTP reply | Meaning | Dashboard/docs explanation |
+| SMTP reply   | Meaning                          | Dashboard/docs explanation                     |
 | ------------ | -------------------------------- | ---------------------------------------------- |
-| `235` | Authenticated |, |
-| `250 Queued` | Accepted into pipeline | Track via message ID, not this reply |
-| `535` | Bad credentials | Use project SMTP credentials; check revocation |
-| `550` | Rejected sender/recipient | Unauthorized domain or suppressed recipient |
-| `452` | Over quota / too many recipients | Quota or per-message cap hit |
-| `421` | Service unavailable | Back off and retry; incident if persistent |
+| `235`        | Authenticated                    | ,                                              |
+| `250 Queued` | Accepted into pipeline           | Track via message ID, not this reply           |
+| `535`        | Bad credentials                  | Use project SMTP credentials; check revocation |
+| `550`        | Rejected sender/recipient        | Unauthorized domain or suppressed recipient    |
+| `452`        | Over quota / too many recipients | Quota or per-message cap hit                   |
+| `421`        | Service unavailable              | Back off and retry; incident if persistent     |
 
 Original codes are preserved in logs for debugging; users get the explanation.
 
@@ -78,12 +78,12 @@ the trace end to end.
 ## 8. Competitive baseline (researched, not claimed)
 
 - Resend: `smtp.resend.com`, 587 STARTTLS / 465 implicit TLS, username literally
- `resend`, password = API key. Thin shim over their API.
+  `resend`, password = API key. Thin shim over their API.
 - Postmark: `smtp.postmarkapp.com`, 25/587/2525, Server API Token or SMTP
- Token (access + secret key), `X-PM-*` headers for options, STARTTLS.
+  Token (access + secret key), `X-PM-*` headers for options, STARTTLS.
 - Our differentiators: project-scoped credentials (not one reused key), visible
- retry/dead-letter story shared with REST, NGN billing, transactional-only
- reputation pool. No "first/only" claims, the table above is verifiable.
+  retry/dead-letter story shared with REST, NGN billing, transactional-only
+  reputation pool. No "first/only" claims, the table above is verifiable.
 
 ## 9. Out of scope
 

@@ -22,20 +22,32 @@ export default async function CommunicationsPage() {
       />
 
       <div className="cp-stats">
-        <Stat label="Waitlist audience" value={fmtInt(waitlist.total)} hint="all confirmed signups" />
+        <Stat
+          label="Waitlist audience"
+          value={fmtInt(waitlist.total)}
+          hint="all confirmed signups"
+        />
         <Stat label="Invited" value={fmtInt(waitlist.invited)} hint="status: invited" />
         <Stat label="Converted" value={fmtInt(waitlist.converted)} hint="have Calder accounts" />
         <Stat
           label="Broadcast capability"
           value={broadcastReady ? "Ready" : "Needs key"}
-          hint={broadcastReady ? "ADMIN_API_KEY configured" : "set ADMIN_API_KEY to enable /v1/admin broadcasts"}
+          hint={
+            broadcastReady
+              ? "ADMIN_API_KEY configured"
+              : "set ADMIN_API_KEY to enable /v1/admin broadcasts"
+          }
         />
       </div>
 
-      <Panel title="Send a broadcast" caption="CLI-first: broadcasts run through the API pipeline, auditable and replay-safe">
+      <Panel
+        title="Send a broadcast"
+        caption="CLI-first: broadcasts run through the API pipeline, auditable and replay-safe"
+      >
         <p style={{ fontSize: 13.5, margin: "0 0 10px", color: "var(--cp-muted)" }}>
-          Every recipient gets a signed one-click unsubscribe (RFC 8058) and a per-recipient idempotency key — re-running
-          a campaign replays safely instead of doubling. Suppressed addresses are skipped automatically.
+          Every recipient gets a signed one-click unsubscribe (RFC 8058) and a per-recipient
+          idempotency key — re-running a campaign replays safely instead of doubling. Suppressed
+          addresses are skipped automatically.
         </p>
         <pre
           className="mono"
@@ -49,15 +61,16 @@ export default async function CommunicationsPage() {
             margin: "0 0 10px",
           }}
         >
-{`curl -X POST ${config.API_URL}/v1/admin/waitlist/broadcast \\
+          {`curl -X POST ${config.API_URL}/v1/admin/waitlist/broadcast \\
   -H "Authorization: Bearer $ADMIN_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"campaign":"founder-intro","from":"daniel@calder.click"}'`}
         </pre>
         <p className="cp-panel-caption">
-          Named campaigns available today: <code>founder-intro</code>, <code>waitlist-update-001</code>. Custom
-          subject/html/text is accepted for one-off sends. Audiences below define who you can reach; campaign-level
-          segmentation (per-audience sends) lands with the marketing surface.
+          Named campaigns available today: <code>founder-intro</code>,{" "}
+          <code>waitlist-update-001</code>. Custom subject/html/text is accepted for one-off sends.
+          Audiences below define who you can reach; campaign-level segmentation (per-audience sends)
+          lands with the marketing surface.
         </p>
       </Panel>
 
@@ -89,8 +102,12 @@ export default async function CommunicationsPage() {
                 background: "var(--cp-panel-2)",
               }}
             >
-              <div style={{ fontSize: 20, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{fmtInt(a.count)}</div>
-              <div style={{ fontSize: 12.5, color: "var(--cp-muted)", marginTop: 2 }}>{a.label}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                {fmtInt(a.count)}
+              </div>
+              <div style={{ fontSize: 12.5, color: "var(--cp-muted)", marginTop: 2 }}>
+                {a.label}
+              </div>
             </Link>
           ))}
         </div>
@@ -98,9 +115,9 @@ export default async function CommunicationsPage() {
 
       <Panel title="Marketing, deliberately separated" caption="architecture, not a UI preference">
         <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: 0, lineHeight: 1.6 }}>
-          <Badge tone="accent">Transactional</Badge> and <Badge tone="warn">Marketing</Badge> are different systems with
-          different reputation pools, queues, consent, and transport rules. Gmail-connected accounts can send
-          transactional mail — never campaigns. The full rule:{" "}
+          <Badge tone="accent">Transactional</Badge> and <Badge tone="warn">Marketing</Badge> are
+          different systems with different reputation pools, queues, consent, and transport rules.
+          Gmail-connected accounts can send transactional mail — never campaigns. The full rule:{" "}
           <Link href="/control/communications/campaigns">Campaigns &amp; the Gmail rule →</Link>
         </p>
       </Panel>

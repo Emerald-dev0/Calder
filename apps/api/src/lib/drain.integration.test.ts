@@ -37,7 +37,7 @@ gate("delivery drain lease (live Postgres)", async () => {
     emailEvents,
     suppressions,
   } = await import("@calder/db");
-  const { eq, and, inArray, count } = await import("drizzle-orm");
+  const { eq, and, inArray, count, ne } = await import("drizzle-orm");
   const { drainPendingEmails } = await import("./drain.js");
 
   const suffix = randomBytes(4).toString("hex");
@@ -95,11 +95,25 @@ gate("delivery drain lease (live Postgres)", async () => {
     // Overlap on purpose, this used to double-send.
     const [a, b] = await Promise.all([drainPendingEmails(), drainPendingEmails()]);
 
-    // Every claimed row was claimed by exactly one drain.
-    expect(a.checked + b.checked).toBe(count_);
-    expect(a.sent + b.sent).toBe(count_);
+    // The drain is global: it claims whatever is queued, including rows other
+    // suites created in parallel (turbo runs packages concurrently against one
+    // database), so these counters only lower-bound our own ten. The
+    // exactly-once proof is per-id, below, which is immune to other traffic.
+    expect(a.checked + b.checked).toBeGreaterThanOrEqual(count_);
+    expect(a.sent + b.sent).toBeGreaterThanOrEqual(count_);
 
     const db = getDb();
+    // Our rows may have been left unclaimed only because a concurrent suite
+    // filled the batch: drain again until they settle, bounded.
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const [pending] = await db
+        .select({ value: count() })
+        .from(emails)
+        .where(and(inArray(emails.id, ids), ne(emails.status, "sent")));
+      if (Number(pending?.value ?? 0) === 0) break;
+      await drainPendingEmails();
+    }
+
     const rows = await db
       .select({ id: emails.id, status: emails.status })
       .from(emails)

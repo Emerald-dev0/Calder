@@ -25,14 +25,22 @@ export default async function BillingOverviewPage() {
         <Stat
           label="Paying customers"
           value={fmtInt(billing.activeCount)}
-          hint={customers.orgs ? `${fmtPct((billing.activeCount / customers.orgs) * 100)} of organizations` : undefined}
+          hint={
+            customers.orgs
+              ? `${fmtPct((billing.activeCount / customers.orgs) * 100)} of organizations`
+              : undefined
+          }
         />
         <Stat
           label="ARPU"
           value={billing.arpuCents !== null ? fmtMoney(billing.arpuCents) : "—"}
           hint="monthly, per paying org"
         />
-        <Stat label="Past due" value={fmtInt(billing.pastDueCount)} hint={billing.pastDueCount > 0 ? "needs collection" : "clean"} />
+        <Stat
+          label="Past due"
+          value={fmtInt(billing.pastDueCount)}
+          hint={billing.pastDueCount > 0 ? "needs collection" : "clean"}
+        />
         <Stat label="Canceled" value={fmtInt(billing.canceledCount)} hint="historical" />
       </div>
 
@@ -79,8 +87,8 @@ export default async function BillingOverviewPage() {
           </Link>
         </div>
         <p className="cp-panel-caption" style={{ marginTop: 12 }}>
-          <Badge tone="accent">Founder</Badge> plan catalog changes, coupons, and credits are founder-level actions —
-          everything they touch lands in the audit log.
+          <Badge tone="accent">Founder</Badge> plan catalog changes, coupons, and credits are
+          founder-level actions — everything they touch lands in the audit log.
         </p>
       </Panel>
     </>

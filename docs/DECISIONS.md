@@ -478,3 +478,372 @@ claim raced itself: two overlapping drains read the same `queued` rows and
 sent the same email twice (a scheduled double-send in production).
 **Do not:** add delivery logic to the dashboard again, or grep-replace the
 claim with a read-then-update; the lease IS the correctness property.
+
+## ADR-035: SES feedback arrives via SNS HTTPS; signature, origin, and monotonic state are the trust model
+
+**Status:** Accepted (2026-09-19, Phase 1 / M1.1 + M1.2)
+**Decision:** delivery feedback (delivery/bounce/complaint/open/click/reject)
+reaches Calder exclusively through `POST /v1/ses/events`, a public endpoint
+SNS posts to. Authentication is the SNS RSA-SHA1 signature over the
+AWS-specified canonical string, with three hard gates, in order:
+
+1. **Cert origin allowlist** — the signing certificate is fetched only from
+   `https://sns.<region>.amazonaws.com(.cn)`; any other URL (http, lookalike
+   host, userinfo trick, IP literal) is rejected _before_ any fetch. Only
+   `SignatureVersion: "1"` is accepted.
+2. **Signature verification** — RSA verify against the fetched certificate's
+   public key over the exact field ordering AWS specifies (Subject included
+   only when present; SubscribeURL/Token for subscription types).
+3. **Topic allowlist** — when `SES_SNS_TOPIC_ARNS` is configured, foreign
+   topics are rejected; `SubscriptionConfirmation` is auto-confirmed ONLY
+   when the allowlist exists and contains the topic (any subscriber can
+   otherwise point a topic at the public URL).
+
+Application is idempotent by construction: the raw notification lands in
+`provider_events` (unique on SNS `MessageId`) FIRST, so SNS redelivery (it
+retries non-2xx forever) short-circuits before state is touched twice.
+Events join to `emails` via `providerMessageId` stamped at send; unknown
+message ids are ledgered with `unmatched: true` and 200'd (someone else's
+topic noise must not redeliver forever, and the ledger keeps forensics).
+
+`emails.status` is monotonic (`created < queued < sending < sent < delivered`;
+opened/clicked are _events only_ — the schema deliberately has no such
+status, matching Resend's model) and sticky (`bounced`/`complained`/`failed`/
+`suppressed` are terminal, never overridden by late happy-path events).
+Permanent bounces and complaints auto-insert `suppressions` rows (unique on
+`(project_id, email)`, ON CONFLICT DO NOTHING), which M0.1's ingest path
+already enforces 422 on — the SES reputation loop is closed. Transient
+bounces record an event but NEVER change status or suppress: SES keeps
+retrying, and soft-bounce suppression punishes greylisting and full inboxes.
+**Why:** the endpoint is necessarily public, so the signature + cert origin
+is the entire trust boundary; monotonicity + stickiness make out-of-order
+SNS delivery harmless instead of corrupting truth.
+**Do not:** move this behind API-key middleware (SNS cannot send our
+headers); accept certificate URLs off the SNS allowlist; add "opened"/
+"clicked" to `email_status`; or suppress on transient bounces.
+
+## ADR-036: Usage metering is an append-only ledger with deterministic ids; quota is enforced at ingest against accepted mail
+
+**Status:** Accepted (2026-09-21, Phase 2 / M2.1 + M2.2 + M2.3 + M2.4)
+**Decision:** metering, quota and test-key isolation follow four rules, all
+of which are PRICING §5 made mechanical.
+
+1. **The ledger is exactly-once by construction.** When a provider accepts a
+   send (drain or worker success path), ONE row is written to
+   `usage_records` with id `ur_<emailId>`, quantity 1, plus the org's
+   period stamps. INSERT ON CONFLICT (id) DO NOTHING makes retries,
+   idempotent replays, overlapping drains and double-enqueues provable
+   no-ops: the database key _is_ the dedupe. Because `emails.id` is unique
+   and metering keys on it, there is physically no way to double-count a
+   send through the code paths that deliver mail.
+
+2. **Quota is enforced at ingest, before persistence, against accepted
+   mail — not the ledger.** `handleSendEmail` (which every ingest surface
+   funnels through: `/v1/emails`, `/v1/emails/batch`, scheduled sends) plus
+   the dashboard composer (which inserts directly, so it carries the same
+   gate inline) count live `emails` rows created in the org's current
+   period via the projects join. Queued mail counts: you cannot burst past
+   the cap while mail is still landing. Over-limit sends are refused with
+   402 `plan_limit_reached` carrying limit, usage, tier, periodStart and
+   periodEnd (PRICING §5's "limit, usage and reset time" contract), plus a
+   fix string pointing at upgrade. Nothing is persisted or queued for a
+   refused send. Tier caps live in `@calder/config` `PLAN_LIMITS`
+   (5,000/50,000/250,000/custom on the DB enum free/starter/pro/scale);
+   unknown tiers resolve to the free floor — a typo'd tier must never mean
+   unlimited. Calder's own org (`org_avenor`) is exempt: waitlist and auth
+   mail must never be throttled by the platform it belongs to.
+
+3. **Test keys are structurally isolated, not just discounted.** `emails`
+   carries `env`, stamped at ingest from the API key's environment. In both
+   the drain and the worker, `env='test'` short-circuits transport
+   resolution entirely: the chain is exactly one leg, the mock provider —
+   no SES, no Gmail, no matter what the registry holds. Metering skips
+   non-`live` rows, and quota counting excludes them. The durable record
+   (`provider: 'mock'`, `transport: 'mock'`) is the auditable proof a send
+   never touched a real provider; it cannot be smuggled through transports
+   because resolution never runs for those rows.
+
+4. **Rollups are projections, not measurements.** `/cron/aggregate-usage`
+   folds the ledger per (org, metric, period) into `usage_summaries` with
+   deterministic id `ur_agg_<org>_<metric>_<periodStartISO>` upserted in
+   place. Re-running the cron always converges to the same row; the usage
+   page never trusts the summary alone — it reads the live
+   accepted-mail count directly, so the bars are truthful even between
+   cron runs. The Gmail daily cap also moved to _exact_ accounting: only
+   sends whose `transport = 'gmail'` (i.e. mail that actually went through
+   Gmail) count toward it; SES volume can no longer exhaust a Gmail quota.
+   **Why:** a pricing promise that isn't enforced is false advertising, and
+   the previous draft quotas on the usage page (3,000/25,000/…) contradicted
+   PRICING.md — one table in config removes that drift class. Counting at
+   ingest-acceptance (not provider-accept) is what makes burst-limit holds;
+   metering at provider-accept is what makes the invoice match reality; both
+   are true simultaneously because they answer different questions (throttle
+   vs bill).
+   **Do not:** meter at ingest (queued mail that never delivers must not be
+   billed); meter more than one unit per row (per-recipient pricing is a
+   future pricing change, not an implementation detail); let test-env rows
+   reach `resolveChain`/`resolveServiceChain` even to "peek"; trust
+   `usage_summaries` for quota decisions (it lags by a cron interval); or
+   reintroduce a per-app local quota table — `PLAN_LIMITS` is the only copy.
+
+## ADR-037: Gmail is an on-ramp, not infrastructure — revocation auto-marks, velocity graduates from warn to suspension, every step audit-logged
+
+**Status:** Accepted (2026-09-21, Phase 2 / M2.4 tail + M2.5)
+**Decision:** a connected Gmail account is treated as a development/small-app
+on-ramp with progressive, visible, auditable pressure toward real
+deliverability infrastructure:
+
+1. **Revocation is terminal and auto-detected.** When the Gmail API answers
+   `invalid_grant` at send time (`code: "gmail_revoked"`), drain and worker
+   flip `project_transports.status` to `revoked` in a single
+   `UPDATE ... WHERE status = 'active'` (the transition itself is the
+   exactly-once switch), write one `transport.gmail_revoked` audit row, and
+   fail the CURRENT send over to the next chain leg (SES) instead of
+   failing this email and every successor against a corpse credential.
+   Chains only build legs from `status = 'active'` rows, so the flip
+   permanently retires the leg.
+
+2. **Velocity is graded, and the policy core is a pure function.**
+   `assessGmailVelocity` maps (lastHour, today, 7-day average) onto
+   `ok | warn | limit | suspend`: warn ≥ 40/h writes a debounced
+   (24h) `transport.gmail_velocity_warn` audit row and lets mail run;
+   limit ≥ 120/h refuses the leg _transiently_ (429, retry-in-this-hour,
+   failover-friendly); suspend ≥ 600/h — or sustained outgrowth (7-day avg
+   ≥ 100 with today's cap already reached) as a limit, not suspension —
+   flips the transport to `suspended` (same exact-once transition trick),
+   audits once, and refuses _permanently_ (403) with a message that names
+   the remedy. Thresholds live behind env vars
+   (`GMAIL_WATCH_WARN_PER_HOUR`/`_LIMIT_`/`_SUSPEND_`) over
+   `DEFAULT_GMAIL_WATCH`. The audit trail is written from the drain AND the
+   worker, and the watch runs BEFORE credential decryption, so it cannot
+   leak secrets into failure paths and tests need no real Gmail accounts.
+
+3. **Appeals are actions, not tickets.** Control → Security → Abuse shows
+   every connected Gmail account (org/project/last-hour velocity/today-vs-cap/
+   status/last-used), plus the watch's own audit feed. Re-activating a
+   `suspended` transport is a guarded server action
+   (`transport.gmail_reactivated` audited with the actor). `revoked` is
+   never re-activatable from control — the OAuth grant itself is dead, only
+   the account owner can reconnect, and pretending otherwise would paper
+   over a break the customer must actually fix.
+
+4. **Graduation is a prompt, not a punishment.** When a project's Gmail
+   usage crosses the graduation line (7-day average ≥ 100/day or today's
+   cap reached), the Senders page shows an outgrowth banner pointing at
+   domain verification: SES takes over with no code change. The banner is
+   informative; the velocity ladder is the enforcement.
+   **Why:** PRICING.md's Beginner tier cannot stay generous if one connected
+   Gmail account can become a relay, but banning Gmail upfront strangles
+   activation. Graded pressure with an audit trail converts the risk into a
+   funnel: warn (visible), limit (recoverable), suspend (appealable) — and the
+   escape hatch is always "verify a domain, deliver properly".
+   **Do not:** swallow abuse-watch errors into a silent SES fallback (a
+   swallowed "suspended" is a silent bulk path — only `gmail_cap`,
+   `sender_not_ready` and generic resolution errors may fall back);
+   re-activate revoked transports from control; run the velocity assessment
+   after decryption (watch before secrets); or warn more than once per 24h per
+   transport (rate-limit your own rate-limiting alerts).
+
+## ADR-038: Webhook deliveries are durable-first, signed Stripe-style, retried on an exponential ladder, and replay creates new rows
+
+**Status:** Accepted (2026-09-24, Phase 3 / M3.1 + M3.2)
+**Decision:**
+
+1. **The delivery row is the source of truth and is written BEFORE the queue
+   job** (`createPendingDeliveries` then `enqueueWebhookDeliveries`, shared by
+   the API replay path and the worker emit path in
+   `@calder/db/webhook-deliveries`). If the queue leg throws we still have the
+   durable row; a reconciler can re-and-queue from `pending` + `next_attempt_at
+<= now`. Consumers that find a dangling job with no row log and drop — they
+   never invent rows.
+
+2. **Signing follows the Stripe/Resend convention.** Every POST carries
+   `webhook-id: <deliveryId>` and `webhook-signature: t=<unix>,v1=<hex>` where
+   `v1 = HMAC-SHA256(secret, "<t>.<body>")` and the body is the exact JSON of
+   the stored `webhook_deliveries.payload` envelope `{id, type, createdAt,
+data}`. Verification = parse `t`/`v1`, recompute, **timing-safe** compare,
+   reject when `|now − t| > 300s` (replay-window defense). `verifySignature`
+   ships in `@calder/worker/webhook-consumer` for SDK extraction later.
+
+3. **Retry is an explicit exponential ladder, not a formula** —
+   5s, 30s, 2m, 10m, 30m, 2h, 6h — encoded as `RETRY_SCHEDULE_MS` with
+   `nextRetryDelayMs(failedAttempt)`. Delivery 8 with all retries spent flips
+   to permanent `failed`; nothing is ever retried forever. Success is any
+   2xx and records (latencyMs, responseStatus, deliveredAt); the 10s timeout
+   is an AbortController on the fetch. Terminal failures (deleted/disabled
+   endpoint, SSRF-refused URL, undecryptable secret) short-circuit to
+   `failed` without burning the ladder.
+
+4. **SSRF defense exists on BOTH sides of the crate** —
+   `isPublicWebhookUrl` in `@calder/validation` (https-only, no userinfo,
+   blocks localhost/`*.local` and every private/CGNAT/link-local/multicast
+   IPv4 and ULA range; explicit `allowLoopback` flag for dev) runs in the API
+   on create (400 with reason) and **again in the worker at delivery time**
+   (DNS rebinding pinching a hostname between registration and dispatch is
+   the classic skip).
+
+5. **Replay is always a NEW delivery row carrying the original `data`** —
+   never a mutation of history. Receivers dedupe on the business id inside
+   `data` (e.g. `emailId`); the endpoint only replays to its own source
+   webhook (no broadcast). **Rotation** replaces the AES-256-GCM
+   (`webhook_signing` context) secret, shows the new raw value once, and
+   invalidates the old secret for all future signing immediately; historical
+   signatures stay verifiable by whatever secret the receiver had at the time.
+
+**Why not:** a fixed geometric backoff (`2^n·5s` capped) is harder to reason
+about under clock skew and harder to unit-test exhaustively; sig-over-body
+without a timestamp opens replay windows; mutate-in-place replays destroy the
+audit story (M5.1's audit views assume immutable delivery history).
+**Consequences:** the `webhook:deliver` queue now has exactly one consumer,
+all signing paths are testable as pure functions (6 signature vectors),
+and the dashboard per-endpoint "Deliveries" panel is read-only over rows the
+system already wrote — no new truth was invented for the UI.
+
+## ADR-039: Domain ownership is a state machine over a 192-bit DNS-TXT challenge; deliverability identity is SES-linked and DKIM-stored
+
+**Status:** Accepted (2026-09-24, Phase 4 / M4.1 + M4.2)
+**Decision:**
+
+1. **Challenge contract:** control of `example.com` is proven by publishing
+   `_calder.example.com TXT "calder-verification=cvt_<48 hex>"` (192 bits,
+   `crypto.randomBytes(24)`). Legacy `calder_verify_*` rows are treated as
+   challenge-free and must regenerate — the old display format was
+   demonstrator theater (double-prefixed tokens), not a live contract.
+
+2. **State machine on `domains.status`:** `pending → verified` (exact TXT
+   match), `pending|failed → failed` (mismatch, retryable),
+   `pending|failed → expired` (72h TTL checked on read, no cron —
+   `sweepExpiredChallenges` runs inside list/verify), `expired → pending`
+   (explicit `POST /:id/token` reissue). `verified` is terminal per row;
+   the flip is `UPDATE ... WHERE status != 'verified'` so concurrent
+   attempts cannot double-write the transition or its audit row
+   (`domain.verified` in `audit_logs`).
+
+3. **Abuse control:** 10 verify attempts / rolling hour / domain
+   (`verify_attempts` + `verify_window_start`, rolled forward in the same
+   write as the outcome) with SEP retry hints; **cross-tenant denial** —
+   a domain already `verified` by another project rejects both registration
+   and verification attempts with 409 (first proof wins; disputes go to
+   support).
+
+4. **DNS oracle is injectable; production resolves twice.** Attempts call
+   `attemptVerification(db, projectId, domainId, oracle?)` from
+   `@calder/db/domain-verification` — the same code path the API routes AND
+   the dashboard wizard use. Prod oracle = system `resolveTxt` (5s) with a
+   DoH fallback (`dns.google/resolve`, 4s) because fresh TXT reaches
+   public authoritative DNS before recursive caches. Propagation failures
+   are data, not honors: mismatch responses carry expected-vs-found
+   (bounded to 5 records), DNS errors are retryable `dns_error` outcomes.
+
+5. **Deliverability identity (M4.2):** after ownership verifies,
+   `POST /:id/ses/link` registers the SES identity idempotently, stores the
+   3 DKIM CNAMEs (`dkim_records` jsonb) + `dkim_status`, and returns SPF
+   guidance (`v=spf1 include:amazonses.com ~all`, displayed not asserted —
+   many tenants keep their own SPF). `POST /:id/ses/refresh` polls
+   `VerifiedForSendingStatus`; the wizard auto-polls every 20s while DKIM
+   is pending. Verified-sending ≠ verified-ownership: branding is its own
+   gate and unverified-branding send continues to work.
+
+6. **M4 hard gate:** over-cap Gmail now refuses with a message that names
+   the domain-verification remedy (both drain and worker paths — the error
+   text is the contract, and integration tests regex it), and the sender
+   graduation banner links straight to `/domains`.
+
+**Why not:** checking `example.com TXT` at apex (forces SPF merges and
+breaks multi-tenant CNAME consumers); cron-swept expiry (non-deterministic
+at read time); trusting clients to self-report verification (Phase-3
+theater pattern this replaces); a _compat window_ for legacy tokens
+(neither the API nor the dashboard ever verifiably accepted them).
+**Consequences:** `domains.verifyAttempts/windowStart/expiresAt/lastError`
++dKIM columns shipped in migration `0021_domain_trust`; SES linkage needs
+AWS creds wherever the dashboard/API runs the link action; the Flow-D
+manual pass is pending a live DNS zone + AWS credentials.
+
+## ADR-040: Auth hardening — provider-verified OAuth linking, database lockout, reset-revokes-sessions, v2 OTP HMAC, bounded magic callback, mandatory cron secret
+
+**Status:** Accepted (2026-09-25, Phase 6 / M6.1)
+**Decision (the §11 H4 + M4 + M7 + M8 batch, shipped together):**
+
+1. **OAuth auto-linking requires a provider-verified email, period (H4).**
+   Previously: an unverified-at-provider email linked to an existing Calder
+   account whenever the Calder row had ANY verification state — meaning an
+   attacker setting their unverified GitHub/Google email to a victim's
+   address could sign in AS the victim (both providers expose the flag:
+   Google `email_verified`, GitHub `/user/emails` primary.verified). Now:
+   the unverified branch always raises ("sign in with your original method
+   to link"); verified linking also upgrades a null `email_verified_at` on
+   the Calder side, since provider-side verification IS email control.
+
+2. **Progressive account lockout is database state, before scrypt.**
+   `users.failed_login_attempts` + `locked_until`: check runs BEFORE the
+   password hash compare, so a locked account costs zero CPU. Below 3
+   failures no lock; from the third, exponential 30s → 1m → 2m … capped at
+   30m (`lockoutDelayMs`, unit-tested). Success resets both fields; reset
+   clears lockout too. Unknown emails get no row-update (enumeration-safe).
+   Responses surface HTTP 429 + Retry-After, distinct from the route's
+   per-IP/per-email limiter (which stays).
+
+3. **Password reset revokes every session.** The mailbox is the recovery
+   oracle: redeeming a reset code proves mailbox possession, so
+   `revokeAllSessions(userId)` runs atomically after the hash swap. Session
+   inventory + self-service revoke ship with it: sessions capture
+   user-agent/IP at creation (optional-throughout, old rows are null), a
+   throttled last-seen touch (≤1 write / 5 min / session) keeps inventory
+   fresh, and Settings exposes per-session revoke + "sign out everywhere
+   else" (keep current).
+
+4. **OTP storage upgrades to v2 peppered HMAC** (v1 was bare sha256 over a
+   6-digit ≈ 1M-entry space — offline-bruteforceable in seconds if hashes
+   ever leak). v2 = `HMAC-SHA256(AUTH_SECRET||"email-code-v2",
+purpose|email|code)`: purpose+email binding also closes the
+   reset-code-as-verification-code confusion. Dual-accept window: issued
+   rows keep verifying under v1 for their ≤10-minute TTL post-deploy;
+   everything new issues v2. Timing comparison preserved.
+
+5. **The magic-link callback is rate-bounded** (20 consumes/min/IP via the
+   shared limiter): GET-by-design endpoints can't lean on the issuance
+   rate limit. Throttled callbacks land on /login with an error flag.
+
+6. **`CRON_SECRET` is mandatory in production.** A bare `x-vercel-cron`
+   header is forgeable and stopped counting from now on; dev keeps the
+   convenience branch only. Prod w/o secret = drained denied, loudly.
+
+**Also shipped:** Redis-backed limiter, ADR-041; migration
+`0022_auth_hardening` (users.failed_login_attempts/locked_until,
+sessions.user_agent/ip/last_seen_at).
+**Residual (documented, accepted):** email-client link prefetch can still
+consume a magic link before the human clicks; the 256-bit single-use
+design means the consequence is an annoying re-request, not an account
+breach, and the fix (confirm-step page) is a UX trade left for later.
+
+## ADR-041: Rate limiting is Redis-fixed-window in production, in-memory elsewhere, with a loud degraded-mode fallback
+
+**Status:** Accepted (2026-09-25, Phase 6 / M6.1)
+**Decision:** `RedisRateLimiter` (INCR + PEXPIRE in one MULTI, fixed window)
+now backs `getRateLimiter()` whenever `REDIS_URL` is set — wired by
+`configureRateLimiterFromEnv()` at API boot and dashboard instrumentation.
+**Why not sliding-window:** MULTI-atomic fixed windows keep the Lua surface
+zero and one round-trip per check; boundary burst is acceptable on auth
+endpoints that also carry attempt counters and lockouts. **Degraded mode:**
+Redis down → per-instance memory + endpoint-native caps still engage;
+REDIS_URL absent in prod → loud boot warning (operators must hear that
+limits are approximate). This closes §11 M2's "in-memory limiter multiplies
+across Vercel instances" without schema changes.
+
+## ADR-042: Official SDKs exist as four language clients sharing one behavior contract
+
+**Status:** Accepted (2026-09-25, production-essentials beyond Phase 6)
+**Decision:** ship Node (`packages/sdk-node`), Python (`sdks/python`), Ruby
+(`sdks/ruby`) + PHP (`sdks/php`) as first-party clients with an identical
+contract (see `sdks/README.md`): idempotency header on every send (UUID
+default), exactly one jittered-backoff retry for 5xx/429/network, typed
+error taxonomy (Auth/RateLimit/Request/Calder base), 10s default timeout,
+zero third-party dependencies per client.
+**Why not generator-driven (OpenAPI→client):** the surface is deliberately
+narrow (send/get/list) and hand-rolled contracts read better for the
+launch-era audience; generation can be revisited when endpoint count grows.
+**Status honesty:** Node + Python have in-repo test suites (13 + 14 green);
+Ruby + PHP were authored without runtimes in the sandbox and are marked
+beta/source-available until CI gains those toolchains. Publication
+(npm/PyPI/gem/Packagist) is owner-manual per the publish steps in
+`sdks/README.md`; the dashboard SDK hub only ever shows what exists.

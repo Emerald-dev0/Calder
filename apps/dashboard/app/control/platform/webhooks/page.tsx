@@ -23,8 +23,16 @@ export default async function PlatformWebhooksPage() {
       <div className="cp-stats">
         <Stat label="Endpoints" value={fmtInt(stats.endpoints)} hint="customer-registered" />
         <Stat label="Delivery attempts" value={fmtInt(stats.deliveries)} hint="all time" />
-        <Stat label="Delivered" value={fmtInt(stats.delivered)} hint={successRate === null ? undefined : fmtPct(successRate)} />
-        <Stat label="Exhausted" value={fmtInt(stats.exhausted)} hint="retries ran out — needs attention" />
+        <Stat
+          label="Delivered"
+          value={fmtInt(stats.delivered)}
+          hint={successRate === null ? undefined : fmtPct(successRate)}
+        />
+        <Stat
+          label="Exhausted"
+          value={fmtInt(stats.exhausted)}
+          hint="retries ran out — needs attention"
+        />
       </div>
 
       <Panel title="Delivery states" caption="lifecycle of every webhook attempt">
@@ -39,9 +47,9 @@ export default async function PlatformWebhooksPage() {
       </Panel>
 
       <p className="cp-caption">
-        Event catalog and signing details: <span className="mono">docs/API.md</span>. Customer-facing webhook config
-        lives in their dashboard; this is the platform-side health view.{" "}
-        <Link href="/control/observability">Related events in logs →</Link>
+        Event catalog and signing details: <span className="mono">docs/API.md</span>.
+        Customer-facing webhook config lives in their dashboard; this is the platform-side health
+        view. <Link href="/control/observability">Related events in logs →</Link>
       </p>
     </>
   );

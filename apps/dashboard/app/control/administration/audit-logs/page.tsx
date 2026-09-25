@@ -45,8 +45,8 @@ export default async function AuditLogsPage({
 
         {data.rows.length === 0 ? (
           <Empty title="Nothing recorded yet">
-            Operator actions appear here automatically — inviting teammates, changing plans, granting roles,
-            managing the waitlist.
+            Operator actions appear here automatically — inviting teammates, changing plans,
+            granting roles, managing the waitlist.
           </Empty>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -73,7 +73,12 @@ export default async function AuditLogsPage({
                     </td>
                     <td
                       className="mono wrap"
-                      style={{ fontSize: 11.5, color: "var(--cp-faint)", whiteSpace: "normal", maxWidth: 320 }}
+                      style={{
+                        fontSize: 11.5,
+                        color: "var(--cp-faint)",
+                        whiteSpace: "normal",
+                        maxWidth: 320,
+                      }}
                     >
                       {a.metadata ? JSON.stringify(a.metadata).slice(0, 120) : "—"}
                     </td>

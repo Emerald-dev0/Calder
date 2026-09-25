@@ -49,8 +49,10 @@ export default function PricingPage() {
               Build, ship, and grow without paying before you need to. Every Calder plan includes
               the core infrastructure for sending, tracking, and understanding application
               communication.
-              <br /><br />
-              <strong>5,000 emails every month at ₦0.</strong> No credit card. No trial clock. No surprise overages.
+              <br />
+              <br />
+              <strong>5,000 emails every month at ₦0.</strong> No credit card. No trial clock. No
+              surprise overages.
             </>
           }
         />

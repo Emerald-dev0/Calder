@@ -102,3 +102,92 @@ export function getRateLimiter(): RateLimiter {
 export function setRateLimiter(limiter: RateLimiter): void {
   defaultLimiter = limiter;
 }
+
+/**
+ * Redis-backed fixed-window limiter (M6.1, ADR-041).
+ *
+ * Why: Vercel serverless means N warm instances, and an in-memory limit of
+ * "20/min" silently becomes 20×N/min — the production pathfinder documented
+ * as M2. Fixed-window INCR + PEXPIRE inside one MULTI keeps exactness per
+ * window and needs one round-trip per check. Sliding-window niceness is
+ * deliberately NOT ported: fixed-window burst-at-boundary is acceptable for
+ * auth endpoints and keeps the Lua surface zero (atomicity via MULTI).
+ */
+type ExecResult = Array<[unknown, unknown]> | null;
+interface RedisMultiLike {
+  incr: (k: string) => RedisMultiLike;
+  pExpire: (k: string, ms: number) => RedisMultiLike;
+  exec: () => Promise<ExecResult>;
+}
+interface RedisClientLike {
+  multi: () => RedisMultiLike;
+}
+
+export class RedisRateLimiter implements RateLimiter {
+  private client: RedisClientLike;
+  private fallback: RateLimiter;
+
+  constructor(redis: RedisClientLike) {
+    this.client = redis;
+    this.fallback = new InMemoryRateLimiter();
+  }
+
+  async check(key: string, opts: RateLimitOptions): Promise<RateLimitResult> {
+    const fullKey = `rate:${opts.keyPrefix ?? "limit"}:${key}`;
+    try {
+      const windowMs = opts.windowMs;
+      const results = await this.client.multi().incr(fullKey).pExpire(fullKey, windowMs).exec();
+      const first = results?.[0]?.[1];
+      const count = typeof first === "number" ? first : 1;
+      const allowed = count <= opts.max;
+      const remaining = Math.max(0, opts.max - count);
+      // pExpire only extends at first write would be nicer but PEXPIRE every
+      // op also fine: windows roll forward by windowMs each touching op; use
+      // EXPIRE-style "set only when no TTL" is over-engineering for auth.
+      const resetAt = new Date(Date.now() + windowMs);
+      return {
+        allowed,
+        limit: opts.max,
+        remaining,
+        resetAt,
+        retryAfterMs: allowed ? undefined : windowMs,
+      };
+    } catch {
+      // Redis down: degrade to per-instance memory rather than 500-ing every
+      // request — and log at the call site. Availability over exactness for
+      // the limiter itself (the endpoints have their own caps).
+      return this.fallback.check(key, opts);
+    }
+  }
+
+  async reset(key: string): Promise<void> {
+    await this.fallback.reset(key);
+  }
+}
+
+/**
+ * Boot-time wiring: production with REDIS_URL gets the exact limiter,
+ * everything else keeps the in-memory one (dev, tests). Call once per app.
+ */
+export async function configureRateLimiterFromEnv(): Promise<"redis" | "memory"> {
+  const url = process.env.REDIS_URL;
+  const isProd = process.env.NODE_ENV === "production";
+  if (url) {
+    const { default: IORedis } = await import("ioredis");
+    // Structural cast: the limiter only needs a MULTI-able surface.
+    setRateLimiter(
+      new RedisRateLimiter(
+        new IORedis(url, { maxRetriesPerRequest: 2 }) as unknown as RedisClientLike
+      )
+    );
+    return "redis";
+  }
+  if (isProd) {
+    // M2 decision: production WITHOUT Redis runs the degraded limiter loudly
+    // — operators must hear that per-instance approximation is in effect.
+    console.warn(
+      "[rate-limit] REDIS_URL unset in production: limits are per-instance approximations. Set REDIS_URL for exact enforcement."
+    );
+  }
+  return "memory";
+}

@@ -8,67 +8,67 @@ import Lenis from "lenis";
  * prefers-reduced-motion. Anchor links route through lenis.scrollTo.
  */
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
- const lenisRef = React.useRef<Lenis | null>(null);
+  const lenisRef = React.useRef<Lenis | null>(null);
 
- React.useEffect(() => {
- if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  React.useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
- const lenis = new Lenis({ lerp: 0.1, smoothWheel: true });
- lenisRef.current = lenis;
+    const lenis = new Lenis({ lerp: 0.1, smoothWheel: true });
+    lenisRef.current = lenis;
 
- let raf = 0;
- const loop = (time: number) => {
- lenis.raf(time);
- raf = requestAnimationFrame(loop);
- };
- raf = requestAnimationFrame(loop);
+    let raf = 0;
+    const loop = (time: number) => {
+      lenis.raf(time);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
 
- const onClick = (e: MouseEvent) => {
- const anchor = (e.target as HTMLElement).closest?.("a[href]");
- if (!anchor) return;
- let url: URL;
- try {
- url = new URL(anchor.getAttribute("href") ?? "", window.location.href);
- } catch {
- return;
- }
- // Same-page section links ("/#pipeline" from anywhere) scroll smoothly.
- if (url.origin !== window.location.origin || url.pathname !== "/" || !url.hash) return;
- const el = document.querySelector(url.hash);
- if (window.location.pathname !== "/") return; // let cross-page navigation happen natively
- if (!el) return;
- e.preventDefault();
- lenis.scrollTo(el as HTMLElement, { offset: -70, duration: 1.4 });
- };
- document.addEventListener("click", onClick);
+    const onClick = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement).closest?.("a[href]");
+      if (!anchor) return;
+      let url: URL;
+      try {
+        url = new URL(anchor.getAttribute("href") ?? "", window.location.href);
+      } catch {
+        return;
+      }
+      // Same-page section links ("/#pipeline" from anywhere) scroll smoothly.
+      if (url.origin !== window.location.origin || url.pathname !== "/" || !url.hash) return;
+      const el = document.querySelector(url.hash);
+      if (window.location.pathname !== "/") return; // let cross-page navigation happen natively
+      if (!el) return;
+      e.preventDefault();
+      lenis.scrollTo(el as HTMLElement, { offset: -70, duration: 1.4 });
+    };
+    document.addEventListener("click", onClick);
 
- // Lightweight parallax: [data-parallax="0.12"] shifts with scroll.
- let ticking = false;
- const onScroll = () => {
- if (ticking) return;
- ticking = true;
- requestAnimationFrame(() => {
- ticking = false;
- const vh = window.innerHeight;
- document.querySelectorAll<HTMLElement>("[data-parallax]").forEach((el) => {
- const r = el.getBoundingClientRect();
- const progress = (r.top + r.height / 2 - vh / 2) / vh;
- const speed = Number.parseFloat(el.dataset.parallax ?? "0.1");
- el.style.transform = `translateY(${(-progress * speed * 200).toFixed(1)}px)`;
- });
- });
- };
- lenis.on("scroll", onScroll);
- onScroll();
+    // Lightweight parallax: [data-parallax="0.12"] shifts with scroll.
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        const vh = window.innerHeight;
+        document.querySelectorAll<HTMLElement>("[data-parallax]").forEach((el) => {
+          const r = el.getBoundingClientRect();
+          const progress = (r.top + r.height / 2 - vh / 2) / vh;
+          const speed = Number.parseFloat(el.dataset.parallax ?? "0.1");
+          el.style.transform = `translateY(${(-progress * speed * 200).toFixed(1)}px)`;
+        });
+      });
+    };
+    lenis.on("scroll", onScroll);
+    onScroll();
 
- return () => {
- document.removeEventListener("click", onClick);
- lenis.off("scroll", onScroll);
- cancelAnimationFrame(raf);
- lenis.destroy();
- lenisRef.current = null;
- };
- }, []);
+    return () => {
+      document.removeEventListener("click", onClick);
+      lenis.off("scroll", onScroll);
+      cancelAnimationFrame(raf);
+      lenis.destroy();
+      lenisRef.current = null;
+    };
+  }, []);
 
- return <>{children}</>;
+  return <>{children}</>;
 }

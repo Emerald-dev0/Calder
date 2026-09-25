@@ -16,9 +16,10 @@ export default async function NoAccessPage() {
       />
       <Panel title="Your role" caption="platform permissions are section-scoped">
         <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: "0 0 12px" }}>
-          You are signed in as <b style={{ color: "var(--cp-text)" }}>{CONTROL_ROLE_LABEL[ctx.role]}</b>. If you
-          believe you need this section, ask the founder — grants happen in Administration → Administrators and are
-          audit-logged.
+          You are signed in as{" "}
+          <b style={{ color: "var(--cp-text)" }}>{CONTROL_ROLE_LABEL[ctx.role]}</b>. If you believe
+          you need this section, ask the founder — grants happen in Administration → Administrators
+          and are audit-logged.
         </p>
         <Link className="cp-btn primary" href="/control">
           Back to Command Center

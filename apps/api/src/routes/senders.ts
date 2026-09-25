@@ -269,6 +269,10 @@ senders.post("/:id/test", authMiddleware, async (c) => {
     subject: `Test send from ${sender.displayName}`,
     text: `This is a test send from ${sender.displayName} <${sender.email}> via Calder.`,
     status: "queued",
+    // Inherit the credential's environment, like /v1/emails and
+    // /v1/emails/batch do. Without this the row defaulted to "live", so a
+    // test-mode key ran a real SES send and metered it as live usage.
+    env: a.env,
   });
   await db.insert(emailEvents).values({
     id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,

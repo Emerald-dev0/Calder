@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { auditLogs, users, type PlatformRole } from "@calder/db";
 import { getDb } from "@calder/db";
 import { requireControl } from "@/lib/control/guard";
-import { CONTROL_ROLE_LABEL } from "@/lib/control/roles";
+import { CONTROL_ROLE_LABEL, isFounderRole } from "@/lib/control/roles";
 
 const ASSIGNABLE: PlatformRole[] = [
   "platform_admin",
@@ -17,10 +17,6 @@ const ASSIGNABLE: PlatformRole[] = [
   "analyst",
 ];
 
-function isFounderRole(role: PlatformRole | null): boolean {
-  return role === "founder";
-}
-
 /**
  * Grant or revoke a platform role. FOUNDER-ONLY, by design and by code:
  * nobody promotes themselves, and founder accounts cannot be touched
@@ -29,11 +25,19 @@ function isFounderRole(role: PlatformRole | null): boolean {
  */
 export async function setPlatformRole(
   userId: string,
-  role: PlatformRole | null
+  role: PlatformRole | null,
+  reason: string
 ): Promise<{ ok: boolean; error?: string }> {
   const ctx = await requireControl();
   if (!isFounderRole(ctx.role)) {
     return { ok: false, error: "Founder only." };
+  }
+  const trimmed = reason.trim();
+  if (trimmed.length < 6) {
+    return {
+      ok: false,
+      error: "A reason (≥ 6 characters) is required — it lands in the audit log.",
+    };
   }
   if (userId === ctx.user.userId) {
     return { ok: false, error: "You cannot change your own role." };
@@ -64,6 +68,7 @@ export async function setPlatformRole(
         from: target.platformRole ?? null,
         to: role,
         roleLabel: role ? CONTROL_ROLE_LABEL[role] : null,
+        reason: trimmed,
       },
     });
   } catch {

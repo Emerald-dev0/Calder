@@ -263,6 +263,8 @@ export async function testSend(
     subject: `Test send from ${sender.displayName}`,
     text: `This is a test send from ${sender.displayName} <${sender.email}> via Calder. If you're reading this, the sender works end to end.`,
     status: "queued",
+    // Explicit: a human pressed "send test" in the dashboard.
+    env: "live",
   });
   await db.insert(emailEvents).values({
     id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,

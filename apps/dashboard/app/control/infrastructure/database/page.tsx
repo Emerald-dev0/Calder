@@ -12,7 +12,11 @@ export default async function DatabasePage() {
   if (!db.reachable) {
     return (
       <>
-        <PageHeader eyebrow="Infrastructure" title="Database" subtitle="Postgres is the single source of truth." />
+        <PageHeader
+          eyebrow="Infrastructure"
+          title="Database"
+          subtitle="Postgres is the single source of truth."
+        />
         <Panel title="Unreachable" caption="the probe failed — this is a live incident">
           <Badge tone="bad">No response from Postgres</Badge>
         </Panel>
@@ -20,7 +24,10 @@ export default async function DatabasePage() {
     );
   }
 
-  const connPct = db.connections !== null && db.maxConnections ? (db.connections / db.maxConnections) * 100 : null;
+  const connPct =
+    db.connections !== null && db.maxConnections
+      ? (db.connections / db.maxConnections) * 100
+      : null;
 
   return (
     <>
@@ -32,10 +39,18 @@ export default async function DatabasePage() {
 
       <div className="cp-stats">
         <Stat label="Status" value="Operational" hint={db.version} />
-        <Stat label="Query latency" value={db.latencyMs !== null ? `${db.latencyMs}ms` : "—"} hint="probe round-trip" />
+        <Stat
+          label="Query latency"
+          value={db.latencyMs !== null ? `${db.latencyMs}ms` : "—"}
+          hint="probe round-trip"
+        />
         <Stat
           label="Connections"
-          value={db.connections !== null && db.maxConnections ? `${db.connections} / ${db.maxConnections}` : "—"}
+          value={
+            db.connections !== null && db.maxConnections
+              ? `${db.connections} / ${db.maxConnections}`
+              : "—"
+          }
           hint={connPct !== null ? `${connPct.toFixed(0)}% of max` : undefined}
         />
         <Stat
@@ -48,11 +63,23 @@ export default async function DatabasePage() {
       <div className="cp-grid cp-grid-2">
         <Panel title="Server" caption="live catalog probes">
           <KV k="Version" v={db.version} mono />
-          <KV k="Database size" v={db.sizeBytes !== null ? `${(db.sizeBytes / 1024 / 1024).toFixed(1)} MB` : "—"} mono />
-          <KV k="Uptime since" v={db.uptimeSince ? db.uptimeSince.toISOString().slice(0, 16).replace("T", " ") : "—"} mono />
+          <KV
+            k="Database size"
+            v={db.sizeBytes !== null ? `${(db.sizeBytes / 1024 / 1024).toFixed(1)} MB` : "—"}
+            mono
+          />
+          <KV
+            k="Uptime since"
+            v={db.uptimeSince ? db.uptimeSince.toISOString().slice(0, 16).replace("T", " ") : "—"}
+            mono
+          />
           <KV
             k="Connections"
-            v={db.connections !== null && db.maxConnections ? `${db.connections} / ${db.maxConnections}` : "—"}
+            v={
+              db.connections !== null && db.maxConnections
+                ? `${db.connections} / ${db.maxConnections}`
+                : "—"
+            }
             mono
           />
         </Panel>
@@ -83,8 +110,8 @@ export default async function DatabasePage() {
       </div>
 
       <p className="cp-caption">
-        Backups, replication, and slow-query capture are managed-Postgres concerns and land with the production
-        provider choice. This page probes the live system, never a cached snapshot.
+        Backups, replication, and slow-query capture are managed-Postgres concerns and land with the
+        production provider choice. This page probes the live system, never a cached snapshot.
       </p>
     </>
   );
