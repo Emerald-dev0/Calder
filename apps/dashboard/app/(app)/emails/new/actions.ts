@@ -158,6 +158,8 @@ export async function sendComposerEmail(
     scheduledFor,
     attachments: attachments.length > 0 ? attachments : null,
     status: "queued",
+    // Explicit: the composer is a human sending real mail from the dashboard.
+    env: "live",
   });
   await db.insert(emailEvents).values({
     id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,

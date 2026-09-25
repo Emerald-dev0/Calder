@@ -33,6 +33,7 @@ gate("developer journey: credentials a platform actually holds", async () => {
     await import("@calder/db");
   const { eq } = await import("drizzle-orm");
   const { createApp } = await import("../app.js");
+  const { drainPendingEmails } = await import("../lib/drain.js");
   const { registerDevKey } = await import("../middleware/auth.js");
 
   const suffix = randomBytes(4).toString("hex");
@@ -53,6 +54,18 @@ gate("developer journey: credentials a platform actually holds", async () => {
         ...(init.headers ?? {}),
       },
     });
+
+  /** Wait until no drain holds the row, so its resting state is observable. */
+  async function waitUnclaimed(emailId: string, timeoutMs = 20_000) {
+    const db = getDb();
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const [row] = await db.select().from(emails).where(eq(emails.id, emailId)).limit(1);
+      if (row && row.status !== "sending") return row;
+      if (Date.now() > deadline) return row;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+  }
 
   const send = (key: string, to: string) =>
     call(key, "/v1/emails", {
@@ -172,6 +185,66 @@ gate("developer journey: credentials a platform actually holds", async () => {
     expect(deadBody.error.message).toMatch(/revoked/i);
 
     expect((await send(nextKey, `still-alive-${suffix}@test.test`)).status).toBe(202);
+  });
+
+  it("a test key's sender test-send stays simulated; the same call on a live key is real", async () => {
+    const db = getDb();
+    const { senderIdentities, usageRecords } = await import("@calder/db");
+    const { count } = await import("drizzle-orm");
+    const senderId = `snd_jrn_${suffix}`;
+    await db.insert(senderIdentities).values({
+      id: senderId,
+      projectId: projId,
+      email: from,
+      displayName: "Journey Sender",
+      type: "managed",
+      status: "verified",
+    });
+
+    // Fresh key: the rotation test above revoked the first one.
+    const minted = await call(bootstrapKey, "/v1/keys", {
+      method: "POST",
+      body: JSON.stringify({ name: "isolation probe", env: "test", scope: "full" }),
+    });
+    const probeKey = ((await minted.json()) as { data: { secret: string } }).data.secret;
+
+    const testRes = await call(probeKey, `/v1/senders/${senderId}/test`, {
+      method: "POST",
+      body: JSON.stringify({ to: `probe-${suffix}@example.test` }),
+    });
+    expect(testRes.status).toBe(202);
+    const testId = ((await testRes.json()) as { data: { id: string } }).data.id;
+
+    // Test-mode traffic must not reach a real provider: drain it and check.
+    await drainPendingEmails(getDb(), { batch: 20 }).catch(() => {});
+    const testRow = await waitUnclaimed(testId);
+    expect(testRow?.env).toBe("test");
+
+    const ledger = await db
+      .select({ value: count() })
+      .from(usageRecords)
+      .where(eq(usageRecords.id, `ur_${testId}`));
+    expect(Number(ledger[0]?.value ?? 0)).toBe(0);
+
+    // Same endpoint under a live key: the row is live, so the drain would
+    // hand it to a real provider (metering is asserted in the live-path
+    // suite, which drives an actual provider).
+    const liveKey = `calder_sk_live_jrn_${suffix}`;
+    registerDevKey(liveKey, {
+      apiKeyId: `key_jrn_live_${suffix}`,
+      projectId: projId,
+      organizationId: orgId,
+      env: "live",
+    });
+    const liveRes = await call(liveKey, `/v1/senders/${senderId}/test`, {
+      method: "POST",
+      body: JSON.stringify({ to: `probe-live-${suffix}@example.test` }),
+    });
+    expect(liveRes.status).toBe(202);
+    const liveId = ((await liveRes.json()) as { data: { id: string } }).data.id;
+    await drainPendingEmails(getDb(), { batch: 20 }).catch(() => {});
+    const liveRow = await waitUnclaimed(liveId);
+    expect(liveRow?.env).toBe("live");
   });
 
   it("refuses an unissued key and a malformed bearer header", async () => {
