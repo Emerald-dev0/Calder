@@ -4,7 +4,24 @@ Conventions only, endpoint-level detail lives in generated docs/SDK types, which
 
 ## Versioning
 
-`/v1/emails`, `/v1/domains`, `/v1/templates`, `/v1/events`, `/v1/webhooks`, `/v1/otp`, `/v1/suppressions`, `/v1/projects`, `/v1/api-keys`.
+Everything integrator-facing lives under `/v1`:
+
+| Resource | Routes |
+|---|---|
+| Send | `POST /v1/emails`, `POST /v1/emails/batch`, `GET /v1/emails`, `GET /v1/emails/:id` |
+| Senders | `GET|POST /v1/senders`, `GET|PATCH|DELETE /v1/senders/:id`, `POST /v1/senders/:id/default`, `POST /v1/senders/:id/test` |
+| Domains | `GET|POST /v1/domains`, `POST /v1/domains/:id/verify`, `POST /v1/domains/:id/token`, `POST /v1/domains/:id/ses/link`, `POST /v1/domains/:id/ses/refresh`, `DELETE /v1/domains/:id` |
+| Templates | `GET|POST /v1/templates`, `GET|DELETE /v1/templates/:id`, `GET|POST /v1/templates/:id/versions` |
+| Suppressions | `GET|POST /v1/suppressions`, `DELETE /v1/suppressions/:id` |
+| Webhooks | `GET|POST /v1/webhooks`, `DELETE /v1/webhooks/:id`, `POST /v1/webhooks/:id/rotate`, `GET /v1/webhooks/:id/deliveries`, `POST /v1/webhooks/:id/deliveries/:deliveryId/replay` |
+| Keys | `GET|POST /v1/keys`, `POST /v1/keys/:id/revoke` |
+| Projects | `GET /v1/projects` |
+| Unsubscribe | `GET|POST /v1/unsubscribe` (token in the signed link; no API key) |
+
+`/v1/openapi.json` is the machine-readable source of truth for shapes and
+status codes; this page covers the conventions it cannot express. Internal
+operator routes (`/v1/admin`, `/v1/cron`, `/v1/ses`, `/v1/beacon`,
+`/v1/waitlist`, `/health`, `/ready`) are not part of the integration surface.
 
 ## Authentication
 

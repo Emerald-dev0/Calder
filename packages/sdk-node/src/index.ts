@@ -271,18 +271,28 @@ export class EmailsResource {
 
   /** Retrieve one email with its delivery state. */
   async get(id: string): Promise<CalderEmail> {
-    return this.client.request<CalderEmail>("GET", `/v1/emails/${encodeURIComponent(id)}`);
+    // The API wraps reads in { data } — unwrap here so callers get the email
+    // itself, matching the declared return type.
+    const res = await this.client.request<{ data: CalderEmail }>(
+      "GET",
+      `/v1/emails/${encodeURIComponent(id)}`
+    );
+    return res.data;
   }
 
   /** List recent emails for the key's project. */
   async list(options: ListEmailsOptions = {}): Promise<ListEmailsResult> {
-    return this.client.request<ListEmailsResult>("GET", "/v1/emails", {
+    const res = await this.client.request<{
+      data: CalderEmail[];
+      pagination?: { next_cursor?: string | null };
+    }>("GET", "/v1/emails", {
       query: {
         limit: options.limit !== undefined ? String(options.limit) : undefined,
         cursor: options.cursor,
         status: options.status,
       },
     });
+    return { data: res.data ?? [], nextCursor: res.pagination?.next_cursor ?? null };
   }
 }
 

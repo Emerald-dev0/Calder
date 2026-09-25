@@ -143,24 +143,39 @@ describe("retries", () => {
 });
 
 describe("reads", () => {
-  it("get fetches the encoded id", async () => {
+  // The API answers reads with its real envelopes: { data } for a single
+  // email, { data, pagination.next_cursor } for a page. Mocking anything
+  // flatter would hide exactly the drift these tests exist to catch.
+  it("get unwraps { data } and fetches the encoded id", async () => {
     const { sdk, fetchImpl } = clientWithMock(() =>
-      jsonResponse(200, { id: "em_42", status: "delivered" })
+      jsonResponse(200, { data: { id: "em_42", status: "delivered" } })
     );
     const got = await sdk.emails.get("em_42");
     expect(got.status).toBe("delivered");
+    expect(got.id).toBe("em_42");
     expect(fetchImpl.mock.calls[0]?.[0]).toBe("https://api.calder.click/v1/emails/em_42");
   });
 
-  it("list passes limit/cursor/status as query params", async () => {
+  it("list passes limit/cursor/status as query params and maps pagination", async () => {
     const { sdk, fetchImpl } = clientWithMock(() =>
-      jsonResponse(200, { data: [], nextCursor: null })
+      jsonResponse(200, {
+        data: [{ id: "em_1", status: "sent" }],
+        pagination: { limit: 25, next_cursor: "next_abc" },
+      })
     );
-    await sdk.emails.list({ limit: 25, cursor: "abc", status: "delivered" });
+    const page = await sdk.emails.list({ limit: 25, cursor: "abc", status: "delivered" });
     const url = String(fetchImpl.mock.calls[0]?.[0]);
     expect(url).toContain("limit=25");
     expect(url).toContain("cursor=abc");
     expect(url).toContain("status=delivered");
+    expect(page.data).toHaveLength(1);
+    expect(page.nextCursor).toBe("next_abc");
+  });
+
+  it("list tolerates an absent pagination block", async () => {
+    const { sdk } = clientWithMock(() => jsonResponse(200, { data: [] }));
+    const page = await sdk.emails.list();
+    expect(page).toEqual({ data: [], nextCursor: null });
   });
 });
 
