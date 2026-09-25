@@ -140,6 +140,22 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
     }
   }
 
+  /**
+   * The send route auto-kicks a drain, so a row can be claimed ("sending") by
+   * another drain at the moment we look. Wait until no drain holds it before
+   * asserting on its resting state.
+   */
+  async function waitUnclaimed(emailId: string, timeoutMs = 20_000) {
+    const db = getDb();
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const [row] = await db.select().from(emails).where(eq(emails.id, emailId)).limit(1);
+      if (row && row.status !== "sending") return row;
+      if (Date.now() > deadline) return row;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+  }
+
   async function waitSettled(emailId: string, timeoutMs = 20_000) {
     const db = getDb();
     const deadline = Date.now() + timeoutMs;
@@ -339,10 +355,9 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
 
     await drainPendingEmails(getDb(), { batch: 20 }).catch(() => {});
 
-    const db = getDb();
-    const [requeued] = await db.select().from(emails).where(eq(emails.id, id)).limit(1);
     // Throttling must NOT burn the message: it goes back to the queue with the
     // provider's reason attached, attempts recorded.
+    const requeued = await waitUnclaimed(id);
     expect(requeued?.status).toBe("queued");
     expect(requeued?.attemptCount).toBeGreaterThanOrEqual(1);
     expect(String(requeued?.lastError ?? "")).toMatch(/rate|throttl/i);
