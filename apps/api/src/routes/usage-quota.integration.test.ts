@@ -334,14 +334,31 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
 
   it("aggregation is idempotent: re-running converges to the same summary", async () => {
     const db = getDb();
+    // Read OUR org's rollup across the two runs. The aggregate is global (it
+    // folds every org with ledger entries), and turbo runs packages against
+    // one database concurrently, so the global {orgs, rows} counters move with
+    // whatever else is running — they are not a convergence signal.
+    const orgBQuantity = async () => {
+      const [s] = await getDb()
+        .select({ quantity: usageSummaries.quantity })
+        .from(usageSummaries)
+        .where(and(eq(usageSummaries.organizationId, orgB)))
+        .limit(1);
+      return s?.quantity ?? null;
+    };
+
     const n1 = await aggregateUsageNow(db);
-    const db2 = getDb();
-    const n2 = await aggregateUsageNow(db2);
+    const q1 = await orgBQuantity();
+    const n2 = await aggregateUsageNow(getDb());
+    const q2 = await orgBQuantity();
+
     // Contract consumed by POST /cron/aggregate-usage: { orgs, rows }.
     expect(n1.rows).toBeGreaterThanOrEqual(1);
     expect(n1.orgs).toBeGreaterThanOrEqual(1);
-    // Convergence: a re-run folds the same orgs into the same rollups.
-    expect(n2).toEqual(n1);
+    // Convergence: re-running folds the same ledger into the same rollup, and
+    // never loses an org that was already folded.
+    expect(q2).toBe(q1);
+    expect(n2.rows).toBeGreaterThanOrEqual(n1.rows);
 
     const rows1 = await db
       .select()
