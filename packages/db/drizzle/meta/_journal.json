@@ -141,6 +141,13 @@
       "when": 1789491100000,
       "tag": "0019_email_streams",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1789491200000,
+      "tag": "0020_usage_streams",
+      "breakpoints": true
     }
   ]
 }

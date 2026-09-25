@@ -5,7 +5,11 @@ import { createEmailService, type EmailService } from "@calder/email";
 import { GmailTransport, resolveEmailProvider } from "@calder/providers";
 import { getGmailRefreshToken } from "@calder/auth";
 import { logger, type Logger } from "@calder/observability";
-import { randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
+
+const WEBHOOK_SECRET_CONTEXT = "webhook_signing";
+type WebhookJob = { projectId: string; emailId: string; event: string; data: Record<string, unknown> };
+
 
 interface TransportCandidate {
   service: EmailService;
@@ -460,6 +464,41 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
   }
 }
 
+async function deliverWebhookJob(job: QueueJob<WebhookJob>): Promise<void> {
+  const { getDb, webhooks, webhookDeliveries } = await import("@calder/db");
+  const { and, eq, sql } = await import("drizzle-orm");
+  const { decryptSecret } = await import("@calder/auth");
+  const db = getDb();
+  const endpoints = await db.select().from(webhooks).where(eq(webhooks.projectId, job.data.projectId));
+  const event = job.data.event as never;
+  let failed = false;
+  for (const endpoint of endpoints) {
+    if (!endpoint.enabled || !endpoint.events.includes(job.data.event)) continue;
+    const deliveryId = `whd_${createHash("sha256").update(`${endpoint.id}:${job.data.emailId}:${job.data.event}`).digest("hex").slice(0, 32)}`;
+    await db.insert(webhookDeliveries).values({ id: deliveryId, webhookId: endpoint.id, projectId: job.data.projectId, event, payload: job.data.data, status: "pending", attemptCount: job.attempts }).onConflictDoNothing();
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const body = JSON.stringify(job.data.data);
+    let secret: string;
+    try { secret = decryptSecret(endpoint.secret, WEBHOOK_SECRET_CONTEXT); } catch (error) {
+      failed = true;
+      await db.update(webhookDeliveries).set({ status: "failed", lastError: "Webhook secret could not be decrypted", attemptCount: job.attempts }).where(eq(webhookDeliveries.id, deliveryId));
+      continue;
+    }
+    const signature = createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    try {
+      const response = await fetch(endpoint.url, { method: "POST", headers: { "content-type": "application/json", "user-agent": "Calder-Webhooks/1.0", "x-calder-event": job.data.event, "x-calder-delivery": deliveryId, "x-calder-timestamp": timestamp, "x-calder-signature-256": `v1=${signature}` }, body, signal: controller.signal });
+      if (!response.ok) throw new Error(`Webhook returned HTTP ${response.status}`);
+      await db.update(webhookDeliveries).set({ status: "delivered", deliveredAt: new Date(), attemptCount: job.attempts, lastError: null }).where(eq(webhookDeliveries.id, deliveryId));
+    } catch (error) {
+      failed = true;
+      await db.update(webhookDeliveries).set({ status: job.attempts + 1 >= job.maxAttempts ? "exhausted" : "failed", attemptCount: job.attempts, lastError: error instanceof Error ? error.message : String(error), nextAttemptAt: new Date(Date.now() + Math.min(30 * 60_000, 1000 * 2 ** job.attempts)) }).where(eq(webhookDeliveries.id, deliveryId));
+    } finally { clearTimeout(timeout); }
+  }
+  if (failed) throw new Error(`Webhook delivery failed for ${job.data.event}`);
+}
+
 export async function startWorker() {
   // Shared queue, InMemory for scaffold; RedisQueue in production
   const queue = createQueue<EmailJobData>("email:send", { maxAttempts: 5 });
@@ -468,7 +507,9 @@ export async function startWorker() {
     await processEmailJob(job);
   });
 
-  logger.info("Worker consumer started on queue email:send");
+  const webhookQueue = createQueue<WebhookJob>("webhook:deliver", { maxAttempts: 8 });
+  webhookQueue.process((job) => deliverWebhookJob(job));
+  logger.info("Worker consumers started on email:send and webhook:deliver");
 
   return queue;
 }

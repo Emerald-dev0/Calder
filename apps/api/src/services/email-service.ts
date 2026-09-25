@@ -45,7 +45,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
   response: { id: string; status: string; message: string };
   idempotentReplay: boolean;
 }> {
-  const { projectId, idempotencyKey, input, requestId, env } = params;
+  const { projectId, organizationId, idempotencyKey, input, requestId, env } = params;
 
   // ── Idempotency check ──────────────────────────────────────
   if (idempotencyKey) {
@@ -368,6 +368,18 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
     // Dev scaffold without a database: keep the in-memory fallback alive.
     logger.warn({ err, projectId, emailId }, "DB persist failed, using in-memory fallback");
     memoryEmails.set(emailId, emailRecord);
+  }
+
+  // Meter accepted sends exactly once. Replays return above before this point;
+  // test keys are measured separately and never count toward live usage.
+  if (persisted && env === "live") {
+    try {
+      const { getDb, recordUsage } = await import("@calder/db");
+      await recordUsage(getDb(), { organizationId, projectId, metric: `emails_sent_${input.stream}` });
+    } catch (usageErr) {
+      // Keep delivery durable; surface metering failure for the reconciliation job.
+      logger.error({ err: usageErr, projectId, emailId, stream: input.stream }, "Usage write failed");
+    }
   }
 
   // ── Enqueue ────────────────────────────────────────────────
