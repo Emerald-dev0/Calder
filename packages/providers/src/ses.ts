@@ -177,12 +177,20 @@ export async function createSesDomainIdentity(
 export async function getSesDomainIdentity(
   domain: string,
   client?: SESv2Client
-): Promise<{ verifiedForSending: boolean; dkimStatus: string }> {
+): Promise<{
+  verifiedForSending: boolean;
+  dkimStatus: string;
+  configurationSetName: string | null;
+}> {
   const { GetEmailIdentityCommand } = await import("@aws-sdk/client-sesv2");
   const c = client ?? new SESv2Client({ region: process.env.AWS_REGION ?? "us-east-1" });
   const out = await c.send(new GetEmailIdentityCommand({ EmailIdentity: domain }));
   return {
     verifiedForSending: out.VerifiedForSendingStatus === true,
     dkimStatus: out.DkimAttributes?.Status ?? "NOT_STARTED",
+    // The identity's default configuration set is how delivery/bounce events
+    // reach us when SES_CONFIGURATION_SET is not set on the deployment. If
+    // neither exists, mail sends and Calder never learns a bounce happened.
+    configurationSetName: out.ConfigurationSetName ?? null,
   };
 }

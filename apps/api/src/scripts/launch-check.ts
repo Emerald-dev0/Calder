@@ -87,6 +87,69 @@ async function checkProvider(): Promise<void> {
       `could not query SES (${err instanceof Error ? err.message : "unknown error"})`
     );
   }
+
+  await checkSendingIdentity();
+}
+
+/**
+ * Two silent live failures that no boot check can see, because both look fine
+ * until real mail is involved:
+ *
+ *  - an unverified sending identity: every live send is rejected by SES with
+ *    MessageRejected, and the dashboard looks healthy the whole time;
+ *  - missing delivery-truth wiring: mail delivers, but bounces and complaints
+ *    never come back, so the suppression loop that protects sending
+ *    reputation is dead.
+ */
+async function checkSendingIdentity(): Promise<void> {
+  const config = getConfig();
+  const domain = config.SES_FROM_DOMAIN;
+  if (!domain) {
+    add("skip", "sending identity", "SES_FROM_DOMAIN unset, nothing to verify");
+    return;
+  }
+
+  const production = config.NODE_ENV === "production";
+  try {
+    const { getSesDomainIdentity } = await import("@calder/providers");
+    const snap = await getSesDomainIdentity(domain);
+    add(
+      snap.verifiedForSending && snap.dkimStatus === "SUCCESS" ? "pass" : "fail",
+      "sending identity",
+      snap.verifiedForSending
+        ? `${domain} verified for sending (DKIM ${snap.dkimStatus})`
+        : `${domain} is NOT verified for sending (DKIM ${snap.dkimStatus}). ` +
+            `Live sends to real recipients will be rejected until the DKIM records are published and verified.`
+    );
+
+    // Delivery truth needs a configuration set on the send AND a topic we are
+    // willing to confirm. Either half missing = events never arrive.
+    const configSet = process.env.SES_CONFIGURATION_SET ?? snap.configurationSetName ?? null;
+    const topicAllowlist = (process.env.SES_SNS_TOPIC_ARNS ?? "").trim();
+    if (!configSet) {
+      add(
+        production ? "fail" : "warn",
+        "delivery truth",
+        "SES_CONFIGURATION_SET is unset and the identity has no default configuration set: " +
+          "bounces and complaints will never reach /v1/ses/events, so suppressed addresses stay mailable."
+      );
+    } else if (!topicAllowlist) {
+      add(
+        production ? "fail" : "warn",
+        "delivery truth",
+        `events are published with "${configSet}", but SES_SNS_TOPIC_ARNS is unset: the events ` +
+          "endpoint refuses to confirm SNS subscriptions without an allowlist, so nothing arrives."
+      );
+    } else {
+      add("pass", "delivery truth", `configuration set "${configSet}" + SNS topic allowlist set`);
+    }
+  } catch (err) {
+    add(
+      "warn",
+      "sending identity",
+      `could not query ${domain} (${err instanceof Error ? err.message : "unknown error"})`
+    );
+  }
 }
 
 async function checkDatabase(): Promise<void> {

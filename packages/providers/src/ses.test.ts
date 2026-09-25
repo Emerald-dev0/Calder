@@ -127,3 +127,35 @@ describe("SesProvider", () => {
     expect(await byName("AccountSuspendedException")).toBe(false);
   });
 });
+
+describe("getSesDomainIdentity", () => {
+  it("reports verification, DKIM and the identity's default configuration set", async () => {
+    const { getSesDomainIdentity } = await import("./ses.js");
+    const client = {
+      send: async () => ({
+        VerifiedForSendingStatus: true,
+        DkimAttributes: { Status: "SUCCESS" },
+        ConfigurationSetName: "calder-default",
+      }),
+    } as unknown as SESv2Client;
+    const snap = await getSesDomainIdentity("acme.test", client);
+    expect(snap).toEqual({
+      verifiedForSending: true,
+      dkimStatus: "SUCCESS",
+      configurationSetName: "calder-default",
+    });
+  });
+
+  it("reports a null configuration set when the identity has none", async () => {
+    const { getSesDomainIdentity } = await import("./ses.js");
+    const client = {
+      send: async () => ({
+        VerifiedForSendingStatus: false,
+        DkimAttributes: { Status: "PENDING" },
+      }),
+    } as unknown as SESv2Client;
+    const snap = await getSesDomainIdentity("acme.test", client);
+    expect(snap.configurationSetName).toBeNull();
+    expect(snap.dkimStatus).toBe("PENDING");
+  });
+});
