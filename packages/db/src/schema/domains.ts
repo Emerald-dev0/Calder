@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, varchar, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, varchar, index, uniqueIndex, integer, jsonb } from "drizzle-orm/pg-core";
 import { domainStatusEnum, domainVerificationMethodEnum } from "./enums.js";
 import { projects } from "./projects.js";
 
@@ -14,6 +14,15 @@ export const domains = pgTable(
     verificationMethod: domainVerificationMethodEnum("verification_method").default("dns"),
     verificationToken: varchar("verification_token", { length: 255 }),
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    // M4.1 challenge bookkeeping (ADR-039).
+    verificationExpiresAt: timestamp("verification_expires_at", { withTimezone: true }),
+    verifyAttempts: integer("verify_attempts").notNull().default(0),
+    verifyWindowStart: timestamp("verify_window_start", { withTimezone: true }),
+    lastVerifyError: text("last_verify_error"),
+    // M4.2 deliverability identity: SES linkage + DKIM record set.
+    sesIdentityStatus: varchar("ses_identity_status", { length: 24 }).default("not_linked"),
+    dkimRecords: jsonb("dkim_records").$type<{ name: string; type: string; value: string }[]>(),
+    dkimStatus: varchar("dkim_status", { length: 24 }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -36,6 +45,15 @@ export const domainVerifications = pgTable(
     proof: text("proof"),
     attemptedAt: timestamp("attempted_at", { withTimezone: true }),
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    // M4.1 challenge bookkeeping (ADR-039).
+    verificationExpiresAt: timestamp("verification_expires_at", { withTimezone: true }),
+    verifyAttempts: integer("verify_attempts").notNull().default(0),
+    verifyWindowStart: timestamp("verify_window_start", { withTimezone: true }),
+    lastVerifyError: text("last_verify_error"),
+    // M4.2 deliverability identity: SES linkage + DKIM record set.
+    sesIdentityStatus: varchar("ses_identity_status", { length: 24 }).default("not_linked"),
+    dkimRecords: jsonb("dkim_records").$type<{ name: string; type: string; value: string }[]>(),
+    dkimStatus: varchar("dkim_status", { length: 24 }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("domain_verifications_domain_idx").on(t.domainId)]

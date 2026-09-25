@@ -2,6 +2,8 @@ import { getTenantContext } from "../../../lib/auth";
 import { getTeam } from "./actions";
 import { InviteForm, MemberRow, RevokeInviteButton } from "./team";
 import { NewOrgForm, NewProjectForm } from "./workspace-forms";
+import { listMySessions } from "./actions";
+import { SessionsCard } from "./sessions";
 
 export default async function SettingsPage({ searchParams }: { searchParams: { org?: string } }) {
   const ctx = await getTenantContext();
@@ -17,6 +19,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { o
     );
   }
   const team = await getTeam(orgId);
+  const mySessions = await listMySessions();
   if (!team.organization) {
     return (
       <div>
@@ -35,6 +38,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { o
       <p style={{ color: "#737373", margin: "0 0 20px", fontSize: 14 }}>
         {team.organization.name} · your role: <b>{team.callerRole}</b>
       </p>
+      <SessionsCard sessions={mySessions} />
       <div style={{ marginBottom: 16 }}>
         {ctx.memberships.map((m) => (
           <a

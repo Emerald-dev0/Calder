@@ -318,52 +318,46 @@ export interface DnsRecord {
   purpose: string;
 }
 
+export interface DnsRecord {
+  type: string;
+  host: string;
+  value: string;
+  purpose: string;
+}
+
 export async function addDomain(projectId: string, domain: string) {
   await assertProjectAccess(projectId);
   const clean = domain.toLowerCase().trim();
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(clean))
     throw new Error("Enter a valid domain (e.g. acme.com).");
-  const token = randomUUID().replace(/-/g, "").slice(0, 32);
   const db = getDb();
-  const id = rid("dom");
-  try {
-    await db.insert(domains).values({
-      id,
-      projectId,
-      domain: clean,
-      status: "pending",
-      verificationMethod: "dns",
-      verificationToken: token,
-    });
-  } catch (err: unknown) {
-    if (err instanceof Error && "code" in err && (err as { code: string }).code === "23505") {
-      throw new Error("That domain is already on this project.");
-    }
-    throw err;
-  }
-  const records: DnsRecord[] = [
-    {
-      type: "TXT",
-      host: `_calder.${clean}`,
-      value: `calder_verify_${token}`,
-      purpose: "Proves you control the domain",
-    },
-    {
-      type: "TXT",
-      host: clean,
-      value: "v=spf1 include:_spf.calder.click ~all",
-      purpose: "Authorizes Calder to send",
-    },
-    {
-      type: "TXT",
-      host: `_dmarc.${clean}`,
-      value: "v=DMARC1; p=none; rua=mailto:dmarc@calder.click",
-      purpose: "Abuse reporting policy",
-    },
-  ];
-  return { domainId: id, records };
+  const { createChallenge } = await import("@calder/db");
+  const result = await createChallenge(db, {
+    projectId,
+    domain: clean,
+    id: rid("dom"),
+  });
+  if (result.kind === "cross_tenant")
+    throw new Error("This domain is already verified by another organization.");
+  if (result.kind === "existing")
+    return { created: false as const, id: result.id, records: [] as DnsRecord[] };
+  const { expectedTxtHost, expectedTxtValue } = await import("@calder/db");
+  return {
+    created: true as const,
+    id: result.id,
+    records: [
+      {
+        type: "TXT",
+        host: expectedTxtHost(clean),
+        value: expectedTxtValue(result.token),
+        purpose:
+          "Proves you control the domain. After it verifies, link SES to get the DKIM CNAME set.",
+      },
+    ] as DnsRecord[],
+  };
 }
 
+/** M4.1 wizard check: the shared state machine with its injected TXT oracle. */
 export async function checkDomainDns(domainId: string) {
   const ctx = await getTenantContext();
   const db = getDb();
@@ -371,30 +365,96 @@ export async function checkDomainDns(domainId: string) {
   const rows = await db.select().from(domains).where(eq(domains.id, domainId)).limit(1);
   const row = rows[0];
   if (!row || !projectIds.has(row.projectId)) throw new Error("Domain not found.");
-  if (!row.verificationToken) throw new Error("No verification token on this domain.");
-  // Check current host first, then the pre-rebrand legacy host, tokens issued
-  // under either prefix verify forever.
-  let flat = "";
-  for (const host of [`_calder.${row.domain}`, `_avenor.${row.domain}`]) {
-    try {
-      const records: string[][] = await resolveTxt(host);
-      flat += records.flat().join(" ");
-    } catch {
-      // No record at this host, try the next.
-    }
+  const { attemptVerification } = await import("@calder/db");
+  const outcome = await attemptVerification(db, row.projectId, domainId);
+  switch (outcome.kind) {
+    case "verified":
+      return { verified: true as const, detail: "TXT record matched. Domain verified." };
+    case "not_found":
+      throw new Error("Domain not found.");
+    case "expired":
+      return {
+        verified: false as const,
+        detail: "Challenge expired (72h). Mint a fresh token below.",
+      };
+    case "rate_limited":
+      throw new Error(`Too many attempts — try again in ${Math.ceil(outcome.retryAfterSec / 60)}m.`);
+    case "dns_error":
+      return { verified: false as const, detail: `DNS lookup failed: ${outcome.message}` };
+    case "mismatch":
+      return {
+        verified: false as const,
+        detail:
+          outcome.found.length === 0
+            ? `No TXT records yet at ${outcome.expected.host} — propagation can take minutes to hours.`
+            : `Found TXT records at ${outcome.expected.host} but none match the challenge exactly.`,
+      };
+    default:
+      throw new Error("Unexpected verification outcome");
   }
-  if (!flat) {
-    return { verified: false, detail: "No TXT record found yet, DNS may still be propagating." };
-  }
-  if (
-    flat.includes(`calder_verify_${row.verificationToken}`) ||
-    flat.includes(`avenor_verify_${row.verificationToken}`)
-  ) {
-    await db
-      .update(domains)
-      .set({ status: "verified", verifiedAt: new Date() })
-      .where(eq(domains.id, domainId));
-    return { verified: true, detail: "Token found. Domain verified." };
-  }
-  return { verified: false, detail: "TXT record exists but the token doesn't match." };
+}
+
+/** M4.1: mint a fresh challenge (expired domains, deliberate rotation). */
+export async function regenerateDomainToken(domainId: string) {
+  const ctx = await getTenantContext();
+  const db = getDb();
+  const projectIds = new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)));
+  const [row] = await db.select().from(domains).where(eq(domains.id, domainId)).limit(1);
+  if (!row || !projectIds.has(row.projectId)) throw new Error("Domain not found.");
+  const { regenerateChallenge, expectedTxtHost, expectedTxtValue } = await import("@calder/db");
+  const r = await regenerateChallenge(db, row.projectId, domainId);
+  if (r.kind === "not_found") throw new Error("Domain not found.");
+  if (r.kind === "verified") throw new Error("Domain already verified.");
+  return {
+    host: expectedTxtHost(row.domain),
+    value: expectedTxtValue(r.token),
+    expiresAt: r.expiresAt.toISOString(),
+  };
+}
+
+/** M4.2: link the verified domain to SES; returns DKIM CNAMEs + SPF guidance. */
+export async function linkDomainToSes(domainId: string) {
+  const ctx = await getTenantContext();
+  const db = getDb();
+  const projectIds = new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)));
+  const [row] = await db.select().from(domains).where(eq(domains.id, domainId)).limit(1);
+  if (!row || !projectIds.has(row.projectId)) throw new Error("Domain not found.");
+  if (row.status !== "verified") throw new Error("Verify DNS ownership first.");
+  const { createSesDomainIdentity } = await import("@calder/providers");
+  const link = await createSesDomainIdentity(row.domain).catch((e: unknown) => {
+    throw new Error(`SES identity creation failed: ${e instanceof Error ? e.message : "unknown"}`);
+  });
+  await db
+    .update(domains)
+    .set({
+      sesIdentityStatus: "pending",
+      dkimStatus: link.dkimStatus,
+      dkimRecords: link.records,
+      updatedAt: new Date(),
+    })
+    .where(eq(domains.id, domainId));
+  return {
+    records: link.records,
+    dkimStatus: link.dkimStatus,
+    spf: { name: row.domain, type: "TXT", value: "v=spf1 include:amazonses.com ~all" },
+  };
+}
+
+/** M4.2: poll SES for DKIM propagation (wizard live polling). */
+export async function refreshDomainSesStatus(domainId: string) {
+  const ctx = await getTenantContext();
+  const db = getDb();
+  const projectIds = new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)));
+  const [row] = await db.select().from(domains).where(eq(domains.id, domainId)).limit(1);
+  if (!row || !projectIds.has(row.projectId)) throw new Error("Domain not found.");
+  const { getSesDomainIdentity } = await import("@calder/providers");
+  const snap = await getSesDomainIdentity(row.domain).catch((e: unknown) => {
+    throw new Error(`SES status poll failed: ${e instanceof Error ? e.message : "unknown"}`);
+  });
+  const identityStatus = snap.verifiedForSending ? "verified" : "pending";
+  await db
+    .update(domains)
+    .set({ sesIdentityStatus: identityStatus, dkimStatus: snap.dkimStatus, updatedAt: new Date() })
+    .where(eq(domains.id, domainId));
+  return { identityStatus, dkimStatus: snap.dkimStatus };
 }

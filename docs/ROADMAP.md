@@ -80,8 +80,8 @@ Money: ★NO USAGE WRITES → no aggregation → no enforcement → billing unre
 
 | # | Feature | Area | Frontend | Backend | DB | Integration | Tests | Status | Dependencies | Next action |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 3.1 | Password signup/login + sessions | Auth | IMPL | IMPL | IMPL | — | unit+gated-int | PROD READY | — | Logout-everywhere + revoke-on-reset (M6.1) |
-| 3.2 | Email OTP | Auth | IMPL | IMPL | IMPL | SES | unit+gated-int | PROD READY | creds | Pepper code hash (L1) |
+| 3.1 | Password signup/login + sessions | Auth | IMPL | IMPL | IMPL | — | unit+gated-int | PROD READY | — | Logout-everywhere + revoke-on-reset + session inventory ✅ (M6.1) |
+| 3.2 | Email OTP | Auth | IMPL | IMPL | IMPL | SES | unit+gated-int | PROD READY | creds | v2 HMAC pepper, purpose+email bound (L1) ✅ (M6.1) |
 | 3.3 | Magic-link | Auth | IMPL | IMPL | IMPL | SES | unit+gated-int | PARTIAL | creds | Limit callback GET; alert on masked NOT-deliverable |
 | 3.4 | OAuth Google/GitHub | Auth | IMPL-if-configured | IMPL | IMPL | consoles | gated-int | PROD READY | creds | H4 review: unverified-email link branch |
 | 3.5 | Forgot-password | Auth | PARTIAL | IMPL | IMPL | SES | none@step2 | BROKEN-UX | — | Step 2 must verify-without-consume (M0.3) |
@@ -112,7 +112,7 @@ Money: ★NO USAGE WRITES → no aggregation → no enforcement → billing unre
 | 3.30 | Billing actions (control) | Billing | SCAFFOLD-honest | MISSING | PARTIAL-no-ledger | Bachs | none | MISSING | metering | Reads real; actions post-launch |
 | 3.31 | Broadcasts (control) | Comms | REAL-CLI-honest | PARTIAL-admin | IMPL | ADMIN_API_KEY | unit | PARTIAL | UI (deferred) | Fine as-is |
 | 3.32 | Campaigns/Aud/Auto | Comms | SCAFFOLD | MISSING | MISSING | mktg infra | none | MISSING | everything | Defer |
-| 3.33 | Alerts evaluator | Control | IMPL-live | IMPL | IMPL | ingestion | none | PARTIAL | ingestion | 3/8 rules unfireable until M1.2 |
+| 3.33 | Alerts evaluator | Control | IMPL-live | IMPL | IMPL | ingestion | none | PARTIAL→live (M1.2/M1.3) | ingestion | delivery/bounce/complaint/queue-age rules test-verified firing (M1.3) |
 | 3.34 | Flags/maintenance/status | Ops | SCAFFOLD-static | MISSING | MISSING | — | none | MISSING | decision | Defer UI |
 | 3.35 | Marketing suite | Marketing | MISSING | MISSING | MISSING | — | none | MISSING | launch | Deferred; scrub implying copy |
 | 3.36 | Cron drain | Infra | — | C-duplicated | IMPL | Vercel cron/secret | none | PARTIAL | — | Lease + dedupe (M0.2) |
@@ -163,7 +163,7 @@ Money: ★NO USAGE WRITES → no aggregation → no enforcement → billing unre
 | Referrals | `growth` | REAL + scaffold | Live top-referrer/stats; zero-valued rewards panel inside `Planned` (spec, not metric) |
 | Customers users/orgs/projects | `customers` | REAL | Live totals/rows/counts; org filters match real `TIERS`; 360° org detail + **plan-grant real but NOT founder-only** (any operator — tighten or document) |
 | User/org detail | `customers` | REAL + dead stub | Live detail; lib `userDetail` has unrendered `sql\`false\``/null stub (remove) |
-| Customer health | `customers` | PARTIAL | Tables live. Invented `100−5×struggling` score (:43) + illustrative "17/9" cohorts (:121) — compute or reword |
+| Customer health | `customers` | REAL (M1.3) | Tables live. Score replaced with real terminal-rate delivery health + bounce/complaint hints; invented cohort numerals removed |
 | Support | `customers` | SCAFFOLD | Zero queries; `Planned` bullets only |
 | Broadcasts | `communications` | REAL-honest | Live audiences + ADMIN_KEY check; send via CLI curl (no fake UI mutation) |
 | Audiences | `communications` | PARTIAL | Live except per-plan `count:0` hardcoded (`queries.ts:1397`), one `void`ed query, mislabeled "inactive"/"users who sent" |
@@ -244,7 +244,7 @@ Primary-button literal ×6+ (`keys/manager:6`, `webhooks/manager:7`, `wizard:58`
 |---|---|---|
 | Analytics preview `99.42%/48,291/2.1%` | `(app)/analytics/page.tsx:16-29` | REPLACE (honest upsell) |
 | Overview `Sending/Webhooks/API ok:true` | `(app)/page.tsx:43-47` | REPLACE (probe or remove) |
-| Health `100−5n` + "17/9" cohorts | `control/customers/health:43,121` | REPLACE (compute or reword) |
+| ~~Health `100−5n` + "17/9" cohorts~~ | `control/customers/health` | DONE (M1.3 — real rates, numerals removed) |
 | Audiences `count:0` + `void` + mislabels | `lib/control/queries.ts:1345-1413` | REPLACE (compute/label honestly) |
 | Abuse ladder `1..6` ordinals | `control/security/page.tsx:78-83` | REPLACE (restyle as steps) |
 | Coupon/credit/entitlement examples | billing scaffolds | KEEP (labeled spec, not metrics) |
@@ -334,6 +334,8 @@ AUTH → WORKSPACE/PROJECTS → API KEYS → SENDERS+GMAIL → TEMPLATES → ING
 
 ## PHASE 1 — Delivery truth (SES ingestion → states → suppression → alerts)
 
+> **STATUS (2026-09-19, implemented on `arena/01a0ba35-calder`):** M1.1 ✅ (`POST /v1/ses/events` — RSA-SHA1 verified against allowlisted `sns.<region>.amazonaws.com` cert origins only, `SignatureVersion "1"` only, subscription auto-confirm gated on configured `SES_SNS_TOPIC_ARNS`, bogus `Type` rejected: ADR-035) · M1.2 ✅ (`provider_events` ledger deduped on SNS MessageId; monotonic+sticky `emails.status` transitions via pure tested matrix; opened/clicked are events only (no such statuses, Resend model); permanent bounce/complaint auto-suppress on unique `(project_id, email)`; transient bounces never suppress; unknown message ids ledgered `unmatched` + 200). **Tests:** 12 integration (real self-signed RSA fixtures vs live Postgres: signature accept/reject, hostile cert URL rejected pre-fetch, tamper, dedupe, unknown-id, bounce/complaint→suppression, transient-bounce no-suppress, topic allowlist, subscription confirm) + 46 unit (cert-URL table, canonical string, full transition matrix). **Docs:** ADR-035, DEPLOYMENT §SES feedback wiring (the remaining AWS console/CLI work), API.md, `.env.example`. M1.3 ✅ (`deliveryOutcomeSummary` — rates on terminal sends only; health page drops invented `100−5n` score + cohort numerals; `/deliveries` shows honest terminal rate + all-state colors; `/logs` already truthful; 6 control integration tests verify delivery-rate/complaints/bounces/queue-age rules fire on induced data and the summary equals SQL truth). **Remaining in Phase 1, manual-only:** execute the DEPLOYMENT SNS runbook in the AWS console, then simulator-address verification (bounce@/complaint@/success@simulator.amazonses.com) per the Phase DoD.
+
 **Goal:** every send reaches a terminal known state. **Why now:** keystone — suppression automation, alerts, abuse, logs truth depend on it. **Prerequisites:** Phase 0; AWS SNS topic + subscription + SES configuration set (console work).
 - **Database:** `provider_events` (+`provider_accounts` if multi-account) via Drizzle CLI migration; idempotency on SNS message-id.
 - **Backend:** SNS ingress route with signature verification (reject unsigned — test both); event → `email_events` + `emails.status`; bounce/complaint → `suppressions` auto-insert; dedupe on redelivery.
@@ -365,7 +367,22 @@ AUTH → WORKSPACE/PROJECTS → API KEYS → SENDERS+GMAIL → TEMPLATES → ING
 - **Next-phase dependency:** paid launch; abuse backstop.
 - **Milestones:** M2.1 writers+aggregation · M2.2 enforcement · M2.3 isolation · M2.4 Gmail exactness (sent-not-created caps, per-project UTC-day accounting, graduation prompts, sender-pinning test, revocation test) · M2.5 Gmail abuse watch (velocity baselines → warn→limit→suspend+appeal audit-logged; connected-account inventory in control).
 
+> **STATUS (2026-09-21, implemented on `arena/01a0ba35-calder`):** M2.1 ✅ (per-email ledger on `usage_records`, deterministic `ur_<emailId>` + ON CONFLICT DO NOTHING = exactly-once, written on provider-accept in drain AND worker; `/cron/aggregate-usage` upserts `usage_summaries` with deterministic ids, re-run-stable) · M2.2 ✅ (ingest-time 402 `plan_limit_reached` with limit/usage/reset/upgrade-pointer inside `handleSendEmail` — covers `/v1/emails`, batch and scheduled; composer carries the same gate inline; `PLAN_LIMITS` in `@calder/config` is the single quota table, fixing the stale 3k/25k draft copy on the usage page; `org_avenor` exempt so auth/waitlist mail always sends) · M2.3 ✅ (`emails.env` stamped at ingest; drain+worker short-circuit test-env rows to the mock provider leg only — `provider:'mock'` on the record is the auditable proof; test traffic never metered, never counted) · M2.4 ✅ (exact Gmail cap accounting: `transport='gmail'` only, in drain and worker; graduation prompts ✅ Senders-page banner off `gmailNeedsGraduation`; sender-pinning test ✅ pinned leg chosen first; revocation ✅ auto-mark `revoked` on invalid_grant with audited exact-once transition + SES failover) · M2.5 ✅ (pure-policy velocity engine `assessGmailVelocity` — warn ≥40/h debounced audit, limit ≥120/h transient 429, suspend ≥600/h exact-once `suspended` flip + audit; Control → Security → Abuse shows the connected-accounts inventory, the watch audit feed and the guarded `transport.gmail_reactivated` appeal action; ADR-037) · Usage page ✅ (real per-org quota bars off live accepted-mail counts + ledger totals, period window shown, exhaustion state with upgrade pointer; history reads `usage_summaries`). **Tests:** 9 integration (`usage-quota.integration.test.ts`: live-send blocked at cap with nothing persisted, batch gate per message, test key at-cap still 202+mock-only delivery+unmetered, under-limit live 202 env stamping, ledger retry/replay no-ops, cron re-run stability, subscription-cycle rollover keeps cycle day, Gmail exact-cap both directions). **Docs:** ADR-036, PRICING §5 enforcement note. **Manual (user):** re-run the new integration suite once local Postgres is up (`RUN_INTEGRATION_TESTS=1`); DB migration 0019 must be applied (`corepack pnpm db:migrate`) before deploy.
+
 ## PHASE 3 — Webhooks delivered
+
+> **Status (2026-09-24): shipped (M3.1 + M3.2).** Durable-first
+> `webhook:deliver` consumer in the worker; Stripe-style `t,v1` HMAC signing +
+> timing-safe verify helper; 7-step retry ladder (5s→6h) ending in permanent
+> `failed` at attempt 8; latency/HTTP-status recorded per delivery;
+> unapplied migration `0020_sparkling_colossus` adds `latency_ms` +
+> `response_status`. Write- and delivery-side SSRF guard
+> (`@calder/validation.isPublicWebhookUrl`). API gained DELETE, rotate
+> (secret-once), deliveries list, and replay (targeted, new row). Dashboard
+> Webhooks page exposes the per-endpoint delivery log, per-delivery replay,
+> rotation, and a copyable verify snippet. 18 new unit tests (schedule,
+> signature vectors, SSRF vectors). Still pending env: `0020` migration apply,
+> gated integration bats, and the manual webhook.site pass. See **ADR-038**.
 
 **Goal:** registry becomes a working feature. **Why now:** signing contract fixed in M0.3; independent of Phases 1–2. **Prerequisites:** M0.3.
 - **Database:** `webhook_deliveries` writes (attempt, status, latency, next-retry).
@@ -383,6 +400,20 @@ AUTH → WORKSPACE/PROJECTS → API KEYS → SENDERS+GMAIL → TEMPLATES → ING
 
 ## PHASE 4 — Domain trust
 
+> **Status (2026-09-24): shipped (M4.1 + M4.2), env-acceptance pending.**
+> Real DNS-TXT challenge state machine (`pending/verified/failed/expired`,
+> 72h TTL swept on read) in `@calder/db/domain-verification`, shared by API
+> routes and the dashboard wizard. 192-bit `cvt_` tokens, exact-match
+> semantics, bounded expected-vs-found diagnostics, 10-attempts/h rolling
+> rate limit, first-proof-wins cross-tenant 409, atomic verified flip +
+> `domain.verified` audit. DoH fallback oracle after system-DNS timeout.
+> Legacy demo tokens treated as challenge-free. M4.2: SES identity link,
+> 3 DKIM CNAMEs persisted (`dkim_records`), SPF guidance, refresh poll;
+> wizard auto-polls every 20s; M4 gate: over-cap Gmail refusals name the
+> domain remedy in drain+worker. Migration `0021_domain_trust` unapplied
+> (pg down). Pending env: migration apply, gated integration suite,
+> Flow-D manual pass incl. failing-case UI. See **ADR-039**.
+
 **Goal:** verification means proof. **Why now:** needs DNS + SES linkage; blocks production reputation. **Prerequisites:** Phase 1 recommended (bounce visibility).
 - **Database:** challenge state machine (pending/verified/failed/expired) on domains.
 - **Backend:** real TXT lookup; SES identity verification linkage; DKIM/SPF storage; cross-tenant verify denial; propagation-tolerant polling.
@@ -399,6 +430,22 @@ AUTH → WORKSPACE/PROJECTS → API KEYS → SENDERS+GMAIL → TEMPLATES → ING
 
 ## PHASE 5 — Dashboard truth
 
+> **Status (2026-09-25): shipped (M5.1 + M5.2 + M5.3).** Logs: search
+> (recipient/subject/id via join) + type filter + cursor pagination.
+> Deliveries: status/search filters + cursor pagination; honest terminal-state
+> rate kept. Suppressions: real manager (list/search/add/remove, project
+> picker). Audit logs: real tenant-side view over `audit_logs` — Premium
+> plan-gate removed. Team: consolidated into Settings (real invite/role
+> management); fabricated PRO PlanGate page deleted. Templates: full CRUD
+> with immutable versioning + sandboxed preview with sample-var injection +
+> one-time-key test-send through the real API (`/templates/new`, `/[id]`).
+> SDKs: six-language hub (Node/Python/Ruby/PHP/Go/cURL) with in-browser key
+> injection + one-click test-key mint + copy. M5.3: truth gate extended —
+**full dead-link crawl over the app shell** (dynamic-aware route resolution)
+> plus fabricated-number bans (thousands-formatted statics, Math.random in
+> views), all running in the existing CI test task. Pending env: none for
+> code; per-page 390px eyeball on the next Vercel preview.
+
 **Goal:** every customer pixel reflects the system. **Why now:** needs Phases 1–2 data. **Prerequisites:** Phases 1, 2.
 - **Database:** none new. **Backend:** search/pagination params on reads (no new tables).
 - **Frontend:** logs search + pagination; deliveries filters; suppressions manager (list/add/remove); own audit-log view; `/team` consolidation or removal; templates `/new` + `/:id` + preview/test-send; SDK snippets with real key injection + copy.
@@ -410,7 +457,23 @@ AUTH → WORKSPACE/PROJECTS → API KEYS → SENDERS+GMAIL → TEMPLATES → ING
 - **Next-phase dependency:** demoable, sellable product.
 - **Milestones:** M5.1 observability reads · M5.2 templates/team/SDKs · M5.3 CI truth gates.
 
-## PHASE 6 — Auth hardening + Control completion
+## PHASE 6 — Auth hardening + Control completion — ✅ COMPLETE 2026-09-25
+
+**Status: ✅ COMPLETE.** M6.1 + M6.2 shipped in `arena/01a0ba35-calder`; the
+full §11 register is re-audited with code anchors in
+**`docs/PHASE6-RE-AUDIT.md`** (production-security code sign-off GRANTED);
+decisions in ADR-040 (H4 link rule, DB lockout, reset-revoke, v2 OTP HMAC,
+bounded magic callback, mandatory cron secret) + ADR-041 (Redis fixed-window
+limiter with loud degraded-mode fallback). Migration `0022_auth_hardening`
+(adds `users.failed_login_attempts`/`locked_until`,
+`sessions.user_agent`/`ip`/`last_seen_at`) queued for the live DB pass.
+Truth-pass to control numbers: audiences counted via honest joins (no JSONB
+blob counting, no hardcoded plan row counts, inactivity = 30-day session
+silence); plan grants founder-only with mandatory audited reason; role
+grants reason-prompted; settings presence checks now read reality (the old
+`WEBHOOK_SIGNING_SECRET configured` claim was fabricated — it never existed);
+abuse ladder restyled as numbered steps. Test gate at ship: 242 unit tests
+green / 0 failures across 10 packages.
 
 **Goal:** production security posture; control fully operational. **Why now:** features complete; harden before scale. **Prerequisites:** Phases 1–5.
 - **Backend:** H4 OAuth-link decision implemented + tested; logout-everywhere + session inventory; reset revokes sessions; lockout/progressive delay; magic-link callback limit; OTP pepper; cron secret mandatory in prod; Redis-limiter decision (document single-instance or build).

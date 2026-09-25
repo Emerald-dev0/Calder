@@ -31,7 +31,10 @@ export default async function TemplatesPage() {
   return (
     <div>
       <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px" }}>Templates</h1>
-      <p style={{ color: "var(--color-muted)", fontSize: 13, margin: "0 0 12px" }}>{rows.length} templates · Beginner 10, Pro 100, Premium 500</p>
+      <p style={{ color: "var(--color-muted)", fontSize: 13, margin: "0 0 12px" }}>
+        {rows.length} {rows.length === 1 ? "template" : "templates"} ·{" "}
+        <Link href="/templates/new" style={{ textDecoration: "underline" }}>New template</Link>
+      </p>
       <div style={{ background: "#fff", border: "1px solid var(--color-border)", borderRadius: 12, overflow: "hidden" }}>
         {rows.map((t) => (
           <Link key={t.id} href={`/templates/${t.id}`} style={{ display: "flex", justifyContent: "space-between", padding: "12px 14px", borderBottom: "1px solid #f5f5f5", textDecoration: "none", color: "inherit" }}>

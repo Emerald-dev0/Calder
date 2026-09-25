@@ -211,10 +211,21 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
     logger.warn({ err: supErr, projectId }, "Suppression check unavailable, skipping (dev)");
   }
 
+  // ── Quota check (PRICING §5: hard limits, no silent overages) ──
+  // After suppression (never charge a refused send) and BEFORE persistence.
+  // Idempotent replays returned earlier and never re-hit this gate; test-key
+  // traffic and Calder's internal org are exempt by policy.
+  {
+    const { getDb } = await import("@calder/db");
+    const { checkSendQuota, assertQuotaAllowed } = await import("../lib/quotas.js");
+    assertQuotaAllowed(await checkSendQuota(getDb(), params.organizationId, env));
+  }
+
   const emailRecord = {
     id: emailId,
     projectId,
     idempotencyKey: idempotencyKey ?? null,
+    env,
     from: senderEmail,
     senderIdentityId,
     fromName: senderName,
@@ -437,8 +448,10 @@ export function getSharedEmailQueue() {
 // Calder's own mail enters through this function, the same persist +
 // enqueue path as customer sends, under the founder-owned tenant below.
 // No HTTP loop, no special bypass, no separate provider. See
-// docs/SYSTEM-EXPLAINED.md §5.
-export const INTERNAL_ORG_ID = "org_avenor";
+// docs/SYSTEM-EXPLAINED.md §5. Single source for the internal-org id is
+// lib/quotas.ts (quota logic depends on it); re-exported for compatibility.
+import { INTERNAL_ORG_ID } from "../lib/quotas.js";
+export { INTERNAL_ORG_ID };
 export const INTERNAL_PROJECT_ID = "proj_website";
 export const INTERNAL_FROM = "Calder <hello@calder.click>";
 

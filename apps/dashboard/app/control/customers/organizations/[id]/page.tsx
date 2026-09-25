@@ -130,11 +130,21 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
       </div>
 
       <div className="cp-grid cp-grid-2">
-        <Panel title="Plan control" caption="founder/operator action — cancels the active subscription and opens a new one">
+        <Panel title="Plan control" caption="founder-only (M6.2) — cancels the active subscription and opens a new one; the reason lands in the audit log">
           <form
             action={async (formData: FormData) => {
               "use server";
-              await setSubscription(org.id, String(formData.get("tier") ?? "free"), Number(formData.get("months") ?? 1));
+              const outcome = await setSubscription(
+                org.id,
+                String(formData.get("tier") ?? "free"),
+                Number(formData.get("months") ?? 1),
+                String(formData.get("reason") ?? "")
+              );
+              if (!outcome.ok) {
+                // Form-action failure surfaces via the error boundary with the
+                // action's message (founder-only gate or missing reason).
+                throw new Error(outcome.error ?? "Plan grant rejected.");
+              }
             }}
             style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
           >
@@ -155,6 +165,17 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
               aria-label="Duration in months"
             />
             <span style={{ color: "var(--cp-faint)", fontSize: 12 }}>months</span>
+            <input
+              className="cp-input"
+              type="text"
+              name="reason"
+              placeholder="reason (required — audit)"
+              required
+              minLength={6}
+              maxLength={160}
+              style={{ minWidth: 220 }}
+              aria-label="Reason for this plan grant"
+            />
             <button className="cp-btn primary" type="submit">
               Apply plan
             </button>

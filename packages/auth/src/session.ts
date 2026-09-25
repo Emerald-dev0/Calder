@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { sealData, unsealData } from "iron-session";
-import { eq, and, isNull, gt } from "drizzle-orm";
+import { eq, and, isNull, gt, sql } from "drizzle-orm";
 import { getDb, sessions, users } from "@calder/db";
 import { getConfig } from "@calder/config";
 
@@ -19,6 +19,11 @@ function sealPassword(): string {
   return secret;
 }
 
+export interface SessionMeta {
+  userAgent?: string | null;
+  ip?: string | null;
+}
+
 export interface SessionUser {
   sessionId: string;
   userId: string;
@@ -27,13 +32,15 @@ export interface SessionUser {
 }
 
 /** Create a DB session row. Returns the session id to seal into the cookie. */
-export async function createSession(userId: string): Promise<string> {
+export async function createSession(userId: string, meta: SessionMeta = {}): Promise<string> {
   const db = getDb();
   const id = newId("ses");
   await db.insert(sessions).values({
     id,
     userId,
     expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+    userAgent: meta.userAgent?.slice(0, 512) ?? null,
+    ip: meta.ip ?? null,
   });
   return id;
 }
@@ -70,6 +77,15 @@ export async function getSessionUser(
     .limit(1);
   const row = rows[0];
   if (!row) return null;
+  // Touch last_seen, throttled: at most one write per session per 5 minutes
+  // keeps inventory fresh without write-amplifying every request.
+  const seen = row.session.lastSeenAt;
+  if (!seen || Date.now() - seen.getTime() > 5 * 60_000) {
+    db.update(sessions)
+      .set({ lastSeenAt: new Date() })
+      .where(eq(sessions.id, row.session.id))
+      .catch(() => {});
+  }
   return {
     sessionId: row.session.id,
     userId: row.user.id,
@@ -82,6 +98,61 @@ export async function getSessionUser(
 export async function revokeSession(sessionId: string): Promise<void> {
   const db = getDb();
   await db.update(sessions).set({ revokedAt: new Date() }).where(eq(sessions.id, sessionId));
+}
+
+/** M6.1 session inventory: all live sessions for one user, freshest first. */
+export async function listLiveSessions(userId: string) {
+  const db = getDb();
+  return db
+    .select({
+      id: sessions.id,
+      createdAt: sessions.createdAt,
+      lastSeenAt: sessions.lastSeenAt,
+      userAgent: sessions.userAgent,
+      ip: sessions.ip,
+      expiresAt: sessions.expiresAt,
+    })
+    .from(sessions)
+    .where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt), gt(sessions.expiresAt, new Date())))
+    .orderBy(sessions.lastSeenAt);
+}
+
+/** Revoke one session owned by this user (inventory self-service). */
+export async function revokeOwnSession(userId: string, sessionId: string): Promise<boolean> {
+  const db = getDb();
+  const res = await db
+    .update(sessions)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(sessions.id, sessionId), eq(sessions.userId, userId), isNull(sessions.revokedAt)))
+    .returning({ id: sessions.id });
+  return res.length > 0;
+}
+
+/** Sign out everywhere else: revoke all live sessions except `keepSessionId`. */
+export async function revokeOtherSessions(userId: string, keepSessionId: string): Promise<number> {
+  const db = getDb();
+  const res = await db
+    .update(sessions)
+    .set({ revokedAt: new Date() })
+    .where(
+      and(
+        eq(sessions.userId, userId),
+        isNull(sessions.revokedAt),
+        // Keep the caller's own session alive.
+        sql`${sessions.id} != ${keepSessionId}`
+      )
+    )
+    .returning({ id: sessions.id });
+  return res.length;
+}
+
+/** Nuclear option: every session dies (password reset, account takeover). */
+export async function revokeAllSessions(userId: string): Promise<void> {
+  const db = getDb();
+  await db
+    .update(sessions)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)));
 }
 
 /** "; Secure" in production, empty locally (Secure cookies need HTTPS). */

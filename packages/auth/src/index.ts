@@ -36,7 +36,12 @@ export {
   clearSessionCookieHeader,
   secureFlag,
   SESSION_COOKIE,
+  listLiveSessions,
+  revokeOwnSession,
+  revokeOtherSessions,
+  revokeAllSessions,
   type SessionUser,
+  type SessionMeta,
 } from "./session.js";
 export { signUnsubscribeToken, verifyUnsubscribeToken } from "./unsubscribe.js";
 export {
@@ -67,6 +72,7 @@ export {
   validatePasswordStrength,
   signupWithPassword,
   loginWithPassword,
+  LoginLockedError,
   verifySignupCode,
   resetPasswordWithCode,
   MIN_PASSWORD_LEN,

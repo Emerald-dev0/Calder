@@ -62,10 +62,7 @@ const NAV_GROUPS: Array<{ heading: string; items: Array<{ label: string; href: s
   },
   {
     heading: "ORGANIZATION",
-    items: [
-      { label: "Team", href: "/team", tier: "PRO" },
-      { label: "Audit Logs", href: "/audit-logs", tier: "PREMIUM" },
-    ],
+    items: [{ label: "Audit Logs", href: "/audit-logs" }],
   },
   { heading: "", items: [{ label: "Settings", href: "/settings" }, { label: "Control Plane", href: "/control", founder: true }] },
 ];

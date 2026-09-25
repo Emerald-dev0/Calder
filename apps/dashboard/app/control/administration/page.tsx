@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { ilike, or } from "drizzle-orm";
-import { users } from "@calder/db";
+import { users, type PlatformRole } from "@calder/db";
 import { getDb } from "@calder/db";
 import { fmtAgo, fmtInt } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
 import { CONTROL_ROLE_LABEL, FOUNDER_ONLY_ACTIONS, READ_ONLY_ROLES } from "@/lib/control/roles";
 import { adminAccounts } from "@/lib/control/queries";
-import { setPlatformRole } from "./actions";
+import { RoleControls } from "./role-controls";
 import { Badge, Empty, PageHeader, Panel, Stat } from "@/control/_components/ui";
 
 export const dynamic = "force-dynamic";
@@ -108,42 +108,11 @@ export default async function AdministratorsPage({
                         {u.platformRole === "founder" ? (
                           <span style={{ color: "var(--cp-faint)", fontSize: 12.5 }}>managed out-of-band</span>
                         ) : (
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                            {ASSIGNABLE.map((a) => (
-                              <form
-                                key={a.role}
-                                action={async () => {
-                                  "use server";
-                                  await setPlatformRole(u.id, a.role);
-                                }}
-                              >
-                                <button
-                                  className="cp-btn"
-                                  type="submit"
-                                  disabled={u.platformRole === a.role}
-                                  style={{ fontSize: 12, padding: "4px 10px", minHeight: 28 }}
-                                >
-                                  {u.platformRole === a.role ? `is ${a.label}` : `→ ${a.label}`}
-                                </button>
-                              </form>
-                            ))}
-                            {u.platformRole ? (
-                              <form
-                                action={async () => {
-                                  "use server";
-                                  await setPlatformRole(u.id, null);
-                                }}
-                              >
-                                <button
-                                  className="cp-btn danger"
-                                  type="submit"
-                                  style={{ fontSize: 12, padding: "4px 10px", minHeight: 28 }}
-                                >
-                                  Revoke
-                                </button>
-                              </form>
-                            ) : null}
-                          </div>
+                          <RoleControls
+                              userId={u.id}
+                              current={(u.platformRole as PlatformRole | null) ?? null}
+                              assignable={ASSIGNABLE}
+                            />
                         )}
                       </td>
                     </tr>

@@ -47,6 +47,9 @@ export const emails = pgTable(
     scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
     status: emailStatusEnum("status").notNull().default("created"),
     providerMessageId: varchar("provider_message_id", { length: 255 }),
+    // Which API-key environment accepted this email (stamped at ingest, never
+    // changed): "test" rows are isolated — mocked delivery, never metered.
+    env: varchar("env", { length: 8 }).notNull().default("live"),
     // What actually moved the message (set by the worker on send).
     transport: varchar("transport", { length: 32 }),
     provider: varchar("provider", { length: 32 }),
@@ -97,7 +100,12 @@ export const suppressions = pgTable(
     reason: text("reason").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("suppressions_project_email_idx").on(t.projectId, t.email)]
+  (t) => [
+    index("suppressions_project_email_idx").on(t.projectId, t.email),
+    // One suppression per recipient per project: the SNS suppression
+    // automation upserts ON CONFLICT (project_id, email) DO NOTHING.
+    uniqueIndex("suppressions_project_email_unique").on(t.projectId, t.email),
+  ]
 );
 
 // Idempotency keys, durable, not in-memory

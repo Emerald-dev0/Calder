@@ -1,14 +1,18 @@
 import Link from "next/link";
 import { fmtAgo, fmtInt, fmtPct } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
-import { deliverabilityBySender, organizationRows } from "@/lib/control/queries";
+import { deliverabilityBySender, deliveryOutcomeSummary, organizationRows } from "@/lib/control/queries";
 import { Badge, Empty, PageHeader, Panel, Stat } from "@/control/_components/ui";
 
 export const dynamic = "force-dynamic";
 
 export default async function CustomerHealthPage() {
   await requireSection("customers");
-  const [orgs, senders] = await Promise.all([organizationRows(100), deliverabilityBySender(30)]);
+  const [orgs, senders, outcome] = await Promise.all([
+    organizationRows(100),
+    deliverabilityBySender(30),
+    deliveryOutcomeSummary(30),
+  ]);
 
   const paying = orgs.filter((o) => o.plan && o.plan !== "free");
   const withActivity = orgs.filter((o) => o.projects > 0);
@@ -40,8 +44,12 @@ export default async function CustomerHealthPage() {
         <Stat label="Dormant (no projects)" value={fmtInt(dormant.length)} hint="onboarding never finished" />
         <Stat
           label="Delivery health (30d)"
-          value={senders.length ? fmtPct(100 - struggling.length * 5) : "—"}
-          hint={`${struggling.length} senders above 5% bounces`}
+          value={outcome.deliveryRate !== null ? fmtPct(outcome.deliveryRate) : "—"}
+          hint={
+            outcome.terminal > 0
+              ? `${outcome.terminal} completed sends · ${fmtPct(outcome.bounceRate ?? 0)} bounced · ${fmtPct(outcome.complaintRate ?? 0)} complained`
+              : "no completed sends in the window"
+          }
         />
       </div>
 
@@ -117,9 +125,9 @@ export default async function CustomerHealthPage() {
         <div className="cp-planned">
           <b>Composite health score (0–100)</b>
           <p>
-            Usage trend, delivery outcome, billing state, and error rates composed into a single score per customer —
-            with cohorts like &ldquo;17 Pro customers approaching limits&rdquo; and &ldquo;9 customers suddenly stopped
-            sending.&rdquo; Requires sustained usage metering history; the components above are its seeds.
+            Usage trend, delivery outcome, billing state, and error rates composed into a single score per customer,
+            with limit-approach and stoppage cohorts derived from the same live components. Requires sustained usage
+            metering history (Phase 2); the components above are its seeds and remain the honest view until then.
           </p>
         </div>
       </Panel>

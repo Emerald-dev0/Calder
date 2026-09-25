@@ -1,7 +1,7 @@
 import { createQueue, type QueueJob } from "@calder/queue";
 import { isTransientError, getRetryDelay } from "@calder/queue";
 import { pickDefaultTransport, GMAIL_FREE_DAILY_CAP } from "@calder/email";
-import { createEmailService, type EmailService } from "@calder/email";
+import { createEmailService, MockEmailProvider, type EmailService } from "@calder/email";
 import { GmailTransport, resolveEmailProvider } from "@calder/providers";
 import { getGmailRefreshToken } from "@calder/auth";
 import { logger, type Logger } from "@calder/observability";
@@ -11,10 +11,14 @@ interface TransportCandidate {
   service: EmailService;
   /** Transport label recorded on the delivery (gmail/ses/managed/default). */
   transport: string;
+  /** project_transports.id when this leg is a registry entry (needed for revocation/abuse state). */
+  transportId?: string;
 }
 
 function isCapError(err: unknown): boolean {
-  return err instanceof Error && (err as { code?: string }).code === "gmail_cap";
+  const code = err instanceof Error ? (err as { code?: string }).code : undefined;
+  // gmail_cap + abuse-watch verdicts must surface, not silently fall back.
+  return code === "gmail_cap" || code === "gmail_velocity_limit" || code === "gmail_suspended";
 }
 
 /**
@@ -109,13 +113,21 @@ async function buildGmailService(
   db: import("@calder/db").DbClient,
   projectId: string,
   chosen: {
+    id: string;
     label: string;
     dailyCap: number | null;
     encryptedCredentials: { iv: string; ciphertext: string; tag: string } | null;
   },
   jobLogger: Logger
 ): Promise<TransportCandidate> {
-  // Daily cap: count today's sends for this project (conservative, any transport).
+  // M2.5 abuse watch BEFORE anything else: velocity verdicts are terminal
+  // for this leg (limit: retry later / suspend: refuses until appeal), so
+  // they bubble up as cap-class errors, never silently degrade to SES.
+  const { enforceGmailVelocity } = await import("@calder/db");
+  await enforceGmailVelocity(db, projectId, { id: chosen.id, dailyCap: chosen.dailyCap });
+  // Daily cap: EXACT accounting — only sends that actually went through
+  // Gmail count toward the Gmail cap (was: every transport, letting SES
+  // volume exhaust a Gmail quota).
   const cap = chosen.dailyCap ?? GMAIL_FREE_DAILY_CAP;
   const { emails } = await import("@calder/db");
   const { gte, and, count, eq } = await import("drizzle-orm");
@@ -124,7 +136,13 @@ async function buildGmailService(
   const sent = await db
     .select({ value: count() })
     .from(emails)
-    .where(and(eq(emails.projectId, projectId), gte(emails.createdAt, dayStart)));
+    .where(
+      and(
+        eq(emails.projectId, projectId),
+        eq(emails.transport, "gmail"),
+        gte(emails.createdAt, dayStart)
+      )
+    );
   const today = (sent[0] as { value: number } | undefined)?.value ?? 0;
   if (today >= cap) {
     throw Object.assign(
@@ -144,7 +162,7 @@ async function buildGmailService(
   const refreshToken = getGmailRefreshToken(chosen.encryptedCredentials);
   const gmail = new GmailTransport({ refreshToken, senderEmail: chosen.label }, chosen.dailyCap);
   jobLogger.info({ transport: "gmail", sender: chosen.label }, "Routing via Gmail transport");
-  return { service: createEmailService(gmail), transport: "gmail" };
+  return { service: createEmailService(gmail), transport: "gmail", transportId: chosen.id };
 }
 
 interface EmailJobData {
@@ -193,6 +211,8 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
         headers: Record<string, string>;
         attachments: Array<{ filename: string; contentType?: string; contentBase64: string }>;
         senderIdentityId: string | null;
+        /** Ingest environment: "test" → mock-only delivery, never metered. */
+        env: string;
       } | null = null;
 
       try {
@@ -215,6 +235,7 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
             html: row.html,
             text: row.text,
             status: row.status,
+            env: (row as { env?: string }).env ?? "live",
             senderIdentityId:
               (row as { senderIdentityId?: string | null }).senderIdentityId ?? null,
             headers:
@@ -297,7 +318,18 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
       // Sender's own transport first, then project default, then global.
       // Transient provider errors fall through to the next leg; caps and
       // dead senders throw immediately (fail closed, never silent).
-      const chain = await resolveServiceChain(projectId, email.senderIdentityId, jobLogger);
+      // Test-env isolation (M2.3): test-key rows ALWAYS go through the mock
+      // provider, never transports, never SES — even with live AWS creds on
+      // the worker host. `provider: "mock"` on the delivery is the proof.
+      const chain =
+        email.env === "test"
+          ? [
+              {
+                service: createEmailService(new MockEmailProvider({ latencyMs: 0 })),
+                transport: "mock",
+              },
+            ]
+          : await resolveServiceChain(projectId, email.senderIdentityId, jobLogger);
       const payload = {
         from: email.from,
         to: email.to,
@@ -326,6 +358,27 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
           if (err instanceof Error && (err as { code?: string }).code === "sender_not_ready") {
             throw err;
           }
+          // M2.4: the connected Gmail account was revoked — flip the transport
+          // once (audited) and fail over to the next leg instead of failing
+          // this and every future email against a corpse credential.
+          if (
+            err instanceof Error &&
+            (err as { code?: string }).code === "gmail_revoked" &&
+            leg.transportId
+          ) {
+            try {
+              const { getDb, markGmailRevoked } = await import("@calder/db");
+              await markGmailRevoked(getDb(), leg.transportId, projectId);
+              jobLogger.warn(
+                { transportId: leg.transportId },
+                "Gmail account revoked; transport marked revoked, failing over"
+              );
+            } catch (markErr) {
+              jobLogger.error({ err: markErr }, "Failed to mark Gmail transport revoked");
+            }
+            if (moreLegs) continue;
+            throw err;
+          }
           if (transient && moreLegs) {
             jobLogger.warn(
               { err, transport: leg.transport },
@@ -349,8 +402,8 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
       );
 
       // ── Persist success event + update email status ─────────
-      try {
-        const { getDb, emails, emailEvents } = await import("@calder/db");
+        try {
+        const { getDb, emails, emailEvents, recordSendUsage } = await import("@calder/db");
         const { eq } = await import("drizzle-orm");
         const db = getDb();
         await db
@@ -363,6 +416,9 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
             updatedAt: new Date(),
           })
           .where(eq(emails.id, emailId));
+        // Meter at provider-accept; exactly-once via deterministic ledger id
+        // (ADR-036): retries can never double-count.
+        await recordSendUsage(db, { emailId, projectId, env: email.env });
         await db.insert(emailEvents).values({
           id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
           emailId,
@@ -480,9 +536,9 @@ async function enqueueWebhookDelivery(
   data: Record<string, unknown>
 ) {
   try {
-    const { createQueue } = await import("@calder/queue");
-    const q = createQueue("webhook:deliver", { maxAttempts: 8 });
-    await q.enqueue("deliver-webhook", { projectId, emailId, event, data });
+    const { enqueueWebhookDeliveries, getDb } = await import("@calder/db");
+    // M3.1: durable webhook_deliveries rows first, then queue jobs.
+    await enqueueWebhookDeliveries(getDb(), { projectId, event, data: { emailId, ...data } });
   } catch {
     // best-effort
   }

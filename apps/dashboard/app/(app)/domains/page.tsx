@@ -60,7 +60,21 @@ export default async function DomainsPage({
  id: d.id,
  domain: d.domain,
  status: d.status,
- verificationToken: d.verificationToken,
+ verification:
+ d.status !== "verified" &&
+ d.status !== "expired" &&
+ d.verificationToken &&
+ d.verificationToken.startsWith("cvt_")
+ ? {
+ host: `_calder.${d.domain}`,
+ value: `calder-verification=${d.verificationToken}`,
+ expiresAt: d.verificationExpiresAt?.toISOString() ?? null,
+ }
+ : null,
+ dkimRecords: d.dkimRecords ?? [],
+ dkimStatus: d.dkimStatus,
+ sesIdentityStatus: d.sesIdentityStatus,
+ lastVerifyError: d.lastVerifyError,
  }}
  />
  </div>

@@ -1,6 +1,7 @@
 import { getConfig } from "@calder/config";
 import { logger } from "@calder/observability";
 import { startWorker } from "./worker.js";
+import { startWebhookConsumer } from "./webhook-consumer.js";
 import { createHealthServer } from "./health.js";
 
 const config = getConfig();
@@ -15,8 +16,13 @@ async function main() {
     logger.info({ port: healthPort }, `Worker health server listening on :${healthPort}`);
   });
 
-  // Start queue consumer
+  // Start queue consumers: email:send + webhook:deliver (M3.1).
   await startWorker();
+  try {
+    startWebhookConsumer();
+  } catch (err) {
+    logger.error({ err }, "Webhook consumer failed to start; email worker unaffected");
+  }
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {

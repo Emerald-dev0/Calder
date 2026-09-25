@@ -102,6 +102,97 @@ Notes that cost time when missed:
 - `/ready` returning 503 with `progress: degraded` after a deploy means the
   database, Redis or the email provider is not reachable from that deployment.
 
+## SES/DNS sanity (read before anything SES-related)
+
+Before enabling anything, prove the public DNS is coherent — SES verifies
+records from its own resolvers, and "visible in my registrar panel" is NOT the
+same as "visible to the internet" (learned 2026-09-21: records edited in the
+Vercel DNS UI were invisible because the zone was actually delegated to
+Cloudflare, and an MX target missing its FQDN got the zone name appended).
+
+```bash
+dig NS  calder.click +short                    # whose zone is SERVED? edit records THERE
+dig MX  mail.calder.click +short               # must be exactly: 10 feedback-smtp.us-east-1.amazonses.com.
+dig TXT mail.calder.click +short               # v=spf1 include:amazonses.com ~all
+dig CNAME <dkim-token>._domainkey.calder.click +short   # one per SES token, 3 total
+aws sesv2 get-email-identity --email-identity calder.click --region us-east-1 \
+  --query '{dkim: DkimAttributes, mailFrom: MailFromAttributes}'
+# dkim.SigningEnabled=true, dkim.Status=SUCCESS, mailFrom.MailFromDomainStatus=SUCCESS
+```
+
+Common traps: MX/CNAME targets typed without the full domain (zone name gets
+appended → `feedback-smtp...amazonses.com.calder.click`); DKIM record names
+must include `._domainkey`; AWS DKIM checks fail silently for days — the
+AWS Health "AWS_SES_DKIM_FAILING" notice gives a 5-day re-add window.
+
+## SES feedback wiring (SNS → /v1/ses/events)
+
+Delivery truth (ADR-035) requires SNS to reach the API. This is the ONE piece
+of the Phase 1 milestone that cannot be done from code — it is AWS console /
+CLI work, done once per environment.
+
+```bash
+# 1. Create the SNS topic (one topic carries all SES event types)
+aws sns create-topic --name calder-ses-events
+# → arn:aws:sns:us-east-1:<account-id>:calder-ses-events
+
+# 2. Set the topic allowlist on the API FIRST, deploy, THEN subscribe.
+vercel env add SES_SNS_TOPIC_ARNS production \
+  <<< "arn:aws:sns:us-east-1:<account-id>:calder-ses-events"
+# (the endpoint refuses to auto-confirm subscriptions when unset — ADR-035 gate 3)
+
+# 3. Subscribe the API endpoint (HTTPS, raw-message delivery off —
+#    Calder expects the SNS envelope, it verifies the signature itself)
+aws sns subscribe \
+  --topic-arn arn:aws:sns:us-east-1:<account-id>:calder-ses-events \
+  --protocol https \
+  --notification-endpoint https://api.calder.click/v1/ses/events
+# The API receives SubscriptionConfirmation, verifies its signature,
+# and confirms automatically (log: "SNS subscription confirmed").
+
+# 4. Create a configuration set that publishes everything to the topic
+aws sesv2 create-configuration-set --configuration-set-name calder-default
+aws sesv2 create-configuration-set-event-destination \
+  --configuration-set-name calder-default \
+  --event-destination-name sns-all \
+  --event-destination '{
+    "Enabled": true,
+    "MatchingEventTypes": ["SEND","DELIVERY","BOUNCE","COMPLAINT","OPEN","CLICK","REJECT","RENDERING_FAILURE"],
+    "SnsDestination": {"TopicArn": "arn:aws:sns:us-east-1:<account-id>:calder-ses-events"}
+  }'
+
+# 5. Attach the configuration set to the sending identity.
+#    NOTE: the identity is the DOMAIN (calder.click) — mail.calder.click is the
+#    MAIL FROM subdomain, not an identity. If you verified individual addresses
+#    (e.g. hello@calder.click), repeat for each address identity too.
+aws sesv2 put-email-identity-configuration-set-attributes \
+  --email-identity calder.click \
+  --configuration-set-name calder-default
+
+# 6. Tell the worker to send WITH the configuration set explicitly. The identity
+#    default (step 5) is only a fallback; explicit ConfigurationSetName means
+#    events keep flowing even for identities without a default assignment.
+vercel env add SES_CONFIGURATION_SET production <<< "calder-default"
+```
+
+Verification (SES sandbox-safe): send to the simulator addresses, then check
+`provider_events` and the email's status:
+
+```bash
+# hard bounce → status bounced + suppression row auto-created
+aws sesv2 send-email --from-email-address hello@mail.calder.click \
+  --destination ToAddresses=bounce@simulator.amazonses.com --content ... \
+  --configuration-set-name calder-default
+psql "$DATABASE_URL" -c \
+  "select event_type, unmatched from provider_events order by created_at desc limit 3;"
+```
+
+Operational notes: SNS redelivers for ~1 hour on non-2xx, which is exactly
+the desired behavior — Calder dedupes on the SNS MessageId, so replays are
+no-ops. Unknown message ids (foreign SES accounts, manual tests) are ledgered
+with `unmatched: true` and acknowledged; alerting on a sustained unmatched
+rate > 20% suggests misconfiguration.
+
 ## Domains (owned: calder.click)
 
 ```

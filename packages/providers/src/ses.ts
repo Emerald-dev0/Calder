@@ -37,6 +37,12 @@ export class SesEmailProvider implements EmailProvider {
       const attachments = (message.attachments ?? []).map(toSesAttachment);
       const cmd = new SendEmailCommand({
         FromEmailAddress: message.from,
+        // Publish delivery events through this configuration set when set.
+        // Without it, feedback exists only if the identity has a default
+        // configuration set assigned — an optional fallback, not the plan.
+        ...(process.env.SES_CONFIGURATION_SET
+          ? { ConfigurationSetName: process.env.SES_CONFIGURATION_SET }
+          : {}),
         Destination: {
           ToAddresses: [message.to],
           CcAddresses: message.cc ? [message.cc] : undefined,
@@ -118,5 +124,51 @@ export async function getSesAccountStatus(client?: SESv2Client): Promise<SesAcco
     max24HourSend: account.SendQuota?.Max24HourSend ?? 0,
     sentLast24Hours: account.SendQuota?.SentLast24Hours ?? 0,
     maxSendRate: account.SendQuota?.MaxSendRate ?? 0,
+  };
+}
+
+// ---- M4.2: deliverability identity (DKIM) linkage --------------------------
+
+export interface SesIdentityDnsRecord {
+  name: string;
+  type: string;
+  value: string;
+}
+
+/**
+ * Register a domain as a SES sending identity. Returns the three CNAME
+ * records the tenant must publish for DKIM signing. Idempotent on AWS's side:
+ * re-creating an existing identity returns the same tokens.
+ */
+export async function createSesDomainIdentity(
+  domain: string,
+  client?: SESv2Client
+): Promise<{ records: SesIdentityDnsRecord[]; dkimStatus: string }> {
+  const { CreateEmailIdentityCommand } = await import("@aws-sdk/client-sesv2");
+  const c = client ?? new SESv2Client({ region: process.env.AWS_REGION ?? "us-east-1" });
+  const out = await c.send(new CreateEmailIdentityCommand({ EmailIdentity: domain }));
+  const tokens = out.DkimAttributes?.Tokens ?? [];
+  if (tokens.length === 0) throw new Error("SES returned no DKIM tokens for the identity");
+  return {
+    dkimStatus: out.DkimAttributes?.Status ?? "PENDING",
+    records: tokens.map((token) => ({
+      name: `${token}._domainkey.${domain}`,
+      type: "CNAME",
+      value: `${token}.dkim.amazonses.com`,
+    })),
+  };
+}
+
+/** Poll the identity's verification/DKIM status (propagation-tolerant). */
+export async function getSesDomainIdentity(
+  domain: string,
+  client?: SESv2Client
+): Promise<{ verifiedForSending: boolean; dkimStatus: string }> {
+  const { GetEmailIdentityCommand } = await import("@aws-sdk/client-sesv2");
+  const c = client ?? new SESv2Client({ region: process.env.AWS_REGION ?? "us-east-1" });
+  const out = await c.send(new GetEmailIdentityCommand({ EmailIdentity: domain }));
+  return {
+    verifiedForSending: out.VerifiedForSendingStatus === true,
+    dkimStatus: out.DkimAttributes?.Status ?? "NOT_STARTED",
   };
 }

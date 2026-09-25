@@ -137,8 +137,8 @@ export async function completeOAuth(
   code: string,
   state: string,
   storedState: string | null,
-  codeVerifier: string | null
-): Promise<string> {
+  codeVerifier: string | null,
+  meta: Parameters<typeof createSession>[1] = {}): Promise<string> {
   if (!storedState || !statesEqual(state, storedState)) {
     throw new Error("OAuth state mismatch. Please try signing in again.");
   }
@@ -176,11 +176,24 @@ export async function completeOAuth(
     // Link by verified email, else create the user.
     const same = await db.select().from(users).where(eq(users.email, profile.email)).limit(1);
     if (same[0]) {
-      if (!profile.emailVerified && same[0].emailVerifiedAt == null) {
-        // Unverified provider email must not hijack an existing account.
+      // H4 decision (ADR-040): an email the provider has NOT verified must
+      // never auto-link to an existing Calder account — even when the Calder
+      // row is itself verified. An attacker sets an unverified provider-side
+      // email to the victim's address and would otherwise sign in AS the
+      // victim. Verified-side linking requires the provider's explicit
+      // verified flag; anything else signs in first and links deliberately.
+      if (!profile.emailVerified) {
         throw new Error(
-          "That email is already registered. Sign in with the original provider first."
+          "That email is already registered and this provider has not verified ownership. Sign in with your original method to link accounts."
         );
+      }
+      // Conversely: a provider-verified email proves control at link time —
+      // mark the Calder side verified too if it wasn't yet.
+      if (same[0].emailVerifiedAt == null) {
+        await db
+          .update(users)
+          .set({ emailVerifiedAt: new Date() })
+          .where(eq(users.id, same[0].id));
       }
       userId = same[0].id;
     } else {
@@ -203,7 +216,7 @@ export async function completeOAuth(
   await ensureFounderAccess(db, userId, profile.email);
   await acceptPendingInvites(db, userId, profile.email);
 
-  return createSession(userId);
+  return createSession(userId, meta);
 }
 
 /**

@@ -35,7 +35,48 @@ export default async function SettingsPage() {
           v={config.FOUNDER_EMAILS ? `${config.FOUNDER_EMAILS.split(",").length} email(s) on the list` : <Badge tone="warn">unset</Badge>}
           mono
         />
-        <KV k="Webhook signing" v="configured (WEBHOOK_SIGNING_SECRET)" mono />
+        <KV
+          k="Secret envelope (webhook + transport secrets)"
+          v={
+            config.AUTH_SECRET.length >= 32 ? (
+              <Badge tone="ok">AES-256-GCM via AUTH_SECRET (32+ char)</Badge>
+            ) : (
+              <Badge tone="warn">AUTH_SECRET too short — encryption will throw at write</Badge>
+            )
+          }
+          mono
+        />
+        <KV
+          k="Cron authentication"
+          v={
+            process.env.CRON_SECRET ? (
+              <Badge tone="ok">CRON_SECRET set (mandatory in prod, ADR-040)</Badge>
+            ) : config.NODE_ENV === "production" ? (
+              <Badge tone="warn">unset — /v1/cron/* rejects everything in prod now</Badge>
+            ) : (
+              "unset (dev fallback: bare x-vercel-cron accepted locally only)"
+            )
+          }
+          mono
+        />
+        <KV
+          k="Rate limiter backend"
+          v={
+            process.env.REDIS_URL ? (
+              <Badge tone="ok">Redis fixed-window — exact across instances (ADR-041)</Badge>
+            ) : config.NODE_ENV === "production" ? (
+              <Badge tone="warn">no REDIS_URL — per-instance approximation, boot warning emitted</Badge>
+            ) : (
+              "in-memory (dev single instance)"
+            )
+          }
+          mono
+        />
+        <KV
+          k="OTP storage"
+          v="v2 peppered HMAC, purpose+email bound (dual-accept window post-deploy, ADR-040)"
+          mono
+        />
       </Panel>
 
       <Panel title="Planned: runtime settings" caption="mutable platform configuration with audit">

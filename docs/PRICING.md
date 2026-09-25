@@ -98,6 +98,26 @@ are modelled separately: contacts cost storage and support, not delivery.
 - One meter for the platform: subscriptions and prepaid credit packs both feed
   the same aggregation (ADR-020).
 
+### §5a. What "enforced in code" concretely means (Phase 2, ADR-036)
+
+- The limit response is HTTP 402, error code `plan_limit_reached`, on every
+  ingest path (`/v1/emails`, `/v1/emails/batch`, scheduled sends, and the
+  dashboard composer gate). Details carry `limit`, `usage`, `tier`,
+  `periodStart` and `periodEnd`; `fix` names the upgrade route.
+- The counted quantity is *accepted live sends in the current period*
+  (queued mail counts — you cannot burst past the cap while it lands); the
+  billed quantity is *provider-accepted sends* written to the usage ledger
+  exactly once per email (`ur_<emailId>`). Throttle and invoice deliberately
+  come from different tables.
+- The period is the subscription's stamped cycle when one exists
+  (anniversary-preserving rollover), else the current UTC calendar month.
+- Test-key sends stamp `env='test'` at ingest, deliver only through the mock
+  provider (`transport:'mock'` on the record is the auditable proof), and
+  are excluded from every count in this file.
+- Plan ceilings: 5,000 / 50,000 / 250,000 / custom (Scale). The single
+  machine-readable copy is `PLAN_LIMITS` in `@calder/config`; anything else
+  quoting a number is a bug.
+
 ## 6. Open items
 
 - Payment provider integration (Bachs) validation before paid plans are

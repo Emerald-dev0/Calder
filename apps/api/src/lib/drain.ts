@@ -8,6 +8,7 @@ import {
   suppressions,
   projectTransports,
   senderIdentities,
+  recordSendUsage,
   type DbClient,
 } from "@calder/db";
 import { logger } from "@calder/observability";
@@ -16,6 +17,7 @@ import {
   pickDefaultTransport,
   GMAIL_FREE_DAILY_CAP,
   isProviderError,
+  MockEmailProvider,
 } from "@calder/email";
 import { GmailTransport, resolveEmailProvider } from "@calder/providers";
 import { getGmailRefreshToken } from "@calder/auth";
@@ -44,6 +46,8 @@ export const DRAIN_STALE_CLAIM_MINUTES = 10;
 export type ClaimedEmail = {
   id: string;
   projectId: string;
+  /** Stamped at ingest from the API key's environment: "live" | "test". */
+  env: string;
   from: string;
   to: string;
   subject: string;
@@ -76,19 +80,33 @@ async function buildGmail(
   db: DbClient,
   projectId: string,
   chosen: {
+    id: string;
     label: string;
     dailyCap: number | null;
     encryptedCredentials: { iv: string; ciphertext: string; tag: string } | null;
   }
 ) {
+  // M2.5 abuse watch first: limit/suspend verdicts are terminal for this
+  // leg — they must surface like the cap, never silently degrade to SES.
+  const { enforceGmailVelocity } = await import("@calder/db");
+  await enforceGmailVelocity(db, projectId, { id: chosen.id, dailyCap: chosen.dailyCap });
   const cap = chosen.dailyCap ?? GMAIL_FREE_DAILY_CAP;
   const { count, gte } = await import("drizzle-orm");
   const dayStart = new Date();
   dayStart.setUTCHours(0, 0, 0, 0);
+  // EXACT accounting: only sends that actually went through Gmail count
+  // toward the Gmail cap (was: every transport, which let SES volume
+  // exhaust a Gmail quota — the "overcounts" bug flagged in the audit).
   const sent = await db
     .select({ value: count() })
     .from(emails)
-    .where(and(eq(emails.projectId, projectId), gte(emails.createdAt, dayStart)));
+    .where(
+      and(
+        eq(emails.projectId, projectId),
+        eq(emails.transport, "gmail"),
+        gte(emails.createdAt, dayStart)
+      )
+    );
   const today = (sent[0] as { value: number } | undefined)?.value ?? 0;
   if (today >= cap) {
     throw Object.assign(
@@ -113,6 +131,7 @@ async function buildGmail(
       new GmailTransport({ refreshToken, senderEmail: chosen.label }, chosen.dailyCap)
     ),
     transport: "gmail",
+    transportId: chosen.id,
   };
 }
 
@@ -163,9 +182,14 @@ async function resolveChain(db: DbClient, projectId: string, senderIdentityId: s
       else chain.push({ service: createEmailService(getProvider()), transport: def.type });
     }
   } catch (err) {
+    const code = err instanceof Error ? (err as { code?: string }).code : undefined;
+    // Cap, abuse-watch verdicts and dead senders must surface, not silently
+    // fall back — a swallowed "suspended" is a silent bulk path.
     if (
-      (err instanceof Error && (err as { code?: string }).code === "gmail_cap") ||
-      (err instanceof Error && (err as { code?: string }).code === "sender_not_ready")
+      code === "gmail_cap" ||
+      code === "gmail_velocity_limit" ||
+      code === "gmail_suspended" ||
+      code === "sender_not_ready"
     )
       throw err;
     logger.warn({ err }, "drain: transport resolution fallback");
@@ -200,6 +224,7 @@ export async function claimDrainBatch(
     RETURNING
       id,
       project_id AS "projectId",
+      env,
       "from",
       "to",
       subject,
@@ -283,7 +308,14 @@ export async function drainPendingEmails(
           : undefined,
     };
 
-    const chain = await resolveChain(db, row.projectId, row.senderIdentityId ?? null);
+    // Test-env isolation (M2.3): test-key rows ALWAYS go through the mock
+    // provider — never transports, never SES, even in a production deploy
+    // with live AWS credentials. `provider: "mock"` on the delivery is the
+    // durable proof; transport resolution never runs for these rows.
+    const chain =
+      row.env === "test"
+        ? [{ service: createEmailService(new MockEmailProvider({ latencyMs: 0 })), transport: "mock" }]
+        : await resolveChain(db, row.projectId, row.senderIdentityId ?? null);
     let result: { providerMessageId: string; provider: string } | null = null;
     let transportName = "default";
     let lastErr: unknown = null;
@@ -304,6 +336,26 @@ export async function drainPendingEmails(
         }
         if (err instanceof Error && (err as { code?: string }).code === "sender_not_ready") {
           senderNotReady = true;
+          break;
+        }
+        // M2.4: revoked Gmail account — flip the transport once (audited),
+        // then fail over to the next leg instead of failing mail forever.
+        if (
+          err instanceof Error &&
+          (err as { code?: string }).code === "gmail_revoked" &&
+          (leg as { transportId?: string }).transportId
+        ) {
+          try {
+            const { markGmailRevoked } = await import("@calder/db");
+            await markGmailRevoked(db, (leg as { transportId?: string }).transportId!, row.projectId);
+            logger.warn(
+              { transportId: (leg as { transportId?: string }).transportId },
+              "Gmail account revoked; transport marked revoked, failing over"
+            );
+          } catch (markErr) {
+            logger.error({ err: markErr }, "Failed to mark Gmail transport revoked");
+          }
+          if (i < chain.length - 1) continue;
           break;
         }
         const transient = isProviderError(err)
@@ -328,6 +380,14 @@ export async function drainPendingEmails(
           updatedAt: done,
         })
         .where(eq(emails.id, row.id));
+      // Meter at provider-accept; exactly-once via deterministic ledger id
+      // (ADR-036): retries and overlapping drains can never double-count.
+      await recordSendUsage(db, {
+        emailId: row.id,
+        projectId: row.projectId,
+        env: row.env ?? "live",
+        when: done,
+      });
       await db.insert(emailEvents).values({
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,

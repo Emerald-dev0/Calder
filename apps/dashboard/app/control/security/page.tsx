@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { fmtInt, fmtPct } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
-import { abuseCandidates, emailTotals, gmailCapUsage } from "@/lib/control/queries";
+import { abuseCandidates, emailTotals, gmailCapUsage, gmailWatchEvents } from "@/lib/control/queries";
+import { reactivateGmailTransport } from "./actions";
 import { Badge, BarList, Dot, PageHeader, Panel, Stat } from "@/control/_components/ui";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,12 @@ export const dynamic = "force-dynamic";
  */
 export default async function AbusePage() {
   await requireSection("security");
-  const [abuse, totals, gmail] = await Promise.all([abuseCandidates(7), emailTotals(7), gmailCapUsage()]);
+  const [abuse, totals, gmail, watchEvents] = await Promise.all([
+    abuseCandidates(7),
+    emailTotals(7),
+    gmailCapUsage(),
+    gmailWatchEvents(16),
+  ]);
   const nearCap = gmail.filter((g) => g.sentToday >= (g.dailyCap ?? 400) * 0.8);
 
   return (
@@ -72,18 +78,27 @@ export default async function AbusePage() {
       </Panel>
 
       <div className="cp-grid cp-grid-2">
-        <Panel title="Response ladder" caption="proportionate escalation, always audited">
-          <BarList
-            items={[
-              { label: "1 · Warn the customer", count: 1, dim: true },
-              { label: "2 · Rate limit the project", count: 2, dim: true },
-              { label: "3 · Require verification", count: 3, dim: true },
-              { label: "4 · Pause sending", count: 4, dim: true },
-              { label: "5 · Suspend project / organization", count: 5, dim: true },
-              { label: "6 · Restore (with note)", count: 6, dim: true },
-            ]}
-          />
-          <p className="cp-panel-caption" style={{ padding: "10px 16px 0" }}>
+        <Panel title="Response ladder" caption="proportionate escalation, always audited — the steps, not made-up volumes">
+          <ol style={{ margin: 0, padding: "12px 16px 14px 34px", display: "grid", gap: 10 }}>
+            {[
+              { step: "Warn the customer", detail: "bounce rate ≥ 5% or first complaint — email with guidance, no restriction" },
+              { step: "Rate limit the project", detail: "sustained ≥ 5% — cap that project while the customer fixes the list" },
+              { step: "Require verification", detail: "suspected purchased/scraped list — proof of consent before further sends" },
+              { step: "Pause sending", detail: "complaints continue or verification refused — transports frozen pending review" },
+              { step: "Suspend project / organization", detail: "abuse is the product (spam operation) — everything stops, egress locked" },
+              { step: "Restore (with note)", detail: "appeal accepted or remediation confirmed — restriction lifted, note on file" },
+            ].map((r, i) => (
+              <li key={r.step} style={{ fontSize: 13.5 }}>
+                <b>
+                  {i + 1} · {r.step}
+                </b>
+                <span style={{ display: "block", color: "var(--cp-faint)", fontSize: 12.5, marginTop: 2 }}>
+                  {r.detail}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <p className="cp-panel-caption" style={{ padding: "4px 16px 0 34px" }}>
             Enforcement actions execute through Security → Restrictions once wired; every step writes an audit record
             with actor, reason, and before/after.
           </p>
@@ -107,6 +122,122 @@ export default async function AbusePage() {
           </p>
         </Panel>
       </div>
+
+      <Panel
+        title="Connected Gmail accounts"
+        caption="velocity enforcement (M2.5): hourly warn → hourly limit → suspend; revoked grants auto-marked (M2.4). Suspended rows can be re-activated here — the appeal is the action, and it is audit-logged."
+        flush
+      >
+        {gmail.length === 0 ? (
+          <div className="cp-empty">
+            <b>No Gmail accounts connected</b>
+            When customers send through Gmail OAuth transports they appear here with live velocity.
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table className="cp-table">
+              <thead>
+                <tr>
+                  <th>Account</th>
+                  <th>Org / Project</th>
+                  <th>Last hour</th>
+                  <th>Today / Cap</th>
+                  <th>Status</th>
+                  <th>Last used</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {gmail.map((g) => (
+                  <tr key={g.id}>
+                    <td className="mono wrap" style={{ fontSize: 12.5, whiteSpace: "normal" }}>{g.label}</td>
+                    <td>
+                      <span className="mono" style={{ fontSize: 12.5 }}>
+                        {g.organizationName} / {g.projectName}
+                      </span>
+                    </td>
+                    <td className="cp-num">{fmtInt(g.sentLastHour)}</td>
+                    <td className="cp-num">
+                      {fmtInt(g.sentToday)} / {fmtInt(g.dailyCap ?? 400)}
+                    </td>
+                    <td>
+                      <Badge tone={g.status === "active" ? "ok" : g.status === "suspended" ? "warn" : "bad"}>
+                        {g.status}
+                      </Badge>
+                    </td>
+                    <td className="cp-num">{g.lastUsedAt ? g.lastUsedAt.toISOString().slice(0, 10) : "—"}</td>
+                    <td>
+                      {g.status === "suspended" ? (
+                        <form action={reactivateGmailTransport.bind(null, g.id)}>
+                          <button
+                            type="submit"
+                            style={{
+                              fontSize: 12,
+                              padding: "4px 10px",
+                              borderRadius: 6,
+                              border: "1px solid var(--cp-border, #D4D4D4)",
+                              background: "#fff",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Reactivate
+                          </button>
+                        </form>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
+
+      <Panel title="Watch audit" caption="recent gmail watch / revocation / appeal actions" flush>
+        {watchEvents.length === 0 ? (
+          <div className="cp-empty">
+            <b>No watch actions yet</b>
+            Warn, limit, suspend, revoke and reactivate entries land here from the drain, worker and this page.
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table className="cp-table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Action</th>
+                  <th>Transport</th>
+                  <th>Detail</th>
+                </tr>
+              </thead>
+              <tbody>
+                {watchEvents.map((e) => (
+                  <tr key={e.id}>
+                    <td className="cp-num">{e.createdAt.toISOString().replace("T", " ").slice(0, 16)}</td>
+                    <td>
+                      <Badge
+                        tone={
+                          e.action.includes("suspend")
+                            ? "warn"
+                            : e.action.includes("revoked")
+                              ? "bad"
+                              : "info"
+                        }
+                      >
+                        {e.action.replace("transport.gmail_", "")}
+                      </Badge>
+                    </td>
+                    <td className="mono" style={{ fontSize: 12 }}>{e.targetId ?? "—"}</td>
+                    <td className="mono" style={{ fontSize: 12, color: "var(--cp-muted)" }}>
+                      {e.metadata ? JSON.stringify(e.metadata).slice(0, 90) : ""}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
 
       <p className="cp-caption">
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>

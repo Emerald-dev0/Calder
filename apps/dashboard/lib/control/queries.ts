@@ -1,3 +1,4 @@
+import "../server-only"; // M6: build-time guard — control queries may never enter a client bundle
 import {
   and,
   asc,
@@ -768,6 +769,60 @@ export async function deliverabilityBySender(days = 30) {
     .limit(12);
 }
 
+export interface DeliveryOutcomeSummary {
+  windowDays: number;
+  started: number;
+  inFlight: number;
+  sent: number;
+  delivered: number;
+  bounced: number;
+  complained: number;
+  failed: number;
+  suppressed: number;
+  /** delivered + bounced + complained + failed — the denominator for honest rates. */
+  terminal: number;
+  deliveryRate: number | null; // delivered / terminal (null when nothing completed)
+  bounceRate: number | null;
+  complaintRate: number | null;
+}
+
+/**
+ * Platform-wide deliverability truth for a window. Rates are computed
+ * against TERMINAL sends only — in-flight messages are not failures, and
+ * counting "sent" as delivered (the old page cheat) overstates health.
+ */
+export async function deliveryOutcomeSummary(days = 30): Promise<DeliveryOutcomeSummary> {
+  const db = getDb();
+  const since = new Date(utcDayStart().getTime() - (days - 1) * DAY_MS);
+  const rows = await db
+    .select({ status: emails.status, value: count() })
+    .from(emails)
+    .where(gte(emails.createdAt, since))
+    .groupBy(emails.status);
+  const s = (name: string) => Number(rows.find((r) => r.status === name)?.value ?? 0);
+  const delivered = s("delivered");
+  const bounced = s("bounced");
+  const complained = s("complained");
+  const failed = s("failed");
+  const terminal = delivered + bounced + complained + failed;
+  const pct = (n: number) => (terminal > 0 ? (n / terminal) * 100 : null);
+  return {
+    windowDays: days,
+    started: rows.reduce((n, r) => n + Number(r.value), 0),
+    inFlight: s("created") + s("queued") + s("sending"),
+    sent: s("sent"),
+    delivered,
+    bounced,
+    complained,
+    failed,
+    suppressed: s("suppressed"),
+    terminal,
+    deliveryRate: pct(delivered),
+    bounceRate: pct(bounced),
+    complaintRate: pct(complained),
+  };
+}
+
 export async function webhookStats() {
   const db = getDb();
   const [endpoints, deliveries, byStatus] = await Promise.all([
@@ -1008,12 +1063,24 @@ export async function transportFleet() {
 export async function gmailCapUsage() {
   const db = getDb();
   const today = utcDayStart();
+  const hourAgo = new Date(Date.now() - 3600_000);
   const rows = await db
     .select({
+      id: projectTransports.id,
       label: projectTransports.label,
       dailyCap: projectTransports.dailyCap,
       status: projectTransports.status,
       lastUsedAt: projectTransports.lastUsedAt,
+      projectId: projectTransports.projectId,
+      projectName: projects.name,
+      organizationName: organizations.name,
+      organizationId: organizations.id,
+      sentLastHour: sql<number>`(
+        select count(*) from ${emails}
+        where ${emails.transport} = 'gmail'
+          and ${emails.createdAt} >= ${hourAgo.toISOString()}
+          and ${emails.projectId} = ${projectTransports.projectId}
+      )`,
       sentToday: sql<number>`(
         select count(*) from ${emails}
         where ${emails.transport} = 'gmail'
@@ -1022,10 +1089,31 @@ export async function gmailCapUsage() {
       )`,
     })
     .from(projectTransports)
+    .innerJoin(projects, eq(projects.id, projectTransports.projectId))
+    .innerJoin(organizations, eq(organizations.id, projects.organizationId))
     .where(eq(projectTransports.type, "gmail"))
     .orderBy(desc(projectTransports.lastUsedAt))
-    .limit(20);
-  return rows.map((r) => ({ ...r, sentToday: Number(r.sentToday) }));
+    .limit(50);
+  return rows.map((r) => ({ ...r, sentToday: Number(r.sentToday), sentLastHour: Number(r.sentLastHour) }));
+}
+
+/** Recent Gmail watch / revocation / appeal actions from the audit trail. */
+export async function gmailWatchEvents(limit = 20) {
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: auditLogs.id,
+      action: auditLogs.action,
+      targetId: auditLogs.targetId,
+      projectId: auditLogs.projectId,
+      metadata: auditLogs.metadata,
+      createdAt: auditLogs.createdAt,
+    })
+    .from(auditLogs)
+    .where(sql`${auditLogs.action} like 'transport.gmail%'`)
+    .orderBy(desc(auditLogs.createdAt))
+    .limit(limit);
+  return rows;
 }
 
 /* ── Observability ───────────────────────────────────────────────────────── */
@@ -1326,43 +1414,88 @@ export async function systemAudiences(): Promise<AudienceCount[]> {
   const today = utcDayStart();
   const d30 = new Date(today.getTime() - 30 * DAY_MS);
   const d7 = new Date(today.getTime() - 7 * DAY_MS);
+  // M6.2 truth pass: every count here is an honest join. The old build
+  // counted DISTINCT jsonb metadata blobs as "senders" and hardcoded plan
+  // counts at 0 — both removed. Activity now uses sessions.last_seen_at
+  // (M6.1 inventory signal), which is what "inactive" actually means.
   const planRows = await db.select().from(plans);
   const [
     allUsers,
     verified,
     unverified,
     activeOrgs,
-    sendingUsers,
-    sendingProjects,
+    usersWithProjects,
+    usersWhoSent,
     waitlist,
     inactive,
-    approaching,
+    overdueUsageRows,
+    planCounts,
   ] = await Promise.all([
     scalar(db.select({ value: count() }).from(users)),
     scalar(db.select({ value: count() }).from(users).where(isNotNull(users.emailVerifiedAt))),
     scalar(db.select({ value: count() }).from(users).where(isNull(users.emailVerifiedAt))),
     scalar(db.select({ value: count() }).from(organizations)),
-    scalar(db.select({ value: count(sql`distinct ${emails.metadata}`) }).from(emails)),
+    // Users with ≥1 project: membership chain, distinct users.
     scalar(
       db
-        .select({ value: count() })
-        .from(projects)
-        .where(sql`exists (select 1 from ${emails} where ${emails.projectId} = ${projects.id})`)
+        .select({ value: sql<number>`count(distinct ${organizationMembers.userId})` })
+        .from(organizationMembers)
+        .where(
+          sql`exists (select 1 from ${projects} where ${projects.organizationId} = ${organizationMembers.organizationId})`
+        )
+    ),
+    // Users whose orgs have actually attempted at least one send.
+    scalar(
+      db
+        .select({ value: sql<number>`count(distinct ${organizationMembers.userId})` })
+        .from(organizationMembers)
+        .where(
+          sql`exists (
+                select 1 from ${emails}
+                inner join ${projects} on ${emails.projectId} = ${projects.id}
+                where ${projects.organizationId} = ${organizationMembers.organizationId}
+              )`
+        )
     ),
     scalar(db.select({ value: count() }).from(waitlistSignups)),
-    scalar(db.select({ value: count() }).from(users).where(lt(users.createdAt, d30))),
+    // Inactive: no session seen in the last 30 days (never seen also counts).
+    scalar(
+      db
+        .select({ value: sql<number>`count(distinct ${users.id})` })
+        .from(users)
+        .where(
+          sql`not exists (
+                select 1 from ${sessions}
+                where ${sessions.userId} = ${users.id}
+                  and ${sessions.lastSeenAt} is not null
+                  and ${sessions.lastSeenAt} >= ${d30}
+              )`
+        )
+    ),
     scalar(
       db
         .select({ value: count() })
         .from(usageRecords)
         .where(and(gte(usageRecords.periodStart, d7), sql`${usageRecords.metric} = 'emails_sent'`))
     ),
+    // Per-plan org counts: active subscriptions only, grouped once.
+    db
+      .select({ planId: subscriptions.planId, value: sql<number>`count(*)` })
+      .from(subscriptions)
+      .where(eq(subscriptions.status, "active"))
+      .groupBy(subscriptions.planId),
   ]);
-  void sendingUsers;
+  const planCountBy = new Map(planCounts.map((r) => [r.planId, Number(r.value)]));
+  // Free-tier orgs = every org MINUS orgs with an active paid subscription.
+  const activeSubbed = planCounts.reduce((sum, r) => sum + Number(r.value), 0);
   const byPlan = planRows.map((p) => ({
     key: `plan_${p.tier}`,
     label: `${p.name} plan`,
-    description: `Organizations on the ${p.name} plan`,
+    description:
+      p.tier === "free"
+        ? `Organizations on the ${p.name} plan (no active subscription)`
+        : `Organizations with an active ${p.name} subscription`,
+    count: p.tier === "free" ? Math.max(0, activeOrgs - activeSubbed) : (planCountBy.get(p.id) ?? 0),
     href: `/control/customers/organizations?plan=${p.tier}`,
   }));
   return [
@@ -1394,25 +1527,25 @@ export async function systemAudiences(): Promise<AudienceCount[]> {
       count: activeOrgs,
       href: "/control/customers/organizations",
     },
-    ...byPlan.map((b) => ({ ...b, count: 0 })),
+    ...byPlan,
     {
       key: "with_projects",
       label: "Users with projects",
-      description: "Have created at least one project",
-      count: sendingProjects,
+      description: "Member of an org with at least one project",
+      count: usersWithProjects,
       href: "/control/customers",
     },
     {
       key: "sent_email",
       label: "Users who sent an email",
-      description: "At least one delivery attempted",
-      count: sendingProjects,
+      description: "Member of an org with at least one send attempted",
+      count: usersWhoSent,
       href: "/control/customers",
     },
     {
       key: "inactive",
       label: "Inactive users",
-      description: "No activity in 30 days",
+      description: "No session seen in the last 30 days",
       count: inactive,
       href: "/control/customers",
     },
@@ -1425,9 +1558,9 @@ export async function systemAudiences(): Promise<AudienceCount[]> {
     },
     {
       key: "approaching",
-      label: "Usage records this week",
-      description: "Orgs with metered usage this week",
-      count: approaching,
+      label: "Metered orgs this week",
+      description: "Organization usage rows recorded in the last 7 days",
+      count: overdueUsageRows,
       href: "/control/platform/usage",
     },
   ];

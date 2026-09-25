@@ -1,40 +1,36 @@
 import { desc, inArray } from "drizzle-orm";
-import { getDb, emails, usageRecords, plans, planPrices } from "@calder/db";
+import { getDb, usageSummaries, plans, planPrices, orgUsageSnapshot } from "@calder/db";
+import { planEmailsLimit, PLAN_LIMITS } from "@calder/config";
 import { getTenantContext } from "../../../lib/auth";
 import { pricingUrl } from "../../../lib/pricing";
 
-const PLAN_QUOTAS: Record<string, number> = {
- free: 3000,
- starter: 25000,
- pro: 100000,
- scale: 500000,
-};
-
 export default async function UsagePage() {
- const ctx = await getTenantContext();
- const projectIds = ctx.memberships.flatMap((m) => m.projects.map((p) => p.id));
- const orgIds = ctx.memberships.map((m) => m.organization.id);
- const db = getDb();
+  const ctx = await getTenantContext();
+  const orgIds = ctx.memberships.map((m) => m.organization.id);
+  const db = getDb();
 
- let sentThisMonth = 0;
- if (projectIds.length > 0) {
- // Live count from durable email rows (usage cron not yet running, see below).
- const live = await db
- .select({ id: emails.id })
- .from(emails)
- .where(inArray(emails.projectId, projectIds));
- sentThisMonth = live.length;
- }
+  // Live quota state per membership org: accepted usage against the plan
+  // limit for the CURRENT period (subscription period or UTC month), plus
+  // the metered (delivered) total from the usage ledger. Never trust the
+  // summary table alone — the cron may not have run since the last send.
+  const snapshots = await Promise.all(
+    ctx.memberships.map(async (m) => ({
+      orgName: m.organization.name,
+      orgId: m.organization.id,
+      snap: await orgUsageSnapshot(db, m.organization.id),
+    }))
+  );
+  const sentThisMonth = snapshots.reduce((n, s) => n + s.snap.acceptedLive, 0);
 
- const aggregated =
- orgIds.length > 0
- ? await db
- .select()
- .from(usageRecords)
- .where(inArray(usageRecords.organizationId, orgIds))
- .orderBy(desc(usageRecords.periodStart))
- .limit(12)
- : [];
+  const aggregated =
+    orgIds.length > 0
+      ? await db
+          .select()
+          .from(usageSummaries)
+          .where(inArray(usageSummaries.organizationId, orgIds))
+          .orderBy(desc(usageSummaries.periodStart))
+          .limit(12)
+      : [];
 
  const tiers = await db.select().from(plans);
  const prices = await db.select().from(planPrices);
@@ -43,11 +39,92 @@ export default async function UsagePage() {
 
  return (
  <div>
- <h1 style={{ fontSize: 28, margin: "0 0 4px" }}>Usage</h1>
- <p style={{ color: "#737373", margin: "0 0 20px", fontSize: 14 }}>
- Metered from durable records, the invoice always matches this page.
- </p>
- <div
+      <h1 style={{ fontSize: 28, margin: "0 0 4px" }}>Usage</h1>
+      <p style={{ color: "#737373", margin: "0 0 20px", fontSize: 14 }}>
+        Metered from durable records, the invoice always matches this page.
+      </p>
+
+      {snapshots.map(({ orgName, orgId, snap }) => {
+        const limit = planEmailsLimit(snap.tier);
+        const pct =
+          limit === null ? 0 : Math.min(100, Math.round((snap.acceptedLive / limit) * 100));
+        const hot = limit !== null && pct >= 90;
+        const exhausted = limit !== null && snap.acceptedLive >= limit;
+        return (
+          <section
+            key={orgId}
+            style={{
+              background: "#fff",
+              border: `1px solid ${hot ? "#FCA5A5" : "#E5E5E5"}`,
+              borderRadius: 12,
+              padding: 20,
+              marginBottom: 16,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 8,
+                marginBottom: 10,
+              }}
+            >
+              <p style={{ fontWeight: 700, margin: 0 }}>
+                {orgName} <span style={{ color: "#737373", fontWeight: 400 }}>({snap.tier})</span>
+              </p>
+              <p style={{ margin: 0, fontSize: 14, color: exhausted ? "#B91C1C" : "#171717" }}>
+                {exhausted ? "Limit reached — sends return plan_limit_reached · " : ""}
+                {snap.acceptedLive.toLocaleString()} /{" "}
+                {limit === null ? "custom" : limit.toLocaleString()} emails (
+                {snap.metered.toLocaleString()} delivered)
+              </p>
+            </div>
+            <div
+              style={{
+                height: 10,
+                borderRadius: 5,
+                background: "#F0F0F0",
+                overflow: "hidden",
+              }}
+              role="progressbar"
+              aria-valuenow={snap.acceptedLive}
+              aria-valuemax={limit ?? undefined}
+              aria-label={`Email usage for ${orgName}`}
+            >
+              <div
+                style={{
+                  height: "100%",
+                  width: `${pct}%`,
+                  background: exhausted ? "#B91C1C" : hot ? "#D97706" : "#171717",
+                  transition: "width .3s",
+                }}
+              />
+            </div>
+            <p style={{ fontSize: 12, color: "#737373", margin: "8px 0 0" }}>
+              Period {snap.period.start.toISOString().slice(0, 10)} →{" "}
+              {snap.period.end.toISOString().slice(0, 10)} · test-key sends are never metered ·{" "}
+              {exhausted ? (
+                <>
+                  <a href={pricingUrl()} style={{ color: "#B91C1C", textDecoration: "underline" }}>
+                    Upgrade to keep sending
+                  </a>{" "}
+                  or wait for the period reset.
+                </>
+              ) : (
+                <>
+                  upgrade anytime on the{" "}
+                  <a href={pricingUrl()} style={{ color: "inherit", textDecoration: "underline" }}>
+                    pricing page
+                  </a>
+                  .
+                </>
+              )}
+            </p>
+          </section>
+        );
+      })}
+      <div
  style={{
  display: "grid",
  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
@@ -109,10 +186,13 @@ export default async function UsagePage() {
  {ngn ? `₦${(ngn.amountCents / 100).toLocaleString()}` : ", "} ·{" "}
  {usd ? `$${usd.amountCents / 100}` : ", "}/mo
  </p>
- <p style={{ fontSize: 12, color: "#737373", margin: 0 }}>
- {(PLAN_QUOTAS[t.tier] ?? 0).toLocaleString()} emails/mo · billing activates at
- launch
- </p>
+              <p style={{ fontSize: 12, color: "#737373", margin: 0 }}>
+                {(() => {
+                  const q = Object.values(PLAN_LIMITS).find((l) => l.tier === t.tier)?.emailsPerMonth;
+                  return q === null || q === undefined ? "Custom emails/mo" : `${q.toLocaleString()} emails/mo`;
+                })()}{" "}
+                · hard limit enforced
+              </p>
  </div>
  );
  })}

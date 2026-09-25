@@ -80,6 +80,20 @@ organizationId, env }`. No key → 401. Wrong project → 403.
  implemented, in dev (no SES creds) everything flows through Mock; in prod
  with SES creds everything would send for real. Test-key simulation must
  become per-email before untrusted users onboard.
+8. Feedback (delivery truth, Phase 1): SES publishes every outcome to an
+ SNS topic subscribed to `POST /v1/ses/events` (public by necessity — SNS
+ cannot send our auth headers; authenticity is the SNS RSA signature against
+ an allowlisted cert origin). The notification lands in `provider_events`
+ first (unique on SNS MessageId — replays stop there), joins to `emails`
+ by `providerMessageId`, and advances truth per a pure transition matrix:
+ monotonic status through `delivered` (opened/clicked are events only —
+ the schema deliberately has no such statuses), sticky terminals
+ (`bounced`/`complained`/`failed`/`suppressed`), permanent bounces and
+ complaints auto-`suppressions` rows (which ingest already rejects 422 on —
+ the SES reputation loop is closed), transient bounces record an event but
+ never suppress. Unknown message ids are ledgered `unmatched` and 200'd so
+ foreign topic noise cannot redeliver forever. Wiring runbook:
+ `docs/DEPLOYMENT.md` §SES feedback wiring.
 
 ## 3. Auth: two doors, one building
 
@@ -135,6 +149,9 @@ claims the account by signing in with an email listed in `FOUNDER_EMAILS`
 | Redis queue (BullMQ) API↔worker delivery | Real (this cutover) |
 | Worker retry/backoff/DLQ/suppression/events | Real |
 | SES provider | Real, prod: 50k/day, 14/s, out of sandbox (case 178897239300386, us-east-1, 2026-09-13) |
+| SES feedback ingress (delivery truth) | Real code (`POST /v1/ses/events`, SNS-signed, idempotent); needs one-time AWS wiring (DEPLOYMENT runbook) to carry live traffic |
+| Bounce/complaint auto-suppression | Real, from SES feedback; enforced 422 at ingest |
+| Control delivery truth + alert rules | Live queries on real statuses; delivery-rate/complaints/bounces/queue-age rules test-verified firing |
 | Mock provider (test keys) | Real, full-path simulation |
 | OAuth login, sessions, linking | Real code, needs provider console creds to click through |
 | Orgs/projects/keys/domains/webhooks API | Real CRUD, tenant-scoped |
@@ -206,6 +223,21 @@ re-runnable, resumable. Server actions enforce membership on every step.
 
 ## 9. Changelog (newest first)
 
+- **Delivery truth ingestion (Phase 1, M1.1+M1.2):** `POST /v1/ses/events`
+ ingests SES feedback over SNS with mandatory signature verification
+ (RSA-SHA1, cert fetched only from allowlisted `sns.<region>.amazonaws.com`
+ origins, optional `SES_SNS_TOPIC_ARNS` topic allowlist gating subscription
+ auto-confirm — ADR-035). `provider_events` ledger deduped on SNS MessageId;
+ pure monotonic+sticky transition matrix; permanent bounces/complaints
+ auto-suppress on unique `(project_id, email)`; transient bounces never
+ suppress; unknown message ids ledgered `unmatched` + 200'd. 46 unit + 12
+ integration tests with real self-signed RSA fixtures. Migration `0018`.
+- **Truth surfaces (Phase 1, M1.3):** control `deliveryOutcomeSummary` rates
+ are computed on terminal sends only ("sent" is not "delivered"); health page
+ drops the invented `100−5n` score and illustrative cohort numerals;
+ `/deliveries` shows the honest terminal rate and colors every state;
+ alert rules for delivery-rate/complaints/bounces/queue-age proven firing
+ by integration tests (rules read the statuses M1.2 now writes).
 - **SES production access (2026-09-13):** `50,000/day, 14/s, out of sandbox` in `us-east-1` (case `178897239300386`). Worker now sends via SES when `AWS_ACCESS_KEY_ID`/`SECRET` + `AWS_REGION=us-east-1` are present; Mock remains for test keys / missing creds. Requires prod `DATABASE_URL` + `REDIS_URL` on the worker host; sandbox limits no longer apply.
 - **Sender-aware delivery (sender-program Phase 9):** worker resolves a
  transport chain per send (sender transport, project default, global) with

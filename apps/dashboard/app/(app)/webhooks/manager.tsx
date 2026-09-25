@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { createWebhook, setWebhookEnabled } from "./actions";
+import { createWebhook, setWebhookEnabled, replayDelivery, rotateWebhookSecret } from "./actions";
 import { WEBHOOK_EVENTS } from "./events";
 
 const btnPrimary: React.CSSProperties = {
@@ -157,4 +157,89 @@ export function ToggleButton({
  {on ? "Disable" : "Enable"}
  </button>
  );
+}
+
+export function RotateButton({ projectId, webhookId }: { projectId: string; webhookId: string }) {
+  const [secret, setSecret] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      <button
+        onClick={async () => {
+          setBusy(true);
+          try {
+            const r = await rotateWebhookSecret(projectId, webhookId);
+            setSecret(r.secret);
+          } finally {
+            setBusy(false);
+          }
+        }}
+        disabled={busy}
+        style={{
+          background: "none",
+          border: "1px solid #E5E5E5",
+          borderRadius: 8,
+          padding: "6px 12px",
+          fontSize: 13,
+          cursor: "pointer",
+        }}
+      >
+        Rotate secret
+      </button>
+      {secret && (
+        <code
+          style={{
+            background: "#0B0C0E",
+            color: "#fff",
+            borderRadius: 8,
+            padding: "6px 10px",
+            fontSize: 12,
+            maxWidth: 380,
+            wordBreak: "break-all",
+            display: "inline-block",
+          }}
+          title="Shown once"
+        >
+          {secret}
+        </code>
+      )}
+    </span>
+  );
+}
+
+export function ReplayButton({
+  projectId,
+  webhookId,
+  deliveryId,
+}: {
+  projectId: string;
+  webhookId: string;
+  deliveryId: string;
+}) {
+  const [state, setState] = React.useState<"idle" | "busy" | "done" | "error">("idle");
+  return (
+    <button
+      onClick={async () => {
+        setState("busy");
+        try {
+          await replayDelivery(projectId, webhookId, deliveryId);
+          setState("done");
+        } catch {
+          setState("error");
+        }
+      }}
+      disabled={state === "busy"}
+      style={{
+        background: "none",
+        border: "1px solid #E5E5E5",
+        borderRadius: 6,
+        padding: "3px 10px",
+        fontSize: 11,
+        cursor: "pointer",
+        color: state === "error" ? "#DC2626" : state === "done" ? "#16A34A" : "inherit",
+      }}
+    >
+      {state === "busy" ? "…" : state === "done" ? "replayed" : state === "error" ? "failed" : "replay"}
+    </button>
+  );
 }
