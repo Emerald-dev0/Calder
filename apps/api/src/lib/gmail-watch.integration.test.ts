@@ -56,6 +56,27 @@ gate("gmail abuse watch (live Postgres)", async () => {
     `);
   }
 
+  /**
+   * Drain until OUR row has been claimed at least once.
+   *
+   * The drain is global: on a shared database (CI runs packages concurrently
+   * against one Postgres) a first batch can be entirely filled by other
+   * suites' queued rows, so a single call can leave ours untouched and every
+   * assertion below becomes a coin flip. Stop at the first claim — a
+   * velocity-refused row is requeued on purpose, so draining until "not
+   * queued" would burn its retry budget and change what the test observes.
+   */
+  async function drainUntilSettled(emailId: string, attempts = 6) {
+    const db = getDb();
+    let row: typeof emails.$inferSelect | undefined;
+    for (let i = 0; i < attempts; i++) {
+      await drainPendingEmails(getDb(), { batch: 20 });
+      [row] = await db.select().from(emails).where(eq(emails.id, emailId)).limit(1);
+      if (row && row.attemptCount >= 1) return row;
+    }
+    return row;
+  }
+
   async function queueOne() {
     const db = getDb();
     const id = rid("em_gwq");
@@ -138,8 +159,7 @@ gate("gmail abuse watch (live Postgres)", async () => {
       status: "queued",
       attemptCount: 0,
     });
-    await drainPendingEmails(getDb(), { batch: 20 });
-    const [row] = await db.select().from(emails).where(eq(emails.id, id)).limit(1);
+    const row = await drainUntilSettled(id);
     expect(row?.status).toBe("failed");
     expect(row?.lastError ?? "").toMatch(/Gmail daily cap reached/i);
     await db.delete(senderIdentities).where(eq(senderIdentities.id, senderId));
@@ -151,9 +171,7 @@ gate("gmail abuse watch (live Postgres)", async () => {
     // GMAIL_WATCH defaults: warn 40/h, limit 120/h, suspend 600/h.
     await seedGmailHistory(45); // past warn, below limit
     const id = await queueOne();
-    await drainPendingEmails(getDb(), { batch: 20 });
-
-    const [row] = await db.select().from(emails).where(eq(emails.id, id)).limit(1);
+    const row = await drainUntilSettled(id);
     // Mail was NOT refused by the watch (leg either delivered via fallback
     // error or requeued for the junk-credential construction error — the
     // important bit: no velocity refusal text).
@@ -175,9 +193,7 @@ gate("gmail abuse watch (live Postgres)", async () => {
     const db = getDb();
     await seedGmailHistory(120); // at/above limit in the last hour
     const id = await queueOne();
-    await drainPendingEmails(getDb(), { batch: 20 });
-
-    const [row] = await db.select().from(emails).where(eq(emails.id, id)).limit(1);
+    const row = await drainUntilSettled(id);
     expect(row?.status).not.toBe("sent");
     expect(row?.lastError ?? "").toMatch(/velocity limit reached/i);
     const [t] = await db
@@ -192,7 +208,10 @@ gate("gmail abuse watch (live Postgres)", async () => {
     const db = getDb();
     await seedGmailHistory(620); // >= suspend line
     const id = await queueOne();
-    await drainPendingEmails(getDb(), { batch: 20 });
+    // Our row must be the one that settles; the transport flips as a side
+    // effect of processing it.
+    const row = await drainUntilSettled(id);
+    expect(row?.status).toBe("failed");
 
     const [t] = await db
       .select({ status: projectTransports.status })
@@ -200,9 +219,6 @@ gate("gmail abuse watch (live Postgres)", async () => {
       .where(eq(projectTransports.id, transportId))
       .limit(1);
     expect(t?.status).toBe("suspended");
-
-    const [row] = await db.select().from(emails).where(eq(emails.id, id)).limit(1);
-    expect(row?.status).toBe("failed");
     expect(row?.lastError ?? "").toMatch(/suspended for abuse-pattern/i);
 
     // Exactly one suspend audit row — re-draining must not spam the trail.
@@ -217,8 +233,7 @@ gate("gmail abuse watch (live Postgres)", async () => {
     // Already-suspended transports are skipped by chain resolution (status
     // filter), so re-running a send cannot resurrect the leg or spam audits.
     const id2 = await queueOne();
-    await drainPendingEmails(getDb(), { batch: 20 });
-    const [row2] = await db.select().from(emails).where(eq(emails.id, id2)).limit(1);
+    const row2 = await drainUntilSettled(id2);
     expect(row2?.transport ?? "").not.toBe("gmail");
     const auditRows2 = await db
       .select({ value: count() })

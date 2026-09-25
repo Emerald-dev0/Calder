@@ -71,6 +71,9 @@ gate("Node SDK against the live API (documented integration path)", async () => 
       const [row] = await db.select().from(emails).where(eq(emails.id, emailId)).limit(1);
       if (row && (row.status === "sent" || row.status === "failed")) return row;
       if (Date.now() > deadline) return row;
+      // The drain is global and batch-limited: on a shared database other
+      // suites' rows can fill a batch, so keep nudging ours along.
+      await drainPendingEmails(getDb(), { batch: 20 }).catch(() => {});
       await new Promise((r) => setTimeout(r, 250));
     }
   }

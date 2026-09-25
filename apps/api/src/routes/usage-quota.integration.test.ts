@@ -102,6 +102,10 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
       }
       if (Date.now() > deadline) return row;
       await new Promise((r) => setTimeout(r, 400));
+      // The drain is global and batch-limited: on a shared database other
+      // suites' rows can fill a batch, so keep nudging ours along rather than
+      // waiting for a claim that may never come.
+      await drainPendingEmails(getDb(), { batch: 20 }).catch(() => {});
     }
   }
 

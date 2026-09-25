@@ -164,6 +164,10 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
       if (row && (row.status === "sent" || row.status === "failed")) return row;
       if (Date.now() > deadline) return row;
       await new Promise((r) => setTimeout(r, 250));
+      // The drain is global and batch-limited: on a shared database other
+      // suites' rows can fill a batch, so keep nudging ours along rather than
+      // waiting for a claim that may never come.
+      await drainPendingEmails(getDb(), { batch: 20 }).catch(() => {});
     }
   }
 
