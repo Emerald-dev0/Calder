@@ -1,6 +1,45 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { createSign } from "node:crypto";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+
+/** Throwaway self-signed cert so SNS signature verification runs for real. */
+function makeSnsCert(): { certPem: string; keyPem: string } | null {
+  const dir = join(tmpdir(), `sns-live-path-${process.pid}`);
+  const cert = join(dir, "cert.pem");
+  const key = join(dir, "key.pem");
+  try {
+    mkdirSync(dir, { recursive: true });
+    if (!existsSync(cert)) {
+      execFileSync(
+        "openssl",
+        [
+          "req",
+          "-x509",
+          "-newkey",
+          "rsa:2048",
+          "-keyout",
+          key,
+          "-out",
+          cert,
+          "-days",
+          "1",
+          "-nodes",
+          "-subj",
+          "/CN=sns.test.local",
+        ],
+        { stdio: "ignore" }
+      );
+    }
+    return { certPem: readFileSync(cert, "utf8"), keyPem: readFileSync(key, "utf8") };
+  } catch {
+    return null;
+  }
+}
 
 // Gate: needs a live Postgres (local docker). CI-safe skip otherwise.
 process.env.RUN_INTEGRATION_TESTS ??= "";
@@ -89,6 +128,17 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
   const from = `sender-${suffix}@test.test`;
 
   const app = createApp();
+
+  async function waitForStatus(emailId: string, status: string, timeoutMs = 20_000) {
+    const db = getDb();
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const [row] = await db.select().from(emails).where(eq(emails.id, emailId)).limit(1);
+      if (row?.status === status) return row;
+      if (Date.now() > deadline) return row;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  }
 
   async function waitSettled(emailId: string, timeoutMs = 20_000) {
     const db = getDb();
@@ -371,5 +421,140 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
       .limit(1);
     expect(after?.sesIdentityStatus).toBe("pending");
     expect(captured.some((c) => c.path === "/v2/email/identities")).toBe(true);
+  });
+
+  it("refuses a live send from a sender identity that is not verified", async () => {
+    const { getDb: gdb, senderIdentities } = await import("@calder/db");
+    const db = gdb();
+    const pendingSender = `pending-${suffix}@test.test`;
+    await db.insert(senderIdentities).values({
+      id: `snd_pending_${suffix}`,
+      projectId: projId,
+      email: pendingSender,
+      displayName: "Pending",
+      type: "domain",
+      status: "pending",
+    });
+
+    const res = await post({
+      from: pendingSender,
+      to: `nobody-${suffix}@example.test`,
+      subject: "From an unverified sender",
+      text: "must not go out",
+    });
+    // A platform must not be able to send as an address it has not proven it
+    // owns. This is the 422 the SDK surfaces as a typed error.
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("sender_not_ready");
+    expect(body.error.message).toMatch(/verified|pending/i);
+  });
+
+  it("turns a real hard bounce into a suppression that stops the next send", async () => {
+    const { getDb: gdb, suppressions } = await import("@calder/db");
+    const { setSnsCertFetcher, snsStringToSign } = await import("../lib/ses-events.js");
+    const db = gdb();
+    const badAddress = `bouncer-${suffix}@example.test`;
+
+    // 1. A real live send through SES, and the provider's own message id.
+    const sent = await post({ from, to: badAddress, subject: "Will bounce", text: "void" });
+    expect(sent.status).toBe(202);
+    const { id } = (await sent.json()) as { id: string };
+    await drainPendingEmails(getDb(), { batch: 20 }).catch(() => {});
+    const delivered = await waitSettled(id);
+    expect(delivered?.status).toBe("sent");
+    const providerMessageId = delivered!.providerMessageId!;
+
+    // 2. SES reports the hard bounce to SNS. Sign it exactly as SNS would and
+    //    let the real verification path run (cert fetcher is the only seam).
+    const fixture = makeSnsCert();
+    if (!fixture) return; // openssl unavailable; covered by the ses-events suite
+    setSnsCertFetcher(async () => fixture.certPem);
+    const envelope = (message: unknown): Record<string, unknown> => {
+      const env = {
+        Type: "Notification",
+        MessageId: `sns-${randomBytes(8).toString("hex")}`,
+        TopicArn: "arn:aws:sns:us-east-1:000000000000:calder-ses-events",
+        Message: JSON.stringify(message),
+        Timestamp: new Date().toISOString(),
+        SigningCertURL:
+          "https://sns.us-east-1.amazonaws.com/SimpleNotificationService-livepath.pem",
+        SignatureVersion: "1",
+        Signature: "UNSIGNED",
+      };
+      const signer = createSign("RSA-SHA1");
+      signer.update(snsStringToSign(env as never), "utf8");
+      return { ...env, Signature: signer.sign(fixture.keyPem, "base64") };
+    };
+
+    const bounceEvent = await app.request("/v1/ses/events", {
+      method: "POST",
+      headers: { "content-type": "text/plain" },
+      body: JSON.stringify(
+        envelope({
+          eventType: "Bounce",
+          mail: {
+            messageId: providerMessageId,
+            timestamp: new Date().toISOString(),
+            destination: [badAddress],
+          },
+          bounce: {
+            bounceType: "Permanent",
+            bounceSubType: "General",
+            bouncedRecipients: [{ emailAddress: badAddress }],
+          },
+        })
+      ),
+    });
+    expect(bounceEvent.status).toBe(200);
+    setSnsCertFetcher(undefined);
+
+    // 3. Delivery truth moved, and the address is suppressed for the project.
+    const bounced = await waitForStatus(id, "bounced");
+    expect(bounced?.status).toBe("bounced");
+    const [sup] = await db
+      .select()
+      .from(suppressions)
+      .where(and(eq(suppressions.projectId, projId), eq(suppressions.email, badAddress)))
+      .limit(1);
+    expect(sup?.reason).toBe("bounce");
+
+    // 4. The customer's next send to that address is refused, never queued.
+    const resend = await post({
+      from,
+      to: badAddress,
+      subject: "Second attempt",
+      text: "should be refused",
+    });
+    expect(resend.status).toBe(422);
+    const body = (await resend.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("suppressed");
+  }, 60_000);
+
+  it("/ready refuses to claim ready when no provider credentials exist", async () => {
+    // Production is the case that matters: a deploy with no SES credentials
+    // can accept sends and deliver nothing. Readiness must say so.
+    const saved = {
+      nodeEnv: process.env.NODE_ENV,
+      key: process.env.AWS_ACCESS_KEY_ID,
+      secret: process.env.AWS_SECRET_ACCESS_KEY,
+    };
+    process.env.NODE_ENV = "production";
+    delete process.env.AWS_ACCESS_KEY_ID;
+    delete process.env.AWS_SECRET_ACCESS_KEY;
+    try {
+      const res = await app.request("/ready");
+      expect(res.status).toBe(503);
+      const body = (await res.json()) as {
+        status: string;
+        checks: Record<string, { state: string }>;
+      };
+      expect(body.status).toBe("degraded");
+      expect(body.checks.email_provider?.state).not.toBe("ok");
+    } finally {
+      process.env.NODE_ENV = saved.nodeEnv;
+      if (saved.key !== undefined) process.env.AWS_ACCESS_KEY_ID = saved.key;
+      if (saved.secret !== undefined) process.env.AWS_SECRET_ACCESS_KEY = saved.secret;
+    }
   });
 });
