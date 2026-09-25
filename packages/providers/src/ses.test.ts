@@ -49,11 +49,15 @@ describe("SesProvider", () => {
   });
 
   it("classifies throttling as transient, validation errors as permanent", async () => {
-    const failing = (name: string) =>
+    const failing = (name: string, status?: number) =>
       ({
         send: async () => {
-          const e = new Error("boom") as Error & { name: string };
+          const e = new Error("boom") as Error & {
+            name: string;
+            $metadata?: { httpStatusCode?: number };
+          };
           e.name = name;
+          if (status) e.$metadata = { httpStatusCode: status };
           throw e;
         },
       }) as unknown as SESv2Client;
@@ -64,5 +68,62 @@ describe("SesProvider", () => {
     await expect(
       new SesEmailProvider(failing("MessageRejected")).send(message)
     ).rejects.toMatchObject({ transient: false, statusCode: 400 });
+  });
+
+  // SESv2 rate limiting is `TooManyRequestsException`, NOT the legacy
+  // `ThrottlingException`. Classifying it permanent failed the customer's mail
+  // on a rate-limit — the exact regression this pins down.
+  it("treats SESv2 TooManyRequestsException (429) as transient", async () => {
+    const err = (await new SesEmailProvider({
+      send: async () => {
+        const e = new Error("Maximum sending rate exceeded.") as Error & {
+          name: string;
+          $metadata?: { httpStatusCode?: number };
+        };
+        e.name = "TooManyRequestsException";
+        e.$metadata = { httpStatusCode: 429 };
+        throw e;
+      },
+    } as unknown as SESv2Client)
+      .send(message)
+      .catch((e: unknown) => e)) as { transient: boolean; statusCode?: number; code: string };
+    expect(err.transient).toBe(true);
+    expect(err.statusCode).toBe(429);
+    expect(err.code).toBe("TooManyRequestsException");
+  });
+
+  it("trusts the HTTP status: any 429/5xx is transient, whatever AWS names it", async () => {
+    const byStatus = async (status: number) =>
+      new SesEmailProvider({
+        send: async () => {
+          const e = new Error("boom") as Error & { $metadata?: { httpStatusCode?: number } };
+          e.name = "SomeUnreleasedExceptionName";
+          e.$metadata = { httpStatusCode: status };
+          throw e;
+        },
+      } as unknown as SESv2Client)
+        .send(message)
+        .catch((e: unknown) => (e as { transient: boolean }).transient);
+
+    expect(await byStatus(429)).toBe(true);
+    expect(await byStatus(500)).toBe(true);
+    expect(await byStatus(503)).toBe(true);
+    expect(await byStatus(400)).toBe(false);
+  });
+
+  it("treats SendingPausedException as transient and AccountSuspended as permanent", async () => {
+    const byName = async (name: string) =>
+      new SesEmailProvider({
+        send: async () => {
+          const e = new Error("boom") as Error;
+          e.name = name;
+          throw e;
+        },
+      } as unknown as SESv2Client)
+        .send(message)
+        .catch((e: unknown) => (e as { transient: boolean }).transient);
+
+    expect(await byName("SendingPausedException")).toBe(true);
+    expect(await byName("AccountSuspendedException")).toBe(false);
   });
 });

@@ -75,15 +75,29 @@ export class SesEmailProvider implements EmailProvider {
       const providerError = new Error(error.message ?? "SES send failed") as ProviderError;
       providerError.name = error.name ?? "SesError";
       providerError.code = error.name ?? "SesError";
-      // SES throttling, timeouts are transient; validation errors are permanent
-      const transientCodes = [
+      const status = error.$metadata?.httpStatusCode;
+      // Throttling and timeouts are transient; validation errors are permanent.
+      //
+      // Name matching alone is a trap: SESv2 reports rate limiting as
+      // `TooManyRequestsException` (HTTP 429), not the legacy
+      // `ThrottlingException` — so a rate-limited live send was classified
+      // permanent and the customer's mail was failed instead of retried.
+      // The HTTP status is authoritative, and the name list is the fallback
+      // for error shapes that arrive without one.
+      const transientByName = [
+        "TooManyRequestsException",
         "ThrottlingException",
         "Throttling",
+        // Sending is paused (typically reputation); it resumes on its own.
+        "SendingPausedException",
         "TimeoutError",
+        "RequestTimeout",
         "ServiceUnavailable",
-      ];
-      providerError.transient = transientCodes.some((c) => error.name?.includes(c));
-      const status = error.$metadata?.httpStatusCode;
+        "InternalFailure",
+      ].some((c) => error.name?.includes(c));
+      const transientByStatus =
+        status !== undefined && (status === 429 || (status >= 500 && status < 600));
+      providerError.transient = transientByStatus || transientByName;
       if (status) providerError.statusCode = status;
       else if (providerError.transient) providerError.statusCode = 503;
       else providerError.statusCode = 400;
