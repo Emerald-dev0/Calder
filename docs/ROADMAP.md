@@ -132,10 +132,10 @@ Gaps: no Postgres service in CI (integration tests skip — §16 fix); no worker
 | 3.29 | Webhooks manager                  | Develop   | IMPL               | PARTIAL-reg     | IMPL              | delivery           | none           | PARTIAL    | M3                     | Registry done; value after engine                                          |
 | 3.30 | Billing actions (control)         | Billing   | SCAFFOLD-honest    | MISSING         | PARTIAL-no-ledger | Bachs              | none           | MISSING    | metering               | Reads real; actions post-launch                                            |
 | 3.31 | Broadcasts (control)              | Comms     | REAL-CLI-honest    | PARTIAL-admin   | IMPL              | ADMIN_API_KEY      | unit           | PARTIAL    | UI (deferred)          | Fine as-is                                                                 |
-| 3.32 | Campaigns/Aud/Auto                | Comms     | SCAFFOLD           | MISSING         | MISSING           | mktg infra         | none           | MISSING    | everything             | Defer                                                                      |
+| 3.32 | Campaigns/Aud/Auto                | Comms     | SCAFFOLD           | MISSING         | MISSING           | mktg infra         | none           | MISSING    | everything             | Specified in §I; gated post-launch                                         |
 | 3.33 | Alerts evaluator                  | Control   | IMPL-live          | IMPL            | IMPL              | ingestion          | none           | PARTIAL    | ingestion              | 3/8 rules unfireable until M1.2                                            |
 | 3.34 | Flags/maintenance/status          | Ops       | SCAFFOLD-static    | MISSING         | MISSING           | —                  | none           | MISSING    | decision               | Defer UI                                                                   |
-| 3.35 | Marketing suite                   | Marketing | MISSING            | MISSING         | MISSING           | —                  | none           | MISSING    | launch                 | Deferred; scrub implying copy                                              |
+| 3.35 | Marketing suite                   | Marketing | MISSING            | MISSING         | MISSING           | —                  | none           | MISSING    | launch                 | Automation engine specified in §I; rest deferred; scrub implying copy      |
 | 3.36 | Cron drain                        | Infra     | —                  | C-duplicated    | IMPL              | Vercel cron/secret | none           | PARTIAL    | —                      | Lease + dedupe (M0.2)                                                      |
 | 3.37 | Beacon ingest                     | Web/API   | IMPL               | IMPL            | IMPL              | —                  | unit           | PROD READY | —                      | Exemplary (no PII, silent-fail, capped)                                    |
 | 3.38 | Waitlist + confirmation versions  | Growth    | IMPL               | IMPL            | IMPL              | SES                | unit           | PROD READY | —                      | Pattern to copy (draft→publish→immutable)                                  |
@@ -524,7 +524,7 @@ Audit (§10 header): CONTROL-PLANE phantoms → real files; `control.css` ADR-02
 - Coupons/credits/invoices/entitlements actions: no ledger/provider; spec text correct.
 - Failover/dedicated IPs/SSO/regional: no scale evidence; ADR-007 unmet.
 - AI layer/codemods/MCP/`doctor`: marketing before truth.
-- DLQ replay UI: after the DLQ exists. Command/search, automations canvas, advanced analytics: deferred by design.
+- DLQ replay UI: after the DLQ exists. Command/search, advanced analytics: deferred by design. Automations canvas/engine: specified in §I, gated post-launch (NOT a launch blocker — see §I why).
 
 ## 20. First Implementation Session (Phase 0 core)
 
@@ -536,7 +536,7 @@ All 12 §12 blockers cleared + re-verified prod-like (real SES sandbox + simulat
 
 ## POST-LAUNCH BACKLOG (ordered)
 
-Metrics/incidents → storage/networking probes → maintenance switches → status publishing → staged template publishing → SDK + npm pipeline (§H) → GitHub/Vercel integrations → MCP/CLI → migration guides → SMTP gateway (gated: truth + metering) → marketing suite (gated: demand) → inbound → failover/dedicated IPs/SSO/regional.
+Metrics/incidents → storage/networking probes → maintenance switches → status publishing → staged template publishing → SDK + npm pipeline (§H) → GitHub/Vercel integrations → MCP/CLI → migration guides → SMTP gateway (gated: truth + metering) → automation engine §I (gated: truth + metering + suppression + demand) → rest of marketing suite (gated: demand) → inbound → failover/dedicated IPs/SSO/regional.
 
 ## §G — GMAIL QUICKSTART: PROTECTED TRACK
 
@@ -555,3 +555,43 @@ _Milestones:_
 - **H2 SDK package (post-launch, gated: launch + developer demand).** New PUBLIC package (proposed `@calder/sdk` — typed send, idempotency keys, retries, typed errors, webhook-signature verification helper). Never publish internals (auth/crypto, db, providers stay `private`). Scope first client: Node + fetch; SMTP/WordPress/Laravel guides ride on docs, not code. _Exit:_ SDK sends through the real API against staging in CI.
 - **H3 npm publish pipeline (with H2).** Versioning policy (changesets or manual + changelog); npm provenance; public scope ownership; deprecation policy; `docs/API.md` currency gate (SDK can't ship against stale API docs); `/sdks` page serves real snippets with project key injection. _Exit:_ versioned release cut from main, installable, with changelog.
   _Rule:_ no internal package ever flips `private: false` without a publish review (secrets, schema, and provider logic must not leak into client bundles).
+
+## §I — AUTOMATION ENGINE SPEC (event-driven sequences, post-launch)
+
+_Why now in the roadmap:_ Resend shipped event-driven Automations (April 2026) and SendGrid has long sold list-driven Automation — the category is validated and the shape is known. Calder specs it now so the data model underneath (events, runs, stream separation) gets built correctly later, and so no one builds a sequence UI on today's pipeline. **Explicitly NOT a launch blocker:** automations without delivery truth, suppression automation, and metering would be theater. Backend-owned sequencing over Calder primitives (§8 recipe: scheduled sends + idempotency + webhooks + suppression) is the supported pattern until this ships.
+
+### I.1 Model (developer-operated, Resend-shaped — not list-driven)
+
+- A customer's app emits **custom events** (`event name + contact email + payload`, e.g. `user.created {plan: pro}`); Calder runs the matching published automations. No list membership required; no marketer console needed for v1.
+- An automation is a **directed graph of steps**: `trigger` (event name) → `send_email` (published template + variables) → `delay` (durations like `1 day`, max 30 days) → `wait_for_event` (condition with timeout) → `condition` (branch on contact/event data) → `contact_update` / `exit`. Created `disabled` by default; explicit publish.
+- Defined three ways, same schema: **code** (REST/SDK/CLI create with steps + connections), **visual** editor later, AI builder explicitly out of scope for v1.
+- **Stream separation is structural:** automation (marketing-lifecycle) sends never share suppression pools, rate limits, quotas, or reputation with transactional sends. A marketing step can never silently become transactional delivery. Gmail-connected projects may only run transactional steps — automation steps require a verified domain (abuse bar from §G).
+
+### I.2 Data (new tables, Drizzle migrations when built)
+
+- `automation_definitions` (project-scoped, versioned: draft vs published — edits never mutate a running automation).
+- `automation_runs` (one row per contact per entry: current step, state `waiting/sending/done/exited/failed`, idempotency key per step so replays never double-send).
+- `contact_events` (append-only ingress log: event name, email, payload, received-at — the audit trail for "why did this person get this email").
+- Runs advance via the existing queue/worker (delay = scheduled claim, same lease discipline as the drain — M0.2 pattern reused, never a second scheduler design).
+
+### I.3 Behavior contract
+
+- Entry: event ingested → matching published automations start a run (dedupe: same event id never starts two runs).
+- Timing: delay steps survive deploys/restarts (durable claims, not in-memory timers); max delay 30 days; overdue runs surface in control, never silently dropped.
+- Branching: conditions evaluate on contact + event payload only (documented field set — no arbitrary user-data access).
+- Exit: run ends on final step, exit condition (e.g. purchase event), unsubscribe/suppression (immediate, mid-sequence), automation unpublished (in-flight runs drain honestly, labeled), or contact deleted.
+- Observability: per-run timeline in customer dashboard (entered → step → sent → exited); per-automation funnel (entered, per-step conversion, exited) in control; every send lands in the same logs/events/webhooks/usage as manual sends (no second event model).
+- Metering: runs metered under the marketing allowance (contacts-based per PRD §11), never the transactional quota.
+
+### I.4 API surface (when built)
+
+- `POST /v1/events` (ingest: event, email, payload, idempotency key) · `POST /v1/automations` (create disabled: steps + connections) · `POST /v1/automations/:id/publish|pause` · `GET /v1/automations/:id/runs` + per-run timeline · SDK: `events.send()` + `automations.create()` in `@calder/sdk` (§H).
+- Error shape follows the standard contract; unpublished/validation failures are 4xx with reasons, never silent.
+
+### I.5 Migration path (protects today's users)
+
+Backend-owned sequencing (scheduled sends + idempotency + webhooks) keeps working unchanged. When §I ships, a migration guide shows the mechanical translation (scheduled step → delay step; webhook branch → condition step); no API removed. Templates, events, suppression, and usage carry over untouched — the engine is a new interface over trusted primitives, per the roadmap's core principle.
+
+### I.6 Exit criteria (definition of done, when scheduled)
+
+Sample automation (welcome day 0/1/3 + purchase-exit branch) runs end-to-end on staging: event → run → delayed sends land on schedule across a deploy restart → purchase mid-sequence exits honestly → unsubscribe mid-sequence suppresses → funnel + timelines render → runs meter against marketing allowance → failure matrix green (duplicate event, provider fail mid-run, unpublished mid-flight, payload missing field). Security: event-auth (key-scoped), payload size caps, per-project run-rate limits, no cross-project run leakage (tenant tests per read).
