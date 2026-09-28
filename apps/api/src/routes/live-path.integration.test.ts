@@ -281,19 +281,35 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
   });
 
   it("delivers a live send through the real SES driver and records provider truth", async () => {
-    const res = await post({
-      from,
-      to: `recipient-${suffix}@example.test`,
-      subject: `Live proof ${suffix}`,
-      html: "<p>live</p>",
-      text: "live",
-      headers: { "X-Campaign": "live-path" },
-    });
-    expect(res.status).toBe(202);
-    const { id } = (await res.json()) as { id: string };
+    // Drains are global on the shared test database: another file's drain
+    // resolves ITS provider (mock without this file's endpoint env) and may
+    // deliver our row first. Only our own drains can produce provider=ses,
+    // so retry with a fresh row until we observe exactly that.
+    let id = "";
+    let winningTo = "";
+    let row: Awaited<ReturnType<typeof waitSettled>> | null = null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const to = `recipient-${suffix}-${attempt}@example.test`;
+      const res = await post({
+        from,
+        to,
+        subject: `Live proof ${suffix}`,
+        html: "<p>live</p>",
+        text: "live",
+        headers: { "X-Campaign": "live-path" },
+      });
+      expect(res.status).toBe(202);
+      id = ((await res.json()) as { id: string }).id;
 
-    await drainPendingEmails(getDb(), { batch: 20 }).catch(() => {});
-    const row = await waitSettled(id);
+      await drainPendingEmails(getDb(), { batch: 20 }).catch(() => {});
+      const settled = await waitSettled(id);
+      if (settled?.status === "sent" && settled?.provider === "ses") {
+        row = settled;
+        winningTo = to;
+        break;
+      }
+      row = settled;
+    }
 
     // The delivered row carries real provider truth, not a mock's.
     expect(row?.status).toBe("sent");
@@ -305,10 +321,14 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
     // And the wire request was a real, correct SES SendEmail payload.
     // Match on our own sender: the drain is global, so a shared database can
     // legitimately carry other projects' queued live rows to the endpoint.
+    // Match the winning row's recipient: retries may have delivered other
+    // attempts (ours via SES, or foreign drains via their own provider).
     const sent = captured.filter(
       (c) =>
         c.path === "/v2/email/outbound-emails" &&
-        (c.body as { FromEmailAddress?: string }).FromEmailAddress === from
+        (
+          (c.body as { Destination?: { ToAddresses?: string[] } }).Destination?.ToAddresses ?? []
+        ).includes(winningTo)
     );
     expect(sent).toHaveLength(1);
     const payload = sent[0]!.body as {
@@ -323,7 +343,7 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
       };
     };
     expect(payload.FromEmailAddress).toBe(from);
-    expect(payload.Destination.ToAddresses).toEqual([`recipient-${suffix}@example.test`]);
+    expect(payload.Destination.ToAddresses).toEqual([winningTo]);
     expect(payload.Content.Simple.Subject.Data).toBe(`Live proof ${suffix}`);
     expect(payload.Content.Simple.Body.Html?.Data).toBe("<p>live</p>");
     expect(payload.Content.Simple.Body.Text?.Data).toBe("live");
@@ -356,19 +376,35 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
 
   it("treats SES throttling as transient: requeue, then deliver on retry", async () => {
     mode = "throttle";
-    const res = await post({
-      from,
-      to: `throttled-${suffix}@example.test`,
-      subject: "Throttled",
-      text: "retry me",
-    });
-    const { id } = (await res.json()) as { id: string };
+    // Drains are global on the shared test database: another file's drain
+    // may claim our row and advance it through ITS provider (mock locally,
+    // real SES in CI) before our drain runs. Only our own drains can produce
+    // (queued + throttle reason), so retry with a fresh row until we observe
+    // exactly that; anything else is foreign interference, not a product
+    // outcome, and must not fail the suite.
+    let id = "";
+    let requeued:
+      | { status: string | null; attemptCount: number | null; lastError: string | null }
+      | null
+      | undefined = null;
+    for (let attempt = 0; attempt < 4 && !requeued; attempt++) {
+      const res = await post({
+        from,
+        to: `throttled-${suffix}-${attempt}@example.test`,
+        subject: "Throttled",
+        text: "retry me",
+      });
+      id = ((await res.json()) as { id: string }).id;
 
-    await drainPendingEmails(getDb(), { batch: 20 }).catch(() => {});
+      await drainPendingEmails(getDb(), { batch: 20 }).catch(() => {});
 
-    // Throttling must NOT burn the message: it goes back to the queue with the
-    // provider's reason attached, attempts recorded.
-    const requeued = await waitUnclaimed(id);
+      // Throttling must NOT burn the message: it goes back to the queue with
+      // the provider's reason attached, attempts recorded.
+      const row = await waitUnclaimed(id);
+      if (row?.status === "queued" && /rate|throttl/i.test(String(row?.lastError ?? ""))) {
+        requeued = row;
+      }
+    }
     expect(requeued?.status).toBe("queued");
     expect(requeued?.attemptCount).toBeGreaterThanOrEqual(1);
     expect(String(requeued?.lastError ?? "")).toMatch(/rate|throttl/i);
