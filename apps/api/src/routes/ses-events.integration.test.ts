@@ -46,6 +46,7 @@ gate("POST /v1/ses/events (live Postgres, real RSA signatures)", async () => {
     emailEvents,
     suppressions,
     providerEvents,
+    cleanupSuiteOrg,
   } = await import("@calder/db");
   const { eq, and, count } = await import("drizzle-orm");
   const { createApp } = await import("../app.js");
@@ -171,8 +172,7 @@ gate("POST /v1/ses/events (live Postgres, real RSA signatures)", async () => {
     else process.env.SES_SNS_TOPIC_ARNS = savedTopics;
     if (!(await reachable())) return;
     const db = getDb();
-    await db.delete(organizations).where(eq(organizations.id, orgId));
-    await db.delete(users).where(eq(users.id, userId));
+    await cleanupSuiteOrg(db, orgId, userId);
   });
 
   it("delivery: valid signature advances status and writes ledger + event", async () => {
