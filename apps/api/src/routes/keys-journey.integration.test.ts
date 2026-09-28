@@ -29,7 +29,7 @@ async function reachable(): Promise<boolean> {
  */
 gate("developer journey: credentials a platform actually holds", async () => {
   const { randomBytes } = await import("node:crypto");
-  const { getDb, organizations, organizationMembers, projects, users, emails } =
+  const { getDb, organizations, organizationMembers, projects, users, emails, cleanupSuiteOrg } =
     await import("@calder/db");
   const { eq } = await import("drizzle-orm");
   const { createApp } = await import("../app.js");
@@ -93,8 +93,7 @@ gate("developer journey: credentials a platform actually holds", async () => {
   afterAll(async () => {
     if (!(await reachable())) return;
     const db = getDb();
-    await db.delete(organizations).where(eq(organizations.id, orgId));
-    await db.delete(users).where(eq(users.id, userId));
+    await cleanupSuiteOrg(db, orgId, userId);
   });
 
   let appKey = "";

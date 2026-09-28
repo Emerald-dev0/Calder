@@ -33,8 +33,16 @@ async function reachable(): Promise<boolean> {
  */
 gate("worker live delivery path against a real SES-protocol endpoint", async () => {
   const { randomBytes } = await import("node:crypto");
-  const { getDb, organizations, organizationMembers, projects, users, emails, usageRecords } =
-    await import("@calder/db");
+  const {
+    getDb,
+    organizations,
+    organizationMembers,
+    projects,
+    users,
+    emails,
+    usageRecords,
+    cleanupSuiteOrg,
+  } = await import("@calder/db");
   const { eq, count } = await import("drizzle-orm");
   const { processEmailJob } = await import("./worker.js");
 
@@ -151,8 +159,7 @@ gate("worker live delivery path against a real SES-protocol endpoint", async () 
     await new Promise<void>((r) => server?.close(() => r()));
     if (!(await reachable())) return;
     const db = getDb();
-    await db.delete(organizations).where(eq(organizations.id, orgId));
-    await db.delete(users).where(eq(users.id, userId));
+    await cleanupSuiteOrg(db, orgId, userId);
   });
 
   it("delivers a live job through the real provider and records provider truth", async () => {

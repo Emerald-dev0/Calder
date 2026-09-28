@@ -25,6 +25,44 @@ import { isTransientError } from "@calder/queue";
 
 export const DRAIN_BATCH = 25;
 export const DRAIN_MAX_ATTEMPTS = 5;
+
+/** Postgres foreign-key violation. Exported for tests. */
+export function isForeignKeyViolation(err: unknown): boolean {
+  return typeof err === "object" && err !== null && (err as { code?: unknown }).code === "23503";
+}
+
+/**
+ * Insert a terminal email event, tolerating a parent row that vanished
+ * mid-flight. Drains are global and rows are claimed across suites/processes,
+ * while an organization delete cascades projects → emails → events: a row
+ * claimed moments before its org was deleted (admin purge, retention, test
+ * cleanup) must not abort the batch. The status UPDATEs above are already
+ * safe (0-row no-ops); only inserts can throw. Returns false when skipped.
+ */
+export async function recordDrainEvent(
+  db: DbClient,
+  values: {
+    id: string;
+    emailId: string;
+    projectId: string;
+    type: "queued" | "sent" | "failed" | "suppressed";
+    data: Record<string, unknown>;
+  }
+): Promise<boolean> {
+  try {
+    await db.insert(emailEvents).values(values);
+    return true;
+  } catch (err) {
+    if (isForeignKeyViolation(err)) {
+      logger.warn(
+        { emailId: values.emailId, type: values.type },
+        "drain: parent email deleted mid-flight, skipping event"
+      );
+      return false;
+    }
+    throw err;
+  }
+}
 /** A claimed ("sending") row abandoned mid-drain becomes claimable again after this window. */
 export const DRAIN_STALE_CLAIM_MINUTES = 10;
 
@@ -294,7 +332,7 @@ export async function drainPendingEmails(
         .update(emails)
         .set({ status: "suppressed", lastError: sup[0]!.reason, updatedAt: now })
         .where(eq(emails.id, row.id));
-      await db.insert(emailEvents).values({
+      await recordDrainEvent(db, {
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
         projectId: row.projectId,
@@ -372,7 +410,7 @@ export async function drainPendingEmails(
         .update(emails)
         .set({ status: "failed", lastError: msg, updatedAt: new Date() })
         .where(eq(emails.id, row.id));
-      await db.insert(emailEvents).values({
+      await recordDrainEvent(db, {
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
         projectId: row.projectId,
@@ -453,13 +491,20 @@ export async function drainPendingEmails(
         .where(eq(emails.id, row.id));
       // Meter at provider-accept; exactly-once via deterministic ledger id
       // (ADR-036): retries and overlapping drains can never double-count.
-      await recordSendUsage(db, {
-        emailId: row.id,
-        projectId: row.projectId,
-        env: row.env ?? "live",
-        when: done,
-      });
-      await db.insert(emailEvents).values({
+      // Same mid-flight-deletion tolerance as recordDrainEvent: if the org
+      // vanished under us, skip metering rather than aborting the batch.
+      try {
+        await recordSendUsage(db, {
+          emailId: row.id,
+          projectId: row.projectId,
+          env: row.env ?? "live",
+          when: done,
+        });
+      } catch (err) {
+        if (!isForeignKeyViolation(err)) throw err;
+        logger.warn({ emailId: row.id }, "drain: org deleted mid-flight, skipping usage");
+      }
+      await recordDrainEvent(db, {
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
         projectId: row.projectId,
@@ -482,7 +527,7 @@ export async function drainPendingEmails(
         .update(emails)
         .set({ status: "failed", lastError: msg, updatedAt: new Date() })
         .where(eq(emails.id, row.id));
-      await db.insert(emailEvents).values({
+      await recordDrainEvent(db, {
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
         projectId: row.projectId,
@@ -506,7 +551,7 @@ export async function drainPendingEmails(
       .update(emails)
       .set({ status: "failed", lastError: `Exhausted: ${msg}`, updatedAt: new Date() })
       .where(eq(emails.id, row.id));
-    await db.insert(emailEvents).values({
+    await recordDrainEvent(db, {
       id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
       emailId: row.id,
       projectId: row.projectId,

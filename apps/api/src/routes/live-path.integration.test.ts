@@ -74,8 +74,16 @@ async function reachable(): Promise<boolean> {
  */
 gate("live send path against a real SES-protocol endpoint (no AWS)", async () => {
   const { randomBytes } = await import("node:crypto");
-  const { getDb, organizations, organizationMembers, projects, users, emails, usageRecords } =
-    await import("@calder/db");
+  const {
+    getDb,
+    organizations,
+    organizationMembers,
+    projects,
+    users,
+    emails,
+    usageRecords,
+    cleanupSuiteOrg,
+  } = await import("@calder/db");
   const { eq, and, count } = await import("drizzle-orm");
   const { createApp } = await import("../app.js");
   const { registerDevKey } = await import("../middleware/auth.js");
@@ -269,8 +277,7 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
     await new Promise<void>((r) => server?.close(() => r()));
     if (!(await reachable())) return;
     const db = getDb();
-    await db.delete(organizations).where(eq(organizations.id, orgId));
-    await db.delete(users).where(eq(users.id, userId));
+    await cleanupSuiteOrg(db, orgId, userId);
   });
 
   it("delivers a live send through the real SES driver and records provider truth", async () => {
