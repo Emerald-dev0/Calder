@@ -36,7 +36,7 @@ async function reachable(): Promise<boolean> {
  */
 gate("control delivery truth (live Postgres)", async () => {
   const { randomBytes, randomUUID } = await import("node:crypto");
-  const { getDb, emails, organizations, organizationMembers, projects, users } =
+  const { getDb, emails, organizations, organizationMembers, projects, users, cleanupSuiteOrg } =
     await import("@calder/db");
   const { eq, and, count, gte } = await import("drizzle-orm");
   const { deliveryOutcomeSummary, evaluateAlerts } = await import("./queries.js");
@@ -88,8 +88,9 @@ gate("control delivery truth (live Postgres)", async () => {
   afterAll(async () => {
     if (!(await reachable())) return;
     const db = getDb();
-    await db.delete(organizations).where(eq(organizations.id, orgId)); // cascades to seeds
-    await db.delete(users).where(eq(users.id, userId));
+    // Quiescent cleanup (see api drain.integration.test.ts): cascade deletes
+    // must not pull claimed rows out from under a parallel drain.
+    await cleanupSuiteOrg(db, orgId, userId);
   });
 
   it("deliveryOutcomeSummary equals SQL truth for the same window", async () => {

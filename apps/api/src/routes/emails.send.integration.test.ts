@@ -26,8 +26,16 @@ async function reachable(): Promise<boolean> {
  */
 gate("POST /v1/emails ingest correctness (live Postgres)", async () => {
   const { randomBytes } = await import("node:crypto");
-  const { getDb, organizations, organizationMembers, projects, users, emails, emailEvents } =
-    await import("@calder/db");
+  const {
+    getDb,
+    organizations,
+    organizationMembers,
+    projects,
+    users,
+    emails,
+    emailEvents,
+    cleanupSuiteOrg,
+  } = await import("@calder/db");
   const { eq, and, count } = await import("drizzle-orm");
   const { createApp } = await import("../app.js");
   const { registerDevKey } = await import("../middleware/auth.js");
@@ -79,10 +87,11 @@ gate("POST /v1/emails ingest correctness (live Postgres)", async () => {
   afterAll(async () => {
     if (!(await reachable())) return;
     const db = getDb();
-    // Deleting the org cascades to projects, emails, events, suppressions,
-    // idempotency-key rows and membership.
-    await db.delete(organizations).where(eq(organizations.id, orgId));
-    await db.delete(users).where(eq(users.id, userId));
+    // Quiescent cleanup (see drain.integration.test.ts): the org delete
+    // cascades to projects, emails, events, suppressions, idempotency-key
+    // rows and membership — never pull claimed rows out from under a
+    // parallel drain.
+    await cleanupSuiteOrg(db, orgId, userId);
   });
 
   it("concurrent same-key sends produce exactly one queued email and one replay set", async () => {
