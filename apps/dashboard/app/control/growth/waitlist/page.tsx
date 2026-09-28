@@ -96,14 +96,23 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
           subtitle="The source of truth for early Calder. Position and conversion are computed live — never stored."
           right={
             <>
-              <Link className="cp-btn" href={`/control/growth/waitlist/export?${exportParams.toString()}`}>
+              <Link
+                className="cp-btn"
+                href={`/control/growth/waitlist/export?${exportParams.toString()}`}
+              >
                 Export CSV
               </Link>
             </>
           }
         />
 
-        <SectionLabel right={<span className="cp-caption" style={{ margin: 0 }}>{window.compareLabel}</span>}>
+        <SectionLabel
+          right={
+            <span className="cp-caption" style={{ margin: 0 }}>
+              {window.compareLabel}
+            </span>
+          }
+        >
           Summary
         </SectionLabel>
         <div className="cp-stats">
@@ -129,7 +138,10 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
         </div>
 
         <SectionLabel>Waitlist growth</SectionLabel>
-        <Panel title="Cumulative waitlist" caption={`Cumulative size · ${window.compareLabel.replace("vs ", "")}`}>
+        <Panel
+          title="Cumulative waitlist"
+          caption={`Cumulative size · ${window.compareLabel.replace("vs ", "")}`}
+        >
           <CumulativeChart
             data={cumulativeSeries.map((p) => ({ day: p.day, total: p.count }))}
             height={260}
@@ -137,7 +149,12 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
         </Panel>
         <div style={{ height: 14 }} />
         <Panel title="New signups per day" caption="Daily volume in range">
-          <DailyBars data={wlDense.map((p) => ({ day: p.day, count: p.count }))} valueKey="count" label="Signups" height={200} />
+          <DailyBars
+            data={wlDense.map((p) => ({ day: p.day, count: p.count }))}
+            valueKey="count"
+            label="Signups"
+            height={200}
+          />
         </Panel>
 
         <SectionLabel
@@ -160,7 +177,12 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
           Waitlist database
         </SectionLabel>
         <Panel flush>
-          <form className="cp-filters" id="waitlist-filters" method="get" style={{ padding: "12px 16px 0" }}>
+          <form
+            className="cp-filters"
+            id="waitlist-filters"
+            method="get"
+            style={{ padding: "12px 16px 0" }}
+          >
             <input
               className="cp-input"
               type="search"
@@ -170,7 +192,12 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
               style={{ minWidth: 220 }}
               aria-label="Search the waitlist"
             />
-            <select className="cp-select" name="source" defaultValue={searchParams.source ?? ""} aria-label="Source">
+            <select
+              className="cp-select"
+              name="source"
+              defaultValue={searchParams.source ?? ""}
+              aria-label="Source"
+            >
               <option value="">All sources</option>
               {sources
                 .filter((s) => s.label !== "direct")
@@ -181,7 +208,12 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
                 ))}
               <option value="__direct__">direct</option>
             </select>
-            <select className="cp-select" name="status" defaultValue={searchParams.status ?? ""} aria-label="Status">
+            <select
+              className="cp-select"
+              name="status"
+              defaultValue={searchParams.status ?? ""}
+              aria-label="Status"
+            >
               <option value="">All statuses</option>
               <option value="waiting">Waiting</option>
               <option value="invited">Invited</option>
@@ -189,47 +221,65 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
               <option value="converted">Converted</option>
               <option value="removed">Removed</option>
             </select>
-            <select className="cp-select" name="referred" defaultValue={searchParams.referred ?? ""} aria-label="Referral">
+            <select
+              className="cp-select"
+              name="referred"
+              defaultValue={searchParams.referred ?? ""}
+              aria-label="Referral"
+            >
               <option value="">Referred + organic</option>
               <option value="referred">Referred only</option>
               <option value="organic">Organic only</option>
             </select>
-            <select className="cp-select" name="sort" defaultValue={searchParams.sort ?? "newest"} aria-label="Sort">
+            <select
+              className="cp-select"
+              name="sort"
+              defaultValue={searchParams.sort ?? "newest"}
+              aria-label="Sort"
+            >
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
             </select>
-            {searchParams.range ? <input type="hidden" name="range" value={searchParams.range} /> : null}
-            {searchParams.from ? <input type="hidden" name="from" value={searchParams.from} /> : null}
+            {searchParams.range ? (
+              <input type="hidden" name="range" value={searchParams.range} />
+            ) : null}
+            {searchParams.from ? (
+              <input type="hidden" name="from" value={searchParams.from} />
+            ) : null}
             {searchParams.to ? <input type="hidden" name="to" value={searchParams.to} /> : null}
             <button className="cp-btn primary" type="submit">
               Apply
             </button>
-            {searchParams.q || searchParams.source || searchParams.status || searchParams.referred ? (
+            {searchParams.q ||
+            searchParams.source ||
+            searchParams.status ||
+            searchParams.referred ? (
               <Link className="cp-btn" href="/control/growth/waitlist">
                 Clear
               </Link>
             ) : null}
           </form>
 
-          {overview.total === 0 && !searchParams.q && !searchParams.status && !searchParams.source ? (
+          {overview.total === 0 &&
+          !searchParams.q &&
+          !searchParams.status &&
+          !searchParams.source ? (
             <Empty title="Your waitlist is empty">
               Once someone joins Calder, they&apos;ll appear here.
             </Empty>
           ) : (
             <WaitlistTable
-              rows={table.rows.map(
-                (r): WaitlistTableRow => ({
-                  id: r.id,
-                  email: r.email,
-                  firstName: r.firstName,
-                  createdAt: new Date(r.createdAt).toISOString(),
-                  source: r.source,
-                  country: r.country,
-                  referredBy: r.referredBy,
-                  status: r.status,
-                  tags: r.tags ?? [],
-                })
-              )}
+              rows={table.rows.map((r): WaitlistTableRow => ({
+                id: r.id,
+                email: r.email,
+                firstName: r.firstName,
+                createdAt: new Date(r.createdAt).toISOString(),
+                source: r.source,
+                country: r.country,
+                referredBy: r.referredBy,
+                status: r.status,
+                tags: r.tags ?? [],
+              }))}
               total={table.total}
               page={table.page}
               pages={table.pages}
@@ -251,12 +301,10 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
         </Panel>
 
         <p className="cp-caption">
-          Statuses are the real lifecycle: waiting · invited · contacted · converted (has an account) ·
-          removed. "Confirmed" is not a stored state — conversion is derived live.
+          Statuses are the real lifecycle: waiting · invited · contacted · converted (has an
+          account) · removed. "Confirmed" is not a stored state — conversion is derived live.
         </p>
       </main>
     </>
   );
 }
-
-

@@ -126,6 +126,68 @@ describe("validation schemas", () => {
     expect(sendEmailSchema.safeParse({ ...base, scheduled_at: past }).success).toBe(false);
   });
 
+  // ── Reputation streams (transactional | marketing) ──────────
+  // Both single and bulk sends are transactional unless marketing is an
+  // explicit opt-in; existing integrations must never silently change lane.
+
+  it("sendEmailSchema defaults stream to transactional", () => {
+    const result = sendEmailSchema.safeParse({
+      from: "test@example.com",
+      to: "recipient@example.com",
+      subject: "Hello",
+      html: "<p>Hello</p>",
+    });
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.stream).toBe("transactional");
+  });
+
+  it("sendEmailSchema accepts an explicit marketing stream", () => {
+    const result = sendEmailSchema.safeParse({
+      from: "test@example.com",
+      stream: "marketing",
+      to: "recipient@example.com",
+      subject: "Hello",
+      text: "Hi",
+    });
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.stream).toBe("marketing");
+  });
+
+  it("sendEmailSchema rejects an unknown stream", () => {
+    for (const stream of ["promotional", "MARKETING", ""]) {
+      expect(
+        sendEmailSchema.safeParse({
+          from: "test@example.com",
+          stream,
+          to: "recipient@example.com",
+          subject: "Hello",
+          text: "Hi",
+        }).success
+      ).toBe(false);
+    }
+  });
+
+  it("bulkSendSchema also defaults to transactional (opt-in marketing)", () => {
+    const withDefault = bulkSendSchema.safeParse({
+      from: "a@x.com",
+      subject: "Hi",
+      text: "Hey",
+      messages: [{ to: "x@y.com" }],
+    });
+    expect(withDefault.success).toBe(true);
+    expect(withDefault.success && withDefault.data.stream).toBe("transactional");
+
+    const optedIn = bulkSendSchema.safeParse({
+      from: "a@x.com",
+      stream: "marketing",
+      subject: "Hi",
+      text: "Hey",
+      messages: [{ to: "x@y.com" }],
+    });
+    expect(optedIn.success).toBe(true);
+    expect(optedIn.success && optedIn.data.stream).toBe("marketing");
+  });
+
   it("bulkSendSchema caps at 100 with shared defaults", () => {
     const ok = bulkSendSchema.safeParse({
       from: "a@x.com",

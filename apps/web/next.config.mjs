@@ -1,3 +1,5 @@
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 import createMDX from "@next/mdx";
 
 /** @type {import('next').NextConfig} */

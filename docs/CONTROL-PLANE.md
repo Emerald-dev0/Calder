@@ -48,19 +48,19 @@ query.
 
 ## 2. Navigation (implemented)
 
-| Section | Pages |
-| --- | --- |
-| OVERVIEW | Command Center (`/control`) |
-| GROWTH | Overview, Waitlist (+ person drill-down, CSV export), Acquisition, Referrals |
-| CUSTOMERS | Users, Organizations (+ 360° org detail), Projects, Customer Health, Support |
-| COMMUNICATIONS | Overview, Broadcasts, Campaigns, Templates, Audiences, Delivery |
-| BILLING | Overview, Revenue, Subscriptions, Plans, Coupons, Credits, Invoices, Entitlements |
-| PLATFORM | Email, API, Webhooks, Deliverability, Usage |
-| INFRASTRUCTURE | Overview, Redis, Queues, Workers, Database, Storage, Providers, Cron, Networking |
-| OBSERVABILITY | Logs, Metrics, Alerts, Incidents |
-| SECURITY | Overview, Abuse, Security Events, Restrictions, Admin Access |
-| OPERATIONS | Feature Flags, Maintenance, Status Page |
-| ADMINISTRATION | Administrators, Roles, Audit Logs, Settings |
+| Section        | Pages                                                                             |
+| -------------- | --------------------------------------------------------------------------------- |
+| OVERVIEW       | Command Center (`/control`)                                                       |
+| GROWTH         | Overview, Waitlist (+ person drill-down, CSV export), Acquisition, Referrals      |
+| CUSTOMERS      | Users, Organizations (+ 360° org detail), Projects, Customer Health, Support      |
+| COMMUNICATIONS | Overview, Broadcasts, Campaigns, Templates, Audiences, Delivery                   |
+| BILLING        | Overview, Revenue, Subscriptions, Plans, Coupons, Credits, Invoices, Entitlements |
+| PLATFORM       | Email, API, Webhooks, Deliverability, Usage                                       |
+| INFRASTRUCTURE | Overview, Redis, Queues, Workers, Database, Storage, Providers, Cron, Networking  |
+| OBSERVABILITY  | Logs, Metrics, Alerts, Incidents                                                  |
+| SECURITY       | Overview, Abuse, Security Events, Restrictions, Admin Access                      |
+| OPERATIONS     | Feature Flags, Maintenance, Status Page                                           |
+| ADMINISTRATION | Administrators, Roles, Audit Logs, Settings                                       |
 
 Access is gated per section by `requireSection()` (`lib/control/guard.ts`);
 unauthenticated `/control` requests redirect to login; insufficient role
@@ -69,6 +69,7 @@ renders the "No access" page (verified with a support-role session).
 ## 3. What each area does today
 
 ### Command Center
+
 Open-canvas founder cockpit on the light Paper register (ADR-031): global
 system state in the header ("All systems operational" or "N issues require
 attention →"), a primary metric strip (Visitors, Waitlist, Submissions,
@@ -85,6 +86,7 @@ refresh live in the founder topbar. Every number is a live query; a dash
 means "no data yet", never a fabricated value.
 
 ### Growth / Waitlist (the priority)
+
 - Stat strip: total, new today, new this week (+WoW %), conversion
   (computed, never stored), referral rate, waiting count.
 - Cumulative growth curve (7D|30D|90D|6M|1Y|ALL switch) + per-day signups bars.
@@ -98,6 +100,7 @@ means "no data yet", never a fabricated value.
 - CSV export (`/control/growth/waitlist/export`) — 3,839 rows verified.
 
 ### Customers
+
 - Users list (plan, orgs, emails sent); Organizations list (MRR, plan, health);
   360° org detail: plan control (apply plan founder-side, audit-logged),
   subscription history, members, projects + transports with default identity,
@@ -107,6 +110,7 @@ means "no data yet", never a fabricated value.
 - Support: internal notes + recent contacts (CRM-lite).
 
 ### Communications
+
 The **transactional vs marketing split is rendered everywhere**: overview
 shows two separate pipelines (transactional: Gmail/SES/SMTP with per-provider
 traffic; marketing: flagged OFF with the banner "Marketing campaigns — Not
@@ -118,6 +122,7 @@ Founders can compose internal broadcasts to system-generated audiences
 approaching limits, billing issues).
 
 ### Billing
+
 Overview (MRR, ARPU, plan mix), Revenue (30-day bars), Subscriptions (state
 funnel, past-due), **Plans** (founder-only management, prices, include
 entitlements), **Coupons** (percent / fixed / free-period, redemption counts),
@@ -126,11 +131,13 @@ plan + per-org overrides (+ emails, + projects, temporary promotions with
 expiry) → effective entitlements table.
 
 ### Platform
+
 Email transports (per-provider config + status), API (rates, error budget),
 Webhooks (attempt/failure counts), Deliverability (auth posture: SPF/DKIM/DMARC,
 reputation, per-provider engagement), Usage (metered totals by metric).
 
 ### Infrastructure
+
 Overview (health of each subsystem), **Redis** (falls back to Postgres-state
 panel with an honest "Redis unreachable — showing fallback state" when PING
 fails; fully populated when Redis is up), **Queues** (waiting/processing/
@@ -139,6 +146,7 @@ conn counts, table sizes), Storage, Providers (status, latency, traffic share,
 failover chain), Cron (job schedules), Networking.
 
 ### Observability
+
 Logs, Metrics, **Alerts** — the rule book is rendered with thresholds and
 intent (delivery rate <97%, complaints >0, bounces >3%, queue depth >5,000,
 oldest queued >15 min, Redis PING, Redis memory >80%, DB connections >80%,
@@ -146,6 +154,7 @@ past-due subs >0), each evaluated live with firing/clear state and drill-down
 links. Incidents (timeline, escalation path: alert → notification → incident).
 
 ### Security
+
 Abuse (signals + actions: warn, rate-limit, require verification, pause,
 suspend, restore — all audit-logged), Security Events, Restrictions
 (user/org/platform levels), Admin Access (role matrix: Founder > Platform
@@ -153,12 +162,14 @@ Admin > specialized roles Support/Billing/Marketing/Infra/Security/Developer/
 Analyst, multi-role assignment, read-only roles list).
 
 ### Operations
+
 **Feature Flags** (Gmail transport ON, SMTP ON, Inbound OFF, Campaigns OFF,
 Automations OFF, Advanced Analytics plan-gated Pro+, Broadcasts internal-only
 — with % rollout and plan/user/org/internal targeting columns), Maintenance,
 Status Page (public incident publishing path).
 
 ### Administration
+
 Administrators (grant/revoke platform roles with reason — inline
 `"use server"` actions, audit-logged), Roles (matrix + precedence docs),
 Audit Logs (actor/action/target/time/metadata, filterable), Settings
@@ -168,9 +179,9 @@ Audit Logs (actor/action/target/time/metadata, filterable), Settings
 
 - Paths: pages in `apps/dashboard/app/control/**`, shared components in
   `app/control/_components` (ui.tsx, charts.tsx, page.tsx shell), logic in
-   `apps/dashboard/lib/control/**` (guard.ts, roles.ts, post-login.ts,
-   queries.ts, analytics-queries.ts, range.ts, format.ts, editor-actions.ts).
-   tsconfig aliases `@/control/*` and `@/*` — never import
+  `apps/dashboard/lib/control/**` (guard.ts, roles.ts, post-login.ts,
+  queries.ts, analytics-queries.ts, range.ts, format.ts, editor-actions.ts).
+  tsconfig aliases `@/control/*` and `@/*` — never import
   with relative `../../../lib/control`.
 - Server actions are inline `"use server"` closures (bound functions fail
   typecheck in this Next version). Every mutation writes an audit row inside

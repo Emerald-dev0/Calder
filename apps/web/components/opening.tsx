@@ -32,7 +32,9 @@ export function Opening() {
         </div>
 
         <Reveal delay={120}>
-          <div style={{ marginTop: "3rem", borderTop: "1px solid var(--border)", paddingTop: "3rem" }}>
+          <div
+            style={{ marginTop: "3rem", borderTop: "1px solid var(--border)", paddingTop: "3rem" }}
+          >
             <p className="lede">
               And when something goes wrong, you don&rsquo;t get a mysterious error and a shrug.
               <strong> You get the record.</strong>

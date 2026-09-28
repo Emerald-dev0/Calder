@@ -82,6 +82,10 @@ batch.post("/", authMiddleware, rateLimitMiddleware("sending"), async (c) => {
         idempotencyKey: baseKey ? `${baseKey}:${i}` : undefined,
         input: {
           from: shared.from,
+          // Reputation lane travels with every message; defaults to
+          // transactional (opt-in marketing only). Suppression, quota and
+          // sender checks above/below are stream-independent by construction.
+          stream: shared.stream,
           to,
           subject,
           ...(html !== undefined ? { html } : {}),

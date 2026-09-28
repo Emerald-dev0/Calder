@@ -109,13 +109,26 @@ export function Footer() {
         <div className="footer-grid">
           <div>
             <Logo />
-            <p className="caption" style={{ marginTop: "1.2rem", maxWidth: "24rem", fontSize: '0.95rem', lineHeight: 1.6 }}>
+            <p
+              className="caption"
+              style={{
+                marginTop: "1.2rem",
+                maxWidth: "24rem",
+                fontSize: "0.95rem",
+                lineHeight: 1.6,
+              }}
+            >
               <strong>Communication infrastructure for applications.</strong>
               <br />
               Send, receive, observe, and manage the messages your application depends on.
             </p>
             <p className="caption" style={{ marginTop: "1rem" }}>
-              <a href={`mailto:${SUPPORT_EMAIL}`} style={{ textDecoration: 'none', borderBottom: '1px solid var(--border)' }}>{SUPPORT_EMAIL}</a>
+              <a
+                href={`mailto:${SUPPORT_EMAIL}`}
+                style={{ textDecoration: "none", borderBottom: "1px solid var(--border)" }}
+              >
+                {SUPPORT_EMAIL}
+              </a>
             </p>
           </div>
           {COLUMNS.map((col) => (

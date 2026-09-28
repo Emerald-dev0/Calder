@@ -1,4 +1,3 @@
 {
-  "buildCommand": "pnpm --filter @calder/dashboard... build",
-  "crons": [{ "path": "/api/cron/drain", "schedule": "0 0 * * *" }]
+  "buildCommand": "pnpm --filter @calder/dashboard... build"
 }

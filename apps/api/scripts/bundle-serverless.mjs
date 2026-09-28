@@ -26,7 +26,11 @@ const calderWorkspaceSources = {
   setup(build) {
     build.onResolve({ filter: /^@calder\// }, (args) => {
       const [, pkg, ...rest] = args.path.split("/");
-      const sub = rest.length > 0 ? rest.join("/") : "index.ts";
+      // Sub-path imports ("@calder/db/foo" or "@calder/db/foo.js") map to
+      // src as TS sources; the bare package maps to src/index.ts.
+      let sub = rest.length > 0 ? rest.join("/") : "index.ts";
+      if (sub.endsWith(".js")) sub = sub.slice(0, -3) + ".ts";
+      else if (!/\.[cm]?ts$/.test(sub)) sub += ".ts";
       return { path: join(root, "..", "..", "packages", pkg, "src", sub) };
     });
   },

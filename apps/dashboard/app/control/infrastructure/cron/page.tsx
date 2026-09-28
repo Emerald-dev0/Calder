@@ -12,7 +12,12 @@ export default async function CronPage() {
   // delayed queue work (scheduledFor) instead of a wall-clock scheduler.
   const db = getDb();
   const scheduled = await db
-    .select({ id: emails.id, scheduledFor: emails.scheduledFor, status: emails.status, subject: emails.subject })
+    .select({
+      id: emails.id,
+      scheduledFor: emails.scheduledFor,
+      status: emails.status,
+      subject: emails.subject,
+    })
     .from(emails)
     .orderBy(desc(emails.scheduledFor))
     .limit(10);
@@ -47,7 +52,10 @@ export default async function CronPage() {
                     <tr key={s.id}>
                       <td>{s.subject}</td>
                       <td className="mono" style={{ fontSize: 12.5 }}>
-                        {new Date(s.scheduledFor as Date).toISOString().slice(0, 16).replace("T", " ")}
+                        {new Date(s.scheduledFor as Date)
+                          .toISOString()
+                          .slice(0, 16)
+                          .replace("T", " ")}
                       </td>
                       <td className="mono" style={{ fontSize: 12.5 }}>
                         {s.status}
@@ -59,7 +67,10 @@ export default async function CronPage() {
           </div>
         )}
       </Panel>
-      <Panel title="Planned: recurring jobs view" caption="every cron entry with last-run and duration">
+      <Panel
+        title="Planned: recurring jobs view"
+        caption="every cron entry with last-run and duration"
+      >
         <Planned
           title="Cron observability"
           bullets={[
@@ -68,8 +79,8 @@ export default async function CronPage() {
             "Idempotency proof: safe re-run on every entry",
           ]}
         >
-          All cron jobs are already contractually idempotent (ARCHITECTURE §6); this surface makes their execution
-          visible.
+          All cron jobs are already contractually idempotent (ARCHITECTURE §6); this surface makes
+          their execution visible.
         </Planned>
       </Panel>
     </>

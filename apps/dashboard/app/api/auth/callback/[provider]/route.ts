@@ -31,7 +31,13 @@ export async function GET(
     return NextResponse.redirect(new URL("/login?error=denied", url.origin));
   }
   try {
-    const sessionId = await completeOAuth(provider, code, state, storedState, codeVerifier);
+    const sessionId = await completeOAuth(provider, code, state, storedState, codeVerifier, {
+      userAgent: req.headers.get("user-agent"),
+      ip:
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+        req.headers.get("x-real-ip")?.trim() ??
+        null,
+    });
     const sealed = await sealSessionCookie(sessionId);
     // Role-derived landing: founders enter at /control, everyone else at /.
     const sessionUser = await getSessionUser(sealed);

@@ -1,3 +1,5 @@
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
 import { getDb, organizations, projects, plans, planPrices } from "./index.js";
 
 /**

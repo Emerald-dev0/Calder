@@ -20,7 +20,7 @@ Developers need application-generated transactional communication but implementi
 
 **First market, not ceiling:** Nigeria-first, NGN pricing, local payment rails, onboarding that assumes no domain and no budget. The product must never look geographically limited: same API, same reliability bar, global ambition. Nigeria is the wedge (accessible pricing, Gmail-first beginners, underserved builders), not the boundary.
 
-**Not targeting:** CRM, sales engagement, or a drag-and-drop page builder. Marketing email *is* in scope from 2026-09-14 (ADR-025), as a second stream over the same pipeline, not a separate product sold separately.
+**Not targeting:** CRM, sales engagement, or a drag-and-drop page builder. Marketing email _is_ in scope from 2026-09-14 (ADR-025), as a second stream over the same pipeline, not a separate product sold separately.
 
 ## 4. Core model
 
@@ -64,12 +64,12 @@ Calder exposes **REST API** (modern applications, SDKs) and **SMTP** (`smtp.cald
 
 ## 11. Pricing (locked for launch, 2026-09-14)
 
-| Plan | USD | NGN | Emails / month | Projects | Domains | Team | Environments | Logs | Support |
-| -------- | ----- | --------- | -------------- | -------- | ------- | ---- | ---------------------------- | ------- | --------- |
-| Beginner | $0 | ₦0 | 5,000 | 3 | 2 | 1 | Development | 7 days | Community |
-| Pro | $15 | ₦25,000 | 50,000 | 10 | 10 | 5 | Dev + Staging + Production | 30 days | Email |
-| Premium | $49 | ₦75,000 | 250,000 | 50 | 50 | 15 | Dev + Staging + Production | 90 days | Priority |
-| Scale | Custom | Custom | Custom | Custom | Custom | Custom | Custom | Custom | Dedicated |
+| Plan     | USD    | NGN     | Emails / month | Projects | Domains | Team   | Environments               | Logs    | Support   |
+| -------- | ------ | ------- | -------------- | -------- | ------- | ------ | -------------------------- | ------- | --------- |
+| Beginner | $0     | ₦0      | 5,000          | 3        | 2       | 1      | Development                | 7 days  | Community |
+| Pro      | $15    | ₦25,000 | 50,000         | 10       | 10      | 5      | Dev + Staging + Production | 30 days | Email     |
+| Premium  | $49    | ₦75,000 | 250,000        | 50       | 50      | 15     | Dev + Staging + Production | 90 days | Priority  |
+| Scale    | Custom | Custom  | Custom         | Custom   | Custom  | Custom | Custom                     | Custom  | Dedicated |
 
 Marketing allowances, counted in **contacts** and separate from transactional
 send volume: 1,000 / 10,000 / 50,000 / Custom. The marketing suite (campaigns,
@@ -78,6 +78,7 @@ stream separation) is included in **every plan including Beginner**, and is
 labeled "in development" on public surfaces until it ships.
 
 Rules (unchanged, and now enforced by ADR-024):
+
 - Naira and dollar figures are separate local price points, never an FX
   conversion. Hard limits over overages.
 - `apps/web/lib/plans.ts` is the single public source of truth; the pricing page,

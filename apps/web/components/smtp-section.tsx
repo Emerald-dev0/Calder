@@ -31,8 +31,7 @@ export function SmtpSection() {
                 <span className="tok-punct">{"{"}</span>
                 {"\n"}
                 &nbsp;&nbsp;<span className="tok-key">&quot;id&quot;</span>:{" "}
-                <span className="tok-str">&quot;em_9f2k41xq&quot;</span>,
-                {"\n"}
+                <span className="tok-str">&quot;em_9f2k41xq&quot;</span>,{"\n"}
                 &nbsp;&nbsp;<span className="tok-key">&quot;status&quot;</span>:{" "}
                 <span className="tok-str">&quot;queued&quot;</span>
                 {"\n"}

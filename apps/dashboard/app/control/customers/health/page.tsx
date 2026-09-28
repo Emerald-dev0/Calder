@@ -1,14 +1,22 @@
 import Link from "next/link";
 import { fmtAgo, fmtInt, fmtPct } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
-import { deliverabilityBySender, organizationRows } from "@/lib/control/queries";
+import {
+  deliverabilityBySender,
+  deliveryOutcomeSummary,
+  organizationRows,
+} from "@/lib/control/queries";
 import { Badge, Empty, PageHeader, Panel, Stat } from "@/control/_components/ui";
 
 export const dynamic = "force-dynamic";
 
 export default async function CustomerHealthPage() {
   await requireSection("customers");
-  const [orgs, senders] = await Promise.all([organizationRows(100), deliverabilityBySender(30)]);
+  const [orgs, senders, outcome] = await Promise.all([
+    organizationRows(100),
+    deliverabilityBySender(30),
+    deliveryOutcomeSummary(30),
+  ]);
 
   const paying = orgs.filter((o) => o.plan && o.plan !== "free");
   const withActivity = orgs.filter((o) => o.projects > 0);
@@ -35,13 +43,25 @@ export default async function CustomerHealthPage() {
       />
 
       <div className="cp-stats">
-        <Stat label="Paying customers" value={fmtInt(paying.length)} hint="active paid subscriptions" />
+        <Stat
+          label="Paying customers"
+          value={fmtInt(paying.length)}
+          hint="active paid subscriptions"
+        />
         <Stat label="Active (have projects)" value={fmtInt(withActivity.length)} />
-        <Stat label="Dormant (no projects)" value={fmtInt(dormant.length)} hint="onboarding never finished" />
+        <Stat
+          label="Dormant (no projects)"
+          value={fmtInt(dormant.length)}
+          hint="onboarding never finished"
+        />
         <Stat
           label="Delivery health (30d)"
-          value={senders.length ? fmtPct(100 - struggling.length * 5) : "—"}
-          hint={`${struggling.length} senders above 5% bounces`}
+          value={outcome.deliveryRate !== null ? fmtPct(outcome.deliveryRate) : "—"}
+          hint={
+            outcome.terminal > 0
+              ? `${outcome.terminal} completed sends · ${fmtPct(outcome.bounceRate ?? 0)} bounced · ${fmtPct(outcome.complaintRate ?? 0)} complained`
+              : "no completed sends in the window"
+          }
         />
       </div>
 
@@ -67,7 +87,9 @@ export default async function CustomerHealthPage() {
                       </td>
                       <td className="cp-num">{fmtInt(s.sent)}</td>
                       <td>
-                        <Badge tone={s.bounceRate >= 10 ? "bad" : "warn"}>{fmtPct(s.bounceRate)}</Badge>
+                        <Badge tone={s.bounceRate >= 10 ? "bad" : "warn"}>
+                          {fmtPct(s.bounceRate)}
+                        </Badge>
                       </td>
                     </tr>
                   ))}
@@ -77,7 +99,11 @@ export default async function CustomerHealthPage() {
           )}
         </Panel>
 
-        <Panel title="Dormant organizations" caption="created but never sent — onboarding opportunities" flush>
+        <Panel
+          title="Dormant organizations"
+          caption="created but never sent — onboarding opportunities"
+          flush
+        >
           {dormant.length === 0 ? (
             <Empty title="Everyone is active" />
           ) : (
@@ -113,13 +139,17 @@ export default async function CustomerHealthPage() {
         </Panel>
       </div>
 
-      <Panel title="Planned: health scoring" caption="specified, built with usage metering maturity">
+      <Panel
+        title="Planned: health scoring"
+        caption="specified, built with usage metering maturity"
+      >
         <div className="cp-planned">
           <b>Composite health score (0–100)</b>
           <p>
-            Usage trend, delivery outcome, billing state, and error rates composed into a single score per customer —
-            with cohorts like &ldquo;17 Pro customers approaching limits&rdquo; and &ldquo;9 customers suddenly stopped
-            sending.&rdquo; Requires sustained usage metering history; the components above are its seeds.
+            Usage trend, delivery outcome, billing state, and error rates composed into a single
+            score per customer, with limit-approach and stoppage cohorts derived from the same live
+            components. Requires sustained usage metering history (Phase 2); the components above
+            are its seeds and remain the honest view until then.
           </p>
         </div>
       </Panel>
