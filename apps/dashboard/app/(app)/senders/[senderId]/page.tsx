@@ -23,11 +23,7 @@ function statusLabel(s: string): string {
   return "✕ Failed";
 }
 
-export default async function SenderDetailPage({
-  params,
-}: {
-  params: { senderId: string };
-}) {
+export default async function SenderDetailPage({ params }: { params: { senderId: string } }) {
   const ctx = await getTenantContext();
   const projectIds = new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)));
   const db = getDb();
@@ -94,7 +90,12 @@ export default async function SenderDetailPage({
         {statusLabel(sender.status)}
         <span style={{ color: "#737373" }}>
           {" "}
-          · {sender.type === "gmail" ? "Gmail sender" : sender.type === "domain" ? "Domain sender" : "Managed sender"}
+          ·{" "}
+          {sender.type === "gmail"
+            ? "Gmail sender"
+            : sender.type === "domain"
+              ? "Domain sender"
+              : "Managed sender"}
           {sender.isDefault ? " · Default" : ""} · {org?.name ?? ""}
         </span>
       </p>
@@ -117,7 +118,12 @@ export default async function SenderDetailPage({
         ].map((s) => (
           <div
             key={s.label}
-            style={{ background: "#fff", border: "1px solid #E5E5E5", borderRadius: 12, padding: 16 }}
+            style={{
+              background: "#fff",
+              border: "1px solid #E5E5E5",
+              borderRadius: 12,
+              padding: 16,
+            }}
           >
             <p style={{ fontSize: 22, fontWeight: 700, margin: "0 0 2px" }}>{s.value}</p>
             <p style={{ fontSize: 12, color: "#737373", margin: 0 }}>{s.label}</p>
@@ -142,7 +148,12 @@ export default async function SenderDetailPage({
         <p style={{ color: "#737373", fontSize: 14 }}>Nothing sent from this sender yet.</p>
       ) : (
         <div
-          style={{ background: "#fff", border: "1px solid #E5E5E5", borderRadius: 12, overflow: "hidden" }}
+          style={{
+            background: "#fff",
+            border: "1px solid #E5E5E5",
+            borderRadius: 12,
+            overflow: "hidden",
+          }}
         >
           {recent.map((r, i) => (
             <div

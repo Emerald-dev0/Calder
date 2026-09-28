@@ -43,7 +43,11 @@ export default async function AlertsPage() {
         ) : (
           alerts.map((a) => (
             <div className="cp-alert" key={a.id}>
-              <Dot tone={a.severity === "critical" ? "bad" : a.severity === "warning" ? "warn" : "info"} />
+              <Dot
+                tone={
+                  a.severity === "critical" ? "bad" : a.severity === "warning" ? "warn" : "info"
+                }
+              />
               <div style={{ minWidth: 0 }}>
                 <div className="cp-alert-title">{a.title}</div>
                 <div className="cp-alert-detail">{a.detail}</div>

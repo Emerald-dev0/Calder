@@ -90,8 +90,11 @@ export function ProductTour() {
               <h3>One Calder account. Every application.</h3>
               <p>
                 Keep your projects separate without creating a separate account for every thing you
-                build. <strong>Production. Staging. Development. That side project you swear
-                you&rsquo;re going to finish.</strong>
+                build.{" "}
+                <strong>
+                  Production. Staging. Development. That side project you swear you&rsquo;re going
+                  to finish.
+                </strong>
               </p>
               <p className="caption">
                 Each project gets its own keys, logs, environments, configuration, and usage.

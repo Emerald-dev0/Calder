@@ -1,7 +1,7 @@
 import { createQueue, type QueueJob } from "@calder/queue";
 import { isTransientError, getRetryDelay } from "@calder/queue";
 import { pickDefaultTransport, GMAIL_FREE_DAILY_CAP } from "@calder/email";
-import { createEmailService, type EmailService } from "@calder/email";
+import { createEmailService, MockEmailProvider, type EmailService } from "@calder/email";
 import { GmailTransport, resolveEmailProvider } from "@calder/providers";
 import { getGmailRefreshToken } from "@calder/auth";
 import { logger, type Logger } from "@calder/observability";
@@ -11,10 +11,14 @@ interface TransportCandidate {
   service: EmailService;
   /** Transport label recorded on the delivery (gmail/ses/managed/default). */
   transport: string;
+  /** project_transports.id when this leg is a registry entry (needed for revocation/abuse state). */
+  transportId?: string;
 }
 
 function isCapError(err: unknown): boolean {
-  return err instanceof Error && (err as { code?: string }).code === "gmail_cap";
+  const code = err instanceof Error ? (err as { code?: string }).code : undefined;
+  // gmail_cap + abuse-watch verdicts must surface, not silently fall back.
+  return code === "gmail_cap" || code === "gmail_velocity_limit" || code === "gmail_suspended";
 }
 
 /**
@@ -109,13 +113,21 @@ async function buildGmailService(
   db: import("@calder/db").DbClient,
   projectId: string,
   chosen: {
+    id: string;
     label: string;
     dailyCap: number | null;
     encryptedCredentials: { iv: string; ciphertext: string; tag: string } | null;
   },
   jobLogger: Logger
 ): Promise<TransportCandidate> {
-  // Daily cap: count today's sends for this project (conservative, any transport).
+  // M2.5 abuse watch BEFORE anything else: velocity verdicts are terminal
+  // for this leg (limit: retry later / suspend: refuses until appeal), so
+  // they bubble up as cap-class errors, never silently degrade to SES.
+  const { enforceGmailVelocity } = await import("@calder/db");
+  await enforceGmailVelocity(db, projectId, { id: chosen.id, dailyCap: chosen.dailyCap });
+  // Daily cap: EXACT accounting — only sends that actually went through
+  // Gmail count toward the Gmail cap (was: every transport, letting SES
+  // volume exhaust a Gmail quota).
   const cap = chosen.dailyCap ?? GMAIL_FREE_DAILY_CAP;
   const { emails } = await import("@calder/db");
   const { gte, and, count, eq } = await import("drizzle-orm");
@@ -124,7 +136,13 @@ async function buildGmailService(
   const sent = await db
     .select({ value: count() })
     .from(emails)
-    .where(and(eq(emails.projectId, projectId), gte(emails.createdAt, dayStart)));
+    .where(
+      and(
+        eq(emails.projectId, projectId),
+        eq(emails.transport, "gmail"),
+        gte(emails.createdAt, dayStart)
+      )
+    );
   const today = (sent[0] as { value: number } | undefined)?.value ?? 0;
   if (today >= cap) {
     throw Object.assign(
@@ -144,7 +162,7 @@ async function buildGmailService(
   const refreshToken = getGmailRefreshToken(chosen.encryptedCredentials);
   const gmail = new GmailTransport({ refreshToken, senderEmail: chosen.label }, chosen.dailyCap);
   jobLogger.info({ transport: "gmail", sender: chosen.label }, "Routing via Gmail transport");
-  return { service: createEmailService(gmail), transport: "gmail" };
+  return { service: createEmailService(gmail), transport: "gmail", transportId: chosen.id };
 }
 
 interface EmailJobData {
@@ -165,13 +183,11 @@ function getProvider() {
   return status.provider;
 }
 
-export async function startWorker() {
-  const defaultService = createEmailService(getProvider());
+/** Terminal outcomes of processing one job. A throw signals "retry with backoff". */
+export type ProcessOutcome = "sent" | "failed" | "suppressed" | "exhausted" | "missing_record";
 
-  // Shared queue, InMemory for scaffold; RedisQueue in production
-  const queue = createQueue<EmailJobData>("email:send", { maxAttempts: 5 });
-
-  queue.process(async (job: QueueJob<EmailJobData>) => {
+export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<ProcessOutcome> {
+  {
     const { emailId, projectId } = job.data;
     const jobLogger = logger.child({
       jobId: job.id,
@@ -195,6 +211,8 @@ export async function startWorker() {
         headers: Record<string, string>;
         attachments: Array<{ filename: string; contentType?: string; contentBase64: string }>;
         senderIdentityId: string | null;
+        /** Ingest environment: "test" → mock-only delivery, never metered. */
+        env: string;
       } | null = null;
 
       try {
@@ -217,6 +235,7 @@ export async function startWorker() {
             html: row.html,
             text: row.text,
             status: row.status,
+            env: (row as { env?: string }).env ?? "live",
             senderIdentityId:
               (row as { senderIdentityId?: string | null }).senderIdentityId ?? null,
             headers:
@@ -231,7 +250,29 @@ export async function startWorker() {
           };
         }
       } catch (dbErr) {
-        jobLogger.warn({ err: dbErr }, "DB lookup failed, trying in-memory fallback");
+        // A storage outage is transient, not a reason to abandon the job:
+        // throw so the queue retries with backoff (status → isTransientError).
+        jobLogger.error({ err: dbErr }, "DB lookup failed");
+        throw Object.assign(
+          new Error(
+            `Storage unavailable while loading email record (503): ${
+              dbErr instanceof Error ? dbErr.message : String(dbErr)
+            }`
+          ),
+          { status: 503 }
+        );
+      }
+
+      if (!email) {
+        // Missing row: NEVER fabricate a send. The old scaffold synthesized
+        // a fake email here, which is a red line. A job without a durable
+        // record is a bug (dangling/delayed job, deleted row); log it
+        // diagnosably, drop the job without retrying, send nothing.
+        jobLogger.error(
+          { code: "email_record_missing", emailId, projectId },
+          "Email record not found; dropping job without sending"
+        );
+        return "missing_record";
       }
 
       // ── Suppression check, before any provider call ────────
@@ -239,7 +280,7 @@ export async function startWorker() {
       // deliverable and must not be the path that mails someone who
       // bounced, complained or opted out. See the sending-path checklist
       // in AGENTS.md.
-      if (email) {
+      {
         try {
           const { getDb, emails, emailEvents, suppressions } = await import("@calder/db");
           const { eq, and } = await import("drizzle-orm");
@@ -263,7 +304,7 @@ export async function startWorker() {
               data: { reason: sup[0]!.reason, source: "worker" },
             });
             jobLogger.info({ reason: sup[0]!.reason }, "Recipient suppressed, not sending");
-            return;
+            return "suppressed";
           }
         } catch (supErr) {
           // Never send on an unverifiable suppression state. Fail closed:
@@ -273,33 +314,22 @@ export async function startWorker() {
         }
       }
 
-      // In-memory fallback for scaffold without DB (API's memoryEmails not shared across processes;
-      // for single-process dev where API and worker share queue, we need to fetch via HTTP or shared store.
-      // For scaffold vertical slice, if email not found in DB, we simulate with job data.
-      // In production, email MUST exist in DB, this is a scaffold resilience fallback.
-      if (!email) {
-        jobLogger.warn("Email record not found in DB; using job data as fallback (scaffold mode)");
-        // Create a synthetic email for mock provider to process, not persisted
-        email = {
-          id: emailId,
-          from: "scaffold@calder.dev",
-          to: "test@example.com",
-          subject: "Scaffold test email",
-          html: "<p>Hello from Calder scaffold</p>",
-          text: "Hello from Calder scaffold",
-          status: "queued",
-          headers: {},
-          attachments: [],
-          senderIdentityId: null,
-        };
-        // Try to persist a fallback event anyway
-      }
-
       // ── Resolve chain, then send with failover ─────────────
       // Sender's own transport first, then project default, then global.
       // Transient provider errors fall through to the next leg; caps and
       // dead senders throw immediately (fail closed, never silent).
-      const chain = await resolveServiceChain(projectId, email.senderIdentityId, jobLogger);
+      // Test-env isolation (M2.3): test-key rows ALWAYS go through the mock
+      // provider, never transports, never SES — even with live AWS creds on
+      // the worker host. `provider: "mock"` on the delivery is the proof.
+      const chain =
+        email.env === "test"
+          ? [
+              {
+                service: createEmailService(new MockEmailProvider({ latencyMs: 0 })),
+                transport: "mock",
+              },
+            ]
+          : await resolveServiceChain(projectId, email.senderIdentityId, jobLogger);
       const payload = {
         from: email.from,
         to: email.to,
@@ -322,10 +352,36 @@ export async function startWorker() {
           break;
         } catch (err) {
           lastErr = err;
-          const transient = isProviderError(err) ? err.transient : false;
+          // Providers state their own verdict; anything else (a network drop
+          // while talking to the provider, a timeout) falls back to the shared
+          // classifier rather than being assumed permanent. Previously a raw
+          // transport error skipped failover entirely and burned a queue retry
+          // while a healthy SES leg sat unused.
+          const transient = isProviderError(err) ? err.transient : isTransientError(err);
           const moreLegs = i < chain.length - 1;
           if (isCapError(err)) throw err;
           if (err instanceof Error && (err as { code?: string }).code === "sender_not_ready") {
+            throw err;
+          }
+          // M2.4: the connected Gmail account was revoked — flip the transport
+          // once (audited) and fail over to the next leg instead of failing
+          // this and every future email against a corpse credential.
+          if (
+            err instanceof Error &&
+            (err as { code?: string }).code === "gmail_revoked" &&
+            leg.transportId
+          ) {
+            try {
+              const { getDb, markGmailRevoked } = await import("@calder/db");
+              await markGmailRevoked(getDb(), leg.transportId, projectId);
+              jobLogger.warn(
+                { transportId: leg.transportId },
+                "Gmail account revoked; transport marked revoked, failing over"
+              );
+            } catch (markErr) {
+              jobLogger.error({ err: markErr }, "Failed to mark Gmail transport revoked");
+            }
+            if (moreLegs) continue;
             throw err;
           }
           if (transient && moreLegs) {
@@ -352,7 +408,7 @@ export async function startWorker() {
 
       // ── Persist success event + update email status ─────────
       try {
-        const { getDb, emails, emailEvents } = await import("@calder/db");
+        const { getDb, emails, emailEvents, recordSendUsage } = await import("@calder/db");
         const { eq } = await import("drizzle-orm");
         const db = getDb();
         await db
@@ -365,6 +421,9 @@ export async function startWorker() {
             updatedAt: new Date(),
           })
           .where(eq(emails.id, emailId));
+        // Meter at provider-accept; exactly-once via deterministic ledger id
+        // (ADR-036): retries can never double-count.
+        await recordSendUsage(db, { emailId, projectId, env: email.env });
         await db.insert(emailEvents).values({
           id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
           emailId,
@@ -384,6 +443,8 @@ export async function startWorker() {
         );
         // Don't throw, provider succeeded; we log and continue. Event persistence will be retried via reconciliation.
       }
+
+      return "sent";
     } catch (err) {
       const transient = isTransientError(err);
       const attempt = job.attempts + 1;
@@ -416,7 +477,7 @@ export async function startWorker() {
         } catch (persistErr) {
           logger.error({ err: persistErr }, "Failed to persist failed event");
         }
-        return; // don't rethrow, permanent failure handled
+        return "failed"; // don't rethrow, permanent failure handled
       }
 
       // Transient, if attempts remain, rethrow to trigger retry with backoff
@@ -455,7 +516,17 @@ export async function startWorker() {
       } catch (persistErr) {
         logger.error({ err: persistErr }, "Failed to persist dead-letter");
       }
+      return "exhausted";
     }
+  }
+}
+
+export async function startWorker() {
+  // Shared queue, InMemory for scaffold; RedisQueue in production
+  const queue = createQueue<EmailJobData>("email:send", { maxAttempts: 5 });
+
+  queue.process(async (job: QueueJob<EmailJobData>) => {
+    await processEmailJob(job);
   });
 
   logger.info("Worker consumer started on queue email:send");
@@ -470,9 +541,9 @@ async function enqueueWebhookDelivery(
   data: Record<string, unknown>
 ) {
   try {
-    const { createQueue } = await import("@calder/queue");
-    const q = createQueue("webhook:deliver", { maxAttempts: 8 });
-    await q.enqueue("deliver-webhook", { projectId, emailId, event, data });
+    const { enqueueWebhookDeliveries, getDb } = await import("@calder/db");
+    // M3.1: durable webhook_deliveries rows first, then queue jobs.
+    await enqueueWebhookDeliveries(getDb(), { projectId, event, data: { emailId, ...data } });
   } catch {
     // best-effort
   }

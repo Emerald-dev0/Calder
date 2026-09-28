@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { auditLogs, organizations, plans, subscriptions } from "@calder/db";
 import { getDb } from "@calder/db";
 import { requireControl } from "@/lib/control/guard";
-import { READ_ONLY_ROLES } from "@/lib/control/roles";
+import { isFounderRole } from "@/lib/control/roles";
 
 const TIERS = ["free", "starter", "pro", "scale"] as const;
 
@@ -18,11 +18,21 @@ const TIERS = ["free", "starter", "pro", "scale"] as const;
 export async function setSubscription(
   orgId: string,
   planTier: string,
-  months: number
+  months: number,
+  reason: string
 ): Promise<{ ok: boolean; error?: string }> {
   const ctx = await requireControl();
-  if ((READ_ONLY_ROLES as string[]).includes(ctx.role)) {
-    return { ok: false, error: "Read-only role." };
+  // M6.2: plan grants manufacture revenue-side state → founder-only, and
+  // every grant carries an explicit reason into the audit record.
+  if (!isFounderRole(ctx.role)) {
+    return { ok: false, error: "Founder only." };
+  }
+  const trimmed = reason.trim();
+  if (trimmed.length < 6) {
+    return {
+      ok: false,
+      error: "A reason (≥ 6 characters) is required — it lands in the audit log.",
+    };
   }
   if (!TIERS.includes(planTier as (typeof TIERS)[number])) {
     return { ok: false, error: "Unknown plan tier." };
@@ -66,7 +76,7 @@ export async function setSubscription(
       action: "subscription.set",
       targetType: "subscription",
       targetId: id,
-      metadata: { plan: planTier, months: m },
+      metadata: { plan: planTier, months: m, reason: trimmed },
     });
   } catch {
     // Audit must never break the operation it records.

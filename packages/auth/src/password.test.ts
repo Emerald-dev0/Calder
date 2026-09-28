@@ -64,13 +64,19 @@ describe("email OTP code helpers", () => {
     }
   });
 
-  it("hashes OTP codes deterministically via sha256", () => {
-    const c1 = hashCode("123456");
-    const c2 = hashCode("123456");
-    const c3 = hashCode("654321");
+  it("hashes OTP codes deterministically (v2 HMAC, purpose+email binding)", () => {
+    const c1 = hashCode("123456", "verification", "a@b.c");
+    const c2 = hashCode("123456", "verification", "a@b.c");
+    const otherCode = hashCode("654321", "verification", "a@b.c");
+    const otherPurpose = hashCode("123456", "reset", "a@b.c");
+    const otherEmail = hashCode("123456", "verification", "x@y.z");
     expect(c1).toBe(c2);
     expect(c1).toMatch(/^[a-f0-9]{64}$/);
-    expect(c1).not.toBe(c3);
+    expect(c1).not.toBe(otherCode);
+    // Same digits fail under a different purpose or email — the whole point
+    // of the v2 binding.
+    expect(c1).not.toBe(otherPurpose);
+    expect(c1).not.toBe(otherEmail);
   });
 
   it("exposes expected constants", () => {

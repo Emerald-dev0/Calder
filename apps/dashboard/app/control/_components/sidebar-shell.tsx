@@ -116,10 +116,7 @@ export function SidebarShell({
             </button>
           </div>
 
-          <SidebarNav
-            groups={groups}
-            pathname={pathname}
-          />
+          <SidebarNav groups={groups} pathname={pathname} />
 
           <div className="cp-nav-spacer" />
 

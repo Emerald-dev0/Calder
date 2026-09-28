@@ -78,19 +78,19 @@ pnpm dev
 
 **Services:**
 
-| Service | URL | Description |
+| Service          | URL                   | Description              |
 | ---------------- | --------------------- | ------------------------ |
-| `apps/web` | http://localhost:3000 | Marketing site |
-| `apps/dashboard` | http://localhost:3001 | Customer dashboard |
-| `apps/api` | http://localhost:3002 | REST API |
-| `apps/worker` | health :3003 | Background job processor |
+| `apps/web`       | http://localhost:3000 | Marketing site           |
+| `apps/dashboard` | http://localhost:3001 | Customer dashboard       |
+| `apps/api`       | http://localhost:3002 | REST API                 |
+| `apps/worker`    | health :3003          | Background job processor |
 
 **Infrastructure:**
 
-| Service | URL |
+| Service    | URL            |
 | ---------- | -------------- |
 | PostgreSQL | localhost:5432 |
-| Redis | localhost:6379 |
+| Redis      | localhost:6379 |
 
 **Key commands:**
 

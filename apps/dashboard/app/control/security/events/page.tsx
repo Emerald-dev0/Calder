@@ -18,7 +18,11 @@ export default async function SecurityEventsPage() {
         subtitle="Authentication anomalies, credential abuse, and platform-level security signals."
       />
 
-      <Panel title="Recent recorded activity" caption="from the audit trail — the events captured today" flush>
+      <Panel
+        title="Recent recorded activity"
+        caption="from the audit trail — the events captured today"
+        flush
+      >
         {events.length === 0 ? (
           <Empty title="Nothing recorded" />
         ) : (
@@ -53,7 +57,10 @@ export default async function SecurityEventsPage() {
         )}
       </Panel>
 
-      <Panel title="Planned: dedicated security event pipeline" caption="auth failures, key anomalies, signup abuse">
+      <Panel
+        title="Planned: dedicated security event pipeline"
+        caption="auth failures, key anomalies, signup abuse"
+      >
         <Planned
           title="Security event stream"
           bullets={[
@@ -63,9 +70,9 @@ export default async function SecurityEventsPage() {
             "Alert integration with the rule book",
           ]}
         >
-          Today the durable security signals are rate-limiter counters and the audit trail. The dedicated stream (with
-          retention separate from operational logs) is tracked in the roadmap.{" "}
-          <Link href="/control/security">Back to Abuse →</Link>
+          Today the durable security signals are rate-limiter counters and the audit trail. The
+          dedicated stream (with retention separate from operational logs) is tracked in the
+          roadmap. <Link href="/control/security">Back to Abuse →</Link>
         </Planned>
       </Panel>
     </>

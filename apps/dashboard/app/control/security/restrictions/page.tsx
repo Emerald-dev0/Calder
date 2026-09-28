@@ -40,7 +40,11 @@ export default async function RestrictionsPage() {
         subtitle="Everything currently failing closed, and the ladder of controls available when something looks wrong."
       />
 
-      <Panel title="Active restrictions" caption="suspended or revoked transports — send through them fails closed" flush>
+      <Panel
+        title="Active restrictions"
+        caption="suspended or revoked transports — send through them fails closed"
+        flush
+      >
         {restricted.length === 0 ? (
           <Empty title="No active restrictions">Every transport is active.</Empty>
         ) : (
@@ -61,7 +65,8 @@ export default async function RestrictionsPage() {
                   <tr key={r.transport.id}>
                     <td>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-                        <Dot tone={r.transport.status === "suspended" ? "warn" : "bad"} /> {r.transport.status}
+                        <Dot tone={r.transport.status === "suspended" ? "warn" : "bad"} />{" "}
+                        {r.transport.status}
                       </span>
                     </td>
                     <td className="mono" style={{ fontSize: 12.5 }}>
@@ -94,8 +99,9 @@ export default async function RestrictionsPage() {
             "Suspend / restore with mandatory reason — all audit-logged with before/after",
           ]}
         >
-          Transport suspension and restoration already exist as states (the worker fails closed on non-active
-          transports); the operator UI to set them lands with the restrictions system so no one edits state by hand.{" "}
+          Transport suspension and restoration already exist as states (the worker fails closed on
+          non-active transports); the operator UI to set them lands with the restrictions system so
+          no one edits state by hand.{" "}
           <Badge tone="warn">Enforcement is code-level before it is UI-level.</Badge>
         </Planned>
       </Panel>

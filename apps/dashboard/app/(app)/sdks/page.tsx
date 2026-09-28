@@ -1,19 +1,43 @@
+import { getTenantContext, resolveProject } from "../../../lib/auth";
+import { EmptyState } from "../../../components/empty-state";
+import { ProjectPicker } from "../project-picker";
+import { listTestKeys } from "../onboarding/actions";
+import { SdkHub } from "./client";
+
 export const metadata = { title: "Calder — SDKs" };
 
-export default function SdksPage() {
+export default async function SdksPage({ searchParams }: { searchParams: { project?: string } }) {
+  const ctx = await getTenantContext();
+  const projects = ctx.memberships.flatMap((m) => m.projects);
+  const scope = resolveProject(ctx, searchParams.project);
+  if (!scope) {
+    return (
+      <div>
+        <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px" }}>SDKs</h1>
+        <EmptyState
+          title="No project yet"
+          description="Create a project and integration snippets will appear here."
+          actionLabel="Create project"
+          actionHref="/onboarding"
+        />
+      </div>
+    );
+  }
+  const keys = await listTestKeys(scope.project.id);
+
   return (
     <div>
-      <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px" }}>SDKs</h1>
-      <p style={{ color: "var(--color-muted)", fontSize: 13, margin: "0 0 16px" }}>Copy-paste for your stack.</p>
-      <div style={{ border: "1px solid var(--color-border)", borderRadius: 12, padding: 16, background: "#fff", margin: "12px 0" }}>
-        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          {["Node.js", "Python", "cURL"].map((k) => (
-            <span key={k} style={{ fontSize: 12, border: "1px solid var(--color-border)", padding: "4px 8px", borderRadius: 6, background: "var(--color-paper)" }}>{k}</span>
-          ))}
-        </div>
-        <pre style={{ background: "var(--color-paper)", padding: 12, borderRadius: 8, fontSize: 12, overflow: "auto" }}>{`const calder = new Calder({ apiKey: process.env.CALDER_API_KEY });
-await calder.emails.send({ from: "hello@calder.click", to: "you@example.com", subject: "Hi", html: "<p>Hi</p>" });`}</pre>
-      </div>
+      <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px" }}>SDKs</h1>
+      <p style={{ color: "var(--color-muted)", fontSize: 13, margin: "0 0 12px" }}>
+        The API is plain HTTPS + JSON, so the snippets below are complete without any package
+        install. Paste (or mint) a test key and they&rsquo;re copy-ready for your codebase.
+      </p>
+      <ProjectPicker
+        projects={projects.map((p) => ({ id: p.id, slug: p.slug }))}
+        currentId={scope.project.id}
+        basePath="/sdks"
+      />
+      <SdkHub projectId={scope.project.id} hasKeys={keys.length > 0} />
     </div>
   );
 }

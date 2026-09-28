@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { ilike, or } from "drizzle-orm";
-import { users } from "@calder/db";
+import { users, type PlatformRole } from "@calder/db";
 import { getDb } from "@calder/db";
 import { fmtAgo, fmtInt } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
 import { CONTROL_ROLE_LABEL, FOUNDER_ONLY_ACTIONS, READ_ONLY_ROLES } from "@/lib/control/roles";
 import { adminAccounts } from "@/lib/control/queries";
-import { setPlatformRole } from "./actions";
+import { RoleControls } from "./role-controls";
 import { Badge, Empty, PageHeader, Panel, Stat } from "@/control/_components/ui";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +33,12 @@ export default async function AdministratorsPage({
   const q = searchParams.q;
   const candidates = q
     ? await db
-        .select({ id: users.id, email: users.email, name: users.name, platformRole: users.platformRole })
+        .select({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          platformRole: users.platformRole,
+        })
         .from(users)
         .where(or(ilike(users.email, `%${q}%`), ilike(users.name, `%${q}%`)))
         .limit(8)
@@ -50,7 +55,11 @@ export default async function AdministratorsPage({
       <div className="cp-stats">
         <Stat label="Administrators" value={fmtInt(admins.length)} />
         <Stat label="Active sessions (platform-wide)" value={fmtInt(activeSessions)} />
-        <Stat label="Read-only roles" value={fmtInt(READ_ONLY_ROLES.length)} hint="analyst observes, never modifies" />
+        <Stat
+          label="Read-only roles"
+          value={fmtInt(READ_ONLY_ROLES.length)}
+          hint="analyst observes, never modifies"
+        />
       </div>
 
       {!isFounder ? (
@@ -60,7 +69,11 @@ export default async function AdministratorsPage({
           </Empty>
         </Panel>
       ) : (
-        <Panel title="Find a user to manage" caption="search accounts, then grant or revoke a role" flush>
+        <Panel
+          title="Find a user to manage"
+          caption="search accounts, then grant or revoke a role"
+          flush
+        >
           <form className="cp-filters" method="get" style={{ padding: "12px 16px 4px" }}>
             <input
               className="cp-input"
@@ -106,44 +119,15 @@ export default async function AdministratorsPage({
                       </td>
                       <td>
                         {u.platformRole === "founder" ? (
-                          <span style={{ color: "var(--cp-faint)", fontSize: 12.5 }}>managed out-of-band</span>
+                          <span style={{ color: "var(--cp-faint)", fontSize: 12.5 }}>
+                            managed out-of-band
+                          </span>
                         ) : (
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                            {ASSIGNABLE.map((a) => (
-                              <form
-                                key={a.role}
-                                action={async () => {
-                                  "use server";
-                                  await setPlatformRole(u.id, a.role);
-                                }}
-                              >
-                                <button
-                                  className="cp-btn"
-                                  type="submit"
-                                  disabled={u.platformRole === a.role}
-                                  style={{ fontSize: 12, padding: "4px 10px", minHeight: 28 }}
-                                >
-                                  {u.platformRole === a.role ? `is ${a.label}` : `→ ${a.label}`}
-                                </button>
-                              </form>
-                            ))}
-                            {u.platformRole ? (
-                              <form
-                                action={async () => {
-                                  "use server";
-                                  await setPlatformRole(u.id, null);
-                                }}
-                              >
-                                <button
-                                  className="cp-btn danger"
-                                  type="submit"
-                                  style={{ fontSize: 12, padding: "4px 10px", minHeight: 28 }}
-                                >
-                                  Revoke
-                                </button>
-                              </form>
-                            ) : null}
-                          </div>
+                          <RoleControls
+                            userId={u.id}
+                            current={(u.platformRole as PlatformRole | null) ?? null}
+                            assignable={ASSIGNABLE}
+                          />
                         )}
                       </td>
                     </tr>
@@ -176,7 +160,9 @@ export default async function AdministratorsPage({
                 {admins.map((a) => (
                   <tr key={a.user.id}>
                     <td>
-                      <Link href={`/control/customers/users/${a.user.id}`}>{a.user.name ?? "—"}</Link>
+                      <Link href={`/control/customers/users/${a.user.id}`}>
+                        {a.user.name ?? "—"}
+                      </Link>
                     </td>
                     <td className="mono" style={{ fontSize: 12.5 }}>
                       {a.user.email}
@@ -199,8 +185,8 @@ export default async function AdministratorsPage({
       </Panel>
 
       <p className="cp-caption">
-        Role capabilities: <Link href="/control/administration/roles">Roles matrix →</Link> · Every grant and revoke is
-        audit-logged with actor, before, and after.
+        Role capabilities: <Link href="/control/administration/roles">Roles matrix →</Link> · Every
+        grant and revoke is audit-logged with actor, before, and after.
       </p>
     </>
   );

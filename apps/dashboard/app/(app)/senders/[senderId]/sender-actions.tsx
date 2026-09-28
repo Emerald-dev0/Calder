@@ -87,8 +87,8 @@ export function SenderActions({ sender }: { sender: SenderActionTarget }) {
       <div>
         <p style={{ fontSize: 13, fontWeight: 600, margin: "0 0 8px" }}>Test send</p>
         <p style={{ fontSize: 12, color: "#737373", margin: "0 0 8px" }}>
-          Sends one real email through this sender. We report acceptance only, delivery lands on
-          the record.
+          Sends one real email through this sender. We report acceptance only, delivery lands on the
+          record.
         </p>
         <div style={{ display: "flex", gap: 8 }}>
           <input
@@ -116,7 +116,11 @@ export function SenderActions({ sender }: { sender: SenderActionTarget }) {
               setTestMsg(null);
               try {
                 const r = await testSend(sender.id, testTo);
-                setTestMsg({ text: `Accepted. Message ${r.emailId}.`, ok: true, emailId: r.emailId });
+                setTestMsg({
+                  text: `Accepted. Message ${r.emailId}.`,
+                  ok: true,
+                  emailId: r.emailId,
+                });
                 router.refresh();
               } catch (err) {
                 setTestMsg({ text: err instanceof Error ? err.message : "Failed.", ok: false });
@@ -138,10 +142,7 @@ export function SenderActions({ sender }: { sender: SenderActionTarget }) {
           <p style={{ fontSize: 12, margin: "8px 0 0", color: testMsg.ok ? "#16A34A" : "#DC2626" }}>
             {testMsg.text}{" "}
             {testMsg.emailId && (
-              <a
-                href={`/emails?project=${sender.projectId}`}
-                style={{ color: "#0B0C0E" }}
-              >
+              <a href={`/emails?project=${sender.projectId}`} style={{ color: "#0B0C0E" }}>
                 View deliveries
               </a>
             )}
@@ -242,7 +243,9 @@ export function SenderActions({ sender }: { sender: SenderActionTarget }) {
           </>
         )}
       </div>
-      {msg && <p style={{ fontSize: 12, margin: 0, color: msg.ok ? "#16A34A" : "#DC2626" }}>{msg.text}</p>}
+      {msg && (
+        <p style={{ fontSize: 12, margin: 0, color: msg.ok ? "#16A34A" : "#DC2626" }}>{msg.text}</p>
+      )}
     </div>
   );
 }

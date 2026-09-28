@@ -13,7 +13,10 @@ export default async function PlansPage() {
   const [planRows, priceRows, activeSubs] = await Promise.all([
     db.select().from(plans).orderBy(asc(plans.createdAt)),
     db.select().from(planPrices),
-    db.select({ planId: subscriptions.planId }).from(subscriptions).where(eq(subscriptions.status, "active")),
+    db
+      .select({ planId: subscriptions.planId })
+      .from(subscriptions)
+      .where(eq(subscriptions.status, "active")),
   ]);
   const activeByPlan = new Map<string, number>();
   for (const s of activeSubs) activeByPlan.set(s.planId, (activeByPlan.get(s.planId) ?? 0) + 1);
@@ -39,8 +42,12 @@ export default async function PlansPage() {
             <Panel key={p.id} title={p.name} caption={`tier: ${p.tier} · id: ${p.id}`}>
               {prices.map((pr) => (
                 <div className="cp-kv" key={pr.id}>
-                  <span className="k">{pr.currency} / {pr.interval}</span>
-                  <span className="v mono">{fmtMoney(pr.amountCents, pr.currency as "NGN" | "USD")}</span>
+                  <span className="k">
+                    {pr.currency} / {pr.interval}
+                  </span>
+                  <span className="v mono">
+                    {fmtMoney(pr.amountCents, pr.currency as "NGN" | "USD")}
+                  </span>
                 </div>
               ))}
               <div className="cp-kv">
@@ -56,9 +63,10 @@ export default async function PlansPage() {
         <div className="cp-planned">
           <b>Plan editing &amp; entitlements configuration</b>
           <p>
-            Editing prices, quotas, and limits is a founder-only action and lands with the billing integration (Bachs)
-            — a price change without a billing provider to reconcile against is a half-action. The catalog above is the
-            live source of truth; plan assignment already works from any organization page.
+            Editing prices, quotas, and limits is a founder-only action and lands with the billing
+            integration (Bachs) — a price change without a billing provider to reconcile against is
+            a half-action. The catalog above is the live source of truth; plan assignment already
+            works from any organization page.
           </p>
         </div>
       </Panel>

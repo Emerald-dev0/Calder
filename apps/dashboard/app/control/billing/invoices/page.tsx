@@ -14,8 +14,9 @@ export default async function InvoicesPage() {
       />
       <Panel title="Invoices" caption="provider-issued records" flush>
         <Empty title="No invoices yet">
-          Calder&rsquo;s billing runs on local rails via the payment provider abstraction (Bachs first). Invoices
-          appear here once the integration issues the first real document — this page will never fabricate one.
+          Calder&rsquo;s billing runs on local rails via the payment provider abstraction (Bachs
+          first). Invoices appear here once the integration issues the first real document — this
+          page will never fabricate one.
         </Empty>
       </Panel>
     </>

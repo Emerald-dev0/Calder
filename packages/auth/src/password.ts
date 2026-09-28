@@ -1,7 +1,7 @@
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { eq, and } from "drizzle-orm";
 import { getDb, users } from "@calder/db";
-import { createSession } from "./session.js";
+import { createSession, revokeAllSessions } from "./session.js";
 import { acceptPendingInvites, ensureFounderAccess } from "./oauth.js";
 import { issueEmailCode, verifyEmailCode, normalizeEmail, isPlausibleEmail } from "./email-code.js";
 
@@ -196,19 +196,68 @@ export interface LoginWithPasswordResult {
  * 3. If unverified -> issue verification code and return needsVerification: true
  * 4. If verified -> run founder bootstrap + accept invites + createSession
  */
+/**
+ * M6.1 progressive lockout (ADR-040): consecutive failures raise a
+ * temporary lock before the password check even runs. Delays grow
+ * exponentially (30s → 1m → 2m → 4m … capped at 30m), never past the
+ * stored user row (no shadow state for unknown emails — enumeration-safe).
+ */
+const LOCKOUT_BASE_MS = 30_000;
+const LOCKOUT_CAP_MS = 30 * 60_000;
+
+export function lockoutDelayMs(failedAttempts: number): number {
+  if (failedAttempts < 3) return 0; // below threshold: no lock
+  const exp = Math.min(failedAttempts - 3, 10);
+  return Math.min(LOCKOUT_BASE_MS * 2 ** exp, LOCKOUT_CAP_MS);
+}
+
+export class LoginLockedError extends Error {
+  readonly retryAfterSec: number;
+  constructor(retryAfterSec: number) {
+    super(`Too many failed sign-in attempts. Try again in ${retryAfterSec}s.`);
+    this.name = "LoginLockedError";
+    this.retryAfterSec = retryAfterSec;
+  }
+}
+
 export async function loginWithPassword(
   email: string,
-  password: string
+  password: string,
+  meta: Parameters<typeof createSession>[1] = {}
 ): Promise<LoginWithPasswordResult> {
   const normalized = normalizeEmail(email);
   const db = getDb();
 
   const [user] = await db.select().from(users).where(eq(users.email, normalized)).limit(1);
 
+  // Lockout check BEFORE the scrypt compare: a locked account neither burns
+  // CPU for attackers nor reveals validity through timing changes.
+  if (user && user.lockedUntil && user.lockedUntil > new Date()) {
+    throw new LoginLockedError(Math.ceil((user.lockedUntil.getTime() - Date.now()) / 1000));
+  }
+
   const valid = await verifyPassword(password, user?.passwordHash);
 
   if (!valid || !user) {
+    if (user) {
+      const attempts = (user.failedLoginAttempts ?? 0) + 1;
+      const delay = lockoutDelayMs(attempts);
+      await db
+        .update(users)
+        .set({
+          failedLoginAttempts: attempts,
+          lockedUntil: delay > 0 ? new Date(Date.now() + delay) : null,
+        })
+        .where(eq(users.id, user.id));
+      if (delay > 0) throw new LoginLockedError(Math.ceil(delay / 1000));
+    }
     throw new Error("Invalid email or password.");
+  }
+  if ((user.failedLoginAttempts ?? 0) > 0 || user.lockedUntil) {
+    await db
+      .update(users)
+      .set({ failedLoginAttempts: 0, lockedUntil: null })
+      .where(eq(users.id, user.id));
   }
 
   if (user.emailVerifiedAt == null) {
@@ -224,7 +273,7 @@ export async function loginWithPassword(
   await ensureFounderAccess(db, user.id, user.email);
   await acceptPendingInvites(db, user.id, user.email);
 
-  const sessionId = await createSession(user.id);
+  const sessionId = await createSession(user.id, meta);
   return {
     needsVerification: false,
     email: user.email,
@@ -242,7 +291,8 @@ export async function loginWithPassword(
  */
 export async function verifySignupCode(
   email: string,
-  code: string
+  code: string,
+  meta: Parameters<typeof createSession>[1] = {}
 ): Promise<{ ok: true; sessionId: string }> {
   const normalized = normalizeEmail(email);
   await verifyEmailCode(normalized, code, "verification");
@@ -264,7 +314,7 @@ export async function verifySignupCode(
   await ensureFounderAccess(db, user.id, user.email);
   await acceptPendingInvites(db, user.id, user.email);
 
-  const sessionId = await createSession(user.id);
+  const sessionId = await createSession(user.id, meta);
   return { ok: true, sessionId };
 }
 
@@ -297,10 +347,15 @@ export async function resetPasswordWithCode(
     .update(users)
     .set({
       passwordHash: newHash,
+      failedLoginAttempts: 0,
+      lockedUntil: null,
       emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
       updatedAt: new Date(),
     })
     .where(eq(users.id, user.id));
+  // Reset revokes EVERY session (ADR-040): the mailbox is the recovery
+  // oracle, so a code redeem proves possession and kills all prior devices.
+  await revokeAllSessions(user.id);
 
   return { ok: true };
 }

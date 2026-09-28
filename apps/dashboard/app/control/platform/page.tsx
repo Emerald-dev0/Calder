@@ -28,23 +28,41 @@ export default async function PlatformEmailPage() {
       />
 
       <div className="cp-stats">
-        <Stat label="Emails (30d)" value={fmtInt(totals.total)} hint={`${fmtInt(totals.today)} today`} />
+        <Stat
+          label="Emails (30d)"
+          value={fmtInt(totals.total)}
+          hint={`${fmtInt(totals.today)} today`}
+        />
         <Stat label="Delivered (30d)" value={fmtInt(totals.delivered)} />
         <Stat
           label="Delivery rate"
           value={totals.deliveryRate === null ? "—" : fmtPct(totals.deliveryRate)}
           hint="terminal outcomes"
         />
-        <Stat label="In queue" value={fmtInt(totals.queued + totals.sending)} hint="created + queued + sending" />
-        <Stat label="Bounced" value={fmtInt(totals.bounced)} hint={`${fmtInt(totals.complained)} complained`} />
+        <Stat
+          label="In queue"
+          value={fmtInt(totals.queued + totals.sending)}
+          hint="created + queued + sending"
+        />
+        <Stat
+          label="Bounced"
+          value={fmtInt(totals.bounced)}
+          hint={`${fmtInt(totals.complained)} complained`}
+        />
       </div>
 
       <div className="cp-grid cp-grid-2">
         <Panel title="Accepted sends" caption="per day · last 30 days">
-          <BarsChart data={daily.map((d) => ({ label: d.day, value: d.created }))} caption="accepted sends / day" />
+          <BarsChart
+            data={daily.map((d) => ({ label: d.day, value: d.created }))}
+            caption="accepted sends / day"
+          />
         </Panel>
         <Panel title="Delivered" caption="terminal deliveries · last 30 days">
-          <AreaChart data={daily.map((d) => ({ label: d.day, value: d.delivered }))} caption="delivered / day" />
+          <AreaChart
+            data={daily.map((d) => ({ label: d.day, value: d.delivered }))}
+            caption="delivered / day"
+          />
         </Panel>
       </div>
 
@@ -62,8 +80,8 @@ export default async function PlatformEmailPage() {
             ]}
           />
           <p className="cp-panel-caption" style={{ padding: "8px 16px 4px" }}>
-            Failures and bounces never disappear silently — each one is a row with a reason, visible in{" "}
-            <Link href="/control/observability">Observability → Logs</Link>.
+            Failures and bounces never disappear silently — each one is a row with a reason, visible
+            in <Link href="/control/observability">Observability → Logs</Link>.
           </p>
         </Panel>
       </div>

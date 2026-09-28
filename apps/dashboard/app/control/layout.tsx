@@ -10,7 +10,11 @@ import "./control.css";
  * from ROLE_SECTIONS (the same source the page guards check), so what you
  * see is exactly what you may reach.
  */
-const NAV: Array<{ section: string; heading: string; items: Array<{ label: string; href: string; exact?: boolean; badge?: string }> }> = [
+const NAV: Array<{
+  section: string;
+  heading: string;
+  items: Array<{ label: string; href: string; exact?: boolean; badge?: string }>;
+}> = [
   {
     section: "overview",
     heading: "Overview",
@@ -137,7 +141,9 @@ export default async function ControlLayout({ children }: { children: ReactNode 
   const ctx = await requireControl();
   const isFounder = ctx.role === "founder";
   const groups: NavGroup[] = NAV.filter(
-    (g) => g.section === "overview" || canAccessSection(ctx.role, g.section as Parameters<typeof canAccessSection>[1])
+    (g) =>
+      g.section === "overview" ||
+      canAccessSection(ctx.role, g.section as Parameters<typeof canAccessSection>[1])
   ).map((g) => ({ heading: g.heading, items: g.items }));
 
   return (

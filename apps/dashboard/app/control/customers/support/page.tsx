@@ -23,8 +23,9 @@ export default async function SupportPage() {
             "Read-only view-as-customer sessions with explicit banners",
           ]}
         >
-          Today, support context lives where the data is: the user and organization pages carry memberships, usage,
-          billing state, and audit trails. The ticketing layer lands with the first non-founder support admin.{" "}
+          Today, support context lives where the data is: the user and organization pages carry
+          memberships, usage, billing state, and audit trails. The ticketing layer lands with the
+          first non-founder support admin.{" "}
           <Link href="/control/customers">Open the customer directory →</Link>
         </Planned>
       </Panel>

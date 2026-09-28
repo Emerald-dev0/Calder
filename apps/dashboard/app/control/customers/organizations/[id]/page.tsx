@@ -12,8 +12,19 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
   await requireSection("customers");
   const data = await orgDetail(params.id);
   if (!data) notFound();
-  const { org, members, projects, subscriptions, activeSubscription, plan, monthlyCents, usage, audit, transports, emailCount } =
-    data;
+  const {
+    org,
+    members,
+    projects,
+    subscriptions,
+    activeSubscription,
+    plan,
+    monthlyCents,
+    usage,
+    audit,
+    transports,
+    emailCount,
+  } = data;
 
   return (
     <>
@@ -36,10 +47,26 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
       />
 
       <div className="cp-stats">
-        <Stat label="Plan" value={plan?.name ?? "Free"} hint={activeSubscription && activeSubscription.currentPeriodEnd ? `renews ${fmtDate(new Date(activeSubscription.currentPeriodEnd))}` : "no active subscription"} />
-        <Stat label="MRR" value={monthlyCents ? fmtMoney(monthlyCents) : "₦0"} hint="NGN list price" />
+        <Stat
+          label="Plan"
+          value={plan?.name ?? "Free"}
+          hint={
+            activeSubscription && activeSubscription.currentPeriodEnd
+              ? `renews ${fmtDate(new Date(activeSubscription.currentPeriodEnd))}`
+              : "no active subscription"
+          }
+        />
+        <Stat
+          label="MRR"
+          value={monthlyCents ? fmtMoney(monthlyCents) : "₦0"}
+          hint="NGN list price"
+        />
         <Stat label="Members" value={fmtInt(members.length)} />
-        <Stat label="Projects" value={fmtInt(projects.length)} hint={`${fmtInt(emailCount)} emails all-time`} />
+        <Stat
+          label="Projects"
+          value={fmtInt(projects.length)}
+          hint={`${fmtInt(emailCount)} emails all-time`}
+        />
       </div>
 
       <div className="cp-grid cp-grid-2">
@@ -60,13 +87,17 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
                   {members.map((m) => (
                     <tr key={m.membership.id}>
                       <td>
-                        <Link href={`/control/customers/users/${m.user.id}`}>{m.user.name ?? "—"}</Link>
+                        <Link href={`/control/customers/users/${m.user.id}`}>
+                          {m.user.name ?? "—"}
+                        </Link>
                       </td>
                       <td className="mono" style={{ fontSize: 12.5 }}>
                         {m.user.email}
                       </td>
                       <td>
-                        <Badge tone={m.membership.role === "owner" ? "accent" : undefined}>{m.membership.role}</Badge>
+                        <Badge tone={m.membership.role === "owner" ? "accent" : undefined}>
+                          {m.membership.role}
+                        </Badge>
                       </td>
                     </tr>
                   ))}
@@ -105,8 +136,24 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
                             <span style={{ color: "var(--cp-faint)" }}>default provider</span>
                           ) : (
                             t.map((tr) => (
-                              <span key={tr.id} style={{ marginRight: 6, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                                <Dot tone={tr.status === "active" ? "ok" : tr.status === "suspended" ? "warn" : "bad"} />
+                              <span
+                                key={tr.id}
+                                style={{
+                                  marginRight: 6,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 5,
+                                }}
+                              >
+                                <Dot
+                                  tone={
+                                    tr.status === "active"
+                                      ? "ok"
+                                      : tr.status === "suspended"
+                                        ? "warn"
+                                        : "bad"
+                                  }
+                                />
                                 <span className="mono" style={{ fontSize: 12 }}>
                                   {tr.type}
                                 </span>
@@ -130,15 +177,33 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
       </div>
 
       <div className="cp-grid cp-grid-2">
-        <Panel title="Plan control" caption="founder/operator action — cancels the active subscription and opens a new one">
+        <Panel
+          title="Plan control"
+          caption="founder-only (M6.2) — cancels the active subscription and opens a new one; the reason lands in the audit log"
+        >
           <form
             action={async (formData: FormData) => {
               "use server";
-              await setSubscription(org.id, String(formData.get("tier") ?? "free"), Number(formData.get("months") ?? 1));
+              const outcome = await setSubscription(
+                org.id,
+                String(formData.get("tier") ?? "free"),
+                Number(formData.get("months") ?? 1),
+                String(formData.get("reason") ?? "")
+              );
+              if (!outcome.ok) {
+                // Form-action failure surfaces via the error boundary with the
+                // action's message (founder-only gate or missing reason).
+                throw new Error(outcome.error ?? "Plan grant rejected.");
+              }
             }}
             style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
           >
-            <select className="cp-select" name="tier" defaultValue={plan?.tier ?? "free"} aria-label="Plan tier">
+            <select
+              className="cp-select"
+              name="tier"
+              defaultValue={plan?.tier ?? "free"}
+              aria-label="Plan tier"
+            >
               <option value="free">Free</option>
               <option value="starter">Builder</option>
               <option value="pro">Pro</option>
@@ -155,6 +220,17 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
               aria-label="Duration in months"
             />
             <span style={{ color: "var(--cp-faint)", fontSize: 12 }}>months</span>
+            <input
+              className="cp-input"
+              type="text"
+              name="reason"
+              placeholder="reason (required — audit)"
+              required
+              minLength={6}
+              maxLength={160}
+              style={{ minWidth: 220 }}
+              aria-label="Reason for this plan grant"
+            />
             <button className="cp-btn primary" type="submit">
               Apply plan
             </button>
@@ -169,14 +245,16 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
           </p>
           <p className="cp-panel-caption">
             Entitlement overrides (+quota, custom deals) are specified in{" "}
-            <Link href="/control/billing/entitlements">Billing → Entitlements</Link> and land with the billing
-            integration.
+            <Link href="/control/billing/entitlements">Billing → Entitlements</Link> and land with
+            the billing integration.
           </p>
         </Panel>
 
         <Panel title="Usage records" caption="metered usage periods" flush>
           {usage.length === 0 ? (
-            <Empty title="No metered usage recorded">Usage rows appear once the meter records billing periods.</Empty>
+            <Empty title="No metered usage recorded">
+              Usage rows appear once the meter records billing periods.
+            </Empty>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table className="cp-table">
@@ -207,9 +285,15 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
         </Panel>
       </div>
 
-      <Panel title="Organization audit trail" caption="recent actions recorded against this org" flush>
+      <Panel
+        title="Organization audit trail"
+        caption="recent actions recorded against this org"
+        flush
+      >
         {audit.length === 0 ? (
-          <Empty title="Nothing recorded">Plan changes, invites, and operator actions will appear here.</Empty>
+          <Empty title="Nothing recorded">
+            Plan changes, invites, and operator actions will appear here.
+          </Empty>
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table className="cp-table">
@@ -242,9 +326,10 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
 
       {members[0] ? (
         <p className="cp-caption">
-          Tags &amp; internal notes for this organization land with the CRM-lite pass; today the person-level notes live
-          on the <Link href={`/control/customers/users/${members[0].user.id}`}>owner&rsquo;s profile</Link>.{" "}
-          <Tag>audit-logged</Tag>
+          Tags &amp; internal notes for this organization land with the CRM-lite pass; today the
+          person-level notes live on the{" "}
+          <Link href={`/control/customers/users/${members[0].user.id}`}>owner&rsquo;s profile</Link>
+          . <Tag>audit-logged</Tag>
         </p>
       ) : null}
     </>

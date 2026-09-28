@@ -64,7 +64,10 @@ export async function requestMagicLink(email: string): Promise<string> {
  * proves ownership, so the address is marked verified), runs founder
  * bootstrap + invite auto-accept like OAuth, returns a session id.
  */
-export async function consumeMagicLink(rawToken: string): Promise<string> {
+export async function consumeMagicLink(
+  rawToken: string,
+  meta: Parameters<typeof createSession>[1] = {}
+): Promise<string> {
   const raw = rawToken.trim();
   if (!/^[a-f0-9]{64}$/.test(raw)) throw new Error("This link is invalid or expired.");
   const db = getDb();
@@ -97,5 +100,5 @@ export async function consumeMagicLink(rawToken: string): Promise<string> {
   await ensureFounderAccess(db, userId, row.email);
   await acceptPendingInvites(db, userId, row.email);
 
-  return createSession(userId);
+  return createSession(userId, meta);
 }

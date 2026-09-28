@@ -9,7 +9,11 @@ export const dynamic = "force-dynamic";
 
 export default async function QueuesPage() {
   await requireSection("infrastructure");
-  const [queue, redis, daily] = await Promise.all([queueDerived(), redisHealth(), pipelineDaily(14)]);
+  const [queue, redis, daily] = await Promise.all([
+    queueDerived(),
+    redisHealth(),
+    pipelineDaily(14),
+  ]);
 
   return (
     <>
@@ -20,25 +24,45 @@ export default async function QueuesPage() {
       />
 
       <div className="cp-stats">
-        <Stat label="In flight" value={fmtInt(queue.inFlight)} hint="created + queued + sending (durable)" />
-        <Stat label="Failures (24h)" value={fmtInt(queue.failedRecent)} hint="failed or bounced, last 24h" />
+        <Stat
+          label="In flight"
+          value={fmtInt(queue.inFlight)}
+          hint="created + queued + sending (durable)"
+        />
+        <Stat
+          label="Failures (24h)"
+          value={fmtInt(queue.failedRecent)}
+          hint="failed or bounced, last 24h"
+        />
         <Stat
           label="Oldest waiting"
           value={queue.oldestAgeMinutes === null ? "—" : `${fmtInt(queue.oldestAgeMinutes)}m`}
-          hint={queue.oldestAgeMinutes !== null && queue.oldestAgeMinutes > 15 ? "above the 15m comfort line" : "healthy"}
+          hint={
+            queue.oldestAgeMinutes !== null && queue.oldestAgeMinutes > 15
+              ? "above the 15m comfort line"
+              : "healthy"
+          }
           invertDelta
         />
         <div className="cp-stat">
           <p className="cp-stat-label">BullMQ counters</p>
-          <p className="cp-stat-value" style={{ fontSize: 17, display: "flex", alignItems: "center", gap: 8 }}>
+          <p
+            className="cp-stat-value"
+            style={{ fontSize: 17, display: "flex", alignItems: "center", gap: 8 }}
+          >
             <Dot tone={redis.reachable ? "ok" : "warn"} /> {redis.reachable ? "Live" : "Degraded"}
           </p>
-          <p className="cp-stat-foot">{redis.reachable ? "Redis reachable" : "falling back to Postgres state"}</p>
+          <p className="cp-stat-foot">
+            {redis.reachable ? "Redis reachable" : "falling back to Postgres state"}
+          </p>
         </div>
       </div>
 
       <Panel title="Queue pressure" caption="accepted volume feeding the queue · last 14 days">
-        <BarsChart data={daily.map((d) => ({ label: d.day, value: d.created }))} caption="accepted sends / day" />
+        <BarsChart
+          data={daily.map((d) => ({ label: d.day, value: d.created }))}
+          caption="accepted sends / day"
+        />
       </Panel>
 
       <Panel title="Queue semantics" caption="the retry contract, stated">

@@ -28,8 +28,8 @@ export default async function NetworkingPage() {
             "Regional routing once regional infrastructure lands (PRD §7)",
           ]}
         >
-          The SMTP gateway deploy topology is an open decision (ADR-014); this page activates its monitoring when the
-          topology lands.
+          The SMTP gateway deploy topology is an open decision (ADR-014); this page activates its
+          monitoring when the topology lands.
         </Planned>
       </Panel>
     </>

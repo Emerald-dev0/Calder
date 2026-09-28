@@ -46,7 +46,12 @@ export default async function LogsPage({
             defaultValue={searchParams.q ?? ""}
             style={{ minWidth: 220 }}
           />
-          <select className="cp-select" name="type" defaultValue={searchParams.type ?? ""} aria-label="Event type">
+          <select
+            className="cp-select"
+            name="type"
+            defaultValue={searchParams.type ?? ""}
+            aria-label="Event type"
+          >
             <option value="">All types</option>
             {data.byType.map((t) => (
               <option key={t.type} value={t.type}>
@@ -115,8 +120,8 @@ export default async function LogsPage({
       </Panel>
 
       <p className="cp-caption">
-        The connected path: API error spike → queue growth → worker latency → provider latency → delivery degradation.
-        Jump: <Link href="/control/infrastructure/queues">Queues</Link> ·{" "}
+        The connected path: API error spike → queue growth → worker latency → provider latency →
+        delivery degradation. Jump: <Link href="/control/infrastructure/queues">Queues</Link> ·{" "}
         <Link href="/control/platform/deliverability">Deliverability</Link> ·{" "}
         <Badge tone="accent">request_id tracing in API logs</Badge>
       </p>

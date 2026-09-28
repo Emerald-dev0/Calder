@@ -1,6 +1,7 @@
-import { createHash, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import { eq, and, isNull, gt, desc } from "drizzle-orm";
 import { getDb, emailCodeChallenges } from "@calder/db";
+import { getConfig } from "@calder/config";
 
 export type EmailCodePurpose = "verification" | "reset";
 
@@ -19,8 +20,24 @@ export function isPlausibleEmail(email: string): boolean {
   return /^[^\s@]{1,200}@[^\s@]{1,200}\.[^\s@]{2,}$/.test(email);
 }
 
-export function hashCode(code: string): string {
+/**
+ * Legacy (v1) storage: bare sha256(code). A 6-digit code spaces 1M entries,
+ * so a hashes-only leak was offline-bruteforceable in seconds (M6.1).
+ */
+function hashCodeLegacy(code: string): string {
   return createHash("sha256").update(code.trim(), "utf8").digest("hex");
+}
+
+/**
+ * v2 (ADR-040): HMAC-SHA256 keyed by AUTH_SECRET, bound to purpose + email
+ * so a reset code cannot be replayed as a verification code (or vice versa)
+ * even with hash access, and leaked rows are useless offline.
+ */
+export function hashCode(code: string, purpose: string, email: string): string {
+  const secret = getConfig().AUTH_SECRET;
+  return createHmac("sha256", `email-code-v2|${secret}`)
+    .update(`${purpose}|${email}|${code.trim()}`, "utf8")
+    .digest("hex");
 }
 
 export function generateOtpCode(): string {
@@ -76,7 +93,7 @@ export async function issueEmailCode(
   await db.insert(emailCodeChallenges).values({
     id: challengeId,
     email: normalized,
-    codeHash: hashCode(code),
+    codeHash: hashCode(code, purpose, normalized),
     purpose,
     expiresAt,
     attempts: 0,
@@ -91,18 +108,17 @@ export async function issueEmailCode(
 }
 
 /**
- * Verify a 6-digit code for a given email and purpose.
- * Enforces:
- * - single active unexpired challenge
- * - attempt counter (burns after 5 attempts)
- * - constant-time hash comparison
- * - consumes the challenge on success
+ * Shared evaluation for verify/check: finds the live challenge, enforces the
+ * attempt counter (burns after 5 failures), compares hashes in constant time.
+ * Returns the matching challenge WITHOUT touching consumedAt, the caller
+ * decides whether a match consumes (verify) or merely confirms (check).
+ * Every failure path throws.
  */
-export async function verifyEmailCode(
+async function evaluateChallenge(
   email: string,
   rawCode: string,
   purpose: EmailCodePurpose
-): Promise<{ valid: boolean; challengeId: string }> {
+): Promise<{ id: string }> {
   const normalized = normalizeEmail(email);
   const cleanCode = rawCode.trim();
 
@@ -142,9 +158,14 @@ export async function verifyEmailCode(
   }
 
   const expectedHash = challenge.codeHash;
-  const actualHash = hashCode(cleanCode);
-
-  const isMatch = timingSafeEqual(Buffer.from(actualHash, "hex"), Buffer.from(expectedHash, "hex"));
+  // v2 first; v1 dual-accept only for challenges issued before the pepper
+  // shipped (TTL ≤10m, window closed within minutes of deploy).
+  const actualHashV2 = hashCode(cleanCode, challenge.purpose, challenge.email);
+  const actualHashV1 = hashCodeLegacy(cleanCode);
+  const expect = Buffer.from(expectedHash, "hex");
+  const isMatch =
+    timingSafeEqual(Buffer.from(actualHashV2, "hex"), expect) ||
+    timingSafeEqual(Buffer.from(actualHashV1, "hex"), expect);
 
   if (!isMatch) {
     const nextAttempts = challenge.attempts + 1;
@@ -163,11 +184,45 @@ export async function verifyEmailCode(
     throw new Error("Invalid code. Please check and try again.");
   }
 
+  return { id: challenge.id };
+}
+
+/**
+ * Verify a 6-digit code for a given email and purpose.
+ * Enforces:
+ * - single active unexpired challenge
+ * - attempt counter (burns after 5 attempts)
+ * - constant-time hash comparison
+ * - consumes the challenge on success
+ */
+export async function verifyEmailCode(
+  email: string,
+  rawCode: string,
+  purpose: EmailCodePurpose
+): Promise<{ valid: boolean; challengeId: string }> {
+  const challenge = await evaluateChallenge(email, rawCode, purpose);
+
   // Code matches! Burn challenge
+  const db = getDb();
   await db
     .update(emailCodeChallenges)
-    .set({ consumedAt: now })
+    .set({ consumedAt: new Date() })
     .where(eq(emailCodeChallenges.id, challenge.id));
 
+  return { valid: true, challengeId: challenge.id };
+}
+
+/**
+ * Check a 6-digit code WITHOUT consuming it.
+ * Same identity/attempt/constant-time guarantees as verifyEmailCode, but a
+ * match leaves the challenge live so a follow-up step (e.g. the final
+ * password-reset call) can still consume it. Wrong codes still burn attempts.
+ */
+export async function checkEmailCode(
+  email: string,
+  rawCode: string,
+  purpose: EmailCodePurpose
+): Promise<{ valid: boolean; challengeId: string }> {
+  const challenge = await evaluateChallenge(email, rawCode, purpose);
   return { valid: true, challengeId: challenge.id };
 }

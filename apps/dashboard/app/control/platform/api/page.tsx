@@ -27,7 +27,11 @@ export default async function PlatformApiPage() {
       <div className="cp-stats">
         <Stat label="API keys issued" value={String(total)} hint="test + live" />
         <Stat label="Live keys" value={String(live)} hint="production traffic capable" />
-        <Stat label="Error shape" value="{code, message, request_id}" hint="predictable, versioned /v1" />
+        <Stat
+          label="Error shape"
+          value="{code, message, request_id}"
+          hint="predictable, versioned /v1"
+        />
       </div>
 
       <Panel title="API surface" caption="what exists today">
@@ -38,7 +42,10 @@ export default async function PlatformApiPage() {
         <KV k="Health" v="/health · /ready (dependency-inclusive)" mono />
       </Panel>
 
-      <Panel title="Planned: request metrics" caption="latency, 4xx/5xx rates, auth failures, throughput">
+      <Panel
+        title="Planned: request metrics"
+        caption="latency, 4xx/5xx rates, auth failures, throughput"
+      >
         <Planned
           title="API observability"
           bullets={[
@@ -48,8 +55,8 @@ export default async function PlatformApiPage() {
             "Rate-limit hit rates per dimension",
           ]}
         >
-          Structured JSON logs with request_id tracing already exist in the API; the aggregation surface (metrics
-          store + these panels) is the remaining piece, tracked in the roadmap.
+          Structured JSON logs with request_id tracing already exist in the API; the aggregation
+          surface (metrics store + these panels) is the remaining piece, tracked in the roadmap.
         </Planned>
       </Panel>
     </>

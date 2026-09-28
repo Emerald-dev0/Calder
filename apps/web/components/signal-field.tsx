@@ -48,93 +48,93 @@ void main() {
 `;
 
 function compile(gl: WebGLRenderingContext, type: number, src: string): WebGLShader {
- const shader = gl.createShader(type);
- if (!shader) throw new Error("WebGL shader allocation failed");
- gl.shaderSource(shader, src);
- gl.compileShader(shader);
- if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
- throw new Error(`Shader error: ${gl.getShaderInfoLog(shader)}`);
- }
- return shader;
+  const shader = gl.createShader(type);
+  if (!shader) throw new Error("WebGL shader allocation failed");
+  gl.shaderSource(shader, src);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    throw new Error(`Shader error: ${gl.getShaderInfoLog(shader)}`);
+  }
+  return shader;
 }
 
 export function SignalField() {
- const ref = React.useRef<HTMLCanvasElement | null>(null);
+  const ref = React.useRef<HTMLCanvasElement | null>(null);
 
- React.useEffect(() => {
- const canvas = ref.current;
- if (!canvas) return;
- const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
- if (!gl) return; // graceful: paper background remains
+  React.useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
+    if (!gl) return; // graceful: paper background remains
 
- const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
- let program: WebGLProgram | null = null;
- try {
- program = gl.createProgram();
- if (!program) return;
- gl.attachShader(program, compile(gl, gl.VERTEX_SHADER, VERT));
- gl.attachShader(program, compile(gl, gl.FRAGMENT_SHADER, FRAG));
- gl.linkProgram(program);
- gl.useProgram(program);
- } catch {
- return;
- }
+    let program: WebGLProgram | null = null;
+    try {
+      program = gl.createProgram();
+      if (!program) return;
+      gl.attachShader(program, compile(gl, gl.VERTEX_SHADER, VERT));
+      gl.attachShader(program, compile(gl, gl.FRAGMENT_SHADER, FRAG));
+      gl.linkProgram(program);
+      gl.useProgram(program);
+    } catch {
+      return;
+    }
 
- const buf = gl.createBuffer();
- gl.bindBuffer(gl.ARRAY_BUFFER, buf);
- gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
- const loc = gl.getAttribLocation(program, "p");
- gl.enableVertexAttribArray(loc);
- gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(program, "p");
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 
- const resLoc = gl.getUniformLocation(program, "res");
- const tLoc = gl.getUniformLocation(program, "t");
+    const resLoc = gl.getUniformLocation(program, "res");
+    const tLoc = gl.getUniformLocation(program, "t");
 
- const resize = () => {
- const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
- const w = Math.max(1, Math.floor(canvas.clientWidth * dpr * 0.6));
- const h = Math.max(1, Math.floor(canvas.clientHeight * dpr * 0.6));
- if (canvas.width !== w || canvas.height !== h) {
- canvas.width = w;
- canvas.height = h;
- gl.viewport(0, 0, w, h);
- }
- };
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+      const w = Math.max(1, Math.floor(canvas.clientWidth * dpr * 0.6));
+      const h = Math.max(1, Math.floor(canvas.clientHeight * dpr * 0.6));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+        gl.viewport(0, 0, w, h);
+      }
+    };
 
- let raf = 0;
- let visible = true;
- const start = performance.now();
+    let raf = 0;
+    let visible = true;
+    const start = performance.now();
 
- const draw = (now: number) => {
- resize();
- gl.uniform2f(resLoc, canvas.width, canvas.height);
- gl.uniform1f(tLoc, (now - start) / 1000);
- gl.drawArrays(gl.TRIANGLES, 0, 3);
- };
+    const draw = (now: number) => {
+      resize();
+      gl.uniform2f(resLoc, canvas.width, canvas.height);
+      gl.uniform1f(tLoc, (now - start) / 1000);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    };
 
- if (reduced) {
- draw(start + 4000); // one composed static frame
- return;
- }
+    if (reduced) {
+      draw(start + 4000); // one composed static frame
+      return;
+    }
 
- const loop = (now: number) => {
- raf = requestAnimationFrame(loop);
- if (!visible || document.hidden) return;
- draw(now);
- };
+    const loop = (now: number) => {
+      raf = requestAnimationFrame(loop);
+      if (!visible || document.hidden) return;
+      draw(now);
+    };
 
- const observer = new IntersectionObserver(([entry]) => {
- visible = entry?.isIntersecting ?? true;
- });
- observer.observe(canvas);
- raf = requestAnimationFrame(loop);
+    const observer = new IntersectionObserver(([entry]) => {
+      visible = entry?.isIntersecting ?? true;
+    });
+    observer.observe(canvas);
+    raf = requestAnimationFrame(loop);
 
- return () => {
- cancelAnimationFrame(raf);
- observer.disconnect();
- };
- }, []);
+    return () => {
+      cancelAnimationFrame(raf);
+      observer.disconnect();
+    };
+  }, []);
 
- return <canvas ref={ref} className="signal-field" aria-hidden="true" />;
+  return <canvas ref={ref} className="signal-field" aria-hidden="true" />;
 }

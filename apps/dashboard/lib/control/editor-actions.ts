@@ -268,6 +268,8 @@ export async function sendTestEmail(input: {
       html: brandEmail(renderedHtml, { preheader: subject }),
       text: renderedText,
       status: "queued",
+      // Explicit: a preview of the confirmation email is still real mail.
+      env: "live",
       metadata: { test: true, via: "confirmation-email-editor" },
     });
     await tx.insert(emailEvents).values({

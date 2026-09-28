@@ -14,3 +14,9 @@ coverage
 .vercel
 .idea/
 .env*
+# Test fixtures generated at run time (never commit key material, even dummies)
+apps/api/src/lib/__fixtures__/
+
+# python sdks
+__pycache__/
+*.pyc

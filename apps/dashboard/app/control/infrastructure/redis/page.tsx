@@ -26,14 +26,26 @@ export default async function RedisPage() {
       {redis.reachable ? (
         <>
           <div className="cp-stats">
-            <Stat label="Status" value="Operational" hint={`v${redis.version} · up ${fmtInt(redis.uptimeDays ?? 0)}d`} />
-            <Stat label="Memory used" value={mb(redis.usedMemoryBytes)} hint={redis.maxMemoryBytes ? `max ${mb(redis.maxMemoryBytes)}` : "no maxmemory set"} />
+            <Stat
+              label="Status"
+              value="Operational"
+              hint={`v${redis.version} · up ${fmtInt(redis.uptimeDays ?? 0)}d`}
+            />
+            <Stat
+              label="Memory used"
+              value={mb(redis.usedMemoryBytes)}
+              hint={redis.maxMemoryBytes ? `max ${mb(redis.maxMemoryBytes)}` : "no maxmemory set"}
+            />
             <Stat
               label="Cache hit rate"
               value={redis.hitRate === null ? "—" : fmtPct(redis.hitRate)}
               hint="keyspace hits / (hits + misses)"
             />
-            <Stat label="Ops/sec" value={fmtInt(redis.opsPerSec ?? 0)} hint={`${fmtInt(redis.connectedClients ?? 0)} clients`} />
+            <Stat
+              label="Ops/sec"
+              value={fmtInt(redis.opsPerSec ?? 0)}
+              hint={`${fmtInt(redis.connectedClients ?? 0)} clients`}
+            />
           </div>
           <Panel title="Server detail" caption="live INFO snapshot">
             <KV k="Version" v={redis.version ?? "—"} mono />
@@ -42,15 +54,21 @@ export default async function RedisPage() {
             <KV k="Max memory" v={mb(redis.maxMemoryBytes)} mono />
             <KV k="Connected clients" v={fmtInt(redis.connectedClients ?? 0)} mono />
             <KV k="Instantaneous ops/sec" v={fmtInt(redis.opsPerSec ?? 0)} mono />
-            <KV k="Evicted keys" v={fmtInt(redis.evictedKeys ?? 0)} hint={redis.evictedKeys ? "memory pressure signal" : undefined} mono />
+            <KV
+              k="Evicted keys"
+              v={fmtInt(redis.evictedKeys ?? 0)}
+              hint={redis.evictedKeys ? "memory pressure signal" : undefined}
+              mono
+            />
             <KV k="Hit rate" v={redis.hitRate === null ? "—" : fmtPct(redis.hitRate)} mono />
           </Panel>
         </>
       ) : (
         <Panel title="Redis unreachable" caption="PING failed — degraded but not fatal">
           <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: "0 0 10px" }}>
-            Delivery falls back to the durable Postgres pipeline state; retries, rate limiting, and caching degrade
-            to conservative defaults. This state is alertable — see Observability → Alerts.
+            Delivery falls back to the durable Postgres pipeline state; retries, rate limiting, and
+            caching degrade to conservative defaults. This state is alertable — see Observability →
+            Alerts.
           </p>
           <Badge tone="warn">REDIS_URL: {process.env.REDIS_URL ? "configured" : "unset"}</Badge>
         </Panel>

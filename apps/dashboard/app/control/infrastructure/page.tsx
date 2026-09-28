@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { fmtInt } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
-import { dbHealth, queueDerived, redisHealth, transportFleet, workerThroughput } from "@/lib/control/queries";
+import {
+  dbHealth,
+  queueDerived,
+  redisHealth,
+  transportFleet,
+  workerThroughput,
+} from "@/lib/control/queries";
 import { BarsChart } from "@/control/_components/charts";
 import { Badge, Dot, KV, PageHeader, Panel } from "@/control/_components/ui";
 
@@ -17,9 +23,7 @@ export default async function InfrastructureOverview() {
     workerThroughput(),
   ]);
 
-  const fleetLine = fleet
-    .map((f) => `${f.type}:${f.status}×${Number(f.value)}`)
-    .join("  ");
+  const fleetLine = fleet.map((f) => `${f.type}:${f.status}×${Number(f.value)}`).join("  ");
 
   return (
     <>
@@ -32,25 +36,47 @@ export default async function InfrastructureOverview() {
       <div className="cp-stats">
         <div className="cp-stat">
           <p className="cp-stat-label">Postgres</p>
-          <p className="cp-stat-value" style={{ fontSize: 17, display: "flex", alignItems: "center", gap: 8 }}>
+          <p
+            className="cp-stat-value"
+            style={{ fontSize: 17, display: "flex", alignItems: "center", gap: 8 }}
+          >
             <Dot tone={db.reachable ? "ok" : "bad"} /> {db.reachable ? "Operational" : "Down"}
           </p>
-          <p className="cp-stat-foot">{db.latencyMs !== null ? `${db.latencyMs}ms query latency` : "no response"}</p>
+          <p className="cp-stat-foot">
+            {db.latencyMs !== null ? `${db.latencyMs}ms query latency` : "no response"}
+          </p>
         </div>
         <div className="cp-stat">
           <p className="cp-stat-label">Redis</p>
-          <p className="cp-stat-value" style={{ fontSize: 17, display: "flex", alignItems: "center", gap: 8 }}>
-            <Dot tone={redis.reachable ? "ok" : "warn"} /> {redis.reachable ? "Operational" : "Unreachable"}
+          <p
+            className="cp-stat-value"
+            style={{ fontSize: 17, display: "flex", alignItems: "center", gap: 8 }}
+          >
+            <Dot tone={redis.reachable ? "ok" : "warn"} />{" "}
+            {redis.reachable ? "Operational" : "Unreachable"}
           </p>
-          <p className="cp-stat-foot">{redis.reachable ? `${fmtInt(redis.opsPerSec ?? 0)} ops/s · v${redis.version}` : "queue + cache + rate limits degrade"}</p>
+          <p className="cp-stat-foot">
+            {redis.reachable
+              ? `${fmtInt(redis.opsPerSec ?? 0)} ops/s · v${redis.version}`
+              : "queue + cache + rate limits degrade"}
+          </p>
         </div>
         <div className="cp-stat">
           <p className="cp-stat-label">Queue</p>
-          <p className="cp-stat-value" style={{ fontSize: 17, display: "flex", alignItems: "center", gap: 8 }}>
-            <Dot tone={queue.inFlight > 5000 || (queue.oldestAgeMinutes ?? 0) > 15 ? "warn" : "ok"} />{" "}
+          <p
+            className="cp-stat-value"
+            style={{ fontSize: 17, display: "flex", alignItems: "center", gap: 8 }}
+          >
+            <Dot
+              tone={queue.inFlight > 5000 || (queue.oldestAgeMinutes ?? 0) > 15 ? "warn" : "ok"}
+            />{" "}
             {queue.inFlight > 0 ? `${fmtInt(queue.inFlight)} in flight` : "Empty"}
           </p>
-          <p className="cp-stat-foot">{queue.oldestAgeMinutes !== null ? `oldest ${queue.oldestAgeMinutes}m` : "nothing waiting"}</p>
+          <p className="cp-stat-foot">
+            {queue.oldestAgeMinutes !== null
+              ? `oldest ${queue.oldestAgeMinutes}m`
+              : "nothing waiting"}
+          </p>
         </div>
         <div className="cp-stat">
           <p className="cp-stat-label">Transports</p>
@@ -72,11 +98,21 @@ export default async function InfrastructureOverview() {
         </Panel>
         <Panel title="Jump to systems" caption="per-dependency deep views">
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Link className="cp-btn" href="/control/infrastructure/redis">Redis</Link>
-            <Link className="cp-btn" href="/control/infrastructure/queues">Queues</Link>
-            <Link className="cp-btn" href="/control/infrastructure/workers">Workers</Link>
-            <Link className="cp-btn" href="/control/infrastructure/database">Database</Link>
-            <Link className="cp-btn" href="/control/infrastructure/providers">Providers</Link>
+            <Link className="cp-btn" href="/control/infrastructure/redis">
+              Redis
+            </Link>
+            <Link className="cp-btn" href="/control/infrastructure/queues">
+              Queues
+            </Link>
+            <Link className="cp-btn" href="/control/infrastructure/workers">
+              Workers
+            </Link>
+            <Link className="cp-btn" href="/control/infrastructure/database">
+              Database
+            </Link>
+            <Link className="cp-btn" href="/control/infrastructure/providers">
+              Providers
+            </Link>
           </div>
           <p className="cp-panel-caption" style={{ marginTop: 12 }}>
             Storage, cron, and networking views are scaffolded with their planned instruments.
@@ -104,7 +140,13 @@ export default async function InfrastructureOverview() {
         <KV
           k="Overall"
           v={
-            <Badge tone={db.reachable && queue.oldestAgeMinutes !== null && queue.oldestAgeMinutes <= 15 ? "ok" : "warn"}>
+            <Badge
+              tone={
+                db.reachable && queue.oldestAgeMinutes !== null && queue.oldestAgeMinutes <= 15
+                  ? "ok"
+                  : "warn"
+              }
+            >
               {db.reachable ? "operational" : "degraded"}
             </Badge>
           }

@@ -46,7 +46,11 @@ export default async function SendersPage({
     .from(domains)
     .where(and(eq(domains.projectId, scope.project.id), eq(domains.status, "verified")));
   const gmailTransports = await db
-    .select({ id: projectTransports.id, label: projectTransports.label })
+    .select({
+      id: projectTransports.id,
+      label: projectTransports.label,
+      dailyCap: projectTransports.dailyCap,
+    })
     .from(projectTransports)
     .where(
       and(
@@ -55,17 +59,59 @@ export default async function SendersPage({
         eq(projectTransports.status, "active")
       )
     );
-  const verifiedCount = senders.filter((s) => s.status === "verified" || s.status === "connected").length;
+  // M2.4 graduation prompt: Gmail is on-ramp, not infrastructure. The nudge
+  // fires when real volume exists (7-day average over the graduation line,
+  // or the daily cap already reached today).
+  const { gmailNeedsGraduation } = await import("@calder/db");
+  const graduations = await Promise.all(
+    gmailTransports.map(async (t) => ({
+      ...t,
+      signal: await gmailNeedsGraduation(db, scope.project.id, t.dailyCap),
+    }))
+  );
+  const graduates = graduations.filter((g) => g.signal.needed);
+  const verifiedCount = senders.filter(
+    (s) => s.status === "verified" || s.status === "connected"
+  ).length;
 
   return (
     <div>
       <h1 style={{ fontSize: 28, margin: "0 0 4px" }}>Senders</h1>
       <p style={{ color: "#737373", margin: "0 0 4px", fontSize: 14 }}>
         {scope.organization.name} → {scope.project.name} ·{" "}
-        {senders.length === 0
-          ? "no senders yet"
-          : `${verifiedCount} of ${senders.length} ready`}
+        {senders.length === 0 ? "no senders yet" : `${verifiedCount} of ${senders.length} ready`}
       </p>
+
+      {graduates.length > 0 && (
+        <div
+          role="status"
+          style={{
+            background: "#FFF8E6",
+            border: "1px solid #F0DFA8",
+            borderRadius: 12,
+            padding: 16,
+            margin: "12px 0 4px",
+            fontSize: 14,
+          }}
+        >
+          <p style={{ fontWeight: 700, margin: "0 0 4px" }}>
+            You've outgrown Gmail ({graduates.map((g) => g.label).join(", ")}).
+          </p>
+          <p style={{ margin: "0 0 8px", color: "#5C4E2F" }}>
+            This project is averaging{" "}
+            <b>{Math.max(...graduates.map((g) => Math.round(g.signal.dailyAvg7d)))} sends/day</b>{" "}
+            through a personal Gmail account (cap {graduates[0]!.signal.cap}/day). Personal accounts
+            get throttled, land in spam more often, and can be locked by Google at any volume.
+            Verify a domain below to move onto production infrastructure — SES takes over
+            automatically with no code change.
+          </p>
+          <p style={{ margin: 0, fontSize: 13 }}>
+            <a href="/domains" style={{ color: "#5C4E2F", textDecoration: "underline" }}>
+              Add &amp; verify a domain →
+            </a>
+          </p>
+        </div>
+      )}
 
       {senders.length === 0 ? (
         <div
@@ -82,8 +128,8 @@ export default async function SendersPage({
             No sender identities yet
           </p>
           <p style={{ color: "#737373", fontSize: 14, margin: "0 0 20px" }}>
-            Your application needs a sender before Calder can deliver email. Start with an
-            existing Gmail account, or verify your own domain.
+            Your application needs a sender before Calder can deliver email. Start with an existing
+            Gmail account, or verify your own domain.
           </p>
         </div>
       ) : (
@@ -146,7 +192,11 @@ export default async function SendersPage({
                   flexShrink: 0,
                 }}
               >
-                {s.status === "verified" ? "✓ Verified" : s.status === "connected" ? "✓ Connected" : s.status}
+                {s.status === "verified"
+                  ? "✓ Verified"
+                  : s.status === "connected"
+                    ? "✓ Connected"
+                    : s.status}
                 <span style={{ display: "block", fontSize: 11 }}>{timeAgo(s.lastUsedAt)}</span>
               </span>
             </a>

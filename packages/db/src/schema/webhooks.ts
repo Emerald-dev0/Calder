@@ -42,6 +42,10 @@ export const webhookDeliveries = pgTable(
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
     status: webhookDeliveryStatusEnum("status").notNull().default("pending"),
     attemptCount: integer("attempt_count").notNull().default(0),
+    /** Whole-attempt wall time in ms (last attempt). */
+    latencyMs: integer("latency_ms"),
+    /** HTTP status of the endpoint's last response, when one arrived. */
+    responseStatus: integer("response_status"),
     nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
     lastError: text("last_error"),
     deliveredAt: timestamp("delivered_at", { withTimezone: true }),

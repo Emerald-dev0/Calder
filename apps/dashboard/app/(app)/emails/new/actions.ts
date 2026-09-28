@@ -85,6 +85,39 @@ export async function sendComposerEmail(
     );
   }
 
+  // Quota gate parity with the API (PRICING §5 hard caps): the composer
+  // inserts directly rather than going through /v1/emails, so it enforces
+  // the same limit here. Org id for "org_avenor" matches
+  // apps/api/src/lib/quotas.ts (INTERNAL_ORG_ID) — never throttle Calder's
+  // own transactional mail.
+  {
+    const { projects, orgAcceptedLiveInPeriod, orgUsagePeriod, resolveOrgTier } =
+      await import("@calder/db");
+    const { planEmailsLimit, PLAN_LIMITS } = await import("@calder/config");
+    const [proj] = await db
+      .select({ organizationId: projects.organizationId })
+      .from(projects)
+      .where(eq(projects.id, input.projectId))
+      .limit(1);
+    if (proj && proj.organizationId !== "org_avenor") {
+      const period = await orgUsagePeriod(db, proj.organizationId);
+      const [tier, usage] = await Promise.all([
+        resolveOrgTier(db, proj.organizationId),
+        orgAcceptedLiveInPeriod(db, proj.organizationId, period),
+      ]);
+      const limit = planEmailsLimit(tier);
+      if (limit !== null && usage + 1 > limit) {
+        const display =
+          Object.values(PLAN_LIMITS).find((p) => p.tier === tier)?.displayName ?? tier;
+        throw new Error(
+          `Plan limit reached: the ${display} plan allows ${limit.toLocaleString("en-US")} emails ` +
+            `per period; ${usage.toLocaleString("en-US")} used already. ` +
+            `Usage resets ${period.end.toISOString().slice(0, 10)} — upgrade on the Usage page to send now.`
+        );
+      }
+    }
+  }
+
   const attachments = (input.attachments ?? []).slice(0, 10).map((a) => {
     const filename = a.filename.split(/[\\/]/).pop() ?? "";
     if (!filename) throw new Error("Attachment filenames cannot contain path separators.");
@@ -125,6 +158,8 @@ export async function sendComposerEmail(
     scheduledFor,
     attachments: attachments.length > 0 ? attachments : null,
     status: "queued",
+    // Explicit: the composer is a human sending real mail from the dashboard.
+    env: "live",
   });
   await db.insert(emailEvents).values({
     id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,

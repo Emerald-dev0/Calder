@@ -12,7 +12,10 @@ export default async function StatusPagePage() {
         title="Status Page"
         subtitle="Trust through transparency (DESIGN §0): the public surface where incidents live in the open."
       />
-      <Panel title="Status" caption="the public page exists; incident publication is one click away">
+      <Panel
+        title="Status"
+        caption="the public page exists; incident publication is one click away"
+      >
         <Planned
           title="Status publishing"
           bullets={[
@@ -21,8 +24,8 @@ export default async function StatusPagePage() {
             "History and uptime banners, matching the marketing status page",
           ]}
         >
-          The marketing status page (apps/web/status) already exists as a surface; wiring it to live incident records
-          completes the loop.
+          The marketing status page (apps/web/status) already exists as a surface; wiring it to live
+          incident records completes the loop.
         </Planned>
       </Panel>
     </>

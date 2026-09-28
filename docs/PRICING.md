@@ -6,16 +6,16 @@ See `docs/DECISIONS.md` ADR-024 for the decision record.
 
 ## 1. The model
 
-| | Beginner | Pro | Premium | Scale |
-| --- | ---: | ---: | ---: | ---: |
-| Price | **$0 / ₦0** | **$15 / ₦25,000** | **$49 / ₦75,000** | **Custom** |
-| Emails / month | 5,000 | 50,000 | 250,000 | Custom |
-| Projects | 3 | 10 | 50 | Custom |
-| Domains | 2 | 10 | 50 | Custom |
-| Team members | 1 | 5 | 15 | Custom |
-| Environments | Development | Dev + Staging + Production | Dev + Staging + Production | Custom |
-| Log retention | 7 days | 30 days | 90 days | Custom |
-| Support | Community | Email | Priority | Dedicated |
+|                |    Beginner |                        Pro |                    Premium |      Scale |
+| -------------- | ----------: | -------------------------: | -------------------------: | ---------: |
+| Price          | **$0 / ₦0** |          **$15 / ₦25,000** |          **$49 / ₦75,000** | **Custom** |
+| Emails / month |       5,000 |                     50,000 |                    250,000 |     Custom |
+| Projects       |           3 |                         10 |                         50 |     Custom |
+| Domains        |           2 |                         10 |                         50 |     Custom |
+| Team members   |           1 |                          5 |                         15 |     Custom |
+| Environments   | Development | Dev + Staging + Production | Dev + Staging + Production |     Custom |
+| Log retention  |      7 days |                    30 days |                    90 days |     Custom |
+| Support        |   Community |                      Email |                   Priority |  Dedicated |
 
 Marketing allowances (contacts, not sends): 1,000 / 10,000 / 50,000 / Custom.
 
@@ -66,21 +66,21 @@ separate rate limits, separate allowance.
 
 Per-email fully-loaded cost = sum of:
 
-| Cost line | Driver | Notes |
+| Cost line         | Driver                                                                  | Notes                                             |
 | ----------------- | ----------------------------------------------------------------------- | ------------------------------------------------- |
-| Provider delivery | SES $/1k by region + data transfer | Gmail transports cost ~$0 infra but cap volume |
-| Database | rows/email (email + events + idempotency) × retention × managed-PG $/GB | events dominate; retention policy is a cost lever |
-| Queue/Redis | jobs + retries × managed-Redis $ | retries multiply cost, backoff design matters |
-| Logs | bytes/log-line × volume × retention | structured but sampled at scale |
-| Event storage | webhook attempts × payload × retention | attempt history is a feature with a bill |
-| Bandwidth | message + attachment bytes × egress $ | attachment caps are pricing policy |
-| Webhook delivery | attempts × egress | customer endpoints being slow costs us |
-| Abuse/fraud | review ops + provider penalties + suspended capacity | Gmail path carries highest risk weight |
-| Support | tickets/1k users by tier | free tier must be near-zero-touch |
-| Payments | NGN rails % + fixed, USD rail % + fixed, failed-payment retries | local-first means local fee structures |
-| FX & volatility | NGN/USD drift between price-set and settlement | reprice trigger: >15% sustained drift |
-| VAT/taxes | Nigerian VAT where applicable | price display must state tax treatment |
-| Margin | target contribution per tier | free tier is CAC, must convert or stay cheap |
+| Provider delivery | SES $/1k by region + data transfer                                      | Gmail transports cost ~$0 infra but cap volume    |
+| Database          | rows/email (email + events + idempotency) × retention × managed-PG $/GB | events dominate; retention policy is a cost lever |
+| Queue/Redis       | jobs + retries × managed-Redis $                                        | retries multiply cost, backoff design matters     |
+| Logs              | bytes/log-line × volume × retention                                     | structured but sampled at scale                   |
+| Event storage     | webhook attempts × payload × retention                                  | attempt history is a feature with a bill          |
+| Bandwidth         | message + attachment bytes × egress $                                   | attachment caps are pricing policy                |
+| Webhook delivery  | attempts × egress                                                       | customer endpoints being slow costs us            |
+| Abuse/fraud       | review ops + provider penalties + suspended capacity                    | Gmail path carries highest risk weight            |
+| Support           | tickets/1k users by tier                                                | free tier must be near-zero-touch                 |
+| Payments          | NGN rails % + fixed, USD rail % + fixed, failed-payment retries         | local-first means local fee structures            |
+| FX & volatility   | NGN/USD drift between price-set and settlement                          | reprice trigger: >15% sustained drift             |
+| VAT/taxes         | Nigerian VAT where applicable                                           | price display must state tax treatment            |
+| Margin            | target contribution per tier                                            | free tier is CAC, must convert or stay cheap      |
 
 **Gate rule:** a plan (or a pricing change) does not ship until modelled
 contribution margin ≥ target under p95 usage of that tier's quota, including a
@@ -97,6 +97,26 @@ are modelled separately: contacts cost storage and support, not delivery.
   cannot become a spam path (see `SECURITY.md` §14).
 - One meter for the platform: subscriptions and prepaid credit packs both feed
   the same aggregation (ADR-020).
+
+### §5a. What "enforced in code" concretely means (Phase 2, ADR-036)
+
+- The limit response is HTTP 402, error code `plan_limit_reached`, on every
+  ingest path (`/v1/emails`, `/v1/emails/batch`, scheduled sends, and the
+  dashboard composer gate). Details carry `limit`, `usage`, `tier`,
+  `periodStart` and `periodEnd`; `fix` names the upgrade route.
+- The counted quantity is _accepted live sends in the current period_
+  (queued mail counts — you cannot burst past the cap while it lands); the
+  billed quantity is _provider-accepted sends_ written to the usage ledger
+  exactly once per email (`ur_<emailId>`). Throttle and invoice deliberately
+  come from different tables.
+- The period is the subscription's stamped cycle when one exists
+  (anniversary-preserving rollover), else the current UTC calendar month.
+- Test-key sends stamp `env='test'` at ingest, deliver only through the mock
+  provider (`transport:'mock'` on the record is the auditable proof), and
+  are excluded from every count in this file.
+- Plan ceilings: 5,000 / 50,000 / 250,000 / custom (Scale). The single
+  machine-readable copy is `PLAN_LIMITS` in `@calder/config`; anything else
+  quoting a number is a bug.
 
 ## 6. Open items
 

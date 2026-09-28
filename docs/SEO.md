@@ -4,14 +4,14 @@ Canonical domain: **https://calder.click** (no www, https only, no trailing slas
 
 ## Architecture
 
-| Piece | Location | Rule |
+| Piece           | Location                                                 | Rule                                                                                                                                        |
 | --------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sitemap | `apps/web/app/sitemap.ts` | Static public routes only; never dashboard/login/API/admin; `lastmod` = content change date, never deploy date |
-| Robots | `apps/web/app/robots.ts` | Allow `/`, disallow `/api/`, dashboard paths, `_next/`; sitemap pointer; AI crawlers (OAI-SearchBot, Bingbot, Googlebot) explicitly allowed |
-| Metadata | `apps/web/lib/seo.ts` (`pageMeta()`) | Every public page: title, description, canonical, OG, Twitter. New pages must use the helper |
-| Structured data | `apps/web/lib/seo.ts` (`orgJsonLd()`, `articleJsonLd()`) | Organization + WebSite on home; Article on posts. No invented ratings |
-| Machine index | `public/llms.txt` (+ `public/docs/llms*.txt` deep docs) | Hand-maintained alongside docs; never secrets |
-| Validation | `scripts/seo-check.mjs` | Fails on missing metadata, sitemap drift, missing og:image, missing canonicals on key pages |
+| Sitemap         | `apps/web/app/sitemap.ts`                                | Static public routes only; never dashboard/login/API/admin; `lastmod` = content change date, never deploy date                              |
+| Robots          | `apps/web/app/robots.ts`                                 | Allow `/`, disallow `/api/`, dashboard paths, `_next/`; sitemap pointer; AI crawlers (OAI-SearchBot, Bingbot, Googlebot) explicitly allowed |
+| Metadata        | `apps/web/lib/seo.ts` (`pageMeta()`)                     | Every public page: title, description, canonical, OG, Twitter. New pages must use the helper                                                |
+| Structured data | `apps/web/lib/seo.ts` (`orgJsonLd()`, `articleJsonLd()`) | Organization + WebSite on home; Article on posts. No invented ratings                                                                       |
+| Machine index   | `public/llms.txt` (+ `public/docs/llms*.txt` deep docs)  | Hand-maintained alongside docs; never secrets                                                                                               |
+| Validation      | `scripts/seo-check.mjs`                                  | Fails on missing metadata, sitemap drift, missing og:image, missing canonicals on key pages                                                 |
 
 ## URL design
 
@@ -20,13 +20,13 @@ Old blog slug (`hello-avenor`) 301s to the new one, see Redirect registry below.
 
 ## Redirect registry
 
-| From | To | Why |
+| From                            | To                   | Why                     |
 | ------------------------------- | -------------------- | ----------------------- |
-| `/blog/hello-avenor` | `/blog/hello-calder` | Rebrand slug |
-| `/alternatives/resend` | `/migrate` | Competitor-name removal |
-| `/docs/migrate-resend` | `/migrate` | Competitor-name removal |
-| `/docs/migrate-postmark` | `/migrate` | Competitor-name removal |
-| _(add rows here, never chains)_ | | |
+| `/blog/hello-avenor`            | `/blog/hello-calder` | Rebrand slug            |
+| `/alternatives/resend`          | `/migrate`           | Competitor-name removal |
+| `/docs/migrate-resend`          | `/migrate`           | Competitor-name removal |
+| `/docs/migrate-postmark`        | `/migrate`           | Competitor-name removal |
+| _(add rows here, never chains)_ |                      |                         |
 
 ## Internal linking
 

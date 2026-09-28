@@ -35,19 +35,49 @@ export interface TrendRow extends Record<string, string | number> {
   day: string;
 }
 
-const AXIS_STYLE = { fontSize: 10.5, fill: "#a3a094", fontFamily: "ui-monospace, monospace" } as const;
+const AXIS_STYLE = {
+  fontSize: 10.5,
+  fill: "#a3a094",
+  fontFamily: "ui-monospace, monospace",
+} as const;
 
 function shortDay(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (!m) return iso;
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
   return `${months[Number(m[2]) - 1]} ${Number(m[3])}`;
 }
 
 function longDay(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (!m) return iso;
-  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const months = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
   return `${months[Number(m[2]) - 1]} ${Number(m[3])}, ${m[1]}`;
 }
 
@@ -92,14 +122,29 @@ function ChartTooltip({
             style={{ display: "flex", justifyContent: "space-between", gap: 18, fontSize: 12 }}
           >
             <span style={{ color: "#737373" }}>{s.label}</span>
-            <span className="mono" style={{ fontVariantNumeric: "tabular-nums", color: match.color ?? "#0b0c0e", fontWeight: 600 }}>
+            <span
+              className="mono"
+              style={{
+                fontVariantNumeric: "tabular-nums",
+                color: match.color ?? "#0b0c0e",
+                fontWeight: 600,
+              }}
+            >
               {Number(match.value ?? 0).toLocaleString()}
             </span>
           </div>
         );
       })}
       {footer ? (
-        <p style={{ margin: "8px 0 0", fontSize: 11, color: "#a3a094", borderTop: "1px solid #eceae2", paddingTop: 6 }}>
+        <p
+          style={{
+            margin: "8px 0 0",
+            fontSize: 11,
+            color: "#a3a094",
+            borderTop: "1px solid #eceae2",
+            paddingTop: 6,
+          }}
+        >
           {footer(row)}
         </p>
       ) : null}
@@ -146,7 +191,9 @@ export function TrendChart({
         }}
       >
         <div>
-          <b style={{ color: "#0b0c0e", display: "block", marginBottom: 4 }}>Your growth data will appear here.</b>
+          <b style={{ color: "#0b0c0e", display: "block", marginBottom: 4 }}>
+            Your growth data will appear here.
+          </b>
           Once visitors start interacting with Calder, we&apos;ll show the trend.
         </div>
       </div>
@@ -198,14 +245,7 @@ export function TrendChart({
           <YAxis tick={AXIS_STYLE} axisLine={false} tickLine={false} width={44} />
           <Tooltip
             content={
-              <ChartTooltip
-                series={series}
-                footer={
-                  footer
-                    ? (row) => footer(row)
-                    : undefined
-                }
-              />
+              <ChartTooltip series={series} footer={footer ? (row) => footer(row) : undefined} />
             }
           />
           {compareKey && !off.has(compareKey) ? (
@@ -246,12 +286,8 @@ export function CumulativeChart({
   height?: number;
   label?: string;
 }) {
-  const series: Array<SeriesDef & { color: string }> = [
-    { key: "total", label, color: "#0b0c0e" },
-  ];
-  return (
-    <TrendChart data={data} series={series} height={height} />
-  );
+  const series: Array<SeriesDef & { color: string }> = [{ key: "total", label, color: "#0b0c0e" }];
+  return <TrendChart data={data} series={series} height={height} />;
 }
 
 /** Compact bar chart (daily counts). */
@@ -291,10 +327,23 @@ export function DailyBars({
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid stroke="#eceae2" vertical={false} />
-        <XAxis dataKey="day" tickFormatter={shortDay} tick={AXIS_STYLE} axisLine={{ stroke: "#e4e2d9" }} tickLine={false} minTickGap={28} />
+        <XAxis
+          dataKey="day"
+          tickFormatter={shortDay}
+          tick={AXIS_STYLE}
+          axisLine={{ stroke: "#e4e2d9" }}
+          tickLine={false}
+          minTickGap={28}
+        />
         <YAxis tick={AXIS_STYLE} axisLine={false} tickLine={false} width={44} />
         <Tooltip content={<ChartTooltip series={series} />} />
-        <Bar dataKey={valueKey} fill={color} radius={[2, 2, 0, 0]} maxBarSize={22} isAnimationActive={false} />
+        <Bar
+          dataKey={valueKey}
+          fill={color}
+          radius={[2, 2, 0, 0]}
+          maxBarSize={22}
+          isAnimationActive={false}
+        />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -309,10 +358,7 @@ export function FunnelBars({
   height?: number;
 }) {
   const series: SeriesDef[] = [{ key: "value", label: "People" }];
-  const data = useMemo(
-    () => steps.map((s) => ({ day: s.label, value: s.value })),
-    [steps]
-  );
+  const data = useMemo(() => steps.map((s) => ({ day: s.label, value: s.value })), [steps]);
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} layout="vertical" margin={{ top: 4, right: 24, left: 8, bottom: 0 }}>
@@ -326,18 +372,21 @@ export function FunnelBars({
           width={110}
         />
         <Tooltip content={<ChartTooltip series={series} />} />
-        <Bar dataKey="value" fill="#3d5afe" opacity={0.8} radius={[0, 3, 3, 0]} maxBarSize={26} isAnimationActive={false} />
+        <Bar
+          dataKey="value"
+          fill="#3d5afe"
+          opacity={0.8}
+          radius={[0, 3, 3, 0]}
+          maxBarSize={26}
+          isAnimationActive={false}
+        />
       </BarChart>
     </ResponsiveContainer>
   );
 }
 
 /** Restrained daily heatmap (REQ-043): ink intensity, weekday columns. */
-export function ActivityHeatmap({
-  data,
-}: {
-  data: Array<{ day: string; value: number }>;
-}) {
+export function ActivityHeatmap({ data }: { data: Array<{ day: string; value: number }> }) {
   const [hover, setHover] = useState<{ day: string; value: number } | null>(null);
   const max = Math.max(1, ...data.map((d) => d.value));
   const cells = data.slice(-63); // 9 weeks
@@ -370,7 +419,10 @@ export function ActivityHeatmap({
                     width: 11,
                     height: 11,
                     borderRadius: 2.5,
-                    background: d.value > 0 ? `rgba(61, 90, 254, ${0.18 + 0.72 * (d.value / max)})` : "#eceae2",
+                    background:
+                      d.value > 0
+                        ? `rgba(61, 90, 254, ${0.18 + 0.72 * (d.value / max)})`
+                        : "#eceae2",
                   }}
                 />
               ) : (
@@ -381,7 +433,9 @@ export function ActivityHeatmap({
         ))}
       </div>
       <p className="mono" style={{ fontSize: 11, color: "#a3a094", marginTop: 8, minHeight: 14 }}>
-        {hover ? `${longDay(hover.day)} · ${hover.value.toLocaleString()}` : "Hover a day for detail"}
+        {hover
+          ? `${longDay(hover.day)} · ${hover.value.toLocaleString()}`
+          : "Hover a day for detail"}
       </p>
     </div>
   );

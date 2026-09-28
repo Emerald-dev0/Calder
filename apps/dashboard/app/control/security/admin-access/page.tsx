@@ -21,7 +21,11 @@ export default async function AdminAccessPage() {
       />
 
       <div className="cp-stats">
-        <Stat label="Platform admins" value={fmtInt(admins.length)} hint={`${founders.length} founder (env-bootstrapped)`} />
+        <Stat
+          label="Platform admins"
+          value={fmtInt(admins.length)}
+          hint={`${founders.length} founder (env-bootstrapped)`}
+        />
         <Stat label="Active sessions" value={fmtInt(activeSessions)} hint="all users, unexpired" />
         <Stat label="Role changes" value="audited" hint="grant/revoke land in the audit log" />
       </div>
@@ -49,7 +53,9 @@ export default async function AdminAccessPage() {
                 {admins.map((a) => (
                   <tr key={a.user.id}>
                     <td>
-                      <Link href={`/control/customers/users/${a.user.id}`}>{a.user.name ?? "—"}</Link>
+                      <Link href={`/control/customers/users/${a.user.id}`}>
+                        {a.user.name ?? "—"}
+                      </Link>
                     </td>
                     <td className="mono" style={{ fontSize: 12.5 }}>
                       {a.user.email}
@@ -72,14 +78,22 @@ export default async function AdminAccessPage() {
       </Panel>
 
       <Panel title="Boundaries" caption="what no administrator can do to the founder">
-        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13.5, color: "var(--cp-muted)", lineHeight: 1.9 }}>
+        <ul
+          style={{
+            margin: 0,
+            paddingLeft: 18,
+            fontSize: 13.5,
+            color: "var(--cp-muted)",
+            lineHeight: 1.9,
+          }}
+        >
           <li>Nobody can remove the founder or transfer platform ownership through the product.</li>
           <li>Nobody can change founder credentials — founder accounts are managed out-of-band.</li>
           <li>{FOUNDER_ONLY_ACTIONS.slice(0, 3).join("; ")} remain founder-only.</li>
         </ul>
         <p className="cp-panel-caption" style={{ marginTop: 10 }}>
-          Planned hardening: 2FA/passkeys for platform roles, admin session timeout, re-authentication for dangerous
-          actions, IP restrictions.
+          Planned hardening: 2FA/passkeys for platform roles, admin session timeout,
+          re-authentication for dangerous actions, IP restrictions.
         </p>
       </Panel>
     </>

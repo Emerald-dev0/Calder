@@ -37,6 +37,10 @@ const envSchema = z.object({
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
   SES_FROM_DOMAIN: z.string().optional(),
+  // Comma-separated SNS topic ARNs whose feedback events this deploy accepts
+  // (/v1/ses/events). Unset = events from any properly-signed topic pass, but
+  // subscription confirmations are never auto-approved. Set before launch.
+  SES_SNS_TOPIC_ARNS: z.string().optional(),
   // Sender for Calder's own mail (verification codes, magic links, receipts).
   // SES sandbox only delivers from a verified identity, so this must be
   // settable without a deploy. Defaults to "Calder <hello@calder.click>".
@@ -96,3 +100,4 @@ export function isDevelopment(): boolean {
 export function isTest(): boolean {
   return getConfig().NODE_ENV === "test";
 }
+export * from "./plan-limits.js";

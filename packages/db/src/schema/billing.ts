@@ -1,4 +1,13 @@
-import { pgTable, text, timestamp, varchar, integer, jsonb, index } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  timestamp,
+  varchar,
+  integer,
+  jsonb,
+  index,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { planTierEnum, subscriptionStatusEnum } from "./enums.js";
 import { organizations } from "./organizations.js";
 
@@ -65,6 +74,35 @@ export const usageRecords = pgTable(
   (t) => [index("usage_org_period_idx").on(t.organizationId, t.periodStart)]
 );
 
+/**
+ * Rolled-up usage per (org, metric, period) — written by the idempotent
+ * aggregation cron (`/v1/cron/aggregate-usage`), never by send paths. The
+ * per-email ledger in `usage_records` stays authoritative; these rows are a
+ * performance projection and are upserted on this table's deterministic id.
+ */
+export const usageSummaries = pgTable(
+  "usage_summaries",
+  {
+    id: text("id").primaryKey(), // ur_agg_<orgId>_<metric>_<periodStartISO>
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    metric: varchar("metric", { length: 100 }).notNull(),
+    periodStart: timestamp("period_start", { withTimezone: true }).notNull(),
+    periodEnd: timestamp("period_end", { withTimezone: true }).notNull(),
+    quantity: integer("quantity").notNull().default(0),
+    computedAt: timestamp("computed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("usage_summaries_org_metric_period_unique").on(
+      t.organizationId,
+      t.metric,
+      t.periodStart
+    ),
+  ]
+);
+
 export type Plan = typeof plans.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type UsageRecord = typeof usageRecords.$inferSelect;
+export type UsageSummary = typeof usageSummaries.$inferSelect;

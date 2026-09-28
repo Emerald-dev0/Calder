@@ -19,7 +19,8 @@ export function BeginnerSection() {
             Maybe you&rsquo;re building your first Next.js app. Maybe you&rsquo;re testing an idea
             this weekend. Maybe you haven&rsquo;t bought a domain yet. That&rsquo;s fine. Connect a
             Gmail account through Google&rsquo;s authorization, start building, and move to a
-            verified sending domain when you&rsquo;re ready. <strong>Same Calder API. Same project. Same logs. Same code.</strong>
+            verified sending domain when you&rsquo;re ready.{" "}
+            <strong>Same Calder API. Same project. Same logs. Same code.</strong>
           </p>
         </Reveal>
         <div className="dev-grid">

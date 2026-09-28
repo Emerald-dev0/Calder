@@ -52,14 +52,26 @@ export default async function InternalDeliveryPage() {
       />
 
       <div className="cp-stats">
-        <Stat label="Internal projects" value={fmtInt(internalIds.length)} hint="website / internal senders" />
-        <Stat label="Recent internal sends" value={fmtInt(sentFromInternal)} hint="last 30 days, newest 20 shown" />
+        <Stat
+          label="Internal projects"
+          value={fmtInt(internalIds.length)}
+          hint="website / internal senders"
+        />
+        <Stat
+          label="Recent internal sends"
+          value={fmtInt(sentFromInternal)}
+          hint="last 30 days, newest 20 shown"
+        />
         <Stat
           label="Platform delivery rate"
           value={totals.deliveryRate === null ? "—" : fmtPct(totals.deliveryRate)}
           hint="all traffic, 30 days"
         />
-        <Stat label="Bounces + complaints (30d)" value={fmtInt(totals.bounced + totals.complained)} hint="reputation-sensitive events" />
+        <Stat
+          label="Bounces + complaints (30d)"
+          value={fmtInt(totals.bounced + totals.complained)}
+          hint="reputation-sensitive events"
+        />
       </div>
 
       <Panel title="Recent internal mail" caption="waitlist confirmations and broadcasts" flush>
@@ -92,7 +104,15 @@ export default async function InternalDeliveryPage() {
                       {e.transport ?? "—"}
                     </td>
                     <td>
-                      <Badge tone={e.status === "delivered" ? "ok" : e.status === "queued" || e.status === "sent" || e.status === "sending" ? undefined : "bad"}>
+                      <Badge
+                        tone={
+                          e.status === "delivered"
+                            ? "ok"
+                            : e.status === "queued" || e.status === "sent" || e.status === "sending"
+                              ? undefined
+                              : "bad"
+                        }
+                      >
                         {e.status}
                       </Badge>
                     </td>

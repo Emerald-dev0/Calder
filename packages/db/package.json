@@ -14,7 +14,19 @@
       "types": "./dist/schema/index.d.ts",
       "default": "./dist/schema/index.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./dns-challenge": {
+      "types": "./dist/dns-challenge.d.ts",
+      "default": "./dist/dns-challenge.js"
+    },
+    "./domain-verification": {
+      "types": "./dist/domain-verification.d.ts",
+      "default": "./dist/domain-verification.js"
+    },
+    "./webhook-deliveries": {
+      "types": "./dist/webhook-deliveries.d.ts",
+      "default": "./dist/webhook-deliveries.js"
+    }
   },
   "scripts": {
     "build": "tsc --project tsconfig.json",
@@ -30,6 +42,8 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@calder/config": "workspace:*",
+    "@calder/queue": "workspace:*",
     "drizzle-orm": "^0.38.0",
     "postgres": "^3.4.5",
     "drizzle-zod": "^0.5.1",

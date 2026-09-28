@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, varchar, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, varchar, jsonb, integer } from "drizzle-orm/pg-core";
 import { platformRoleEnum } from "./enums.js";
 
 export const users = pgTable("users", {
@@ -18,6 +18,10 @@ export const users = pgTable("users", {
   platformRole: platformRoleEnum("platform_role"),
   emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
   passwordHash: text("password_hash"),
+  // M6.1 progressive login lockout (ADR-040): consecutive failures raise a
+  // temporary lock; success clears both fields.
+  failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),
+  lockedUntil: timestamp("locked_until", { withTimezone: true }),
   imageUrl: text("image_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

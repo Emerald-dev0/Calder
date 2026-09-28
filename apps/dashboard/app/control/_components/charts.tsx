@@ -21,7 +21,20 @@ function shortLabel(label: string): string {
   // "2026-09-14" → "Sep 14"; pass through anything else.
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(label);
   if (!m) return label;
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
   return `${months[Number(m[2]) - 1]} ${Number(m[3])}`;
 }
 
@@ -69,7 +82,9 @@ export function AreaChart({
   const max = niceMax(Math.max(...data.map((d) => d.value), 0));
   const x = (i: number) => PAD.left + (data.length === 1 ? iw / 2 : (i / (data.length - 1)) * iw);
   const y = (v: number) => PAD.top + ih - (v / max) * ih;
-  const path = data.map((d, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(d.value).toFixed(1)}`).join(" ");
+  const path = data
+    .map((d, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(d.value).toFixed(1)}`)
+    .join(" ");
   const area = `${path} L${x(data.length - 1).toFixed(1)},${(PAD.top + ih).toFixed(1)} L${PAD.left},${(PAD.top + ih).toFixed(1)} Z`;
   const first = data[0];
   const last = data[data.length - 1];
@@ -80,17 +95,45 @@ export function AreaChart({
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={caption}>
         {[0, 0.5, 1].map((f) => (
           <g key={f}>
-            <line x1={PAD.left} x2={W - PAD.right} y1={PAD.top + ih * f} y2={PAD.top + ih * f} stroke="#1e2126" strokeWidth={1} />
-            <text x={PAD.left - 6} y={PAD.top + ih * f + 4} textAnchor="end" fontSize={10} fill="#5c6169" fontFamily="ui-monospace, monospace">
+            <line
+              x1={PAD.left}
+              x2={W - PAD.right}
+              y1={PAD.top + ih * f}
+              y2={PAD.top + ih * f}
+              stroke="#1e2126"
+              strokeWidth={1}
+            />
+            <text
+              x={PAD.left - 6}
+              y={PAD.top + ih * f + 4}
+              textAnchor="end"
+              fontSize={10}
+              fill="#5c6169"
+              fontFamily="ui-monospace, monospace"
+            >
               {Math.round(max * (1 - f)).toLocaleString()}
             </text>
           </g>
         ))}
         <path d={area} fill="#3d5afe" opacity={0.1} />
-        <path d={path} fill="none" stroke="#e9e8e3" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        <path
+          d={path}
+          fill="none"
+          stroke="#e9e8e3"
+          strokeWidth={2}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
         {last ? (
           <>
-            <circle cx={x(data.length - 1)} cy={y(last.value)} r={4} fill="#3d5afe" stroke="#0b0c0e" strokeWidth={2} />
+            <circle
+              cx={x(data.length - 1)}
+              cy={y(last.value)}
+              r={4}
+              fill="#3d5afe"
+              stroke="#0b0c0e"
+              strokeWidth={2}
+            />
             {showLastValue ? (
               <text
                 x={Math.min(x(data.length - 1), W - PAD.right - 4)}
@@ -106,10 +149,23 @@ export function AreaChart({
             ) : null}
           </>
         ) : null}
-        <text x={PAD.left} y={H - 8} fontSize={10} fill="#5c6169" fontFamily="ui-monospace, monospace">
+        <text
+          x={PAD.left}
+          y={H - 8}
+          fontSize={10}
+          fill="#5c6169"
+          fontFamily="ui-monospace, monospace"
+        >
           {shortLabel(first.label)}
         </text>
-        <text x={W - PAD.right} y={H - 8} fontSize={10} fill="#5c6169" textAnchor="end" fontFamily="ui-monospace, monospace">
+        <text
+          x={W - PAD.right}
+          y={H - 8}
+          fontSize={10}
+          fill="#5c6169"
+          textAnchor="end"
+          fontFamily="ui-monospace, monospace"
+        >
           {shortLabel(last.label)}
         </text>
       </svg>
@@ -171,7 +227,15 @@ export function BarsChart({
     <figure style={{ margin: 0 }}>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={caption}>
         {[0, 0.5, 1].map((f) => (
-          <line key={f} x1={PAD.left} x2={W - PAD.right} y1={PAD.top + ih * f} y2={PAD.top + ih * f} stroke="#1e2126" strokeWidth={1} />
+          <line
+            key={f}
+            x1={PAD.left}
+            x2={W - PAD.right}
+            y1={PAD.top + ih * f}
+            y2={PAD.top + ih * f}
+            stroke="#1e2126"
+            strokeWidth={1}
+          />
         ))}
         {data.map((d, i) => {
           const bh = (d.value / max) * ih;
@@ -188,10 +252,23 @@ export function BarsChart({
             />
           );
         })}
-        <text x={PAD.left} y={H - 8} fontSize={10} fill="#5c6169" fontFamily="ui-monospace, monospace">
+        <text
+          x={PAD.left}
+          y={H - 8}
+          fontSize={10}
+          fill="#5c6169"
+          fontFamily="ui-monospace, monospace"
+        >
           {shortLabel(first.label)}
         </text>
-        <text x={W - PAD.right} y={H - 8} fontSize={10} fill="#5c6169" textAnchor="end" fontFamily="ui-monospace, monospace">
+        <text
+          x={W - PAD.right}
+          y={H - 8}
+          fontSize={10}
+          fill="#5c6169"
+          textAnchor="end"
+          fontFamily="ui-monospace, monospace"
+        >
           {shortLabel(last.label)}
         </text>
       </svg>
@@ -202,14 +279,30 @@ export function BarsChart({
   );
 }
 
-export function Sparkline({ data, width = 120, height = 30 }: { data: number[]; width?: number; height?: number }) {
+export function Sparkline({
+  data,
+  width = 120,
+  height = 30,
+}: {
+  data: number[];
+  width?: number;
+  height?: number;
+}) {
   if (data.length < 2) return null;
   const max = Math.max(...data, 1);
   const x = (i: number) => (i / (data.length - 1)) * (width - 4) + 2;
   const y = (v: number) => height - 3 - (v / max) * (height - 6);
-  const path = data.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const path = data
+    .map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`)
+    .join(" ");
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden style={{ display: "block" }}>
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      aria-hidden
+      style={{ display: "block" }}
+    >
       <path d={path} fill="none" stroke="#3d5afe" strokeWidth={1.5} strokeLinecap="round" />
     </svg>
   );

@@ -105,10 +105,13 @@ export function Capabilities() {
             </span>
             <Reveal className="ed-copy">
               <div className="ed-index">04 · Observability</div>
-              <h3>When someone says &ldquo;I didn&rsquo;t get the email,&rdquo; you have an answer.</h3>
+              <h3>
+                When someone says &ldquo;I didn&rsquo;t get the email,&rdquo; you have an answer.
+              </h3>
               <p>
-                See the complete timeline. <strong>Created &rarr; Queued &rarr; Sent &rarr; Delivered</strong>. With request IDs,
-                provider responses, timestamps, retries, and delivery events attached.
+                See the complete timeline.{" "}
+                <strong>Created &rarr; Queued &rarr; Sent &rarr; Delivered</strong>. With request
+                IDs, provider responses, timestamps, retries, and delivery events attached.
               </p>
             </Reveal>
             <Reveal delay={120} className="ed-visual">
