@@ -32,7 +32,10 @@ export default async function OrganizationsPage({
       <div className="cp-stats">
         <Stat label="Organizations" value={fmtInt(all.length)} />
         <Stat label="On a paid plan" value={fmtInt(paying.length)} />
-        <Stat label="Free tier" value={fmtInt(filtered.filter((o) => !o.plan || o.plan === "free").length)} />
+        <Stat
+          label="Free tier"
+          value={fmtInt(filtered.filter((o) => !o.plan || o.plan === "free").length)}
+        />
         <Stat
           label="MRR (filtered)"
           value={fmtMoney(paying.reduce((n, o) => n + (o.monthlyCents ?? 0), 0))}
@@ -40,7 +43,11 @@ export default async function OrganizationsPage({
         />
       </div>
 
-      <Panel title="Directory" caption={`${fmtInt(filtered.length)} organizations · newest first`} flush>
+      <Panel
+        title="Directory"
+        caption={`${fmtInt(filtered.length)} organizations · newest first`}
+        flush
+      >
         <form className="cp-filters" method="get" style={{ padding: "12px 16px 0" }}>
           <input
             className="cp-input"
@@ -50,7 +57,12 @@ export default async function OrganizationsPage({
             defaultValue={searchParams.q ?? ""}
             style={{ minWidth: 220 }}
           />
-          <select className="cp-select" name="plan" defaultValue={searchParams.plan ?? ""} aria-label="Plan">
+          <select
+            className="cp-select"
+            name="plan"
+            defaultValue={searchParams.plan ?? ""}
+            aria-label="Plan"
+          >
             <option value="">All plans</option>
             <option value="free">Free</option>
             <option value="starter">Builder</option>
@@ -97,7 +109,9 @@ export default async function OrganizationsPage({
                     <td className="cp-num">{fmtInt(o.projects)}</td>
                     <td>
                       {o.plan ? (
-                        <Badge tone={o.plan === "free" ? undefined : "accent"}>{o.planName ?? o.plan}</Badge>
+                        <Badge tone={o.plan === "free" ? undefined : "accent"}>
+                          {o.planName ?? o.plan}
+                        </Badge>
                       ) : (
                         <span style={{ color: "var(--cp-faint)" }}>none</span>
                       )}

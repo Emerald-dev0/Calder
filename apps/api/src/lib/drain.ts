@@ -8,6 +8,7 @@ import {
   suppressions,
   projectTransports,
   senderIdentities,
+  recordSendUsage,
   type DbClient,
 } from "@calder/db";
 import { logger } from "@calder/observability";
@@ -16,6 +17,7 @@ import {
   pickDefaultTransport,
   GMAIL_FREE_DAILY_CAP,
   isProviderError,
+  MockEmailProvider,
 } from "@calder/email";
 import { GmailTransport, resolveEmailProvider } from "@calder/providers";
 import { getGmailRefreshToken } from "@calder/auth";
@@ -23,6 +25,44 @@ import { isTransientError } from "@calder/queue";
 
 export const DRAIN_BATCH = 25;
 export const DRAIN_MAX_ATTEMPTS = 5;
+
+/** Postgres foreign-key violation. Exported for tests. */
+export function isForeignKeyViolation(err: unknown): boolean {
+  return typeof err === "object" && err !== null && (err as { code?: unknown }).code === "23503";
+}
+
+/**
+ * Insert a terminal email event, tolerating a parent row that vanished
+ * mid-flight. Drains are global and rows are claimed across suites/processes,
+ * while an organization delete cascades projects → emails → events: a row
+ * claimed moments before its org was deleted (admin purge, retention, test
+ * cleanup) must not abort the batch. The status UPDATEs above are already
+ * safe (0-row no-ops); only inserts can throw. Returns false when skipped.
+ */
+export async function recordDrainEvent(
+  db: DbClient,
+  values: {
+    id: string;
+    emailId: string;
+    projectId: string;
+    type: "queued" | "sent" | "failed" | "suppressed";
+    data: Record<string, unknown>;
+  }
+): Promise<boolean> {
+  try {
+    await db.insert(emailEvents).values(values);
+    return true;
+  } catch (err) {
+    if (isForeignKeyViolation(err)) {
+      logger.warn(
+        { emailId: values.emailId, type: values.type },
+        "drain: parent email deleted mid-flight, skipping event"
+      );
+      return false;
+    }
+    throw err;
+  }
+}
 /** A claimed ("sending") row abandoned mid-drain becomes claimable again after this window. */
 export const DRAIN_STALE_CLAIM_MINUTES = 10;
 
@@ -44,6 +84,8 @@ export const DRAIN_STALE_CLAIM_MINUTES = 10;
 export type ClaimedEmail = {
   id: string;
   projectId: string;
+  /** Stamped at ingest from the API key's environment: "live" | "test". */
+  env: string;
   from: string;
   to: string;
   subject: string;
@@ -76,19 +118,33 @@ async function buildGmail(
   db: DbClient,
   projectId: string,
   chosen: {
+    id: string;
     label: string;
     dailyCap: number | null;
     encryptedCredentials: { iv: string; ciphertext: string; tag: string } | null;
   }
 ) {
+  // M2.5 abuse watch first: limit/suspend verdicts are terminal for this
+  // leg — they must surface like the cap, never silently degrade to SES.
+  const { enforceGmailVelocity } = await import("@calder/db");
+  await enforceGmailVelocity(db, projectId, { id: chosen.id, dailyCap: chosen.dailyCap });
   const cap = chosen.dailyCap ?? GMAIL_FREE_DAILY_CAP;
   const { count, gte } = await import("drizzle-orm");
   const dayStart = new Date();
   dayStart.setUTCHours(0, 0, 0, 0);
+  // EXACT accounting: only sends that actually went through Gmail count
+  // toward the Gmail cap (was: every transport, which let SES volume
+  // exhaust a Gmail quota — the "overcounts" bug flagged in the audit).
   const sent = await db
     .select({ value: count() })
     .from(emails)
-    .where(and(eq(emails.projectId, projectId), gte(emails.createdAt, dayStart)));
+    .where(
+      and(
+        eq(emails.projectId, projectId),
+        eq(emails.transport, "gmail"),
+        gte(emails.createdAt, dayStart)
+      )
+    );
   const today = (sent[0] as { value: number } | undefined)?.value ?? 0;
   if (today >= cap) {
     throw Object.assign(
@@ -113,6 +169,7 @@ async function buildGmail(
       new GmailTransport({ refreshToken, senderEmail: chosen.label }, chosen.dailyCap)
     ),
     transport: "gmail",
+    transportId: chosen.id,
   };
 }
 
@@ -137,6 +194,21 @@ async function resolveChain(db: DbClient, projectId: string, senderIdentityId: s
         isDefault: r.isDefault,
       }))
     );
+    // M2.5 abuse verdict is NOT a routing hint. A suspended transport means
+    // "this project's Gmail sending is over until a real domain/transport is
+    // connected" — falling through to the platform default here would move an
+    // abuse-flagged project's mail onto Calder's own reputation silently,
+    // which is the one thing the verdict must never do. Refuse loudly instead.
+    // NB: check the RAW rows, not the picked default — pickDefaultTransport
+    // only ever returns active rows, so a suspended default looks like "no
+    // transport" and would silently land on the fallback leg.
+    const suspendedDefault = rows.find(
+      (r) => r.isDefault && r.type === "gmail" && r.status === "suspended"
+    );
+    if (suspendedDefault) {
+      const { refuseSuspendedGmail } = await import("@calder/db");
+      await refuseSuspendedGmail(db, projectId);
+    }
     if (senderIdentityId) {
       const [sender] = await db
         .select()
@@ -152,6 +224,13 @@ async function resolveChain(db: DbClient, projectId: string, senderIdentityId: s
           });
         }
         const linked = sender.transportId ? byId.get(sender.transportId) : undefined;
+        // Same rule for the sender's pinned leg: suspended refuses (no silent
+        // hop to another identity's transport); revoked/error legs stay
+        // skippable so recovery/failover keeps working.
+        if (linked && linked.status === "suspended") {
+          const { refuseSuspendedGmail } = await import("@calder/db");
+          await refuseSuspendedGmail(db, projectId);
+        }
         if (linked && linked.status === "active" && (!def || linked.id !== def.id)) {
           if (linked.type === "gmail") chain.push(await buildGmail(db, projectId, linked as never));
           else chain.push({ service: createEmailService(getProvider()), transport: linked.type });
@@ -163,9 +242,14 @@ async function resolveChain(db: DbClient, projectId: string, senderIdentityId: s
       else chain.push({ service: createEmailService(getProvider()), transport: def.type });
     }
   } catch (err) {
+    const code = err instanceof Error ? (err as { code?: string }).code : undefined;
+    // Cap, abuse-watch verdicts and dead senders must surface, not silently
+    // fall back — a swallowed "suspended" is a silent bulk path.
     if (
-      (err instanceof Error && (err as { code?: string }).code === "gmail_cap") ||
-      (err instanceof Error && (err as { code?: string }).code === "sender_not_ready")
+      code === "gmail_cap" ||
+      code === "gmail_velocity_limit" ||
+      code === "gmail_suspended" ||
+      code === "sender_not_ready"
     )
       throw err;
     logger.warn({ err }, "drain: transport resolution fallback");
@@ -200,6 +284,7 @@ export async function claimDrainBatch(
     RETURNING
       id,
       project_id AS "projectId",
+      env,
       "from",
       "to",
       subject,
@@ -247,7 +332,7 @@ export async function drainPendingEmails(
         .update(emails)
         .set({ status: "suppressed", lastError: sup[0]!.reason, updatedAt: now })
         .where(eq(emails.id, row.id));
-      await db.insert(emailEvents).values({
+      await recordDrainEvent(db, {
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
         projectId: row.projectId,
@@ -283,7 +368,59 @@ export async function drainPendingEmails(
           : undefined,
     };
 
-    const chain = await resolveChain(db, row.projectId, row.senderIdentityId ?? null);
+    // Test-env isolation (M2.3): test-key rows ALWAYS go through the mock
+    // provider — never transports, never SES, even in a production deploy
+    // with live AWS credentials. `provider: "mock"` on the delivery is the
+    // durable proof; transport resolution never runs for these rows.
+    //
+    // Chain resolution can refuse the project outright (Gmail daily cap,
+    // abuse-watch limit/suspend verdicts, dead sender). Those must surface —
+    // never silently fail over to a cheaper transport — but they must surface
+    // ON THE ROW: an error thrown past this loop would abort the whole batch,
+    // leaving every other claimed row stuck in "sending" until the lease
+    // expires and delaying legitimate mail by the full lease window.
+    let chain: Awaited<ReturnType<typeof resolveChain>>;
+    try {
+      chain =
+        row.env === "test"
+          ? [
+              {
+                service: createEmailService(new MockEmailProvider({ latencyMs: 0 })),
+                transport: "mock",
+              },
+            ]
+          : await resolveChain(db, row.projectId, row.senderIdentityId ?? null);
+    } catch (chainErr) {
+      const msg = chainErr instanceof Error ? chainErr.message : String(chainErr);
+      const code = chainErr instanceof Error ? (chainErr as { code?: string }).code : undefined;
+      const transient =
+        chainErr instanceof Error && (chainErr as { transient?: boolean }).transient === true;
+      if (transient && (row.attemptCount ?? 0) + 1 < DRAIN_MAX_ATTEMPTS) {
+        // Velocity limit: this leg is throttled, the mail itself is fine.
+        // Release the claim back to the pool for a later tick.
+        await db
+          .update(emails)
+          .set({ status: "queued", lastError: msg, updatedAt: new Date() })
+          .where(eq(emails.id, row.id));
+        logger.warn({ emailId: row.id, code, msg }, "drain: chain refused transiently, requeued");
+        failed++;
+        continue;
+      }
+      await db
+        .update(emails)
+        .set({ status: "failed", lastError: msg, updatedAt: new Date() })
+        .where(eq(emails.id, row.id));
+      await recordDrainEvent(db, {
+        id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+        emailId: row.id,
+        projectId: row.projectId,
+        type: "failed",
+        data: { error: msg, transient: false, code: code ?? null },
+      });
+      logger.warn({ emailId: row.id, code, msg }, "drain: chain refused, row failed");
+      failed++;
+      continue;
+    }
     let result: { providerMessageId: string; provider: string } | null = null;
     let transportName = "default";
     let lastErr: unknown = null;
@@ -304,6 +441,30 @@ export async function drainPendingEmails(
         }
         if (err instanceof Error && (err as { code?: string }).code === "sender_not_ready") {
           senderNotReady = true;
+          break;
+        }
+        // M2.4: revoked Gmail account — flip the transport once (audited),
+        // then fail over to the next leg instead of failing mail forever.
+        if (
+          err instanceof Error &&
+          (err as { code?: string }).code === "gmail_revoked" &&
+          (leg as { transportId?: string }).transportId
+        ) {
+          try {
+            const { markGmailRevoked } = await import("@calder/db");
+            await markGmailRevoked(
+              db,
+              (leg as { transportId?: string }).transportId!,
+              row.projectId
+            );
+            logger.warn(
+              { transportId: (leg as { transportId?: string }).transportId },
+              "Gmail account revoked; transport marked revoked, failing over"
+            );
+          } catch (markErr) {
+            logger.error({ err: markErr }, "Failed to mark Gmail transport revoked");
+          }
+          if (i < chain.length - 1) continue;
           break;
         }
         const transient = isProviderError(err)
@@ -328,7 +489,22 @@ export async function drainPendingEmails(
           updatedAt: done,
         })
         .where(eq(emails.id, row.id));
-      await db.insert(emailEvents).values({
+      // Meter at provider-accept; exactly-once via deterministic ledger id
+      // (ADR-036): retries and overlapping drains can never double-count.
+      // Same mid-flight-deletion tolerance as recordDrainEvent: if the org
+      // vanished under us, skip metering rather than aborting the batch.
+      try {
+        await recordSendUsage(db, {
+          emailId: row.id,
+          projectId: row.projectId,
+          env: row.env ?? "live",
+          when: done,
+        });
+      } catch (err) {
+        if (!isForeignKeyViolation(err)) throw err;
+        logger.warn({ emailId: row.id }, "drain: org deleted mid-flight, skipping usage");
+      }
+      await recordDrainEvent(db, {
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
         projectId: row.projectId,
@@ -351,7 +527,7 @@ export async function drainPendingEmails(
         .update(emails)
         .set({ status: "failed", lastError: msg, updatedAt: new Date() })
         .where(eq(emails.id, row.id));
-      await db.insert(emailEvents).values({
+      await recordDrainEvent(db, {
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
         projectId: row.projectId,
@@ -375,7 +551,7 @@ export async function drainPendingEmails(
       .update(emails)
       .set({ status: "failed", lastError: `Exhausted: ${msg}`, updatedAt: new Date() })
       .where(eq(emails.id, row.id));
-    await db.insert(emailEvents).values({
+    await recordDrainEvent(db, {
       id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
       emailId: row.id,
       projectId: row.projectId,

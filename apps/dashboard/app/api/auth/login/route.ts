@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   loginWithPassword,
+  LoginLockedError,
   normalizeEmail,
   isPlausibleEmail,
   sealSessionCookie,
@@ -53,7 +54,10 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   try {
-    const result = await loginWithPassword(email, password);
+    const result = await loginWithPassword(email, password, {
+      userAgent: req.headers.get("user-agent"),
+      ip: clientIp(req),
+    });
 
     if (result.needsVerification) {
       if (result.code) {
@@ -79,6 +83,14 @@ export async function POST(req: Request): Promise<Response> {
     res.headers.append("Set-Cookie", sessionCookieHeader(sealed, 30 * 24 * 60 * 60));
     return res;
   } catch (err) {
+    // Account-level progressive lockout (M6.1): distinct from the route's
+    // per-IP/per-email rate limiter — same 429 status, explicit retry hint.
+    if (err instanceof LoginLockedError) {
+      return NextResponse.json(
+        { error: err.message },
+        { status: 429, headers: { "Retry-After": String(err.retryAfterSec) } }
+      );
+    }
     logger.warn({ err, email }, "Login failed");
     return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
   }

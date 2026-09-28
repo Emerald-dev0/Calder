@@ -1,10 +1,10 @@
 # CALDER ROADMAP TO PRODUCTION
 
-*The single guide from current state to production. Replaces all prior roadmap content (2026-09-19). Part A = full evidence audit. Part B = phased build order with milestones, exit criteria, and the Gmail protection track. Rules: no phase starts until prior milestones meet exit criteria; every milestone ends BUILD → UNIT → INTEGRATION → E2E → MANUAL → FAILURE → SECURITY → UI → PROD-LIKE → DONE; not done unless CI is green.*
+_The single guide from current state to production. Replaces all prior roadmap content (2026-09-19). Part A = full evidence audit. Part B = phased build order with milestones, exit criteria, and the Gmail protection track. Rules: no phase starts until prior milestones meet exit criteria; every milestone ends BUILD → UNIT → INTEGRATION → E2E → MANUAL → FAILURE → SECURITY → UI → PROD-LIKE → DONE; not done unless CI is green._
 
-*Categories: **A** Intended · **B** Implemented · **C** Partial · **D** Broken · **E** Missing · **F** Obsolete · **G** Unclear. Status: NOT STARTED · PARTIAL · IMPLEMENTED · BROKEN · UNVERIFIED · PRODUCTION READY · OBSOLETE.*
+_Categories: **A** Intended · **B** Implemented · **C** Partial · **D** Broken · **E** Missing · **F** Obsolete · **G** Unclear. Status: NOT STARTED · PARTIAL · IMPLEMENTED · BROKEN · UNVERIFIED · PRODUCTION READY · OBSOLETE._
 
-*Counts (verified 2026-09-19, commit `9bf5cd9`): 4 apps (api, dashboard, web, worker — no smtp-gateway); ~14 packages; ~0018 Drizzle migrations; 60 control pages, all server-guarded; 25 test files (unit-level, integration gated on live Postgres); 0 TODO/FIXME markers in apps/packages.*
+_Counts (verified 2026-09-19, commit `9bf5cd9`): 4 apps (api, dashboard, web, worker — no smtp-gateway); ~14 packages; ~0018 Drizzle migrations; 60 control pages, all server-guarded; 25 test files (unit-level, integration gated on live Postgres); 0 TODO/FIXME markers in apps/packages._
 
 ---
 
@@ -30,28 +30,28 @@
 
 ### 2.1 Applications
 
-| App | Deploy | Contents (verified) | Status |
-|---|---|---|---|
-| `apps/web` | Vercel | Marketing pages, pricing from `lib/plans.ts`, beacon collector (`lib/analytics.ts` → `POST /v1/beacon`) | B, gaps: no Lenis, GSAP decorative, forked logo, zero `@calder/ui` |
-| `apps/dashboard` | Vercel (:3001 local) | Customer `(app)` + `/control` + auth pages/API; reads via `getTenantContext` (ADR-015 BFF) | B/C — happy path real, 7 placeholder routes |
-| `apps/api` | Vercel serverless (esbuild bundle, fetch-object per ADR-029) | 14 routers: emails, batch, senders, domains, templates, keys, webhooks-registry, suppressions, beacon, waitlist, admin, cron/drain, health + auth/rate-limit/admin middleware | C — ingest real, feedback absent |
-| `apps/worker` | Long-lived host | Consumes `email:send` only + health server; transport chain; Gmail caps; SES/mock | C — see §7 |
-| ~~`apps/smtp-gateway`~~ | — | DOES NOT EXIST (ARCHITECTURE §2 lists it; `docs/SMTP.md` honestly "specified, not implemented") | E |
+| App                     | Deploy                                                       | Contents (verified)                                                                                                                                                           | Status                                                             |
+| ----------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `apps/web`              | Vercel                                                       | Marketing pages, pricing from `lib/plans.ts`, beacon collector (`lib/analytics.ts` → `POST /v1/beacon`)                                                                       | B, gaps: no Lenis, GSAP decorative, forked logo, zero `@calder/ui` |
+| `apps/dashboard`        | Vercel (:3001 local)                                         | Customer `(app)` + `/control` + auth pages/API; reads via `getTenantContext` (ADR-015 BFF)                                                                                    | B/C — happy path real, 7 placeholder routes                        |
+| `apps/api`              | Vercel serverless (esbuild bundle, fetch-object per ADR-029) | 14 routers: emails, batch, senders, domains, templates, keys, webhooks-registry, suppressions, beacon, waitlist, admin, cron/drain, health + auth/rate-limit/admin middleware | C — ingest real, feedback absent                                   |
+| `apps/worker`           | Long-lived host                                              | Consumes `email:send` only + health server; transport chain; Gmail caps; SES/mock                                                                                             | C — see §7                                                         |
+| ~~`apps/smtp-gateway`~~ | —                                                            | DOES NOT EXIST (ARCHITECTURE §2 lists it; `docs/SMTP.md` honestly "specified, not implemented")                                                                               | E                                                                  |
 
 ### 2.2 Packages
 
-| Package | Contents | Status |
-|---|---|---|
-| `auth` | sessions, scrypt passwords, OTP, magic-link, OAuth, API keys, Gmail-connect, unsubscribe HMAC, authorization helpers | B, gaps §11 |
-| `db` | Drizzle ~0018 migrations. HAS: users(+`platform_role`), orgs, `organization_members` (not `memberships`), projects, api_keys, emails(+`senderIdentityId`, unique project+idempotency), email_events, idempotency_keys, senders, domains, templates(+versions), suppressions, subscriptions/plans/plan_prices, usage_records (**unwritten**), waitlist_* (+confirmation drafts/versions), analytics_events. MISSING: smtp_credentials, provider_accounts/events, credit_ledger | B/C |
-| `queue` | `createQueue` (BullMQ iff REDIS_URL else InMemory), retry helpers, string-match `isTransientError` | C — no replayable DLQ construct |
-| `providers` | SES sender, Gmail sender (+MIME, token refresh, revoked surfacing), Mock; `resolveEmailProvider` prod fail-closed | C — no SNS ingress |
-| `email` | `pickDefaultTransport` (active-default-wins, fail closed), `GMAIL_FREE_DAILY_CAP=400`, domain-verification stub | C |
-| `validation` | Send schema (refines, 1MB caps, 10 att/25MB, scheduled ≤1yr), beacon batch ≤20 | B |
-| `rate-limit` | Sliding-window **IN-MEMORY ONLY** (`auth 20/min`, `otp 5/min`, `beacon 120/min`); Redis limiter referenced, never built | C |
-| `billing` | Abstraction + mock (`cs_mock_*`); HMAC TODO | E (scaffold) |
-| `ui` | Tokens (`ink/paper/surface/muted`, `calderBlue #1E3A8A`, `signal #3D5AFE`, spacing, radius, fluid type) + Button/Input/Card/Badge/Logo | B-defined, ~0% adopted (logo only) |
-| `config` | Zod env schema (source of truth; `.env.example` drifted — §10) | B |
+| Package      | Contents                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Status                             |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `auth`       | sessions, scrypt passwords, OTP, magic-link, OAuth, API keys, Gmail-connect, unsubscribe HMAC, authorization helpers                                                                                                                                                                                                                                                                                                                                                          | B, gaps §11                        |
+| `db`         | Drizzle ~0018 migrations. HAS: users(+`platform_role`), orgs, `organization_members` (not `memberships`), projects, api_keys, emails(+`senderIdentityId`, unique project+idempotency), email_events, idempotency_keys, senders, domains, templates(+versions), suppressions, subscriptions/plans/plan_prices, usage_records (**unwritten**), waitlist_* (+confirmation drafts/versions), analytics_events. MISSING: smtp_credentials, provider_accounts/events, credit_ledger | B/C                                |
+| `queue`      | `createQueue` (BullMQ iff REDIS_URL else InMemory), retry helpers, string-match `isTransientError`                                                                                                                                                                                                                                                                                                                                                                            | C — no replayable DLQ construct    |
+| `providers`  | SES sender, Gmail sender (+MIME, token refresh, revoked surfacing), Mock; `resolveEmailProvider` prod fail-closed                                                                                                                                                                                                                                                                                                                                                             | C — no SNS ingress                 |
+| `email`      | `pickDefaultTransport` (active-default-wins, fail closed), `GMAIL_FREE_DAILY_CAP=400`, domain-verification stub                                                                                                                                                                                                                                                                                                                                                               | C                                  |
+| `validation` | Send schema (refines, 1MB caps, 10 att/25MB, scheduled ≤1yr), beacon batch ≤20                                                                                                                                                                                                                                                                                                                                                                                                | B                                  |
+| `rate-limit` | Sliding-window **IN-MEMORY ONLY** (`auth 20/min`, `otp 5/min`, `beacon 120/min`); Redis limiter referenced, never built                                                                                                                                                                                                                                                                                                                                                       | C                                  |
+| `billing`    | Abstraction + mock (`cs_mock_*`); HMAC TODO                                                                                                                                                                                                                                                                                                                                                                                                                                   | E (scaffold)                       |
+| `ui`         | Tokens (`ink/paper/surface/muted`, `calderBlue #1E3A8A`, `signal #3D5AFE`, spacing, radius, fluid type) + Button/Input/Card/Badge/Logo                                                                                                                                                                                                                                                                                                                                        | B-defined, ~0% adopted (logo only) |
+| `config`     | Zod env schema (source of truth; `.env.example` drifted — §10)                                                                                                                                                                                                                                                                                                                                                                                                                | B                                  |
 
 ### 2.3 Verified request path
 
@@ -78,112 +78,112 @@ Money: ★NO USAGE WRITES → no aggregation → no enforcement → billing unre
 
 ## 3. Feature Inventory (full)
 
-| # | Feature | Area | Frontend | Backend | DB | Integration | Tests | Status | Dependencies | Next action |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 3.1 | Password signup/login + sessions | Auth | IMPL | IMPL | IMPL | — | unit+gated-int | PROD READY | — | Logout-everywhere + revoke-on-reset (M6.1) |
-| 3.2 | Email OTP | Auth | IMPL | IMPL | IMPL | SES | unit+gated-int | PROD READY | creds | Pepper code hash (L1) |
-| 3.3 | Magic-link | Auth | IMPL | IMPL | IMPL | SES | unit+gated-int | PARTIAL | creds | Limit callback GET; alert on masked NOT-deliverable |
-| 3.4 | OAuth Google/GitHub | Auth | IMPL-if-configured | IMPL | IMPL | consoles | gated-int | PROD READY | creds | H4 review: unverified-email link branch |
-| 3.5 | Forgot-password | Auth | PARTIAL | IMPL | IMPL | SES | none@step2 | BROKEN-UX | — | Step 2 must verify-without-consume (M0.3) |
-| 3.6 | Founder/platform roles + guards | AuthZ | IMPL | IMPL | IMPL | — | unit | PROD READY | FOUNDER_EMAILS prod | Add grant reason; don't swallow audit errors |
-| 3.7 | Onboarding wizard | Customer | IMPL | IMPL | IMPL | API, DNS | unit-state | PROD READY | — | Reference implementation |
-| 3.8 | Composer + send | Customer | IMPL | IMPL | IMPL | queue/provider | none-e2e | PARTIAL | pipeline | Inherits ingest gaps; else complete |
-| 3.9 | REST send API | API | — | PARTIAL | IMPL | queue | unit-sanitize | PARTIAL | — | M0.1 + M2.2 |
-| 3.10 | Idempotency keys | API | — | BROKEN-race | IMPL | — | none | BROKEN | — | Atomic claim (M0.1) |
-| 3.11 | Queue Redis/BullMQ | Infra | — | PARTIAL | — | Redis | inmemory-only | PARTIAL | REDIS_URL | Replayable DLQ; drain lease (M0.2) |
-| 3.12 | Worker SES/Gmail | Pipeline | — | PARTIAL | IMPL | SES/Gmail | none-e2e | PARTIAL | creds | Kill synthetic-send; cap metric; classifier (M0.2) |
-| 3.13 | SES event ingestion | Pipeline | — | MISSING | MISSING | SNS+config sets | none | MISSING | AWS | KEYSTONE (M1.1) |
-| 3.14 | SMTP gateway | API | PLACEHOLDER | MISSING | MISSING | TCP/TLS | none | MISSING | ADR-014 | Deferred; gate on truth+metering |
-| 3.15 | Webhook delivery | API | IMPL-registry | BROKEN | PARTIAL | customer URLs | none | BROKEN | signer+consumer | Secret-once (M0.3) + engine (M3) |
-| 3.16 | Domain verification | Domains | IMPL | BROKEN-no-DNS | IMPL | DNS/SES | none | BROKEN | TXT+SES | Real verify (M4.1–M4.2) |
-| 3.17 | Sender identities | Domains | IMPL | IMPL | IMPL | — | unit+int | PROD READY | — | None |
-| 3.18 | Gmail onboarding | Domains | IMPL | IMPL | IMPL | Google | gated-int | PROD READY | creds | Hardening track §G (M2.4–M2.5) |
-| 3.19 | Templates (customer) | Customer | PARTIAL-read | IMPL | IMPL | — | none | PARTIAL | UI | Build /new + /:id + test-send (M5.2) |
-| 3.20 | Suppressions (customer) | Customer | PLACEHOLDER | IMPL | IMPL | bounce-auto | none | PARTIAL | ingestion | Manager UI (M5.1); auto-fill (M1.2) |
-| 3.21 | Inbox | Customer | PLACEHOLDER | MISSING | — | inbound none | none | MISSING | parser | Defer; remove or keep gated |
-| 3.22 | Logs/Deliveries | Customer | IMPL-nosearch | IMPL | IMPL | ingestion | none | PARTIAL | search/page | Query+pagination+filters (M5.1) |
-| 3.23 | Analytics (customer) | Customer | PLACEHOLDER+fake | MISSING | — | tracking | none | MISSING | decision | Honest upsell NOW (M0.3); real post-launch |
-| 3.24 | Usage page | Customer | IMPL-wrong-period | MISSING-writers | IMPL-unwritten | metering | none | PARTIAL | M2.1 | Period filter + writers + cron |
-| 3.25 | Team route / Settings CRUD | Org | PLACEHOLDER/IMPL | IMPL | IMPL | — | none | PARTIAL | — | Consolidate; real plan lookup (M5.2) |
-| 3.26 | Audit logs view | Org | PLACEHOLDER | IMPL-writes | IMPL | — | none | PARTIAL | read UI | Render own trail (M5.1) |
-| 3.27 | API keys manager | Develop | IMPL | IMPL | IMPL | — | none-e2e | PROD READY | — | Shared confirm (M7.2) |
-| 3.28 | SDKs / SMTP pages | Develop | PLACEHOLDER | —/MISSING | — | — | none | PARTIAL | content/gateway | Real-key snippets (M5.2); fix instruction (M0.3) |
-| 3.29 | Webhooks manager | Develop | IMPL | PARTIAL-reg | IMPL | delivery | none | PARTIAL | M3 | Registry done; value after engine |
-| 3.30 | Billing actions (control) | Billing | SCAFFOLD-honest | MISSING | PARTIAL-no-ledger | Bachs | none | MISSING | metering | Reads real; actions post-launch |
-| 3.31 | Broadcasts (control) | Comms | REAL-CLI-honest | PARTIAL-admin | IMPL | ADMIN_API_KEY | unit | PARTIAL | UI (deferred) | Fine as-is |
-| 3.32 | Campaigns/Aud/Auto | Comms | SCAFFOLD | MISSING | MISSING | mktg infra | none | MISSING | everything | Defer |
-| 3.33 | Alerts evaluator | Control | IMPL-live | IMPL | IMPL | ingestion | none | PARTIAL | ingestion | 3/8 rules unfireable until M1.2 |
-| 3.34 | Flags/maintenance/status | Ops | SCAFFOLD-static | MISSING | MISSING | — | none | MISSING | decision | Defer UI |
-| 3.35 | Marketing suite | Marketing | MISSING | MISSING | MISSING | — | none | MISSING | launch | Deferred; scrub implying copy |
-| 3.36 | Cron drain | Infra | — | C-duplicated | IMPL | Vercel cron/secret | none | PARTIAL | — | Lease + dedupe (M0.2) |
-| 3.37 | Beacon ingest | Web/API | IMPL | IMPL | IMPL | — | unit | PROD READY | — | Exemplary (no PII, silent-fail, capped) |
-| 3.38 | Waitlist + confirmation versions | Growth | IMPL | IMPL | IMPL | SES | unit | PROD READY | — | Pattern to copy (draft→publish→immutable) |
-| 3.39 | Email editor (control) | Control | IMPL | IMPL | IMPL | queue | none-e2e | PARTIAL | — | From-addresses from config; else done |
+| #    | Feature                          | Area      | Frontend           | Backend         | DB                | Integration        | Tests          | Status                   | Dependencies        | Next action                                                           |
+| ---- | -------------------------------- | --------- | ------------------ | --------------- | ----------------- | ------------------ | -------------- | ------------------------ | ------------------- | --------------------------------------------------------------------- |
+| 3.1  | Password signup/login + sessions | Auth      | IMPL               | IMPL            | IMPL              | —                  | unit+gated-int | PROD READY               | —                   | Logout-everywhere + revoke-on-reset + session inventory ✅ (M6.1)     |
+| 3.2  | Email OTP                        | Auth      | IMPL               | IMPL            | IMPL              | SES                | unit+gated-int | PROD READY               | creds               | v2 HMAC pepper, purpose+email bound (L1) ✅ (M6.1)                    |
+| 3.3  | Magic-link                       | Auth      | IMPL               | IMPL            | IMPL              | SES                | unit+gated-int | PARTIAL                  | creds               | Limit callback GET; alert on masked NOT-deliverable                   |
+| 3.4  | OAuth Google/GitHub              | Auth      | IMPL-if-configured | IMPL            | IMPL              | consoles           | gated-int      | PROD READY               | creds               | H4 review: unverified-email link branch                               |
+| 3.5  | Forgot-password                  | Auth      | PARTIAL            | IMPL            | IMPL              | SES                | none@step2     | BROKEN-UX                | —                   | Step 2 must verify-without-consume (M0.3)                             |
+| 3.6  | Founder/platform roles + guards  | AuthZ     | IMPL               | IMPL            | IMPL              | —                  | unit           | PROD READY               | FOUNDER_EMAILS prod | Add grant reason; don't swallow audit errors                          |
+| 3.7  | Onboarding wizard                | Customer  | IMPL               | IMPL            | IMPL              | API, DNS           | unit-state     | PROD READY               | —                   | Reference implementation                                              |
+| 3.8  | Composer + send                  | Customer  | IMPL               | IMPL            | IMPL              | queue/provider     | none-e2e       | PARTIAL                  | pipeline            | Inherits ingest gaps; else complete                                   |
+| 3.9  | REST send API                    | API       | —                  | PARTIAL         | IMPL              | queue              | unit-sanitize  | PARTIAL                  | —                   | M0.1 + M2.2                                                           |
+| 3.10 | Idempotency keys                 | API       | —                  | BROKEN-race     | IMPL              | —                  | none           | BROKEN                   | —                   | Atomic claim (M0.1)                                                   |
+| 3.11 | Queue Redis/BullMQ               | Infra     | —                  | PARTIAL         | —                 | Redis              | inmemory-only  | PARTIAL                  | REDIS_URL           | Replayable DLQ; drain lease (M0.2)                                    |
+| 3.12 | Worker SES/Gmail                 | Pipeline  | —                  | PARTIAL         | IMPL              | SES/Gmail          | none-e2e       | PARTIAL                  | creds               | Kill synthetic-send; cap metric; classifier (M0.2)                    |
+| 3.13 | SES event ingestion              | Pipeline  | —                  | MISSING         | MISSING           | SNS+config sets    | none           | MISSING                  | AWS                 | KEYSTONE (M1.1)                                                       |
+| 3.14 | SMTP gateway                     | API       | PLACEHOLDER        | MISSING         | MISSING           | TCP/TLS            | none           | MISSING                  | ADR-014             | Deferred; gate on truth+metering                                      |
+| 3.15 | Webhook delivery                 | API       | IMPL-registry      | BROKEN          | PARTIAL           | customer URLs      | none           | BROKEN                   | signer+consumer     | Secret-once (M0.3) + engine (M3)                                      |
+| 3.16 | Domain verification              | Domains   | IMPL               | BROKEN-no-DNS   | IMPL              | DNS/SES            | none           | BROKEN                   | TXT+SES             | Real verify (M4.1–M4.2)                                               |
+| 3.17 | Sender identities                | Domains   | IMPL               | IMPL            | IMPL              | —                  | unit+int       | PROD READY               | —                   | None                                                                  |
+| 3.18 | Gmail onboarding                 | Domains   | IMPL               | IMPL            | IMPL              | Google             | gated-int      | PROD READY               | creds               | Hardening track §G (M2.4–M2.5)                                        |
+| 3.19 | Templates (customer)             | Customer  | PARTIAL-read       | IMPL            | IMPL              | —                  | none           | PARTIAL                  | UI                  | Build /new + /:id + test-send (M5.2)                                  |
+| 3.20 | Suppressions (customer)          | Customer  | PLACEHOLDER        | IMPL            | IMPL              | bounce-auto        | none           | PARTIAL                  | ingestion           | Manager UI (M5.1); auto-fill (M1.2)                                   |
+| 3.21 | Inbox                            | Customer  | PLACEHOLDER        | MISSING         | —                 | inbound none       | none           | MISSING                  | parser              | Defer; remove or keep gated                                           |
+| 3.22 | Logs/Deliveries                  | Customer  | IMPL-nosearch      | IMPL            | IMPL              | ingestion          | none           | PARTIAL                  | search/page         | Query+pagination+filters (M5.1)                                       |
+| 3.23 | Analytics (customer)             | Customer  | PLACEHOLDER+fake   | MISSING         | —                 | tracking           | none           | MISSING                  | decision            | Honest upsell NOW (M0.3); real post-launch                            |
+| 3.24 | Usage page                       | Customer  | IMPL-wrong-period  | MISSING-writers | IMPL-unwritten    | metering           | none           | PARTIAL                  | M2.1                | Period filter + writers + cron                                        |
+| 3.25 | Team route / Settings CRUD       | Org       | PLACEHOLDER/IMPL   | IMPL            | IMPL              | —                  | none           | PARTIAL                  | —                   | Consolidate; real plan lookup (M5.2)                                  |
+| 3.26 | Audit logs view                  | Org       | PLACEHOLDER        | IMPL-writes     | IMPL              | —                  | none           | PARTIAL                  | read UI             | Render own trail (M5.1)                                               |
+| 3.27 | API keys manager                 | Develop   | IMPL               | IMPL            | IMPL              | —                  | none-e2e       | PROD READY               | —                   | Shared confirm (M7.2)                                                 |
+| 3.28 | SDKs / SMTP pages                | Develop   | PLACEHOLDER        | —/MISSING       | —                 | —                  | none           | PARTIAL                  | content/gateway     | Real-key snippets (M5.2); fix instruction (M0.3)                      |
+| 3.29 | Webhooks manager                 | Develop   | IMPL               | PARTIAL-reg     | IMPL              | delivery           | none           | PARTIAL                  | M3                  | Registry done; value after engine                                     |
+| 3.30 | Billing actions (control)        | Billing   | SCAFFOLD-honest    | MISSING         | PARTIAL-no-ledger | Bachs              | none           | MISSING                  | metering            | Reads real; actions post-launch                                       |
+| 3.31 | Broadcasts (control)             | Comms     | REAL-CLI-honest    | PARTIAL-admin   | IMPL              | ADMIN_API_KEY      | unit           | PARTIAL                  | UI (deferred)       | Fine as-is                                                            |
+| 3.32 | Campaigns/Aud/Auto               | Comms     | SCAFFOLD           | MISSING         | MISSING           | mktg infra         | none           | MISSING                  | everything          | Defer                                                                 |
+| 3.33 | Alerts evaluator                 | Control   | IMPL-live          | IMPL            | IMPL              | ingestion          | none           | PARTIAL→live (M1.2/M1.3) | ingestion           | delivery/bounce/complaint/queue-age rules test-verified firing (M1.3) |
+| 3.34 | Flags/maintenance/status         | Ops       | SCAFFOLD-static    | MISSING         | MISSING           | —                  | none           | MISSING                  | decision            | Defer UI                                                              |
+| 3.35 | Marketing suite                  | Marketing | MISSING            | MISSING         | MISSING           | —                  | none           | MISSING                  | launch              | Deferred; scrub implying copy                                         |
+| 3.36 | Cron drain                       | Infra     | —                  | C-duplicated    | IMPL              | Vercel cron/secret | none           | PARTIAL                  | —                   | Lease + dedupe (M0.2)                                                 |
+| 3.37 | Beacon ingest                    | Web/API   | IMPL               | IMPL            | IMPL              | —                  | unit           | PROD READY               | —                   | Exemplary (no PII, silent-fail, capped)                               |
+| 3.38 | Waitlist + confirmation versions | Growth    | IMPL               | IMPL            | IMPL              | SES                | unit           | PROD READY               | —                   | Pattern to copy (draft→publish→immutable)                             |
+| 3.39 | Email editor (control)           | Control   | IMPL               | IMPL            | IMPL              | queue              | none-e2e       | PARTIAL                  | —                   | From-addresses from config; else done                                 |
 
 ## 4. Customer Product Audit (per route)
 
-| Route (file) | Verdict | Evidence |
-|---|---|---|
-| `/` overview (`app/(app)/page.tsx`) | REAL +1 cosmetic | `getTenantContext` + scoped group-by/counts + recent 10 + domain check. COSMETIC: hardcoded `Sending/Webhooks/API ok:true` (:43-47); quota hardcoded 5000 (:37) |
-| `/onboarding` (wizard + 8 actions) | REAL | saveProfile/createOrg/createProject/createTestKey/listTransports/sendFirstEmail(real API POST)/addDomain/**real resolveTxt**/complete; all `assertProjectAccess` |
-| `/emails` | REAL | `resolveProject` + scoped senders + scoped mails + event counts |
-| `/emails/new` (composer) | REAL | Membership + sender-verified checks; suppression block (:76-86); insert + event + enqueue/delayed + touch |
-| `/templates` | PARTIAL | Read real. `/templates/new` (:27) → 404; `/templates/:id` (:37) → 404; "preview/test send" copy unbuilt |
-| `/senders` + `/[senderId]` | REAL | Domain-enforced create, Gmail create, default/rename/enable/delete, testSend persist+enqueue; detail counts |
-| `/inbox` | PLACEHOLDER | Static PlanGate only, zero DB imports |
-| `/webhooks` | REAL-registry | Scoped list; https+allowlist validation; `encryptSecret`, secret shown once; enable toggle scoped |
-| `/keys` | REAL | list/create/revoke all `assertProject`; secret-once UI |
-| `/sdks` | PLACEHOLDER | Static pills + hardcoded snippet; no project/key/copy/DB |
-| `/smtp` | PLACEHOLDER + dead instruction | Static; "Create in API Keys → SMTP" (:11) targets UI that doesn't exist |
-| `/logs` | REAL-read / search MISSING | Scoped `emailEvents` read; "Search by request_id…" copy (:40) with no input; limit 30, no pagination |
-| `/domains` | REAL | Scoped select; adder + `checkDomainDns` real |
-| `/integrations` | PLACEHOLDER (1 real link) | Gmail → working `/senders`; GitHub/Vercel static "Soon" |
-| `/deliveries` | REAL-read / filters MISSING | Scoped select + group-by; "coming next" chips display-only; no date picker |
-| `/analytics` | PLACEHOLDER + fake numbers | Static gate; hardcoded `99.42%/48,291/2.1%` (:18-27) — most trust-damaging placeholder in app |
-| `/suppressions` | PLACEHOLDER (worst gap) | Static "That's good"; zero reads despite table existing + composer enforcing it; no list/lift/remove |
-| `/usage` | REAL + caveats | Live email count + `usageRecords` + plans/prices reads. BUT counts all-time as monthly; admits cron not running; hardcoded `PLAN_QUOTAS`; `/pricing` link → 404; no upgrade action |
-| `/team` | PLACEHOLDER | Static PRO gate; real CRUD lives only in `/settings` |
-| `/audit-logs` | PLACEHOLDER | Static PREMIUM gate; writes exist (`member.invited/role_changed/removed`), no view |
-| `/settings` | REAL | getTeam + callerRole check; invite (dup-check, sha256 token, 7d expiry, audit); role change (last-owner guard); remove; revoke; wired forms |
-| `/invite/[token]` | REAL-preview | Real tokenHash lookup (valid/accepted/expired/invalid); attach at sign-in |
-| `/login` (all modes) | REAL +1 bug | Password/OTP/magic-link/OAuth/forgot-1+3 all backed. **BUG:** step-2 advances client-side without verifying code (final POST still enforces — UX-only) |
-| `/signup` | REAL | signup + OTP send + verify wired; OAuth links |
-| `/admin` | Redirect | `redirect("/control")` legacy shim |
-| Marketing suite (campaigns/audiences/contacts/segments/automations/unsub) | MISSING (correctly) | No routes; hits are control-only post-MVP surfaces + waitlist status + one template string |
+| Route (file)                                                              | Verdict                        | Evidence                                                                                                                                                                           |
+| ------------------------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/` overview (`app/(app)/page.tsx`)                                       | REAL +1 cosmetic               | `getTenantContext` + scoped group-by/counts + recent 10 + domain check. COSMETIC: hardcoded `Sending/Webhooks/API ok:true` (:43-47); quota hardcoded 5000 (:37)                    |
+| `/onboarding` (wizard + 8 actions)                                        | REAL                           | saveProfile/createOrg/createProject/createTestKey/listTransports/sendFirstEmail(real API POST)/addDomain/**real resolveTxt**/complete; all `assertProjectAccess`                   |
+| `/emails`                                                                 | REAL                           | `resolveProject` + scoped senders + scoped mails + event counts                                                                                                                    |
+| `/emails/new` (composer)                                                  | REAL                           | Membership + sender-verified checks; suppression block (:76-86); insert + event + enqueue/delayed + touch                                                                          |
+| `/templates`                                                              | PARTIAL                        | Read real. `/templates/new` (:27) → 404; `/templates/:id` (:37) → 404; "preview/test send" copy unbuilt                                                                            |
+| `/senders` + `/[senderId]`                                                | REAL                           | Domain-enforced create, Gmail create, default/rename/enable/delete, testSend persist+enqueue; detail counts                                                                        |
+| `/inbox`                                                                  | PLACEHOLDER                    | Static PlanGate only, zero DB imports                                                                                                                                              |
+| `/webhooks`                                                               | REAL-registry                  | Scoped list; https+allowlist validation; `encryptSecret`, secret shown once; enable toggle scoped                                                                                  |
+| `/keys`                                                                   | REAL                           | list/create/revoke all `assertProject`; secret-once UI                                                                                                                             |
+| `/sdks`                                                                   | PLACEHOLDER                    | Static pills + hardcoded snippet; no project/key/copy/DB                                                                                                                           |
+| `/smtp`                                                                   | PLACEHOLDER + dead instruction | Static; "Create in API Keys → SMTP" (:11) targets UI that doesn't exist                                                                                                            |
+| `/logs`                                                                   | REAL-read / search MISSING     | Scoped `emailEvents` read; "Search by request_id…" copy (:40) with no input; limit 30, no pagination                                                                               |
+| `/domains`                                                                | REAL                           | Scoped select; adder + `checkDomainDns` real                                                                                                                                       |
+| `/integrations`                                                           | PLACEHOLDER (1 real link)      | Gmail → working `/senders`; GitHub/Vercel static "Soon"                                                                                                                            |
+| `/deliveries`                                                             | REAL-read / filters MISSING    | Scoped select + group-by; "coming next" chips display-only; no date picker                                                                                                         |
+| `/analytics`                                                              | PLACEHOLDER + fake numbers     | Static gate; hardcoded `99.42%/48,291/2.1%` (:18-27) — most trust-damaging placeholder in app                                                                                      |
+| `/suppressions`                                                           | PLACEHOLDER (worst gap)        | Static "That's good"; zero reads despite table existing + composer enforcing it; no list/lift/remove                                                                               |
+| `/usage`                                                                  | REAL + caveats                 | Live email count + `usageRecords` + plans/prices reads. BUT counts all-time as monthly; admits cron not running; hardcoded `PLAN_QUOTAS`; `/pricing` link → 404; no upgrade action |
+| `/team`                                                                   | PLACEHOLDER                    | Static PRO gate; real CRUD lives only in `/settings`                                                                                                                               |
+| `/audit-logs`                                                             | PLACEHOLDER                    | Static PREMIUM gate; writes exist (`member.invited/role_changed/removed`), no view                                                                                                 |
+| `/settings`                                                               | REAL                           | getTeam + callerRole check; invite (dup-check, sha256 token, 7d expiry, audit); role change (last-owner guard); remove; revoke; wired forms                                        |
+| `/invite/[token]`                                                         | REAL-preview                   | Real tokenHash lookup (valid/accepted/expired/invalid); attach at sign-in                                                                                                          |
+| `/login` (all modes)                                                      | REAL +1 bug                    | Password/OTP/magic-link/OAuth/forgot-1+3 all backed. **BUG:** step-2 advances client-side without verifying code (final POST still enforces — UX-only)                             |
+| `/signup`                                                                 | REAL                           | signup + OTP send + verify wired; OAuth links                                                                                                                                      |
+| `/admin`                                                                  | Redirect                       | `redirect("/control")` legacy shim                                                                                                                                                 |
+| Marketing suite (campaigns/audiences/contacts/segments/automations/unsub) | MISSING (correctly)            | No routes; hits are control-only post-MVP surfaces + waitlist status + one template string                                                                                         |
 
 **Dead links/forms:** `/templates/new`, `/templates/:id`, `/pricing` (PlanGate ×2 + usage), SMTP instruction target, logs search, deliveries filters, unimported `magic-link-form.tsx` (delete). **Tenant scoping:** no unscoped customer read found — all reads start at `getTenantContext` + narrow by project; the gap is inverse (5 routes read nothing). `authorization.ts` helpers unused by dashboard — safety rests on convention; WHERE-clause audit of 6–8 read pages scheduled (M6.2).
 
 ## 5. Control Plane Audit (per section; guards 60/60 verified)
 
-| Section | Guard | Verdict | Detail |
-|---|---|---|---|
-| Overview/Command Center (`control/page.tsx`) | `overview` | REAL | Fully live (billing, customers, db/redis/queue health, traffic, waitlist, conversions, CTAs, sources, confirmations, alerts) with per-dataset `safe()` fallbacks + anti-fabrication copy. ⚠️ Repeat-render 500 (function `footer` prop into client `TrendChart`) |
-| Growth overview/acquisition | `growth` | REAL | Live traffic/waitlist/conversion/CTA/source/country; bounce honestly `—`; one labeled roadmap panel |
-| Waitlist list/detail/export | `growth` | REAL | Live rows/position/invites/converted/referrer; mutations real (`setWaitlistStatus/addTag/removeTag/setNote` + audit + revalidate, analyst rejected); CSV streams paginated |
-| Referrals | `growth` | REAL + scaffold | Live top-referrer/stats; zero-valued rewards panel inside `Planned` (spec, not metric) |
-| Customers users/orgs/projects | `customers` | REAL | Live totals/rows/counts; org filters match real `TIERS`; 360° org detail + **plan-grant real but NOT founder-only** (any operator — tighten or document) |
-| User/org detail | `customers` | REAL + dead stub | Live detail; lib `userDetail` has unrendered `sql\`false\``/null stub (remove) |
-| Customer health | `customers` | PARTIAL | Tables live. Invented `100−5×struggling` score (:43) + illustrative "17/9" cohorts (:121) — compute or reword |
-| Support | `customers` | SCAFFOLD | Zero queries; `Planned` bullets only |
-| Broadcasts | `communications` | REAL-honest | Live audiences + ADMIN_KEY check; send via CLI curl (no fake UI mutation) |
-| Audiences | `communications` | PARTIAL | Live except per-plan `count:0` hardcoded (`queries.ts:1397`), one `void`ed query, mislabeled "inactive"/"users who sent" |
-| Templates (confirmation) | `communications` | REAL | Direct materialized-row read + honest empty fallback |
-| Delivery | `communications` | REAL | Internal-org sends last 30d + totals live, capped-and-labeled |
-| Campaigns/Automations | `communications` | SCAFFOLD | Policy + `Planned`, no queries — correct for post-MVP |
-| Billing overview/subs/plans | `billing` | REAL-reads | Live NGN prices/subs/rows; plan controls explicitly unbuilt ("lands with Bachs") |
-| Coupons/credits/entitlements/invoices | `billing` | SCAFFOLD-honest | Spec-text examples (`LAUNCH50`, `$25`, `50,000→150,000`), "will never fabricate one" — keep as spec |
-| Platform email/deliverability/usage/webhooks/API | `platform` | REAL/PARTIAL | Live totals/pipeline/transports/caps/failures/usage/webhook-stats/key-counts; API latency/errors Planned |
-| Infra overview/redis/queues/workers/database/providers/cron | `infrastructure` | REAL | Live `version()`, db size, activity, uptime, table stats, `INFO`/`PING`, Postgres-derived queue state, throughput, fleet, caps; fail-closed fallbacks, never fake zeros |
-| Storage/networking | `infrastructure` | SCAFFOLD-honest | Static topology + `Planned`; overview admits it |
-| Logs/alerts | `observability` | REAL | Live event rows + counts; `evaluateAlerts()` pure live thresholds (delivery<97/95, complaints>0, bounces>3%, queue>5000/>15m, Redis, mem>80%, conns>80%, past-due>0) |
-| Metrics/incidents | `observability` | SCAFFOLD | `Planned` only |
-| Abuse/admin-access | `security` | REAL | Live candidates (`sent≥10 && bounce≥10%` etc.), totals, caps; live admin accounts + sessions. Ladder `count:1..6` ordinals restyle as steps |
-| Security events/restrictions | `security` | PARTIAL | Live latest-12 audit rows + live suspended/revoked transports; dedicated streams + warn/limit/pause/suspend UI Planned |
-| Operations (flags/maintenance/status) | `operations` | SCAFFOLD-honest | Hardcoded flags array, no DB/toggles; maintenance admits switches "must be real before rendered" |
-| Administrators/roles/audit-logs | `administration` | REAL | Grant/revoke founder-only + self/founder-target blocked + audit-logged (no reason field — add); roles matrix renders from enforcement source (exemplary); audit rows live |
-| Settings | `administration` | PARTIAL | Non-secret env presence live; one unconditional "configured" assertion to fix; runtime editor Planned |
-| Email editor | `overview` | REAL | Draft→publish→version→restore→[TEST]-send real, audited, analyst-blocked, analytics-excluded; `Sarah` sample labeled; from-addresses hardcoded (→config) |
-| No-access | — | REAL-shell | Role label + back link, no data |
+| Section                                                     | Guard            | Verdict          | Detail                                                                                                                                                                                                                                                           |
+| ----------------------------------------------------------- | ---------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Overview/Command Center (`control/page.tsx`)                | `overview`       | REAL             | Fully live (billing, customers, db/redis/queue health, traffic, waitlist, conversions, CTAs, sources, confirmations, alerts) with per-dataset `safe()` fallbacks + anti-fabrication copy. ⚠️ Repeat-render 500 (function `footer` prop into client `TrendChart`) |
+| Growth overview/acquisition                                 | `growth`         | REAL             | Live traffic/waitlist/conversion/CTA/source/country; bounce honestly `—`; one labeled roadmap panel                                                                                                                                                              |
+| Waitlist list/detail/export                                 | `growth`         | REAL             | Live rows/position/invites/converted/referrer; mutations real (`setWaitlistStatus/addTag/removeTag/setNote` + audit + revalidate, analyst rejected); CSV streams paginated                                                                                       |
+| Referrals                                                   | `growth`         | REAL + scaffold  | Live top-referrer/stats; zero-valued rewards panel inside `Planned` (spec, not metric)                                                                                                                                                                           |
+| Customers users/orgs/projects                               | `customers`      | REAL             | Live totals/rows/counts; org filters match real `TIERS`; 360° org detail + **plan-grant real but NOT founder-only** (any operator — tighten or document)                                                                                                         |
+| User/org detail                                             | `customers`      | REAL + dead stub | Live detail; lib `userDetail` has unrendered `sql\`false\``/null stub (remove)                                                                                                                                                                                   |
+| Customer health                                             | `customers`      | REAL (M1.3)      | Tables live. Score replaced with real terminal-rate delivery health + bounce/complaint hints; invented cohort numerals removed                                                                                                                                   |
+| Support                                                     | `customers`      | SCAFFOLD         | Zero queries; `Planned` bullets only                                                                                                                                                                                                                             |
+| Broadcasts                                                  | `communications` | REAL-honest      | Live audiences + ADMIN_KEY check; send via CLI curl (no fake UI mutation)                                                                                                                                                                                        |
+| Audiences                                                   | `communications` | PARTIAL          | Live except per-plan `count:0` hardcoded (`queries.ts:1397`), one `void`ed query, mislabeled "inactive"/"users who sent"                                                                                                                                         |
+| Templates (confirmation)                                    | `communications` | REAL             | Direct materialized-row read + honest empty fallback                                                                                                                                                                                                             |
+| Delivery                                                    | `communications` | REAL             | Internal-org sends last 30d + totals live, capped-and-labeled                                                                                                                                                                                                    |
+| Campaigns/Automations                                       | `communications` | SCAFFOLD         | Policy + `Planned`, no queries — correct for post-MVP                                                                                                                                                                                                            |
+| Billing overview/subs/plans                                 | `billing`        | REAL-reads       | Live NGN prices/subs/rows; plan controls explicitly unbuilt ("lands with Bachs")                                                                                                                                                                                 |
+| Coupons/credits/entitlements/invoices                       | `billing`        | SCAFFOLD-honest  | Spec-text examples (`LAUNCH50`, `$25`, `50,000→150,000`), "will never fabricate one" — keep as spec                                                                                                                                                              |
+| Platform email/deliverability/usage/webhooks/API            | `platform`       | REAL/PARTIAL     | Live totals/pipeline/transports/caps/failures/usage/webhook-stats/key-counts; API latency/errors Planned                                                                                                                                                         |
+| Infra overview/redis/queues/workers/database/providers/cron | `infrastructure` | REAL             | Live `version()`, db size, activity, uptime, table stats, `INFO`/`PING`, Postgres-derived queue state, throughput, fleet, caps; fail-closed fallbacks, never fake zeros                                                                                          |
+| Storage/networking                                          | `infrastructure` | SCAFFOLD-honest  | Static topology + `Planned`; overview admits it                                                                                                                                                                                                                  |
+| Logs/alerts                                                 | `observability`  | REAL             | Live event rows + counts; `evaluateAlerts()` pure live thresholds (delivery<97/95, complaints>0, bounces>3%, queue>5000/>15m, Redis, mem>80%, conns>80%, past-due>0)                                                                                             |
+| Metrics/incidents                                           | `observability`  | SCAFFOLD         | `Planned` only                                                                                                                                                                                                                                                   |
+| Abuse/admin-access                                          | `security`       | REAL             | Live candidates (`sent≥10 && bounce≥10%` etc.), totals, caps; live admin accounts + sessions. Ladder `count:1..6` ordinals restyle as steps                                                                                                                      |
+| Security events/restrictions                                | `security`       | PARTIAL          | Live latest-12 audit rows + live suspended/revoked transports; dedicated streams + warn/limit/pause/suspend UI Planned                                                                                                                                           |
+| Operations (flags/maintenance/status)                       | `operations`     | SCAFFOLD-honest  | Hardcoded flags array, no DB/toggles; maintenance admits switches "must be real before rendered"                                                                                                                                                                 |
+| Administrators/roles/audit-logs                             | `administration` | REAL             | Grant/revoke founder-only + self/founder-target blocked + audit-logged (no reason field — add); roles matrix renders from enforcement source (exemplary); audit rows live                                                                                        |
+| Settings                                                    | `administration` | PARTIAL          | Non-secret env presence live; one unconditional "configured" assertion to fix; runtime editor Planned                                                                                                                                                            |
+| Email editor                                                | `overview`       | REAL             | Draft→publish→version→restore→[TEST]-send real, audited, analyst-blocked, analytics-excluded; `Sarah` sample labeled; from-addresses hardcoded (→config)                                                                                                         |
+| No-access                                                   | —                | REAL-shell       | Role label + back link, no data                                                                                                                                                                                                                                  |
 
 **Lib:** `queries.ts` live w/ honest-zero stubs (opened/clicked 0 with UI disclaimer; bounced flattened into failed; unused `activeSubs:0`; audiences trio; dead userDetail); `analytics-queries.ts` live w/ `hasData` flags; `range.ts` pure + tested; `guard/roles/post-login` live enforcement. `stats.ts`/`alerts.ts`/`gate.ts`/`roles.test.ts` do not exist (docs fixed §18-audit). **NAV:** 52 hrefs, zero dangling; 5 unlisted detail/edit surfaces intentional.
 
@@ -209,25 +209,25 @@ Primary-button literal ×6+ (`keys/manager:6`, `webhooks/manager:7`, `wizard:58`
 
 ## 7. Core Logic Audit (with locations)
 
-| Capability | Verdict | Key evidence |
-|---|---|---|
-| Send validation | B | Schema refines, caps, attachment limits (`packages/validation`) |
-| API-key auth/scoping | B | SHA-256+pepper, timing-safe, revocation, tenant attach; legacy `avenor_sk_` compat |
-| Test/live isolation | D | `env` carried, never branches; test keys deliver in prod |
-| Idempotency | D | Replay works; concurrent same-key duplicates (non-atomic claim + no conflict path on unique index) |
-| Suppression | C | Worker/composer/batch enforce; single-send ingest skips (`// In production` comment); bounces never auto-fill |
-| Queue/retries | C | Redis/BullMQ + backoff real; no replayable DLQ; drain bare-`UPDATE` claim races |
-| Transports/caps/SES/Gmail | C | Chain real; cap counts non-sent rows (overcounts); narrow transient match; **synthetic-send on missing row** (`worker.ts:280-296`) |
-| Delivery truth | E | No SNS route/tables/verify; 5 enum states write-dead; no config sets |
-| Webhooks | D | Registry real; secret discarded (`routes/webhooks.ts:23-32`); `webhook:deliver` consumer absent; 2/8 events enqueued |
-| Usage/quotas | E | Zero writers; no cron; nothing enforced anywhere in `apps/api/src` |
-| Billing | E | Reads + mock only; no ledger; launch-check gates SES quota not customer quota |
-| Domain verify | D | `POST /:id/verify` marks verified unconditionally; provider passes `token==="verified"`/test only |
-| Senders/Gmail/templates | B | Resolver fail-closed + touch; OAuth min-scope + encrypted tokens + idempotent reconnect; versions + latest-wins render + strict missing-variable 400s (no staged publish) |
-| Sessions/auth | B + gaps | Seal/expiry/revocation sound; scrypt + dummy-hash; OTP hashed/10m/5-attempt; magic 256-bit/15m/single-use; OAuth state/PKCE + invite accept + founder bootstrap. Gaps: no lockout (20/min forever); no logout-everywhere; reset doesn't revoke; callback GET unlimited; **unverified-email OAuth link (possible takeover — confirm provider guarantees first)**; unsalted OTP hash (1M space) |
-| Rate limiting | C | Present on mutations (ip+email keys); InMemory only (multi-instance multiplies); GET sends open; one-bucket-not-per-dimension; blind `x-forwarded-for` |
-| Audit logging | B | Real writes (invites/roles/waitlist/editor); customer view missing; grant reasonless; swallowed write errors |
-| Cron | C | One logical job in two 320-line twins (API + dashboard, drift risk); no lease; no billing/webhook/purge crons; `x-vercel-cron`-without-secret footgun |
+| Capability                | Verdict  | Key evidence                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Send validation           | B        | Schema refines, caps, attachment limits (`packages/validation`)                                                                                                                                                                                                                                                                                                                               |
+| API-key auth/scoping      | B        | SHA-256+pepper, timing-safe, revocation, tenant attach; legacy `avenor_sk_` compat                                                                                                                                                                                                                                                                                                            |
+| Test/live isolation       | D        | `env` carried, never branches; test keys deliver in prod                                                                                                                                                                                                                                                                                                                                      |
+| Idempotency               | D        | Replay works; concurrent same-key duplicates (non-atomic claim + no conflict path on unique index)                                                                                                                                                                                                                                                                                            |
+| Suppression               | C        | Worker/composer/batch enforce; single-send ingest skips (`// In production` comment); bounces never auto-fill                                                                                                                                                                                                                                                                                 |
+| Queue/retries             | C        | Redis/BullMQ + backoff real; no replayable DLQ; drain bare-`UPDATE` claim races                                                                                                                                                                                                                                                                                                               |
+| Transports/caps/SES/Gmail | C        | Chain real; cap counts non-sent rows (overcounts); narrow transient match; **synthetic-send on missing row** (`worker.ts:280-296`)                                                                                                                                                                                                                                                            |
+| Delivery truth            | E        | No SNS route/tables/verify; 5 enum states write-dead; no config sets                                                                                                                                                                                                                                                                                                                          |
+| Webhooks                  | D        | Registry real; secret discarded (`routes/webhooks.ts:23-32`); `webhook:deliver` consumer absent; 2/8 events enqueued                                                                                                                                                                                                                                                                          |
+| Usage/quotas              | E        | Zero writers; no cron; nothing enforced anywhere in `apps/api/src`                                                                                                                                                                                                                                                                                                                            |
+| Billing                   | E        | Reads + mock only; no ledger; launch-check gates SES quota not customer quota                                                                                                                                                                                                                                                                                                                 |
+| Domain verify             | D        | `POST /:id/verify` marks verified unconditionally; provider passes `token==="verified"`/test only                                                                                                                                                                                                                                                                                             |
+| Senders/Gmail/templates   | B        | Resolver fail-closed + touch; OAuth min-scope + encrypted tokens + idempotent reconnect; versions + latest-wins render + strict missing-variable 400s (no staged publish)                                                                                                                                                                                                                     |
+| Sessions/auth             | B + gaps | Seal/expiry/revocation sound; scrypt + dummy-hash; OTP hashed/10m/5-attempt; magic 256-bit/15m/single-use; OAuth state/PKCE + invite accept + founder bootstrap. Gaps: no lockout (20/min forever); no logout-everywhere; reset doesn't revoke; callback GET unlimited; **unverified-email OAuth link (possible takeover — confirm provider guarantees first)**; unsalted OTP hash (1M space) |
+| Rate limiting             | C        | Present on mutations (ip+email keys); InMemory only (multi-instance multiplies); GET sends open; one-bucket-not-per-dimension; blind `x-forwarded-for`                                                                                                                                                                                                                                        |
+| Audit logging             | B        | Real writes (invites/roles/waitlist/editor); customer view missing; grant reasonless; swallowed write errors                                                                                                                                                                                                                                                                                  |
+| Cron                      | C        | One logical job in two 320-line twins (API + dashboard, drift risk); no lease; no billing/webhook/purge crons; `x-vercel-cron`-without-secret footgun                                                                                                                                                                                                                                         |
 
 ## 8. End-to-End Flow Audit (✓ works · ✗ breaks · ○ missing)
 
@@ -240,28 +240,29 @@ Primary-button literal ×6+ (`keys/manager:6`, `webhooks/manager:7`, `wizard:58`
 
 ## 9. Fake / Placeholder / Mock Data Audit
 
-| Occurrence | Location | Verdict |
-|---|---|---|
-| Analytics preview `99.42%/48,291/2.1%` | `(app)/analytics/page.tsx:16-29` | REPLACE (honest upsell) |
-| Overview `Sending/Webhooks/API ok:true` | `(app)/page.tsx:43-47` | REPLACE (probe or remove) |
-| Health `100−5n` + "17/9" cohorts | `control/customers/health:43,121` | REPLACE (compute or reword) |
-| Audiences `count:0` + `void` + mislabels | `lib/control/queries.ts:1345-1413` | REPLACE (compute/label honestly) |
-| Abuse ladder `1..6` ordinals | `control/security/page.tsx:78-83` | REPLACE (restyle as steps) |
-| Coupon/credit/entitlement examples | billing scaffolds | KEEP (labeled spec, not metrics) |
-| `userDetail` `sql\`false\``/null | `queries.ts:372-380` | REMOVE (dead, unrendered) |
-| `dash-soon` branch, `magic-link-form.tsx` | dashboard | REMOVE (dead code) |
-| Editor `Sarah` + `[TEST]` sends | `editor-actions.ts` | DEV-ONLY-OK (analytics-excluded by construction) |
-| Mock provider/`mock_` IDs/jitter/beacon IDs/DUMMY hashes | providers/queue/api/auth | BENIGN or DEV-ONLY-OK (prod fail-closed verified) |
-| `seed-demo.ts` 3.8k deterministic rows | `packages/db` | DEV-ONLY-OK WITH GAP: env-guarded not DB-guarded; FK-broken — fix both |
-| Editor from-addresses | `email-editor-client:152,156` | REPLACE (config/DB) |
-| Domain `mock_` token | `api/routes/domains.ts:44` | REPLACE (only fake DNS token in repo) |
-| TODO/FIXME/lorem in apps/packages | — | NONE FOUND (clean) |
-| Fabricated opens/clicks/revenue in control | — | NONE FOUND (protect the discipline) |
+| Occurrence                                               | Location                           | Verdict                                                                |
+| -------------------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------------- |
+| Analytics preview `99.42%/48,291/2.1%`                   | `(app)/analytics/page.tsx:16-29`   | REPLACE (honest upsell)                                                |
+| Overview `Sending/Webhooks/API ok:true`                  | `(app)/page.tsx:43-47`             | REPLACE (probe or remove)                                              |
+| ~~Health `100−5n` + "17/9" cohorts~~                     | `control/customers/health`         | DONE (M1.3 — real rates, numerals removed)                             |
+| Audiences `count:0` + `void` + mislabels                 | `lib/control/queries.ts:1345-1413` | REPLACE (compute/label honestly)                                       |
+| Abuse ladder `1..6` ordinals                             | `control/security/page.tsx:78-83`  | REPLACE (restyle as steps)                                             |
+| Coupon/credit/entitlement examples                       | billing scaffolds                  | KEEP (labeled spec, not metrics)                                       |
+| `userDetail` `sql\`false\``/null                         | `queries.ts:372-380`               | REMOVE (dead, unrendered)                                              |
+| `dash-soon` branch, `magic-link-form.tsx`                | dashboard                          | REMOVE (dead code)                                                     |
+| Editor `Sarah` + `[TEST]` sends                          | `editor-actions.ts`                | DEV-ONLY-OK (analytics-excluded by construction)                       |
+| Mock provider/`mock_` IDs/jitter/beacon IDs/DUMMY hashes | providers/queue/api/auth           | BENIGN or DEV-ONLY-OK (prod fail-closed verified)                      |
+| `seed-demo.ts` 3.8k deterministic rows                   | `packages/db`                      | DEV-ONLY-OK WITH GAP: env-guarded not DB-guarded; FK-broken — fix both |
+| Editor from-addresses                                    | `email-editor-client:152,156`      | REPLACE (config/DB)                                                    |
+| Domain `mock_` token                                     | `api/routes/domains.ts:44`         | REPLACE (only fake DNS token in repo)                                  |
+| TODO/FIXME/lorem in apps/packages                        | —                                  | NONE FOUND (clean)                                                     |
+| Fabricated opens/clicks/revenue in control               | —                                  | NONE FOUND (protect the discipline)                                    |
 
 ## 10. Documentation Audit
 
 **Fixed in this audit:** CONTROL-PLANE phantom `gate.ts`/`stats.ts`/`alerts.ts`/`roles.test.ts` → `guard.ts`, `queries.ts`, `stats.test.ts`, `post-login.test.ts`; `control.css` ADR-029 → ADR-031.
 **Contradictions remaining:**
+
 - ARCHITECTURE §2 lists `apps/smtp-gateway` as a service — filesystem has api/dashboard/web/worker only; `docs/SMTP.md` + SYSTEM-EXPLAINED honestly say "specified, not built". **BLOCKING-CONFUSION** — mark planned-vs-present.
 - ARCHITECTURE §3 entity list names `smtp_credentials`, `provider_accounts/events`, `memberships` (real: no such tables; members table is `organization_members`) and omits `sender_identities`, `project_transports`, `analytics_events`. **MINOR-STALE** — regenerate from schema.
 - SYSTEM-EXPLAINED §2 describes GLOBAL provider routing — superseded by sender-aware delivery + ADR-026 (its own changelog admits it). **BLOCKING-CONFUSION.**
@@ -272,24 +273,25 @@ Primary-button literal ×6+ (`keys/manager:6`, `webhooks/manager:7`, `wizard:58`
 - DEPLOYMENT: `ADMIN_API_KEY` "required" vs optional-disable code (503-honest); undecided-hosting section vs decided-Vercel-serverless section.
 - CONTROL-PLANE §5 "verified live 23/23" snapshots read as standing guarantees; depend on FK-broken seed — date-stamp, de-absolutize.
 - Founder emails: three identities across docs/seed/tests (`emerald@calder.click` vs `oluwadare458@gmail.com`) with no "example only" note — bootstrap confusion + PII-smell. Canonicalize to one documented example.
-**Undocumented:** `CRON_SECRET`/`ALLOW_DEV_LOGIN`/OAuth/`PEPPER`/`POOL`/`ORIGINS` envs; `/v1/beacon`, `/v1/admin/*`, `/v1/cron/drain` ops; BullMQ queue names; bundle + launch-check ops; dev-login backdoor (changelog-only); sender/transport model (code+changelog only, no stable spec); `INTERNAL_FROM` allowlist; seed-vs-seed-demo story + volume gotchas.
-**Missing for newcomers:** control implementation map refresh; SMTP truth-in-one-place; schema registry; env inventory table; endpoint+job inventory; founder-bootstrap canonical example.
+  **Undocumented:** `CRON_SECRET`/`ALLOW_DEV_LOGIN`/OAuth/`PEPPER`/`POOL`/`ORIGINS` envs; `/v1/beacon`, `/v1/admin/*`, `/v1/cron/drain` ops; BullMQ queue names; bundle + launch-check ops; dev-login backdoor (changelog-only); sender/transport model (code+changelog only, no stable spec); `INTERNAL_FROM` allowlist; seed-vs-seed-demo story + volume gotchas.
+  **Missing for newcomers:** control implementation map refresh; SMTP truth-in-one-place; schema registry; env inventory table; endpoint+job inventory; founder-bootstrap canonical example.
 
 ## 11. Architecture & Security Risks (severity = actual consequence)
 
 **CRITICAL**
+
 - **C1 Domain self-verification** (`api/routes/domains.ts:68-85`) — any key holder verifies any domain, no DNS. Spoofing primitive; fix before reputation matters.
 - **C2 Delivery truth absent** — no SNS ingress; bounces/complaints unprocessed; SES reputation unmonitored, unsuppressed. Operational-existential.
-**HIGH**
+  **HIGH**
 - **H1 Test keys deliver in prod** — `env` never branches. Reputation + contract breach in one confused customer.
 - **H2 No metering/quotas** — unlimited sends per tier; billing unreconcilable; abuse unbounded.
 - **H3 Webhooks broken** — secret discarded (unverifiable by design); no signer/consumer/retry/replay; `webhook:deliver` piles up.
 - **H4 OAuth unverified-email link** (`oauth.ts:179-184`) — links on attacker-controllable unverified provider email? Confirm guarantees first; possible takeover. No fix without confirmation.
 - **H5 Idempotency race** — concurrent same-key duplicates via non-atomic claim + catch-all-enqueue.
 - **H6 Synthetic-send fallback** (`worker.ts:280-296`) — fabricates mail for missing rows. Delete; fail closed.
-**MEDIUM**
+  **MEDIUM**
 - **M1** Suppression skipped at single-send ingest (checklist violation). **M2** In-memory limiter (multi-instance multiplies); GET sends open; no per-dimension limits; blind forwarded-for. **M3** Drain twins + no lease (scheduled double-send). **M4** No lockout/logout-everywhere/reset-revoke. **M5** Seed-demo prod-pollutable + FK-broken. **M6** `queries.ts` unguarded-import risk (safety by page-guard convention). **M7** Magic-link callback unlimited + misconfigured-prod masking. **M8** Cron accepts bare `x-vercel-cron` when secret unset.
-**LOW**
+  **LOW**
 - **L1** Unsalted OTP hash (1M space, 10-min window — pepper it). **L2** Dead prefix-length code. **L3** Narrow transient classifier. **L4** Gmail cap counts non-sent rows. **L5** Sender sub-fetch scoping (contained). **L6** No CSRF tokens (Lax-standard; document).
 
 ## 12. Launch Readiness
@@ -301,7 +303,7 @@ Primary-button literal ×6+ (`keys/manager:6`, `webhooks/manager:7`, `wizard:58`
 
 # PART B — ROADMAP TO PRODUCTION: PHASES & MILESTONES
 
-*Build order. No phase starts until prior milestones meet exit criteria. Every milestone: BUILD → UNIT → INTEGRATION → E2E → MANUAL → FAILURE → SECURITY → UI → PROD-LIKE → DONE. Not done unless CI green.*
+_Build order. No phase starts until prior milestones meet exit criteria. Every milestone: BUILD → UNIT → INTEGRATION → E2E → MANUAL → FAILURE → SECURITY → UI → PROD-LIKE → DONE. Not done unless CI green._
 
 ## Dependency graph (what must exist before what)
 
@@ -319,6 +321,7 @@ AUTH → WORKSPACE/PROJECTS → API KEYS → SENDERS+GMAIL → TEMPLATES → ING
 > **STATUS (2026-09-19, implemented on `arena/01a0ba35-calder`):** M0.1 ✅ (claim-first idempotency tx, suppression 422 at ingest, prod fail-closed on persist failure) · M0.2 ✅ (synthetic-send deleted, single API drain with `FOR UPDATE SKIP LOCKED` lease + 10-min stale-claim recovery, dashboard twin + its Vercel cron deleted) · M0.3 ✅ (webhook secret shown once + one AES-256-GCM scheme, reset step-2 verifies without consuming, fake analytics preview replaced with honest copy, `/pricing` links resolved to the marketing site, SMTP page honesty, `magic-link-form.tsx` + `dash-soon` deleted). **Tests:** same-key concurrency (1 winner), sequential replay, suppression 422, drain overlap single-send, worker missing-row, secret round-trip, wrong-code, truth-gate fs-scan — all CI-blocking; CI now runs a Postgres service with migrations + `RUN_INTEGRATION_TESTS=1`. **Docs:** ADR-032/033/034, SYSTEM-EXPLAINED §2, API.md, SECURITY.md §6. **Left to later phases per plan:** worker↔drain chain duplication, test/live branching (M2.3), `/control` chart 500s (M7.3), templates 404s (M5.2), login-flow E2E (Phase 5).
 
 **Goal:** the shipped pipeline stops doing wrong things. **Why now:** every later phase assumes these invariants; all small, in-shipped code, no AWS. **Prerequisites:** none.
+
 - **Database:** none new (unique-violation handling in code).
 - **Backend:** atomic idempotency (unique-violation → return stored 200); suppression check in single-send ingest (delete the skip comment by deleting the skip); delete synthetic-send branch (missing row → diagnosable `failed`); drain `SELECT FOR UPDATE SKIP LOCKED` lease; delete dashboard drain twin (single `apps/api` implementation); webhook secret returned once at creation; reset-verify verifies without consuming (or remove step 2).
 - **Frontend:** analytics preview → honest upsell with zero numbers; `/pricing` links resolved (4 sites); SMTP instruction corrected to the real key flow; delete dead `magic-link-form.tsx` + `dash-soon` branch.
@@ -334,7 +337,10 @@ AUTH → WORKSPACE/PROJECTS → API KEYS → SENDERS+GMAIL → TEMPLATES → ING
 
 ## PHASE 1 — Delivery truth (SES ingestion → states → suppression → alerts)
 
+> **STATUS (2026-09-19, implemented on `arena/01a0ba35-calder`):** M1.1 ✅ (`POST /v1/ses/events` — RSA-SHA1 verified against allowlisted `sns.<region>.amazonaws.com` cert origins only, `SignatureVersion "1"` only, subscription auto-confirm gated on configured `SES_SNS_TOPIC_ARNS`, bogus `Type` rejected: ADR-035) · M1.2 ✅ (`provider_events` ledger deduped on SNS MessageId; monotonic+sticky `emails.status` transitions via pure tested matrix; opened/clicked are events only (no such statuses, Resend model); permanent bounce/complaint auto-suppress on unique `(project_id, email)`; transient bounces never suppress; unknown message ids ledgered `unmatched` + 200). **Tests:** 12 integration (real self-signed RSA fixtures vs live Postgres: signature accept/reject, hostile cert URL rejected pre-fetch, tamper, dedupe, unknown-id, bounce/complaint→suppression, transient-bounce no-suppress, topic allowlist, subscription confirm) + 46 unit (cert-URL table, canonical string, full transition matrix). **Docs:** ADR-035, DEPLOYMENT §SES feedback wiring (the remaining AWS console/CLI work), API.md, `.env.example`. M1.3 ✅ (`deliveryOutcomeSummary` — rates on terminal sends only; health page drops invented `100−5n` score + cohort numerals; `/deliveries` shows honest terminal rate + all-state colors; `/logs` already truthful; 6 control integration tests verify delivery-rate/complaints/bounces/queue-age rules fire on induced data and the summary equals SQL truth). **Remaining in Phase 1, manual-only:** execute the DEPLOYMENT SNS runbook in the AWS console, then simulator-address verification (bounce@/complaint@/success@simulator.amazonses.com) per the Phase DoD.
+
 **Goal:** every send reaches a terminal known state. **Why now:** keystone — suppression automation, alerts, abuse, logs truth depend on it. **Prerequisites:** Phase 0; AWS SNS topic + subscription + SES configuration set (console work).
+
 - **Database:** `provider_events` (+`provider_accounts` if multi-account) via Drizzle CLI migration; idempotency on SNS message-id.
 - **Backend:** SNS ingress route with signature verification (reject unsigned — test both); event → `email_events` + `emails.status`; bounce/complaint → `suppressions` auto-insert; dedupe on redelivery.
 - **Frontend:** logs/deliveries render terminal states; bounce/complaint/queue-age alerts verified firing; health score redefined on real rates (remove `100−5n`).
@@ -352,6 +358,7 @@ AUTH → WORKSPACE/PROJECTS → API KEYS → SENDERS+GMAIL → TEMPLATES → ING
 ## PHASE 2 — Metering, quotas, isolation + Gmail hardening
 
 **Goal:** usage counted, limits enforced, test keys safe, Gmail exact. **Why now:** parallel track to Phase 1; required before paid/high-volume traffic. **Prerequisites:** Phase 0 (parallelizable with Phase 1).
+
 - **Database:** metering writes on `usage_records` + period logic; idempotent aggregation cron.
 - **Backend:** per-send usage writes (never on replay/test); ingest-time quota checks on REST/batch/scheduled/composer with upgrade pointer; `env` branches delivery (test → mock-persist, never provider).
 - **Frontend:** usage page true monthly counts + real quota bars; upgrade route exists (provider later).
@@ -365,9 +372,25 @@ AUTH → WORKSPACE/PROJECTS → API KEYS → SENDERS+GMAIL → TEMPLATES → ING
 - **Next-phase dependency:** paid launch; abuse backstop.
 - **Milestones:** M2.1 writers+aggregation · M2.2 enforcement · M2.3 isolation · M2.4 Gmail exactness (sent-not-created caps, per-project UTC-day accounting, graduation prompts, sender-pinning test, revocation test) · M2.5 Gmail abuse watch (velocity baselines → warn→limit→suspend+appeal audit-logged; connected-account inventory in control).
 
+> **STATUS (2026-09-21, implemented on `arena/01a0ba35-calder`):** M2.1 ✅ (per-email ledger on `usage_records`, deterministic `ur_<emailId>` + ON CONFLICT DO NOTHING = exactly-once, written on provider-accept in drain AND worker; `/cron/aggregate-usage` upserts `usage_summaries` with deterministic ids, re-run-stable) · M2.2 ✅ (ingest-time 402 `plan_limit_reached` with limit/usage/reset/upgrade-pointer inside `handleSendEmail` — covers `/v1/emails`, batch and scheduled; composer carries the same gate inline; `PLAN_LIMITS` in `@calder/config` is the single quota table, fixing the stale 3k/25k draft copy on the usage page; `org_avenor` exempt so auth/waitlist mail always sends) · M2.3 ✅ (`emails.env` stamped at ingest; drain+worker short-circuit test-env rows to the mock provider leg only — `provider:'mock'` on the record is the auditable proof; test traffic never metered, never counted) · M2.4 ✅ (exact Gmail cap accounting: `transport='gmail'` only, in drain and worker; graduation prompts ✅ Senders-page banner off `gmailNeedsGraduation`; sender-pinning test ✅ pinned leg chosen first; revocation ✅ auto-mark `revoked` on invalid_grant with audited exact-once transition + SES failover) · M2.5 ✅ (pure-policy velocity engine `assessGmailVelocity` — warn ≥40/h debounced audit, limit ≥120/h transient 429, suspend ≥600/h exact-once `suspended` flip + audit; Control → Security → Abuse shows the connected-accounts inventory, the watch audit feed and the guarded `transport.gmail_reactivated` appeal action; ADR-037) · Usage page ✅ (real per-org quota bars off live accepted-mail counts + ledger totals, period window shown, exhaustion state with upgrade pointer; history reads `usage_summaries`). **Tests:** 9 integration (`usage-quota.integration.test.ts`: live-send blocked at cap with nothing persisted, batch gate per message, test key at-cap still 202+mock-only delivery+unmetered, under-limit live 202 env stamping, ledger retry/replay no-ops, cron re-run stability, subscription-cycle rollover keeps cycle day, Gmail exact-cap both directions). **Docs:** ADR-036, PRICING §5 enforcement note. **Manual (user):** re-run the new integration suite once local Postgres is up (`RUN_INTEGRATION_TESTS=1`); DB migration 0019 must be applied (`corepack pnpm db:migrate`) before deploy.
+
 ## PHASE 3 — Webhooks delivered
 
+> **Status (2026-09-24): shipped (M3.1 + M3.2).** Durable-first
+> `webhook:deliver` consumer in the worker; Stripe-style `t,v1` HMAC signing +
+> timing-safe verify helper; 7-step retry ladder (5s→6h) ending in permanent
+> `failed` at attempt 8; latency/HTTP-status recorded per delivery;
+> unapplied migration `0020_sparkling_colossus` adds `latency_ms` +
+> `response_status`. Write- and delivery-side SSRF guard
+> (`@calder/validation.isPublicWebhookUrl`). API gained DELETE, rotate
+> (secret-once), deliveries list, and replay (targeted, new row). Dashboard
+> Webhooks page exposes the per-endpoint delivery log, per-delivery replay,
+> rotation, and a copyable verify snippet. 18 new unit tests (schedule,
+> signature vectors, SSRF vectors). Still pending env: `0020` migration apply,
+> gated integration bats, and the manual webhook.site pass. See **ADR-038**.
+
 **Goal:** registry becomes a working feature. **Why now:** signing contract fixed in M0.3; independent of Phases 1–2. **Prerequisites:** M0.3.
+
 - **Database:** `webhook_deliveries` writes (attempt, status, latency, next-retry).
 - **Backend:** HMAC signer; `webhook:deliver` consumer with exponential backoff; retry schedule + dead-letter; rotation + replay endpoints.
 - **Frontend:** per-webhook delivery log, replay button, secret rotation UI.
@@ -383,7 +406,22 @@ AUTH → WORKSPACE/PROJECTS → API KEYS → SENDERS+GMAIL → TEMPLATES → ING
 
 ## PHASE 4 — Domain trust
 
+> **Status (2026-09-24): shipped (M4.1 + M4.2), env-acceptance pending.**
+> Real DNS-TXT challenge state machine (`pending/verified/failed/expired`,
+> 72h TTL swept on read) in `@calder/db/domain-verification`, shared by API
+> routes and the dashboard wizard. 192-bit `cvt_` tokens, exact-match
+> semantics, bounded expected-vs-found diagnostics, 10-attempts/h rolling
+> rate limit, first-proof-wins cross-tenant 409, atomic verified flip +
+> `domain.verified` audit. DoH fallback oracle after system-DNS timeout.
+> Legacy demo tokens treated as challenge-free. M4.2: SES identity link,
+> 3 DKIM CNAMEs persisted (`dkim_records`), SPF guidance, refresh poll;
+> wizard auto-polls every 20s; M4 gate: over-cap Gmail refusals name the
+> domain remedy in drain+worker. Migration `0021_domain_trust` unapplied
+> (pg down). Pending env: migration apply, gated integration suite,
+> Flow-D manual pass incl. failing-case UI. See **ADR-039**.
+
 **Goal:** verification means proof. **Why now:** needs DNS + SES linkage; blocks production reputation. **Prerequisites:** Phase 1 recommended (bounce visibility).
+
 - **Database:** challenge state machine (pending/verified/failed/expired) on domains.
 - **Backend:** real TXT lookup; SES identity verification linkage; DKIM/SPF storage; cross-tenant verify denial; propagation-tolerant polling.
 - **Frontend:** setup wizard with live DNS polling + failure diagnostics (expected record vs found vs fix).
@@ -399,7 +437,24 @@ AUTH → WORKSPACE/PROJECTS → API KEYS → SENDERS+GMAIL → TEMPLATES → ING
 
 ## PHASE 5 — Dashboard truth
 
+> **Status (2026-09-25): shipped (M5.1 + M5.2 + M5.3).** Logs: search
+> (recipient/subject/id via join) + type filter + cursor pagination.
+> Deliveries: status/search filters + cursor pagination; honest terminal-state
+> rate kept. Suppressions: real manager (list/search/add/remove, project
+> picker). Audit logs: real tenant-side view over `audit_logs` — Premium
+> plan-gate removed. Team: consolidated into Settings (real invite/role
+> management); fabricated PRO PlanGate page deleted. Templates: full CRUD
+> with immutable versioning + sandboxed preview with sample-var injection +
+> one-time-key test-send through the real API (`/templates/new`, `/[id]`).
+> SDKs: six-language hub (Node/Python/Ruby/PHP/Go/cURL) with in-browser key
+> injection + one-click test-key mint + copy. M5.3: truth gate extended —
+> **full dead-link crawl over the app shell** (dynamic-aware route resolution)
+> plus fabricated-number bans (thousands-formatted statics, Math.random in
+> views), all running in the existing CI test task. Pending env: none for
+> code; per-page 390px eyeball on the next Vercel preview.
+
 **Goal:** every customer pixel reflects the system. **Why now:** needs Phases 1–2 data. **Prerequisites:** Phases 1, 2.
+
 - **Database:** none new. **Backend:** search/pagination params on reads (no new tables).
 - **Frontend:** logs search + pagination; deliveries filters; suppressions manager (list/add/remove); own audit-log view; `/team` consolidation or removal; templates `/new` + `/:id` + preview/test-send; SDK snippets with real key injection + copy.
 - **Tests:** tenant-isolation denial per new read; pagination correctness; **blocking CI gates:** dead-link crawl + no-fabricated-numbers grep.
@@ -410,9 +465,26 @@ AUTH → WORKSPACE/PROJECTS → API KEYS → SENDERS+GMAIL → TEMPLATES → ING
 - **Next-phase dependency:** demoable, sellable product.
 - **Milestones:** M5.1 observability reads · M5.2 templates/team/SDKs · M5.3 CI truth gates.
 
-## PHASE 6 — Auth hardening + Control completion
+## PHASE 6 — Auth hardening + Control completion — ✅ COMPLETE 2026-09-25
+
+**Status: ✅ COMPLETE.** M6.1 + M6.2 shipped in `arena/01a0ba35-calder`; the
+full §11 register is re-audited with code anchors in
+**`docs/PHASE6-RE-AUDIT.md`** (production-security code sign-off GRANTED);
+decisions in ADR-040 (H4 link rule, DB lockout, reset-revoke, v2 OTP HMAC,
+bounded magic callback, mandatory cron secret) + ADR-041 (Redis fixed-window
+limiter with loud degraded-mode fallback). Migration `0022_auth_hardening`
+(adds `users.failed_login_attempts`/`locked_until`,
+`sessions.user_agent`/`ip`/`last_seen_at`) queued for the live DB pass.
+Truth-pass to control numbers: audiences counted via honest joins (no JSONB
+blob counting, no hardcoded plan row counts, inactivity = 30-day session
+silence); plan grants founder-only with mandatory audited reason; role
+grants reason-prompted; settings presence checks now read reality (the old
+`WEBHOOK_SIGNING_SECRET configured` claim was fabricated — it never existed);
+abuse ladder restyled as numbered steps. Test gate at ship: 242 unit tests
+green / 0 failures across 10 packages.
 
 **Goal:** production security posture; control fully operational. **Why now:** features complete; harden before scale. **Prerequisites:** Phases 1–5.
+
 - **Backend:** H4 OAuth-link decision implemented + tested; logout-everywhere + session inventory; reset revokes sessions; lockout/progressive delay; magic-link callback limit; OTP pepper; cron secret mandatory in prod; Redis-limiter decision (document single-instance or build).
 - **Frontend (control):** grant-reason field; plan-grant founder-restriction (or documented operator policy); settings presence-check fix; audiences counts/labels; abuse ladder restyle; health cohorts computed or removed.
 - **Tests:** takeover-attempt; session inventory; lockout timing; grant-audit assertions; limiter effectiveness single-vs-multi.
@@ -425,10 +497,11 @@ AUTH → WORKSPACE/PROJECTS → API KEYS → SENDERS+GMAIL → TEMPLATES → ING
 ## PHASE 7 — Design system landing (runs alongside 4–6)
 
 **Goal:** one system, adopted. **Why now:** lands on real pages, not stubs. **Prerequisites:** adopt-vs-deprecate `packages/ui` decision taken first.
-- **M7.1 Tokens + primitives.** Var emission (spacing/radius/type/shadow/focus/disabled/overlay), muted/border floors, blue roles documented; Table/Confirm/Field/ErrorText/Toast/Modal in the one system. *Exit:* new code uses primitives; contrast lint clean.
-- **M7.2 Navigation + tables + forms.** Single nav with `aria-current`; `cp-table` port + scroll wrappers; shared controls; `window.confirm` gone. *Exit:* §17 orders 3–6.
-- **M7.3 States + charts + responsive.** Per-route loading/error; charts re-tokenized (fixes the 500s); 390px pass. *Exit:* §17 orders 7–9.
-- **M7.4 Page migration** in order: overview → emails/composer → senders → keys → logs/deliveries → settings → domains/webhooks → rest. *Exit:* >80% adoption; zero new inline hex.
+
+- **M7.1 Tokens + primitives.** Var emission (spacing/radius/type/shadow/focus/disabled/overlay), muted/border floors, blue roles documented; Table/Confirm/Field/ErrorText/Toast/Modal in the one system. _Exit:_ new code uses primitives; contrast lint clean.
+- **M7.2 Navigation + tables + forms.** Single nav with `aria-current`; `cp-table` port + scroll wrappers; shared controls; `window.confirm` gone. _Exit:_ §17 orders 3–6.
+- **M7.3 States + charts + responsive.** Per-route loading/error; charts re-tokenized (fixes the 500s); 390px pass. _Exit:_ §17 orders 7–9.
+- **M7.4 Page migration** in order: overview → emails/composer → senders → keys → logs/deliveries → settings → domains/webhooks → rest. _Exit:_ >80% adoption; zero new inline hex.
 
 ## 15. Exact Implementation Order (numbered, dependency-linked)
 
@@ -477,6 +550,7 @@ AUTH → WORKSPACE/PROJECTS → API KEYS → SENDERS+GMAIL → TEMPLATES → ING
 ## 17. UI Redesign Plan (system before pages)
 
 1. Tokens: emit all vars; lock floors; document blues; lint raw hex. 2. Type roles + H1 codemod. 3. Primitives: decide ui fate; add Table/Confirm/Field/ErrorText/Toast/Modal/Skeletons; delete web logo fork. 4. Navigation: single source + `aria-current` + one badge. 5. Tables: `cp-table` port + scroll + pagination + sort on 5 list pages. 6. Forms: shared controls + labels + inline errors + focus/disabled; kill `window.confirm`. 7. Cards/stats/badges: one shell, one status map, unified badge vocab. 8. States: per-route loading/error; honest empties; no swallowed errors. 9. Charts: light-register re-token; hoist `footer` server-side (fixes 500s). 10. Drawers/modals/toasts for confirms/async feedback. 11. Command/search: deferred post-launch. 12. Suspense-wired skeletons per section. 13. Empty-state audit + illustration 404 check. 14. Diagnosable errors with request-ids. 15. 390px pass per migrated page.
+
 - **Migration order:** overview → emails/composer → senders → keys → logs/deliveries → settings → domains/webhooks → rest.
 
 ## 18. Documentation Changes
@@ -508,11 +582,7 @@ Metrics/incidents → storage/networking probes → maintenance switches → sta
 
 ## §G — GMAIL QUICKSTART: PROTECTED TRACK
 
-*Why special:* no-domain, no-budget onboarding — the Nigeria-first wedge. Real mail in minutes via OAuth, then graduation to domains. Done safely, the moat; done loosely, a spam relay in our name.
-*Present safeguards (verified):* minimum OAuth scope (`gmail.send` + identity, never passwords); AES-256-GCM tokens, in-memory-only decrypt; 400/day cap pre-send; sender pinning (only the connected address); revocation fail-closed with explicit `gmail_revoked`; no bulk by design + cap.
-*Abuse scenarios → safeguard → milestone:* burst spam → velocity baselines + warn→limit→suspend+appeal, audit-logged → M2.5 · cap evasion across projects → per-project UTC-day accounting, exact sent-count metric → M2.4 · phishing via self-verified domain → M4.1 kills the primitive; Gmail senders pinned regardless → M2.4 pinning test · credential abuse → revocation surfacing + session review → M2.4/M6.1 · reputation contagion → per-account velocity flags + Gmail inventory dashboard in control → M2.5 · silent over-cap → graduation prompts (M2.4) → hard gate: over-cap Gmail must verify a domain (M4) · demo/prod bleed → seed Gmail transports never touch prod; launch-gate proof.
-*PR rule:* any Gmail-path change states how it's abused, what stops it, what pages — or it doesn't merge.
-
-
-
-
+_Why special:_ no-domain, no-budget onboarding — the Nigeria-first wedge. Real mail in minutes via OAuth, then graduation to domains. Done safely, the moat; done loosely, a spam relay in our name.
+_Present safeguards (verified):_ minimum OAuth scope (`gmail.send` + identity, never passwords); AES-256-GCM tokens, in-memory-only decrypt; 400/day cap pre-send; sender pinning (only the connected address); revocation fail-closed with explicit `gmail_revoked`; no bulk by design + cap.
+_Abuse scenarios → safeguard → milestone:_ burst spam → velocity baselines + warn→limit→suspend+appeal, audit-logged → M2.5 · cap evasion across projects → per-project UTC-day accounting, exact sent-count metric → M2.4 · phishing via self-verified domain → M4.1 kills the primitive; Gmail senders pinned regardless → M2.4 pinning test · credential abuse → revocation surfacing + session review → M2.4/M6.1 · reputation contagion → per-account velocity flags + Gmail inventory dashboard in control → M2.5 · silent over-cap → graduation prompts (M2.4) → hard gate: over-cap Gmail must verify a domain (M4) · demo/prod bleed → seed Gmail transports never touch prod; launch-gate proof.
+_PR rule:_ any Gmail-path change states how it's abused, what stops it, what pages — or it doesn't merge.

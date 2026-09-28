@@ -26,16 +26,26 @@ import {
   pctChange,
   ppChange,
 } from "@/lib/control/range";
-import { Empty, InsightList, PageHeader, Panel, SectionLabel, Stat } from "@/control/_components/ui";
+import {
+  Empty,
+  InsightList,
+  PageHeader,
+  Panel,
+  SectionLabel,
+  Stat,
+} from "@/control/_components/ui";
 import { FounderTopbar } from "@/control/_components/founder-topbar";
 
 const TrendChart = nextDynamic(() => import("@/components/charts").then((m) => m.TrendChart), {
   ssr: false,
   loading: () => <div style={{ height: 340 }} />,
 });
-const ActivityHeatmap = nextDynamic(() => import("@/components/charts").then((m) => m.ActivityHeatmap), {
-  ssr: false,
-});
+const ActivityHeatmap = nextDynamic(
+  () => import("@/components/charts").then((m) => m.ActivityHeatmap),
+  {
+    ssr: false,
+  }
+);
 
 export const dynamic = "force-dynamic";
 
@@ -107,23 +117,57 @@ export default async function GrowthOverviewPage({
     safe(waitlistSourceInWindow(window), []),
     safe(topPages(window), []),
   ]);
-  const impressions = await safe(ctaImpressions(window, Object.keys(CTA_LABELS)), new Map<string, number>());
+  const impressions = await safe(
+    ctaImpressions(window, Object.keys(CTA_LABELS)),
+    new Map<string, number>()
+  );
 
   const now = new Date();
   const wlDense = denseDailyFromWindow(window, wlDaily, now);
   const convDense = denseDailyFromWindow(window, convDaily, now);
 
   // Merge chart series by day.
-  const dayMap = new Map<string, { day: string; visitors: number; sessions: number; clicks: number; submissions: number; confirmed: number }>();
+  const dayMap = new Map<
+    string,
+    {
+      day: string;
+      visitors: number;
+      sessions: number;
+      clicks: number;
+      submissions: number;
+      confirmed: number;
+    }
+  >();
   for (const r of series)
-    dayMap.set(r.day, { day: r.day, visitors: r.visitors, sessions: r.sessions, clicks: r.clicks, submissions: 0, confirmed: 0 });
+    dayMap.set(r.day, {
+      day: r.day,
+      visitors: r.visitors,
+      sessions: r.sessions,
+      clicks: r.clicks,
+      submissions: 0,
+      confirmed: 0,
+    });
   for (const r of wlDense) {
-    const row = dayMap.get(r.day) ?? { day: r.day, visitors: 0, sessions: 0, clicks: 0, submissions: 0, confirmed: 0 };
+    const row = dayMap.get(r.day) ?? {
+      day: r.day,
+      visitors: 0,
+      sessions: 0,
+      clicks: 0,
+      submissions: 0,
+      confirmed: 0,
+    };
     row.submissions = r.count;
     dayMap.set(r.day, row);
   }
   for (const r of convDense) {
-    const row = dayMap.get(r.day) ?? { day: r.day, visitors: 0, sessions: 0, clicks: 0, submissions: 0, confirmed: 0 };
+    const row = dayMap.get(r.day) ?? {
+      day: r.day,
+      visitors: 0,
+      sessions: 0,
+      clicks: 0,
+      submissions: 0,
+      confirmed: 0,
+    };
     row.confirmed = r.count;
     dayMap.set(r.day, row);
   }
@@ -155,13 +199,25 @@ export default async function GrowthOverviewPage({
   const firstHalf = dayValues.slice(0, half).reduce((a, b) => a + b, 0);
   const secondHalf = dayValues.slice(half).reduce((a, b) => a + b, 0);
   const wow = half > 0 ? pctChange(secondHalf, firstHalf) : null;
-  const best = wlDense.reduce<{ day: string; count: number } | null>((acc, d) => (!acc || d.count > acc.count ? d : acc), null);
-  const lowest = wlDense.reduce<{ day: string; count: number } | null>((acc, d) => (!acc || d.count < acc.count ? d : acc), null);
+  const best = wlDense.reduce<{ day: string; count: number } | null>(
+    (acc, d) => (!acc || d.count > acc.count ? d : acc),
+    null
+  );
+  const lowest = wlDense.reduce<{ day: string; count: number } | null>(
+    (acc, d) => (!acc || d.count < acc.count ? d : acc),
+    null
+  );
 
   // Best periods (REQ-044).
   const trafficByDay = series.map((r) => ({ day: r.day, value: r.visitors }));
-  const bestTraffic = trafficByDay.reduce<{ day: string; value: number } | null>((acc, d) => (!acc || d.value > acc.value ? d : acc), null);
-  const bestSubmissions = wlDense.reduce<{ day: string; count: number } | null>((acc, d) => (!acc || d.count > acc.count ? d : acc), null);
+  const bestTraffic = trafficByDay.reduce<{ day: string; value: number } | null>(
+    (acc, d) => (!acc || d.value > acc.value ? d : acc),
+    null
+  );
+  const bestSubmissions = wlDense.reduce<{ day: string; count: number } | null>(
+    (acc, d) => (!acc || d.count > acc.count ? d : acc),
+    null
+  );
 
   // Engagement (REQ-041) — bounce intentionally absent: no session semantics yet.
   const returningShare =
@@ -182,18 +238,26 @@ export default async function GrowthOverviewPage({
   if (linkedin && linkedinPrev && linkedinPrev.visitors > 0) {
     const delta = pctChange(linkedin.visitors, linkedinPrev.visitors);
     if (delta !== null && Math.abs(delta) >= 15) {
-      notes.push(`Traffic from LinkedIn ${delta > 0 ? "increased" : "decreased"} ${Math.abs(delta).toFixed(0)}% versus the previous period.`);
+      notes.push(
+        `Traffic from LinkedIn ${delta > 0 ? "increased" : "decreased"} ${Math.abs(delta).toFixed(0)}% versus the previous period.`
+      );
     }
   }
   if (bestSubmissions) {
-    notes.push(`Waitlist submissions peaked on ${bestSubmissions.day} (${fmtInt(bestSubmissions.count)} in a day).`);
+    notes.push(
+      `Waitlist submissions peaked on ${bestSubmissions.day} (${fmtInt(bestSubmissions.count)} in a day).`
+    );
   }
   const topCountry = wlCountries[0];
   if (topCountry && submissions > 0) {
-    notes.push(`${topCountry.country} accounts for ${Math.round((topCountry.submissions / submissions) * 100)}% of new submissions this period.`);
+    notes.push(
+      `${topCountry.country} accounts for ${Math.round((topCountry.submissions / submissions) * 100)}% of new submissions this period.`
+    );
   }
   if (dConvRate !== null) {
-    notes.push(`Visitor → confirmed conversion ${dConvRate >= 0 ? "improved" : "declined"} from ${convRatePrev !== null ? fmtPct(convRatePrev) : "—"} to ${convRate !== null ? fmtPct(convRate) : "—"}.`);
+    notes.push(
+      `Visitor → confirmed conversion ${dConvRate >= 0 ? "improved" : "declined"} from ${convRatePrev !== null ? fmtPct(convRatePrev) : "—"} to ${convRate !== null ? fmtPct(convRate) : "—"}.`
+    );
   }
 
   // Acquisition table: event-layer traffic + signup-time sources joined.
@@ -226,7 +290,13 @@ export default async function GrowthOverviewPage({
           subtitle="Where people come from, what they do, and what turns a visit into a signup."
         />
 
-        <SectionLabel right={<span className="cp-caption" style={{ margin: 0 }}>{window.compareLabel}</span>}>
+        <SectionLabel
+          right={
+            <span className="cp-caption" style={{ margin: 0 }}>
+              {window.compareLabel}
+            </span>
+          }
+        >
           Core growth
         </SectionLabel>
         <div className="cp-stats">
@@ -235,7 +305,11 @@ export default async function GrowthOverviewPage({
             value={hasTrafficData ? fmtInt(visitors) : "—"}
             delta={dVisitors}
             basis={window.compareLabel}
-            hint={hasTrafficData ? "unique visitors in range" : "first-party analytics is collecting its first data"}
+            hint={
+              hasTrafficData
+                ? "unique visitors in range"
+                : "first-party analytics is collecting its first data"
+            }
             spark={series.slice(-14).map((r) => r.visitors)}
           />
           <Stat
@@ -243,7 +317,11 @@ export default async function GrowthOverviewPage({
             value={hasTrafficData ? fmtInt(sessions) : "—"}
             delta={dSessions}
             basis={window.compareLabel}
-            hint={hasTrafficData ? `${fmtInt(pageviews)} pageviews` : "sessions begin accruing with traffic"}
+            hint={
+              hasTrafficData
+                ? `${fmtInt(pageviews)} pageviews`
+                : "sessions begin accruing with traffic"
+            }
           />
           <Stat
             label="Submissions"
@@ -253,16 +331,29 @@ export default async function GrowthOverviewPage({
             hint="completed waitlist submissions"
             spark={wlDense.slice(-14).map((d) => d.count)}
           />
-          <Stat label="Confirmed" value={fmtInt(confirmed)} delta={pctChange(confirmed, convPrev)} basis={window.compareLabel} hint="now hold accounts" />
+          <Stat
+            label="Confirmed"
+            value={fmtInt(confirmed)}
+            delta={pctChange(confirmed, convPrev)}
+            basis={window.compareLabel}
+            hint="now hold accounts"
+          />
           <Stat
             label="Visitor → confirmed"
             value={convRate !== null ? fmtPct(convRate) : "—"}
-            hint={dConvRate !== null ? `${fmtDeltaPp(dConvRate)} ${window.compareLabel.replace("vs ", "")}` : "rate needs visitor data"}
+            hint={
+              dConvRate !== null
+                ? `${fmtDeltaPp(dConvRate)} ${window.compareLabel.replace("vs ", "")}`
+                : "rate needs visitor data"
+            }
           />
         </div>
 
         <SectionLabel>Growth over time</SectionLabel>
-        <Panel title="Growth over time" caption="Toggle series · hover for per-day detail · comparison basis shown on each metric">
+        <Panel
+          title="Growth over time"
+          caption="Toggle series · hover for per-day detail · comparison basis shown on each metric"
+        >
           <TrendChart
             data={chartData}
             height={340}
@@ -282,9 +373,20 @@ export default async function GrowthOverviewPage({
         </Panel>
 
         <div className="cp-grid cp-grid-2">
-          <Panel title="Growth velocity" caption={`Momentum within this window · ${window.compareLabel}`}>
-            <Stat label="Week over week (window halves)" value={wow !== null ? fmtDeltaPct(wow) : "—"} hint="second half vs first half" />
-            <Stat label="Average daily submissions" value={avgDaily.toFixed(1)} hint="across the selected range" />
+          <Panel
+            title="Growth velocity"
+            caption={`Momentum within this window · ${window.compareLabel}`}
+          >
+            <Stat
+              label="Week over week (window halves)"
+              value={wow !== null ? fmtDeltaPct(wow) : "—"}
+              hint="second half vs first half"
+            />
+            <Stat
+              label="Average daily submissions"
+              value={avgDaily.toFixed(1)}
+              hint="across the selected range"
+            />
             <Stat
               label="Best day"
               value={best ? fmtInt(best.count) : "—"}
@@ -318,11 +420,14 @@ export default async function GrowthOverviewPage({
             </Panel>
           </Panel>
 
-          <Panel title="Conversion journey" caption="Visitor → confirmed, with the drop-offs made visible">
+          <Panel
+            title="Conversion journey"
+            caption="Visitor → confirmed, with the drop-offs made visible"
+          >
             {visitors > 0 || submissions > 0 ? (
               <div className="cp-funnel">
                 {funnel.map((step, i) => {
-                  const prev = i > 0 ? funnel[i - 1]?.value ?? 0 : null;
+                  const prev = i > 0 ? (funnel[i - 1]?.value ?? 0) : null;
                   const rate = prev && prev > 0 ? (step.value / prev) * 100 : null;
                   const lost = i > 0 ? Math.max(0, (funnel[i - 1]?.value ?? 0) - step.value) : null;
                   return (
@@ -339,7 +444,10 @@ export default async function GrowthOverviewPage({
                             : "overall conversion needs visitor data"}
                       </span>
                       <span className="cp-funnel-track">
-                        <span className="cp-funnel-fill" style={{ width: `${Math.max(2, rate ?? 100)}%` }} />
+                        <span
+                          className="cp-funnel-fill"
+                          style={{ width: `${Math.max(2, rate ?? 100)}%` }}
+                        />
                       </span>
                     </div>
                   );
@@ -347,7 +455,8 @@ export default async function GrowthOverviewPage({
               </div>
             ) : (
               <Empty title="Growth data will appear here">
-                Once visitors start interacting with Calder, the journey from visit to confirmed shows here.
+                Once visitors start interacting with Calder, the journey from visit to confirmed
+                shows here.
               </Empty>
             )}
           </Panel>
@@ -355,7 +464,10 @@ export default async function GrowthOverviewPage({
 
         <SectionLabel>Acquisition & geography</SectionLabel>
         <div className="cp-grid cp-grid-2">
-          <Panel title="Where growth comes from" caption="Traffic from the event layer; submissions captured at signup">
+          <Panel
+            title="Where growth comes from"
+            caption="Traffic from the event layer; submissions captured at signup"
+          >
             {sourceRows.length === 0 ? (
               <Empty title="No source data yet" />
             ) : (
@@ -402,7 +514,11 @@ export default async function GrowthOverviewPage({
                       <tr key={`t-${c.country}`}>
                         <td>{c.country}</td>
                         <td className="cp-num">{fmtInt(c.visitors)}</td>
-                        <td className="cp-num">{fmtInt(wlCountries.find((w) => w.country === c.country)?.submissions ?? 0)}</td>
+                        <td className="cp-num">
+                          {fmtInt(
+                            wlCountries.find((w) => w.country === c.country)?.submissions ?? 0
+                          )}
+                        </td>
                       </tr>
                     ))}
                     {wlCountries
@@ -439,7 +555,9 @@ export default async function GrowthOverviewPage({
                   <tbody>
                     {pages.map((p) => (
                       <tr key={p.path}>
-                        <td className="mono" style={{ fontSize: 12.5 }}>{p.path}</td>
+                        <td className="mono" style={{ fontSize: 12.5 }}>
+                          {p.path}
+                        </td>
                         <td className="cp-num">{fmtInt(p.views)}</td>
                         <td className="cp-num">{fmtInt(p.visitors)}</td>
                       </tr>
@@ -463,7 +581,9 @@ export default async function GrowthOverviewPage({
                       <span className="k">
                         {CTA_LABELS[c.label] ?? c.label}
                         <span style={{ color: "var(--cp-faint)", marginLeft: 6, fontSize: 11.5 }}>
-                          {impressionsFor > 0 ? `${fmtInt(impressionsFor)} impressions` : "impressions pending"}
+                          {impressionsFor > 0
+                            ? `${fmtInt(impressionsFor)} impressions`
+                            : "impressions pending"}
                           {ctr !== null ? ` · ${fmtPct(ctr)} CTR` : ""}
                         </span>
                       </span>
@@ -480,7 +600,9 @@ export default async function GrowthOverviewPage({
         <div className="cp-stats">
           <Stat
             label="Avg session duration"
-            value={traffic?.avgSessionSeconds != null ? fmtDuration(traffic.avgSessionSeconds) : "—"}
+            value={
+              traffic?.avgSessionSeconds != null ? fmtDuration(traffic.avgSessionSeconds) : "—"
+            }
             hint="sessions with multiple pageviews"
           />
           <Stat
@@ -493,7 +615,11 @@ export default async function GrowthOverviewPage({
             value={returningShare !== null ? fmtPct(returningShare) : "—"}
             hint="seen in a previous period"
           />
-          <Stat label="Bounce rate" value="—" hint="not yet reliably defined — shown only when it is" />
+          <Stat
+            label="Bounce rate"
+            value="—"
+            hint="not yet reliably defined — shown only when it is"
+          />
         </div>
 
         <SectionLabel>Notable changes</SectionLabel>

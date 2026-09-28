@@ -22,9 +22,17 @@ export default async function CampaignsPage() {
 
       <div className="cp-grid cp-grid-2">
         <Panel title="Transactional" caption="application events, one person at a time">
-          <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: "0 0 12px", lineHeight: 1.6 }}>
-            OTP, verification, password reset, receipts, invoices, alerts, notifications. Sent through the API, SMTP,
-            SDKs, or a connected Gmail transport — same pipeline, same event lifecycle, same usage meter.
+          <p
+            style={{
+              fontSize: 13.5,
+              color: "var(--cp-muted)",
+              margin: "0 0 12px",
+              lineHeight: 1.6,
+            }}
+          >
+            OTP, verification, password reset, receipts, invoices, alerts, notifications. Sent
+            through the API, SMTP, SDKs, or a connected Gmail transport — same pipeline, same event
+            lifecycle, same usage meter.
           </p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Badge tone="ok">API</Badge>
@@ -35,10 +43,17 @@ export default async function CampaignsPage() {
           </div>
         </Panel>
         <Panel title="Marketing" caption="broadcasts to many, with consent">
-          <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: "0 0 12px", lineHeight: 1.6 }}>
-            Newsletters, announcements, launches, onboarding and lifecycle campaigns. Requires audiences, consent,
-            unsubscribe, suppression, scheduling, and its own sending reputation — a separate engine from
-            transactional, by design.
+          <p
+            style={{
+              fontSize: 13.5,
+              color: "var(--cp-muted)",
+              margin: "0 0 12px",
+              lineHeight: 1.6,
+            }}
+          >
+            Newsletters, announcements, launches, onboarding and lifecycle campaigns. Requires
+            audiences, consent, unsubscribe, suppression, scheduling, and its own sending reputation
+            — a separate engine from transactional, by design.
           </p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Badge tone="warn">Campaign engine</Badge>
@@ -48,7 +63,10 @@ export default async function CampaignsPage() {
         </Panel>
       </div>
 
-      <Panel title="The Gmail rule" caption="a personal Gmail is a transactional transport, never a marketing transport">
+      <Panel
+        title="The Gmail rule"
+        caption="a personal Gmail is a transactional transport, never a marketing transport"
+      >
         <div
           style={{
             border: "1px solid var(--cp-border)",
@@ -67,29 +85,39 @@ export default async function CampaignsPage() {
           <p style={{ fontSize: 13.5, margin: 0 }}>
             <span style={{ color: "var(--cp-faint)" }}>—</span> Marketing campaigns — not supported
           </p>
-          <p style={{ fontSize: 12.5, color: "var(--cp-muted)", margin: "10px 0 0", maxWidth: "62ch" }}>
-            Marketing requires a verified sending domain and Calder&rsquo;s marketing infrastructure. This exact
-            message is shown to customers in the product — no one treats someone&rsquo;s personal Gmail as a bulk-mail
-            system through Calder.
+          <p
+            style={{
+              fontSize: 12.5,
+              color: "var(--cp-muted)",
+              margin: "10px 0 0",
+              maxWidth: "62ch",
+            }}
+          >
+            Marketing requires a verified sending domain and Calder&rsquo;s marketing
+            infrastructure. This exact message is shown to customers in the product — no one treats
+            someone&rsquo;s personal Gmail as a bulk-mail system through Calder.
           </p>
         </div>
         <p style={{ fontSize: 13, color: "var(--cp-muted)", margin: 0, lineHeight: 1.6 }}>
-          Mechanically: marketing traffic never touches Gmail transports. The campaign engine queues into marketing
-          sending infrastructure (verified domains → dedicated provider pools); Gmail is excluded from campaign
-          transport resolution at the code level, not just the UI. Enforcement lands with the campaign engine
-          (post-MVP); until then the only broadcast path is the internal one —{" "}
-          <span className="mono">/v1/admin/waitlist/broadcast</span> — which rides Calder&rsquo;s own verified
-          infrastructure, never Gmail.
+          Mechanically: marketing traffic never touches Gmail transports. The campaign engine queues
+          into marketing sending infrastructure (verified domains → dedicated provider pools); Gmail
+          is excluded from campaign transport resolution at the code level, not just the UI.
+          Enforcement lands with the campaign engine (post-MVP); until then the only broadcast path
+          is the internal one — <span className="mono">/v1/admin/waitlist/broadcast</span> — which
+          rides Calder&rsquo;s own verified infrastructure, never Gmail.
         </p>
       </Panel>
 
-      <Panel title="Roadmap: the campaign flow" caption="audience → template → sender → preview → test → schedule → send → analytics">
+      <Panel
+        title="Roadmap: the campaign flow"
+        caption="audience → template → sender → preview → test → schedule → send → analytics"
+      >
         <div className="cp-planned">
           <b>Customer-facing campaign engine (post-MVP)</b>
           <p>
-            Campaign pages with recipients/delivered/opened/clicked/unsubscribed, scheduling, per-campaign analytics,
-            and reputation isolation from transactional traffic. Specified in PRD §18 — deliberately not built by
-            multiplying a single send.
+            Campaign pages with recipients/delivered/opened/clicked/unsubscribed, scheduling,
+            per-campaign analytics, and reputation isolation from transactional traffic. Specified
+            in PRD §18 — deliberately not built by multiplying a single send.
           </p>
         </div>
       </Panel>

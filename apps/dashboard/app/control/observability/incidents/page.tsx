@@ -22,8 +22,9 @@ export default async function IncidentsPage() {
             "Post-incident review attached to the record",
           ]}
         >
-          The escalation path today: an alert fires on the Command Center, you investigate through the linked surface,
-          and the fix lands. Formal incident records begin when there is more than one operator to coordinate.
+          The escalation path today: an alert fires on the Command Center, you investigate through
+          the linked surface, and the fix lands. Formal incident records begin when there is more
+          than one operator to coordinate.
         </Planned>
       </Panel>
     </>

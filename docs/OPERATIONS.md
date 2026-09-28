@@ -6,15 +6,15 @@
 
 ## What to monitor
 
-| Category | Signals |
+| Category       | Signals                                                                                                   |
 | -------------- | --------------------------------------------------------------------------------------------------------- |
-| API | latency, error rate |
-| SMTP gateway | connections, auth success/failure rate, messages accepted/rejected, SMTP codes, TLS failures, cert expiry |
-| Sending | queued, sent, delivery rate |
-| Deliverability | bounce rate, complaint rate |
-| Queue | depth, worker failures |
-| Provider | latency, errors |
-| Webhooks | delivery failures, retry exhaustion |
+| API            | latency, error rate                                                                                       |
+| SMTP gateway   | connections, auth success/failure rate, messages accepted/rejected, SMTP codes, TLS failures, cert expiry |
+| Sending        | queued, sent, delivery rate                                                                               |
+| Deliverability | bounce rate, complaint rate                                                                               |
+| Queue          | depth, worker failures                                                                                    |
+| Provider       | latency, errors                                                                                           |
+| Webhooks       | delivery failures, retry exhaustion                                                                       |
 
 ## Scheduled jobs (all idempotent, safe to re-run)
 

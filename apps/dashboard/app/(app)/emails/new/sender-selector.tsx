@@ -62,7 +62,7 @@ export function SenderSelector({
     }
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
-  }, [open ]);
+  }, [open]);
 
   useEffect(() => {
     setHighlight(0);
@@ -217,10 +217,19 @@ export function SenderSelector({
                   {value === s.id ? "✓" : ""}
                 </span>
                 <span style={{ minWidth: 0 }}>
-                  <span style={{ display: "block", fontSize: 14, fontWeight: value === s.id ? 700 : 400 }}>
+                  <span
+                    style={{
+                      display: "block",
+                      fontSize: 14,
+                      fontWeight: value === s.id ? 700 : 400,
+                    }}
+                  >
                     {s.displayName}
                   </span>
-                  <span className="mono" style={{ display: "block", fontSize: 12, color: "#525252" }}>
+                  <span
+                    className="mono"
+                    style={{ display: "block", fontSize: 12, color: "#525252" }}
+                  >
                     {s.email}
                   </span>
                 </span>

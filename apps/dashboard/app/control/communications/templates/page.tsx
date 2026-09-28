@@ -24,7 +24,10 @@ export default async function TemplatesPage() {
         subtitle="The dynamic templates Calder's own mail runs on. The waitlist confirmation is editable without a deploy — it is infrastructure that talks."
       />
 
-      <Panel title="Waitlist confirmation" caption="sent on every waitlist join · single dynamic row">
+      <Panel
+        title="Waitlist confirmation"
+        caption="sent on every waitlist join · single dynamic row"
+      >
         {confirmation ? (
           <>
             <KV k="Subject" v={confirmation.subject} />
@@ -63,7 +66,7 @@ export default async function TemplatesPage() {
                 overflowX: "auto",
               }}
             >
-{`curl -X PUT $API_URL/v1/admin/waitlist/confirmation \\
+              {`curl -X PUT $API_URL/v1/admin/waitlist/confirmation \\
   -H "Authorization: Bearer $ADMIN_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"subject":"…","html":"…","text":"…"}'`}
@@ -71,7 +74,8 @@ export default async function TemplatesPage() {
           </>
         ) : (
           <Empty title="Not configured yet">
-            The waitlist confirmation falls back to a built-in template until this row is set via the admin API.
+            The waitlist confirmation falls back to a built-in template until this row is set via
+            the admin API.
           </Empty>
         )}
       </Panel>

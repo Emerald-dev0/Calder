@@ -1,6 +1,6 @@
 {
- "$schema": "https://turbo.build/schema.json",
- "globalDependencies": ["**/.env.*local"],
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["**/.env.*local"],
   "globalEnv": [
     "DATABASE_URL",
     "REDIS_URL",
@@ -10,45 +10,45 @@
     "DASHBOARD_URL",
     "RUN_INTEGRATION_TESTS"
   ],
- "tasks": {
- "build": {
- "dependsOn": ["^build"],
- "outputs": [".next/**", "dist/**", "!.next/cache/**"]
- },
- "dev": {
- "cache": false,
- "persistent": true
- },
- "lint": {
- "outputs": []
- },
- "lint:fix": {
- "outputs": []
- },
- "typecheck": {
- "dependsOn": ["^build"],
- "outputs": []
- },
- "test": {
- "dependsOn": ["^build"],
- "outputs": []
- },
- "test:watch": {
- "cache": false,
- "persistent": true
- },
- "clean": {
- "cache": false
- },
- "db:generate": {
- "cache": false
- },
- "db:migrate": {
- "cache": false
- },
- "db:studio": {
- "cache": false,
- "persistent": true
- }
- }
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "dist/**", "!.next/cache/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "outputs": []
+    },
+    "lint:fix": {
+      "outputs": []
+    },
+    "typecheck": {
+      "dependsOn": ["^build", "build"],
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "test:watch": {
+      "cache": false,
+      "persistent": true
+    },
+    "clean": {
+      "cache": false
+    },
+    "db:generate": {
+      "cache": false
+    },
+    "db:migrate": {
+      "cache": false
+    },
+    "db:studio": {
+      "cache": false,
+      "persistent": true
+    }
+  }
 }

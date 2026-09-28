@@ -118,8 +118,8 @@ export function AddSender({
         >
           {gmailTransports.length === 0 ? (
             <p style={{ fontSize: 13, color: "#737373", margin: 0 }}>
-              No Gmail connected to this project yet. Connect it during onboarding or in
-              project settings first.
+              No Gmail connected to this project yet. Connect it during onboarding or in project
+              settings first.
             </p>
           ) : (
             <>

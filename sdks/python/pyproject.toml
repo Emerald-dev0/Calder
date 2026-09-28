@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "calder"
+version = "0.1.0"
+description = "Official Calder Python SDK — transactional email with durable delivery and idempotent sends."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Calder" }]
+keywords = ["email", "transactional-email", "calder", "sdk"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Communications :: Email",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://calder.click"
+Documentation = "https://calder.click/docs"
+Repository = "https://github.com/Emerald-dev0/Calder"
+
+[tool.setuptools.packages.find]
+where = ["src"]

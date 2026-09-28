@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { fmtInt, fmtPct } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
-import { deliverabilityBySender, emailTotals, gmailCapUsage, recentFailures } from "@/lib/control/queries";
+import {
+  deliverabilityBySender,
+  emailTotals,
+  gmailCapUsage,
+  recentFailures,
+} from "@/lib/control/queries";
 import { Badge, BarList, Dot, PageHeader, Panel, Stat } from "@/control/_components/ui";
 
 export const dynamic = "force-dynamic";
@@ -30,8 +35,17 @@ export default async function DeliverabilityPage() {
           hint="target ≥ 97%"
         />
         <Stat label="Bounces (30d)" value={fmtInt(totals.bounced)} invertDelta hint="hard + soft" />
-        <Stat label="Complaints (30d)" value={fmtInt(totals.complained)} invertDelta hint="any complaint is investigated" />
-        <Stat label="Gmail transports" value={fmtInt(gmail.length)} hint="capped daily, watched here" />
+        <Stat
+          label="Complaints (30d)"
+          value={fmtInt(totals.complained)}
+          invertDelta
+          hint="any complaint is investigated"
+        />
+        <Stat
+          label="Gmail transports"
+          value={fmtInt(gmail.length)}
+          hint="capped daily, watched here"
+        />
       </div>
 
       <div className="cp-grid cp-grid-2">
@@ -59,7 +73,9 @@ export default async function DeliverabilityPage() {
                       <td className="cp-num">{fmtInt(sent)}</td>
                       <td className="cp-num">{fmtInt(Number(s.delivered))}</td>
                       <td>
-                        <Badge tone={rate >= 10 ? "bad" : rate >= 5 ? "warn" : "ok"}>{fmtPct(rate)}</Badge>
+                        <Badge tone={rate >= 10 ? "bad" : rate >= 5 ? "warn" : "ok"}>
+                          {fmtPct(rate)}
+                        </Badge>
                       </td>
                     </tr>
                   );
@@ -69,7 +85,10 @@ export default async function DeliverabilityPage() {
           </div>
         </Panel>
 
-        <Panel title="Gmail cap watch" caption="daily caps enforced pre-send — never over Google's limits">
+        <Panel
+          title="Gmail cap watch"
+          caption="daily caps enforced pre-send — never over Google's limits"
+        >
           {gmail.length === 0 ? (
             <div className="cp-empty">
               <b>No Gmail transports</b>
@@ -84,13 +103,17 @@ export default async function DeliverabilityPage() {
             />
           )}
           <p className="cp-panel-caption" style={{ padding: "10px 16px 0" }}>
-            Over-cap sends fail permanently with an explainable error pointing at graduation — never silently, never
-            over Google&rsquo;s limits.
+            Over-cap sends fail permanently with an explainable error pointing at graduation — never
+            silently, never over Google&rsquo;s limits.
           </p>
         </Panel>
       </div>
 
-      <Panel title="Recent failures" caption="every failure keeps its reason — diagnosable, not dropped" flush>
+      <Panel
+        title="Recent failures"
+        caption="every failure keeps its reason — diagnosable, not dropped"
+        flush
+      >
         {failures.length === 0 ? (
           <div className="cp-empty">
             <b>Clean</b>
@@ -122,7 +145,15 @@ export default async function DeliverabilityPage() {
                     <td className="wrap" style={{ whiteSpace: "normal", maxWidth: 260 }}>
                       {f.subject}
                     </td>
-                    <td className="wrap mono" style={{ fontSize: 12, whiteSpace: "normal", color: "var(--cp-muted)", maxWidth: 280 }}>
+                    <td
+                      className="wrap mono"
+                      style={{
+                        fontSize: 12,
+                        whiteSpace: "normal",
+                        color: "var(--cp-muted)",
+                        maxWidth: 280,
+                      }}
+                    >
                       {f.lastError?.slice(0, 120) ?? "—"}
                     </td>
                     <td className="mono" style={{ fontSize: 12.5 }}>

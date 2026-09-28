@@ -44,7 +44,9 @@ export default async function ProjectsPage() {
                       </span>
                     </td>
                     <td>
-                      <Link href={`/control/customers/organizations/${r.organization.id}`}>{r.organization.name}</Link>
+                      <Link href={`/control/customers/organizations/${r.organization.id}`}>
+                        {r.organization.name}
+                      </Link>
                     </td>
                     <td className="cp-num">{fmtInt(Number(r.emails))}</td>
                     <td className="cp-num">{fmtInt(Number(r.transports))}</td>

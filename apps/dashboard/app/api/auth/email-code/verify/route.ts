@@ -55,7 +55,10 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     if (purpose === "verification") {
-      const result = await verifySignupCode(email, code);
+      const result = await verifySignupCode(email, code, {
+        userAgent: req.headers.get("user-agent"),
+        ip: clientIp(req),
+      });
       const sealed = await sealSessionCookie(result.sessionId);
       const redirectTo = await postLoginRedirect(email, next);
       const res = NextResponse.json({ ok: true, redirectTo });

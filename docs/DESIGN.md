@@ -11,13 +11,13 @@ Not: _"This is another developer SaaS dashboard."_
 
 Every page must have an articulable visual idea. "It's just a dashboard" is not sufficient.
 
-| Surface | Visual idea |
+| Surface     | Visual idea                                         |
 | ----------- | --------------------------------------------------- |
-| Homepage | Invisible communication infrastructure made visible |
-| Pricing | Simple, predictable infrastructure economics |
-| Docs | Clarity and speed |
-| Status page | Trust through transparency |
-| Onboarding | From zero to first successful delivery |
+| Homepage    | Invisible communication infrastructure made visible |
+| Pricing     | Simple, predictable infrastructure economics        |
+| Docs        | Clarity and speed                                   |
+| Status page | Trust through transparency                          |
+| Onboarding  | From zero to first successful delivery              |
 
 ## 1. Personality
 
@@ -52,7 +52,19 @@ Surface #FFFFFF (cards/panels on Paper)
 Muted #737373 (secondary text)
 ```
 
-**One accent**, sophisticated electric blue/cobalt ("Calder Blue"), exact hex not yet locked. Used sparingly.
+**The blues**, locked in `packages/ui/src/tokens.ts` and emitted as
+`--color-accent*` / `--color-signal`. Four steps, each with one job:
+
+| Token                                       | Hex       | Job                                                         |
+| ------------------------------------------- | --------- | ----------------------------------------------------------- |
+| `calderBlue` → `--color-accent`             | `#1E3A8A` | Cobalt: the workhorse. Primary actions, links, focus rings. |
+| `calderBlueLight` → `--color-accent-bright` | `#3B82F6` | Interactive step: hover/active on the accent, charts.       |
+| `calderBlueMuted` → `--color-accent-muted`  | `#DBEAFE` | Wash: selected rows, quiet emphasis backgrounds.            |
+| `signal` → `--color-signal`                 | `#3D5AFE` | Reserved: the mark's dot and dark-surface accents only.     |
+
+Nothing else is blue. A value not in this table is a bug, not a shade —
+`packages/ui/src/tokens.test.ts` enforces that the CSS matches these tokens
+and ratchets raw hex usage so new components cannot drift off the system.
 
 **The rule: the accent is a signal, not wallpaper.** Never let the accent dominate a full section, it marks state, action, or emphasis, not decoration.
 

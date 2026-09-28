@@ -43,6 +43,11 @@ export const sessions = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    // M6.1 session inventory: captured at create for inventory/revoke UI
+    // and anomaly reads. Nullable: sessions created before this shipped.
+    userAgent: text("user_agent"),
+    ip: varchar("ip", { length: 45 }),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("sessions_user_idx").on(t.userId)]

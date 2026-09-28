@@ -23,7 +23,11 @@ export function PageHeader({
         <h1 className="cp-title">{title}</h1>
         {subtitle ? <p className="cp-subtitle">{subtitle}</p> : null}
       </div>
-      {right ? <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>{right}</div> : null}
+      {right ? (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          {right}
+        </div>
+      ) : null}
     </header>
   );
 }
@@ -52,7 +56,7 @@ export function Panel({
           {action ? <div style={{ flexShrink: 0 }}>{action}</div> : null}
         </div>
       ) : null}
-      <div className={`cp-panel-body${flush ? " cp-flush" : ""}`}>{children}</div>
+      <div className={`cp-panel-body${flush ? "cp-flush" : ""}`}>{children}</div>
     </section>
   );
 }
@@ -134,7 +138,10 @@ export function SkeletonStat({ count = 4 }: { count?: number }) {
     <div className="cp-stats">
       {Array.from({ length: count }).map((_, i) => (
         <div className="cp-skel-stat" key={i}>
-          <span className="cp-sk" style={{ width: 64, height: 9, display: "block", marginBottom: 10 }} />
+          <span
+            className="cp-sk"
+            style={{ width: 64, height: 9, display: "block", marginBottom: 10 }}
+          />
           <span className="cp-sk" style={{ width: 96, height: 22, display: "block" }} />
         </div>
       ))}
@@ -157,21 +164,35 @@ export function Badge({
   tone?: "ok" | "warn" | "bad" | "accent" | "info";
   children: ReactNode;
 }) {
-  return <span className={`cp-badge ${tone === "info" ? "accent" : tone ?? ""}`}>{children}</span>;
+  return (
+    <span className={`cp-badge ${tone === "info" ? "accent" : (tone ?? "")}`}>{children}</span>
+  );
 }
 
 export function Tag({ children }: { children: ReactNode }) {
   return <span className="cp-tag">{children}</span>;
 }
 
-export function KV({ k, v, mono, hint }: { k: string; v: ReactNode; mono?: boolean; hint?: ReactNode }) {
+export function KV({
+  k,
+  v,
+  mono,
+  hint,
+}: {
+  k: string;
+  v: ReactNode;
+  mono?: boolean;
+  hint?: ReactNode;
+}) {
   return (
     <div className="cp-kv">
       <span className="k">
         {k}
-        {hint ? <span style={{ color: "var(--cp-faint)", marginLeft: 6, fontSize: 11.5 }}>{hint}</span> : null}
+        {hint ? (
+          <span style={{ color: "var(--cp-faint)", marginLeft: 6, fontSize: 11.5 }}>{hint}</span>
+        ) : null}
       </span>
-      <span className={`v${mono ? " mono" : ""}`}>{v}</span>
+      <span className={`v${mono ? "mono" : ""}`}>{v}</span>
     </div>
   );
 }
@@ -235,7 +256,7 @@ export function BarList({
           </span>
           <span className="cp-bartrack">
             <span
-              className={`cp-barfill${i.dim || showOtherTone ? " dim" : ""}`}
+              className={`cp-barfill${i.dim || showOtherTone ? "dim" : ""}`}
               style={{ width: `${Math.max(2, (i.count / top) * 100)}%` }}
             />
           </span>
@@ -299,16 +320,8 @@ export function Pager({
         {fmtInt(total)} total · page {page} / {pages}
       </span>
       <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-        {page > 1 ? (
-          <Link href={link(page - 1)}>
-            ← Prev
-          </Link>
-        ) : null}
-        {page < pages ? (
-          <Link href={link(page + 1)}>
-            Next →
-          </Link>
-        ) : null}
+        {page > 1 ? <Link href={link(page - 1)}>← Prev</Link> : null}
+        {page < pages ? <Link href={link(page + 1)}>Next →</Link> : null}
       </span>
     </div>
   );

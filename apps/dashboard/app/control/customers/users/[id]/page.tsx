@@ -32,7 +32,9 @@ export default async function UserDetailPage({ params }: { params: { id: string 
           </span>
         }
         right={
-          user.platformRole ? <Badge tone="accent">{CONTROL_ROLE_LABEL[user.platformRole]}</Badge> : undefined
+          user.platformRole ? (
+            <Badge tone="accent">{CONTROL_ROLE_LABEL[user.platformRole]}</Badge>
+          ) : undefined
         }
       />
 
@@ -43,7 +45,11 @@ export default async function UserDetailPage({ params }: { params: { id: string 
           <KV k="Name" v={user.name ?? "—"} />
           <KV k="Handle" v={user.username ? `@${user.username}` : "—"} mono />
           <KV k="Joined" v={fmtDateTime(new Date(user.createdAt))} mono />
-          <KV k="Email verified" v={user.emailVerifiedAt ? fmtDate(new Date(user.emailVerifiedAt)) : "no"} mono />
+          <KV
+            k="Email verified"
+            v={user.emailVerifiedAt ? fmtDate(new Date(user.emailVerifiedAt)) : "no"}
+            mono
+          />
           <KV k="Onboarding" v={user.onboardingState} mono />
           <KV k="Role (profile)" v={user.role ?? "—"} />
           <KV k="Found us via" v={user.referralSource ?? "—"} />
@@ -51,7 +57,9 @@ export default async function UserDetailPage({ params }: { params: { id: string 
 
         <Panel title="Organizations" caption={`${memberships.length} memberships`} flush>
           {memberships.length === 0 ? (
-            <Empty title="No organizations">This user hasn&rsquo;t created or joined a workspace.</Empty>
+            <Empty title="No organizations">
+              This user hasn&rsquo;t created or joined a workspace.
+            </Empty>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table className="cp-table">
@@ -72,7 +80,9 @@ export default async function UserDetailPage({ params }: { params: { id: string 
                       </td>
                       <td className="cp-num">{m.projects?.length ?? "—"}</td>
                       <td>
-                        <Link href={`/control/customers/organizations/${m.organization.id}`}>inspect →</Link>
+                        <Link href={`/control/customers/organizations/${m.organization.id}`}>
+                          inspect →
+                        </Link>
                       </td>
                     </tr>
                   ))}
@@ -87,9 +97,9 @@ export default async function UserDetailPage({ params }: { params: { id: string 
         <div className="cp-planned">
           <b>Read-only support sessions</b>
           <p>
-            Viewing Calder as this user (read-only, banner + explicit confirmation for any on-behalf action, fully
-            audited) is specified in the Control Plane spec. It is intentionally not wired until support workflows
-            exist to need it — never a silent &ldquo;login as&rdquo;.
+            Viewing Calder as this user (read-only, banner + explicit confirmation for any on-behalf
+            action, fully audited) is specified in the Control Plane spec. It is intentionally not
+            wired until support workflows exist to need it — never a silent &ldquo;login as&rdquo;.
           </p>
         </div>
       </Panel>

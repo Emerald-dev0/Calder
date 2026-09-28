@@ -257,3 +257,36 @@ export async function revokeInvite(orgId: string, inviteId: string) {
     .where(and(eq(orgInvitations.id, inviteId), eq(orgInvitations.organizationId, orgId)));
   return { ok: true as const };
 }
+
+// ---------- M6.1: session inventory + sign-out controls --------------------
+
+export async function listMySessions() {
+  const ctx = await getTenantContext();
+  const { listLiveSessions } = await import("@calder/auth");
+  const rows = await listLiveSessions(ctx.user.userId);
+  return rows.map((s) => ({
+    id: s.id,
+    current: s.id === ctx.user.sessionId,
+    userAgent: s.userAgent,
+    ip: s.ip,
+    createdAt: s.createdAt.toISOString(),
+    lastSeenAt: s.lastSeenAt?.toISOString() ?? null,
+    expiresAt: s.expiresAt.toISOString(),
+  }));
+}
+
+export async function revokeSessionById(sessionId: string) {
+  const ctx = await getTenantContext();
+  const { revokeOwnSession } = await import("@calder/auth");
+  const ok = await revokeOwnSession(ctx.user.userId, sessionId);
+  if (!ok) throw new Error("Session not found.");
+  return { ok: true as const };
+}
+
+/** Sign out every other device (current session survives; caller confirms). */
+export async function signOutOtherSessions() {
+  const ctx = await getTenantContext();
+  const { revokeOtherSessions } = await import("@calder/auth");
+  const n = await revokeOtherSessions(ctx.user.userId, ctx.user.sessionId);
+  return { revoked: n };
+}

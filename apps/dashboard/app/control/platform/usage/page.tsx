@@ -44,12 +44,22 @@ export default async function PlatformUsagePage() {
 
       <div className="cp-stats">
         <Stat label="Emails (30d)" value={fmtInt(totals.total)} hint="authoritative record count" />
-        <Stat label="Metered (90d)" value={fmtInt(Number(metered.find((m) => m.metric === "emails_sent")?.quantity ?? 0))} hint="usage_records" />
+        <Stat
+          label="Metered (90d)"
+          value={fmtInt(Number(metered.find((m) => m.metric === "emails_sent")?.quantity ?? 0))}
+          hint="usage_records"
+        />
         <Stat
           label="Delivered (90d metered)"
-          value={fmtInt(Number(metered.find((m) => m.metric === "emails_delivered")?.quantity ?? 0))}
+          value={fmtInt(
+            Number(metered.find((m) => m.metric === "emails_delivered")?.quantity ?? 0)
+          )}
         />
-        <Stat label="Top consumer" value={byOrg[0]?.org ?? "—"} hint={byOrg[0] ? `${fmtInt(Number(byOrg[0].quantity))} metered` : undefined} />
+        <Stat
+          label="Top consumer"
+          value={byOrg[0]?.org ?? "—"}
+          hint={byOrg[0] ? `${fmtInt(Number(byOrg[0].quantity))} metered` : undefined}
+        />
       </div>
 
       <Panel title="Metered usage by organization" caption="last 90 days · top 10" flush>

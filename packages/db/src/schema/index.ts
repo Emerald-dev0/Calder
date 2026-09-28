@@ -5,6 +5,7 @@ export * from "./projects.js";
 export * from "./api-keys.js";
 export * from "./domains.js";
 export * from "./emails.js";
+export * from "./providers.js";
 export * from "./webhooks.js";
 export * from "./billing.js";
 export * from "./system.js";

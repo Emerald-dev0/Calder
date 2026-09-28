@@ -191,7 +191,8 @@ export function SignupForm({ providers }: SignupFormProps) {
       <form onSubmit={handleSignupSubmit} className="auth-form-fields">
         <div className="auth-field">
           <label htmlFor="signup-name" className="auth-label">
-            Your name <span style={{ color: "var(--color-muted)", fontWeight: 400 }}>(optional)</span>
+            Your name{" "}
+            <span style={{ color: "var(--color-muted)", fontWeight: 400 }}>(optional)</span>
           </label>
           <input
             id="signup-name"
@@ -252,9 +253,7 @@ export function SignupForm({ providers }: SignupFormProps) {
                 Strong password ({passwordLength} characters)
               </span>
             ) : (
-              <span>
-                {passwordLength} / 12 characters (minimum 8 required)
-              </span>
+              <span>{passwordLength} / 12 characters (minimum 8 required)</span>
             )}
           </div>
         </div>

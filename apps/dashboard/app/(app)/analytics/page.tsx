@@ -13,7 +13,12 @@ export default function AnalyticsPage() {
         title="Advanced Analytics"
         description="Delivery trends, domain performance, sender performance, open & click analytics, custom reports across your projects, computed from your own delivery events. This page never shows sample or illustrative numbers: until your plan includes analytics and real data exists, there is nothing to display."
         tier="PRO"
-        features={["Delivery trends", "Domain & sender breakdown", "Open & click", "Custom reports"]}
+        features={[
+          "Delivery trends",
+          "Domain & sender breakdown",
+          "Open & click",
+          "Custom reports",
+        ]}
       />
     </div>
   );

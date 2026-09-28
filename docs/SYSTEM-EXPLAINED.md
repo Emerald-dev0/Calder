@@ -32,82 +32,100 @@ enters at enqueue time, never by looping the worker back into the API.**
 
 1. `POST /v1/emails` hits `apps/api/src/routes/emails.ts`.
 2. `authMiddleware` hashes the Bearer key (SHA-256 + pepper), looks it up in
- `api_keys`, rejects revoked keys, attaches `{ apiKeyId, projectId,
+   `api_keys`, rejects revoked keys, attaches `{ apiKeyId, projectId,
 organizationId, env }`. No key → 401. Wrong project → 403.
 3. `rateLimitMiddleware("sending")` checks Redis counters (100/min/key).
 4. `sendEmailSchema` (zod) validates the body. Invalid → 400 with code
- `validation_error`. Every error is `{ error: { code, message, request_id } }`.
+   `validation_error`. Every error is `{ error: { code, message, request_id } }`.
 5. `handleSendEmail` (`apps/api/src/services/email-service.ts`):
- - Sender identity and template resolution first (400/404 on gaps, before
- anything is claimed).
- - Suppression checked at ingest: a suppressed recipient is rejected `422
+
+- Sender identity and template resolution first (400/404 on gaps, before
+  anything is claimed).
+- Suppression checked at ingest: a suppressed recipient is rejected `422
  { error.code: "suppressed" }` with the reason, nothing is persisted or
- queued. Worker and drain re-check before delivery (unsubscribes landing
- after acceptance stay honored).
- - Idempotency: the `(projectId, key)` claim is inserted FIRST, inside the
- same transaction as the `emails` row (`status: queued`) + `email_events`
- row (`queued`). `INSERT ... ON CONFLICT` makes a concurrent same-key
- request wait for the winner's commit, then replay the stored response
- (`200`, same id) instead of double-sending; an expired claim (24h) is
- atomically refreshed/re-claimed. A live claim without a stored response
- (winner still in flight) gets `409 { error.code: "idempotency_conflict" }`.
- - Enqueue `{ emailId, projectId }` on `email:send`. **Durable first, queue
- second**, a crash between them is reconciled by the drain, never silently
- lost. A persist failure is a 500, never a pretend-202.
- - Returns `202 { id, status: queued }`.
+  queued. Worker and drain re-check before delivery (unsubscribes landing
+  after acceptance stay honored).
+- Idempotency: the `(projectId, key)` claim is inserted FIRST, inside the
+  same transaction as the `emails` row (`status: queued`) + `email_events`
+  row (`queued`). `INSERT ... ON CONFLICT` makes a concurrent same-key
+  request wait for the winner's commit, then replay the stored response
+  (`200`, same id) instead of double-sending; an expired claim (24h) is
+  atomically refreshed/re-claimed. A live claim without a stored response
+  (winner still in flight) gets `409 { error.code: "idempotency_conflict" }`.
+- Enqueue `{ emailId, projectId }` on `email:send`. **Durable first, queue
+  second**, a crash between them is reconciled by the drain, never silently
+  lost. A persist failure is a 500, never a pretend-202.
+- Returns `202 { id, status: queued }`.
+
 6. Worker (`apps/worker/src/worker.ts`) picks up the job from Redis:
- - Loads the email scoped to the job's `projectId` (tenant check, a job can
- never send another project's mail). **Missing row → fail closed:** log
- `email_record_missing`, drop the job, send nothing. (The old synthetic-send
- scaffold was deleted, fabricating mail is a red line.) A storage outage
- marks the error transient so the queue retries with backoff.
- - Checks `suppressions`. Suppressed → status `suppressed` + event, no send.
- - Calls the provider. Transient failure → requeue with exponential backoff +
- jitter (max 5). Permanent failure → status `failed` + event, no retry.
- Exhausted → dead-letter state (reason, attempts, last error, replayable).
- - Success → status `sent` + `providerMessageId`, event recorded, webhook job
- enqueued, usage counted.
-6b. Drain (`apps/api/src/lib/drain.ts`, the ONLY delivery drain; the
- dashboard twin was deleted): claims rows atomically,
- `UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED)` flipping
- `queued → sending` in one statement. Overlapping invocations (scheduled
- cron + post-accept kick) own disjoint rows, so one email can never be
- sent twice. Claims are 10-minute leases; a row abandoned mid-send becomes
- re-claimable. Transient failures release the row back to `queued` for the
- next tick.
+
+- Loads the email scoped to the job's `projectId` (tenant check, a job can
+  never send another project's mail). **Missing row → fail closed:** log
+  `email_record_missing`, drop the job, send nothing. (The old synthetic-send
+  scaffold was deleted, fabricating mail is a red line.) A storage outage
+  marks the error transient so the queue retries with backoff.
+- Checks `suppressions`. Suppressed → status `suppressed` + event, no send.
+- Calls the provider. Transient failure → requeue with exponential backoff +
+  jitter (max 5). Permanent failure → status `failed` + event, no retry.
+  Exhausted → dead-letter state (reason, attempts, last error, replayable).
+- Success → status `sent` + `providerMessageId`, event recorded, webhook job
+  enqueued, usage counted.
+  6b. Drain (`apps/api/src/lib/drain.ts`, the ONLY delivery drain; the
+  dashboard twin was deleted): claims rows atomically,
+  `UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED)` flipping
+  `queued → sending` in one statement. Overlapping invocations (scheduled
+  cron + post-accept kick) own disjoint rows, so one email can never be
+  sent twice. Claims are 10-minute leases; a row abandoned mid-send becomes
+  re-claimable. Transient failures release the row back to `queued` for the
+  next tick.
+
 7. Provider selection is currently GLOBAL to the worker process: SES if AWS
- creds are present, else Mock. Per-email test/live routing is NOT yet
- implemented, in dev (no SES creds) everything flows through Mock; in prod
- with SES creds everything would send for real. Test-key simulation must
- become per-email before untrusted users onboard.
+   creds are present, else Mock. Per-email test/live routing is NOT yet
+   implemented, in dev (no SES creds) everything flows through Mock; in prod
+   with SES creds everything would send for real. Test-key simulation must
+   become per-email before untrusted users onboard.
+8. Feedback (delivery truth, Phase 1): SES publishes every outcome to an
+   SNS topic subscribed to `POST /v1/ses/events` (public by necessity — SNS
+   cannot send our auth headers; authenticity is the SNS RSA signature against
+   an allowlisted cert origin). The notification lands in `provider_events`
+   first (unique on SNS MessageId — replays stop there), joins to `emails`
+   by `providerMessageId`, and advances truth per a pure transition matrix:
+   monotonic status through `delivered` (opened/clicked are events only —
+   the schema deliberately has no such statuses), sticky terminals
+   (`bounced`/`complained`/`failed`/`suppressed`), permanent bounces and
+   complaints auto-`suppressions` rows (which ingest already rejects 422 on —
+   the SES reputation loop is closed), transient bounces record an event but
+   never suppress. Unknown message ids are ledgered `unmatched` and 200'd so
+   foreign topic noise cannot redeliver forever. Wiring runbook:
+   `docs/DEPLOYMENT.md` §SES feedback wiring.
 
 ## 3. Auth: two doors, one building
 
 - **API keys** (`packages/auth/src/api-keys.ts`): `calder_sk_{test, live}_` +
- 48 hex chars of `randomBytes`. Stored as SHA-256 hex (not bcrypt, verified
- per-request, must be fast), compared with `timingSafeEqual`. Prefix stored
- for identification. Rotation = create new + revoke old; revocation is immediate.
+  48 hex chars of `randomBytes`. Stored as SHA-256 hex (not bcrypt, verified
+  per-request, must be fast), compared with `timingSafeEqual`. Prefix stored
+  for identification. Rotation = create new + revoke old; revocation is immediate.
 - **OAuth sessions** (`packages/auth/src/oauth.ts` + `session.ts`): Google/GitHub
- via `arctic` (standard flows, `state` validated constant-time). Unverified
- provider emails can never hijack an existing account. Sessions are opaque rows
- (`ses_*`, 30d TTL, revocable); the cookie holds only an iron-session-sealed id
- (`HttpOnly`, `SameSite=Lax`, `Secure` in prod).
+  via `arctic` (standard flows, `state` validated constant-time). Unverified
+  provider emails can never hijack an existing account. Sessions are opaque rows
+  (`ses_*`, 30d TTL, revocable); the cookie holds only an iron-session-sealed id
+  (`HttpOnly`, `SameSite=Lax`, `Secure` in prod).
 - **Authorization** (`packages/auth/src/authorization.ts`): `requireProjectAccess`,
- `requireOrgAccess`, `assertTenantScope`, enforced at the data-access layer,
- never only in middleware. A request from org A cannot read/modify/infer org B.
+  `requireOrgAccess`, `assertTenantScope`, enforced at the data-access layer,
+  never only in middleware. A request from org A cannot read/modify/infer org B.
 
 ## 4. Data: what lives where
 
 - **Postgres (source of truth):** users, oauth_accounts, sessions, organizations,
- organization_members, projects, api_keys, smtp_credentials (planned),
- domains, domain_verifications, emails, email_events, suppressions,
- idempotency_keys, webhooks, webhook_deliveries, usage_records, plans,
- plan_prices, subscriptions, otp_challenges, templates, audit_logs, waitlist_signups.
+  organization_members, projects, api_keys, smtp_credentials (planned),
+  domains, domain_verifications, emails, email_events, suppressions,
+  idempotency_keys, webhooks, webhook_deliveries, usage_records, plans,
+  plan_prices, subscriptions, otp_challenges, templates, audit_logs, waitlist_signups.
 - **Redis (acceleration only):** queue jobs, rate-limit counters, key-context
- cache (60s), verification-state cache. If Redis dies: sends fail closed with
- diagnosable errors; reads fall through to Postgres. Redis is never the billing record.
+  cache (60s), verification-state cache. If Redis dies: sends fail closed with
+  diagnosable errors; reads fall through to Postgres. Redis is never the billing record.
 - **Migrations:** `packages/db/drizzle/000N_*.sql` + journal, applied via Drizzle
- CLI. Additive only. Current: `0000_init`, `0001_waitlist`, `0002_auth`.
+  CLI. Additive only. Current: `0000_init`, `0001_waitlist`, `0002_auth`.
 
 ## 5. Dogfooding doctrine (corrected)
 
@@ -128,24 +146,27 @@ claims the account by signing in with an email listed in `FOUNDER_EMAILS`
 
 ## 6. What's REAL vs what's STUB (honest inventory)
 
-| Component | Status |
-| ----------------------------------------------------- | ------------------------------------------------------------- |
-| API validation/auth/rate-limit/error model | Real |
-| Idempotency (durable keys, replay) | Real |
-| Redis queue (BullMQ) API↔worker delivery | Real (this cutover) |
-| Worker retry/backoff/DLQ/suppression/events | Real |
-| SES provider | Real, prod: 50k/day, 14/s, out of sandbox (case 178897239300386, us-east-1, 2026-09-13) |
-| Mock provider (test keys) | Real, full-path simulation |
-| OAuth login, sessions, linking | Real code, needs provider console creds to click through |
-| Orgs/projects/keys/domains/webhooks API | Real CRUD, tenant-scoped |
-| Webhook delivery engine (signed, retried, replayable) | Partial, enqueue exists, dedicated deliverer pending |
-| Usage aggregation cron | Planned (Phase 8) |
-| Billing charges (Bachs) | Abstraction + mock only; provider unvalidated |
-| SMTP gateway | Specified (`docs/SMTP.md`), not built |
-| Templates / OTP | Schema stubs + docs; not built |
-| Dashboard auth (OAuth login, sessions, middleware) | Real code; needs GOOGLE/GITHUB console creds to click through |
-| Dashboard reads (overview stats, emails list) | Real, server components via tenant helper (ADR-015) |
-| Dashboard domains/keys/webhooks/usage/billing | Shells; data wiring pending |
+| Component                                             | Status                                                                                                                          |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| API validation/auth/rate-limit/error model            | Real                                                                                                                            |
+| Idempotency (durable keys, replay)                    | Real                                                                                                                            |
+| Redis queue (BullMQ) API↔worker delivery              | Real (this cutover)                                                                                                             |
+| Worker retry/backoff/DLQ/suppression/events           | Real                                                                                                                            |
+| SES provider                                          | Real, prod: 50k/day, 14/s, out of sandbox (case 178897239300386, us-east-1, 2026-09-13)                                         |
+| SES feedback ingress (delivery truth)                 | Real code (`POST /v1/ses/events`, SNS-signed, idempotent); needs one-time AWS wiring (DEPLOYMENT runbook) to carry live traffic |
+| Bounce/complaint auto-suppression                     | Real, from SES feedback; enforced 422 at ingest                                                                                 |
+| Control delivery truth + alert rules                  | Live queries on real statuses; delivery-rate/complaints/bounces/queue-age rules test-verified firing                            |
+| Mock provider (test keys)                             | Real, full-path simulation                                                                                                      |
+| OAuth login, sessions, linking                        | Real code, needs provider console creds to click through                                                                        |
+| Orgs/projects/keys/domains/webhooks API               | Real CRUD, tenant-scoped                                                                                                        |
+| Webhook delivery engine (signed, retried, replayable) | Partial, enqueue exists, dedicated deliverer pending                                                                            |
+| Usage aggregation cron                                | Planned (Phase 8)                                                                                                               |
+| Billing charges (Bachs)                               | Abstraction + mock only; provider unvalidated                                                                                   |
+| SMTP gateway                                          | Specified (`docs/SMTP.md`), not built                                                                                           |
+| Templates / OTP                                       | Schema stubs + docs; not built                                                                                                  |
+| Dashboard auth (OAuth login, sessions, middleware)    | Real code; needs GOOGLE/GITHUB console creds to click through                                                                   |
+| Dashboard reads (overview stats, emails list)         | Real, server components via tenant helper (ADR-015)                                                                             |
+| Dashboard domains/keys/webhooks/usage/billing         | Shells; data wiring pending                                                                                                     |
 
 ## 7. How to run it (local truth)
 
@@ -206,154 +227,173 @@ re-runnable, resumable. Server actions enforce membership on every step.
 
 ## 9. Changelog (newest first)
 
+- **Delivery truth ingestion (Phase 1, M1.1+M1.2):** `POST /v1/ses/events`
+  ingests SES feedback over SNS with mandatory signature verification
+  (RSA-SHA1, cert fetched only from allowlisted `sns.<region>.amazonaws.com`
+  origins, optional `SES_SNS_TOPIC_ARNS` topic allowlist gating subscription
+  auto-confirm — ADR-035). `provider_events` ledger deduped on SNS MessageId;
+  pure monotonic+sticky transition matrix; permanent bounces/complaints
+  auto-suppress on unique `(project_id, email)`; transient bounces never
+  suppress; unknown message ids ledgered `unmatched` + 200'd. 46 unit + 12
+  integration tests with real self-signed RSA fixtures. Migration `0018`.
+- **Truth surfaces (Phase 1, M1.3):** control `deliveryOutcomeSummary` rates
+  are computed on terminal sends only ("sent" is not "delivered"); health page
+  drops the invented `100−5n` score and illustrative cohort numerals;
+  `/deliveries` shows the honest terminal rate and colors every state;
+  alert rules for delivery-rate/complaints/bounces/queue-age proven firing
+  by integration tests (rules read the statuses M1.2 now writes).
 - **SES production access (2026-09-13):** `50,000/day, 14/s, out of sandbox` in `us-east-1` (case `178897239300386`). Worker now sends via SES when `AWS_ACCESS_KEY_ID`/`SECRET` + `AWS_REGION=us-east-1` are present; Mock remains for test keys / missing creds. Requires prod `DATABASE_URL` + `REDIS_URL` on the worker host; sandbox limits no longer apply.
 - **Sender-aware delivery (sender-program Phase 9):** worker resolves a
- transport chain per send (sender transport, project default, global) with
- transient failover and fail-closed caps/dead-senders; transport + provider
- recorded on every delivery; dashboard deliveries gain a sender filter.
- Proven live: verified sender delivered via Mock, disabled sender failed
- closed. Migration `0013`.
+  transport chain per send (sender transport, project default, global) with
+  transient failover and fail-closed caps/dead-senders; transport + provider
+  recorded on every delivery; dashboard deliveries gain a sender filter.
+  Proven live: verified sender delivered via Mock, disabled sender failed
+  closed. Migration `0013`.
 - **Sender auto-provisioning (sender-program Phase 8):** connecting Gmail
- mints its sender identity idempotently (reconnects rotate credentials
- instead of crashing on the unique constraint — caught by test); verified
- domains offer inline first-sender creation in onboarding. Gmail stays
- optional: test sender is the default path, stated in copy.
+  mints its sender identity idempotently (reconnects rotate credentials
+  instead of crashing on the unique constraint — caught by test); verified
+  domains offer inline first-sender creation in onboarding. Gmail stays
+  optional: test sender is the default path, stated in copy.
 - **Email composer (sender-program Phase 7):** `/emails/new` with sender
- identity selector (search, checkmark, keyboard, mobile sheet), recipient
- chips, collapsed advanced options (Cc/Bcc/reply-to/schedule/attachments),
- send confirmation naming the sender, acceptance-only results. Composer
- sends go through dashboard server actions on the same persist/enqueue
- contract (user sessions can't hold API keys); REST dogfooding waits on
- user-scoped tokens.
+  identity selector (search, checkmark, keyboard, mobile sheet), recipient
+  chips, collapsed advanced options (Cc/Bcc/reply-to/schedule/attachments),
+  send confirmation naming the sender, acceptance-only results. Composer
+  sends go through dashboard server actions on the same persist/enqueue
+  contract (user sessions can't hold API keys); REST dogfooding waits on
+  user-scoped tokens.
 - **REST completion 6b:** bulk sends (100 max, suppression skips, per-recipient
- results, indexed idempotency), attachments (10/25MB, SES native + Gmail
- multipart/mixed), scheduled sends (delayed queue + `scheduled_for`),
- template send-by-alias with named missing variables, live OpenAPI at
- `/v1/openapi.json`. Migration `0012`.
+  results, indexed idempotency), attachments (10/25MB, SES native + Gmail
+  multipart/mixed), scheduled sends (delayed queue + `scheduled_for`),
+  template send-by-alias with named missing variables, live OpenAPI at
+  `/v1/openapi.json`. Migration `0012`.
 - **REST completion 6a:** senders/keys/templates/suppressions endpoints,
- key scopes (full/send/read, enforced with fix-bearing 403s), template
- versions + aliases, message filters (sender/status/since) with cursor
- pagination alongside legacy paging, identity object on message read,
- `fix` guidance on public errors. Migration `0011`.
+  key scopes (full/send/read, enforced with fix-bearing 403s), template
+  versions + aliases, message filters (sender/status/since) with cursor
+  pagination alongside legacy paging, identity object on message read,
+  `fix` guidance on public errors. Migration `0011`.
 - **Sender management UI (sender-program Phase 5):** Senders list with
- readiness counts, per-sender detail (identity, delivery stats, recent
- deliveries), add flows for verified domains and connected Gmail only,
- default/test-send/rename/disable/delete with confirms, test sends ride
- the real queue contract. New `assertProjectAccess` home in `lib/auth`.
+  readiness counts, per-sender detail (identity, delivery stats, recent
+  deliveries), add flows for verified domains and connected Gmail only,
+  default/test-send/rename/disable/delete with confirms, test sends ride
+  the real queue contract. New `assertProjectAccess` home in `lib/auth`.
 - **Sender identity backend (sender-program Phase 4):** `sender_identities`
- (project-scoped, type/status enums, optional transport link, default flag)
- + `emails.sender_identity_id`/`from_name` (migration `0010`). `from`
- accepts `sender_xxx` IDs with project-scoped resolution, plain-language
- not-ready errors, and legacy bare-address path (disabled senders stay
- blocked even by string). New `sender_not_ready` error code.
+  (project-scoped, type/status enums, optional transport link, default flag)
+
+* `emails.sender_identity_id`/`from_name` (migration `0010`). `from`
+  accepts `sender_xxx` IDs with project-scoped resolution, plain-language
+  not-ready errors, and legacy bare-address path (disabled senders stay
+  blocked even by string). New `sender_not_ready` error code.
+
 - **Brand foundation + profile onboarding:** one shared `CalderLockup`
- (`@calder/ui`, ADR-021b), emailed logo regenerated to the canonical mark,
- real favicons/manifests/theme-color on both apps, lockup in sidebar, auth
- pages, and 404. Profile layer rebuilt (role grid, project types, discovery
- + AI detail, primary goal), onboarding state machine with resume, animated
- pipeline explainer, step transitions, milestones to the audit trail.
- Migration `0009_profile_fields`.
+  (`@calder/ui`, ADR-021b), emailed logo regenerated to the canonical mark,
+  real favicons/manifests/theme-color on both apps, lockup in sidebar, auth
+  pages, and 404. Profile layer rebuilt (role grid, project types, discovery
+
+* AI detail, primary goal), onboarding state machine with resume, animated
+  pipeline explainer, step transitions, milestones to the audit trail.
+  Migration `0009_profile_fields`.
+
 - **Password signup/sign-in with OTP verification:** dedicated `/signup`
- (name/email/password, code step) + rebuilt `/login` (password primary,
- magic-link + OAuth secondary, forgot-password flow). scrypt hashes,
- enumeration-safe errors, platform-scoped `email_code_challenges`
- (migration `0008`). Proven live: signup, verify, session, login,
- indistinguishable rejects. ADR-022.
+  (name/email/password, code step) + rebuilt `/login` (password primary,
+  magic-link + OAuth secondary, forgot-password flow). scrypt hashes,
+  enumeration-safe errors, platform-scoped `email_code_challenges`
+  (migration `0008`). Proven live: signup, verify, session, login,
+  indistinguishable rejects. ADR-022.
 - **Magic-link signup (manual path, like competitors):** email form on `/login`,
- `POST /api/auth/magic-link` (rate-limited, non-enumerating, branded mail via
- Mock dev / SES prod) + callback that consumes the single-use 15-min token,
- links-or-creates the user, seals the session. Proven live: request, redeem,
- reuse-rejected, session cookie set, users verified. Migration
- `0007_magic_links`. Queue exception documented in ADR-021.
+  `POST /api/auth/magic-link` (rate-limited, non-enumerating, branded mail via
+  Mock dev / SES prod) + callback that consumes the single-use 15-min token,
+  links-or-creates the user, seals the session. Proven live: request, redeem,
+  reuse-rejected, session cookie set, users verified. Migration
+  `0007_magic_links`. Queue exception documented in ADR-021.
 - **Branded internal mail + sender choice + plan management:** all internal
- mail wraps in `brandEmail` (`packages/email/src/brand.ts`); broadcast accepts
- optional `from`, validated against `INTERNAL_FROM` + active Gmail transports;
- `founder-intro` campaign registered; plan catalog seeded (`seedPlans`,
- free/starter/pro/scale, NGN amounts in kobo); founder sets plan + duration
- (1-36 months) from `/admin` (server action, audited) or
- `POST /v1/admin/organizations/:orgId/subscription`. Neon is the live database
- (connection string in local `.env` only, never committed).
+  mail wraps in `brandEmail` (`packages/email/src/brand.ts`); broadcast accepts
+  optional `from`, validated against `INTERNAL_FROM` + active Gmail transports;
+  `founder-intro` campaign registered; plan catalog seeded (`seedPlans`,
+  free/starter/pro/scale, NGN amounts in kobo); founder sets plan + duration
+  (1-36 months) from `/admin` (server action, audited) or
+  `POST /v1/admin/organizations/:orgId/subscription`. Neon is the live database
+  (connection string in local `.env` only, never committed).
 - **Auth proven without provider creds:** `session.integration.test.ts`
- (`RUN_INTEGRATION_TESTS=1`) covers seal→validate→revoke→expired + founder
- bootstrap grant/no-op against live Postgres (9/9 green). Only the OAuth
- redirect dance itself still needs console creds.
+  (`RUN_INTEGRATION_TESTS=1`) covers seal→validate→revoke→expired + founder
+  bootstrap grant/no-op against live Postgres (9/9 green). Only the OAuth
+  redirect dance itself still needs console creds.
 - **Dev-login backdoor** (`POST /api/auth/dev-login` + login-page form):
- dev-only (`NODE_ENV!=production` AND `ALLOW_DEV_LOGIN=true`), creates/finds
- user + runs founder bootstrap. Proven live: dev 307 → dashboard renders founder
- org (owner of `avenor`); production build returns 403. Never enable in prod.
+  dev-only (`NODE_ENV!=production` AND `ALLOW_DEV_LOGIN=true`), creates/finds
+  user + runs founder bootstrap. Proven live: dev 307 → dashboard renders founder
+  org (owner of `avenor`); production build returns 403. Never enable in prod.
 - **Blog is MDX-driven:** registry (`posts.ts`) + one `.mdx` per post + dynamic
- `[slug]` route (+ redirect for the old slug). New post → registry entry +
- file, then notify waitlist via the admin broadcast (manual, founder-curated).
+  `[slug]` route (+ redirect for the old slug). New post → registry entry +
+  file, then notify waitlist via the admin broadcast (manual, founder-curated).
 - **Team features:** `org_invitations` (migration 0006, email-first, hashed
- tokens, 7-day expiry) + auto-accept on any login email match (idempotent) +
- org settings page (invite with shareable link, role changes, removal, last-
- owner guards) + public `/invite/[token]` accept page. Invite email delivery
- rides the next campaign or manual share, no separate mailer yet.
+  tokens, 7-day expiry) + auto-accept on any login email match (idempotent) +
+  org settings page (invite with shareable link, role changes, removal, last-
+  owner guards) + public `/invite/[token]` accept page. Invite email delivery
+  rides the next campaign or manual share, no separate mailer yet.
 - **Admin analytics v2:** zero-dependency SVG charts (30-day sends line,
- cumulative waitlist line, events-by-type bars) + audit-trail feed (team
- actions now write `audit_logs`; feed honestly empty-states otherwise).
- Verified rendered live (200, SVGs present). Founder gate + hidden nav.
+  cumulative waitlist line, events-by-type bars) + audit-trail feed (team
+  actions now write `audit_logs`; feed honestly empty-states otherwise).
+  Verified rendered live (200, SVGs present). Founder gate + hidden nav.
 - **Admin analytics** (`/admin`, founder-only via `FOUNDER_EMAILS` + hidden nav
- for others): live platform totals (emails, users, paid subs, waitlist),
- delivery-health failure feed, waitlist table. Crash reporting (Sentry) still
- pending, stated on the page, not faked. Founder `oluwadare458@gmail.com`
- claimed owner of org `avenor` live in dev.
- Requires `@next/mdx@14` + `@mdx-js/{loader, react}` + `@types/mdx` (pinned to
- Next 14, latest `@next/mdx` targets Next 16 and breaks the build).
+  for others): live platform totals (emails, users, paid subs, waitlist),
+  delivery-health failure feed, waitlist table. Crash reporting (Sentry) still
+  pending, stated on the page, not faked. Founder `oluwadare458@gmail.com`
+  claimed owner of org `avenor` live in dev.
+  Requires `@next/mdx@14` + `@mdx-js/{loader, react}` + `@types/mdx` (pinned to
+  Next 14, latest `@next/mdx` targets Next 16 and breaks the build).
 - **Resend parity note:** Resend login = Google + GitHub + email/password
- (verified). GitHub OAuth stays: our users authenticate with GitHub daily and
- it yields verified developer emails.
+  (verified). GitHub OAuth stays: our users authenticate with GitHub daily and
+  it yields verified developer emails.
 - **No-competitor-names policy:** public surface names no competitors, the
- comparison page, provider-named migration guides, and all references were
- removed and 301'd to the provider-agnostic `/migrate`. Internal strategy docs
- may discuss the market; public pages never punch up by name.
+  comparison page, provider-named migration guides, and all references were
+  removed and 301'd to the provider-agnostic `/migrate`. Internal strategy docs
+  may discuss the market; public pages never punch up by name.
 - **Polish pass:** dashboard shell rebuilt mobile-first (sidebar → topbar +
- scroll tabs under 860px, previously unstyled class names actually missing
- their CSS); scene SVGs fill panels instead of 300px defaults; tables scroll
- instead of breaking layout; nonexistent-SDK code samples replaced with real
- fetch snippets; internal jargon removed from public changelog.
+  scroll tabs under 860px, previously unstyled class names actually missing
+  their CSS); scene SVGs fill panels instead of 300px defaults; tables scroll
+  instead of breaking layout; nonexistent-SDK code samples replaced with real
+  fetch snippets; internal jargon removed from public changelog.
 - **SEO foundation:** `docs/SEO.md` + `SEO_AUDIT.md`, `robots.ts`, `sitemap.ts`
- (53 URLs), `lib/seo.ts` (canonical/OG/Twitter helper + JSON-LD), root
- `llms.txt`, generated `og-image.png`, `scripts/seo-check.mjs` gate.
- Content: `/alternatives/resend` (honest, dated), `/what-is-calder` entity
- page, data-driven glossary (10 terms). Canonical domain: calder.click.
+  (53 URLs), `lib/seo.ts` (canonical/OG/Twitter helper + JSON-LD), root
+  `llms.txt`, generated `og-image.png`, `scripts/seo-check.mjs` gate.
+  Content: `/alternatives/resend` (honest, dated), `/what-is-calder` entity
+  page, data-driven glossary (10 terms). Canonical domain: calder.click.
 - **Onboarding wizard:** org → project (+metadata via 0003) → test key → first
- real send → domain with live DNS verification.
+  real send → domain with live DNS verification.
 - **Dashboard data pages:** domains (add + live DNS check), API keys (create
- once-shown secret, revoke), webhooks (create with AES-GCM-encrypted secrets,
- enable/disable), usage (live counts + plan tiers). Server/client split rule:
- `node:` modules never cross into `"use client"` bundles (crypto in actions
- only, pure constants in shared files). Webpack Edge lesson recorded: middleware
- must not import the auth barrel.
+  once-shown secret, revoke), webhooks (create with AES-GCM-encrypted secrets,
+  enable/disable), usage (live counts + plan tiers). Server/client split rule:
+  `node:` modules never cross into `"use client"` bundles (crypto in actions
+  only, pure constants in shared files). Webpack Edge lesson recorded: middleware
+  must not import the auth barrel.
 
 - **Dogfood loop live:** waitlist confirmations send through the pipeline under
- `org_avenor/proj_website`, visible in the dashboard emails list; founder
- bootstrap via `FOUNDER_EMAILS`; dashboard login/callback/logout + overview
- stats + emails list wired to tenant helper.
+  `org_avenor/proj_website`, visible in the dashboard emails list; founder
+  bootstrap via `FOUNDER_EMAILS`; dashboard login/callback/logout + overview
+  stats + emails list wired to tenant helper.
 - **Position-0 bug:** Postgres stores µs, driver round-trips ms, re-read
- timestamps missed by fractions of a ms. Fixed by setting `createdAt`
- explicitly at insert (exact-ms values compare exactly).
+  timestamps missed by fractions of a ms. Fixed by setting `createdAt`
+  explicitly at insert (exact-ms values compare exactly).
 
 - **Redis pipeline cutover:** `createQueue` returns BullMQ-backed queue when
- `REDIS_URL` is set; InMemory kept for tests only (prod import = bug, guarded).
- API-enqueued jobs now actually reach the worker process. Verified per §8
- (live: 202 → Redis → worker → mock → `sent` + events + idempotent replay).
+  `REDIS_URL` is set; InMemory kept for tests only (prod import = bug, guarded).
+  API-enqueued jobs now actually reach the worker process. Verified per §8
+  (live: 202 → Redis → worker → mock → `sent` + events + idempotent replay).
 - BullMQ forbids `:` in queue names, backend names sanitize to `-`, logical
- names stay canonical. Redis queue instances are shared per name (BullMQ opens
- a connection per instance; per-call instances would leak).
+  names stay canonical. Redis queue instances are shared per name (BullMQ opens
+  a connection per instance; per-call instances would leak).
 - **Dogfood correction:** removed worker self-provider switch; documented doctrine (§5).
 - **Auth backend:** OAuth + sessions + migrations (see §3).
 - **Waitlist:** public signup with durable idempotent tickets (see API route).
 - **Bulk doctrine (waitlist nurture):** custom headers ride in `metadata.headers`,
- allowlisted in `sanitizeHeaders` (List-Unsubscribe(-Post), X-* only, envelope
- smuggling impossible); worker threads them to the provider (SES maps them).
- Signed one-click unsubscribe (`GET` page + RFC 8058 `POST`), suppressions
- scoped per project. Admin broadcast (`ADMIN_API_KEY` bearer, unset = 503)
- skips suppressed addresses, per-recipient idempotency keys
- (`broadcast:<campaign>:<email>`), rendered `{{placeholders}}`, versioned
- campaign content in `apps/api/src/campaigns/`. Verified live: 4 queued +
- 1 skipped, all sent, re-run added zero rows.
+  allowlisted in `sanitizeHeaders` (List-Unsubscribe(-Post), X-* only, envelope
+  smuggling impossible); worker threads them to the provider (SES maps them).
+  Signed one-click unsubscribe (`GET` page + RFC 8058 `POST`), suppressions
+  scoped per project. Admin broadcast (`ADMIN_API_KEY` bearer, unset = 503)
+  skips suppressed addresses, per-recipient idempotency keys
+  (`broadcast:<campaign>:<email>`), rendered `{{placeholders}}`, versioned
+  campaign content in `apps/api/src/campaigns/`. Verified live: 4 queued +
+  1 skipped, all sent, re-run added zero rows.
 - **Local infra note:** compose now declares `calder` PG creds but the existing
- volume was initialized as `avenor`, running services must match the volume
- (`DATABASE_URL=postgresql://avenor:avenor@…`) until someone recreates it
- (`docker compose down -v`, destroys dev data).
+  volume was initialized as `avenor`, running services must match the volume
+  (`DATABASE_URL=postgresql://avenor:avenor@…`) until someone recreates it
+  (`docker compose down -v`, destroys dev data).

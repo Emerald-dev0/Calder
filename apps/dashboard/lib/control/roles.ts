@@ -17,6 +17,11 @@ import type { platformRoleEnum } from "@calder/db";
 
 export type PlatformRole = (typeof platformRoleEnum.enumValues)[number];
 
+/** Canonical test for the apex role — imported by both control actions files. */
+export function isFounderRole(role: PlatformRole | null): boolean {
+  return role === "founder";
+}
+
 export type ControlSection =
   | "overview"
   | "growth"

@@ -2,7 +2,10 @@ export {
   SesEmailProvider,
   createSesProvider,
   getSesAccountStatus,
+  createSesDomainIdentity,
+  getSesDomainIdentity,
   type SesAccountStatus,
+  type SesIdentityDnsRecord,
 } from "./ses.js";
 export {
   GmailTransport,
