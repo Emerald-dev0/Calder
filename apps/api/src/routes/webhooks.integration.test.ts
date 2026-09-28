@@ -29,7 +29,7 @@ async function reachable(): Promise<boolean> {
  */
 gate("webhook secret-once (live Postgres)", async () => {
   const { randomBytes } = await import("node:crypto");
-  const { getDb, organizations, organizationMembers, projects, users, webhooks } =
+  const { getDb, organizations, organizationMembers, projects, users, webhooks, cleanupSuiteOrg } =
     await import("@calder/db");
   const { eq } = await import("drizzle-orm");
   const { createApp } = await import("../app.js");
@@ -65,8 +65,7 @@ gate("webhook secret-once (live Postgres)", async () => {
   afterAll(async () => {
     if (!(await reachable())) return;
     const db = getDb();
-    await db.delete(organizations).where(eq(organizations.id, orgId));
-    await db.delete(users).where(eq(users.id, userId));
+    await cleanupSuiteOrg(db, orgId, userId);
   });
 
   it("create returns the secret once, stores ciphertext that round-trips", async () => {

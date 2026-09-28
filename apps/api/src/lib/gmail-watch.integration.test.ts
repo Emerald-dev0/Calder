@@ -35,6 +35,7 @@ gate("gmail abuse watch (live Postgres)", async () => {
     emails,
     projectTransports,
     auditLogs,
+    cleanupSuiteOrg,
   } = await import("@calder/db");
   const { eq, and, count, sql } = await import("drizzle-orm");
   const { drainPendingEmails } = await import("./drain.js");
@@ -117,8 +118,9 @@ gate("gmail abuse watch (live Postgres)", async () => {
   afterAll(async () => {
     if (!(await reachable())) return;
     const db = getDb();
-    await db.delete(organizations).where(eq(organizations.id, orgId));
-    await db.delete(users).where(eq(users.id, userId));
+    // Quiescent cleanup (see drain.integration.test.ts): never pull claimed
+    // rows out from under another file's global drain.
+    await cleanupSuiteOrg(db, orgId, userId);
   });
 
   it("sender pinning: the identity's own transport leg is chosen first (M2.4)", async () => {

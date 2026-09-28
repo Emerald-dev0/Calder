@@ -52,8 +52,9 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
     recordSendUsage,
     aggregateUsageNow,
     orgUsagePeriod,
+    cleanupSuiteOrg,
   } = dbModule;
-  const { eq, and, count, inArray } = await import("drizzle-orm");
+  const { eq, and, count } = await import("drizzle-orm");
   const { sql } = await import("drizzle-orm");
   const { createApp } = await import("../app.js");
   const { registerDevKey } = await import("../middleware/auth.js");
@@ -90,6 +91,12 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
       headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
       body: JSON.stringify(body),
     });
+
+  // Id of the test-env row created below. The auto-kicked drain (or another
+  // file's global drain on a shared database) may settle it before the
+  // metering test runs, so that test must use this id instead of assuming
+  // the row is still queued.
+  let testRowId = "";
 
   /** Poll until the drain (auto-kicked by the route, or our explicit call) finished with the row. */
   async function waitSettled(emailId: string, timeoutMs = 20_000) {
@@ -184,8 +191,10 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
   afterAll(async () => {
     if (!(await reachable())) return;
     const db = getDb();
+    // Quiescent cleanup per org (see drain.integration.test.ts): never pull
+    // claimed rows out from under a parallel drain.
     for (const orgId of [orgA, orgB, orgC]) {
-      await db.delete(organizations).where(eq(organizations.id, orgId));
+      await cleanupSuiteOrg(db, orgId);
     }
     await db.delete(subscriptions).where(eq(subscriptions.organizationId, orgB));
     if (planCreatedBySuite) await db.delete(plans).where(eq(plans.id, planId));
@@ -262,6 +271,7 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
     const db = getDb();
     const [row] = await db.select().from(emails).where(eq(emails.id, body.id)).limit(1);
     expect(row?.env).toBe("test");
+    testRowId = body.id;
   });
 
   it("under-limit org accepts live sends (env stamped live)", async () => {
@@ -280,19 +290,27 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
 
   it("test rows drain through the mock provider only, and are never metered", async () => {
     const db = getDb();
-    // Find the test-env queued row from the at-cap org.
-    const [testRow] = await db
-      .select()
-      .from(emails)
-      .where(and(eq(emails.projectId, projA), eq(emails.status, "queued"), eq(emails.env, "test")))
-      .limit(1);
-    expect(testRow).toBeTruthy();
+    // Use the id captured at creation: the row may already be claimed/sent
+    // by the route's auto-kick or another file's global drain. Fall back to
+    // a queued-row lookup only if the tests ever reorder.
+    let rowId = testRowId;
+    if (!rowId) {
+      const [testRow] = await db
+        .select()
+        .from(emails)
+        .where(
+          and(eq(emails.projectId, projA), eq(emails.status, "queued"), eq(emails.env, "test"))
+        )
+        .limit(1);
+      expect(testRow).toBeTruthy();
+      rowId = testRow!.id;
+    }
 
     // The route auto-kicks a drain, so this row may already be claimed and
     // mid-flight; our explicit kick can be a no-op. Wait for it to settle
     // instead of assuming one drain call finished the job.
     await drainPendingEmails(getDb(), { batch: 100 }).catch(() => {});
-    const after = await waitSettled(testRow!.id);
+    const after = await waitSettled(rowId);
 
     expect(after?.status).toBe("sent");
     expect(after?.provider).toBe("mock");
@@ -302,7 +320,7 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
     const [ledger] = await db
       .select({ value: count() })
       .from(usageRecords)
-      .where(eq(usageRecords.id, `ur_${testRow!.id}`));
+      .where(eq(usageRecords.id, `ur_${rowId}`));
     expect(Number(ledger?.value ?? 0)).toBe(0);
   }, 60_000);
 

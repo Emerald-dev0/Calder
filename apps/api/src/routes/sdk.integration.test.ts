@@ -29,8 +29,16 @@ async function reachable(): Promise<boolean> {
  */
 gate("Node SDK against the live API (documented integration path)", async () => {
   const { randomBytes } = await import("node:crypto");
-  const { getDb, organizations, organizationMembers, projects, users, emails, suppressions } =
-    await import("@calder/db");
+  const {
+    getDb,
+    organizations,
+    organizationMembers,
+    projects,
+    users,
+    emails,
+    suppressions,
+    cleanupSuiteOrg,
+  } = await import("@calder/db");
   const { eq, count } = await import("drizzle-orm");
   const { createApp } = await import("../app.js");
   const { registerDevKey } = await import("../middleware/auth.js");
@@ -105,8 +113,7 @@ gate("Node SDK against the live API (documented integration path)", async () => 
   afterAll(async () => {
     if (!(await reachable())) return;
     const db = getDb();
-    await db.delete(organizations).where(eq(organizations.id, orgId));
-    await db.delete(users).where(eq(users.id, userId));
+    await cleanupSuiteOrg(db, orgId, userId);
   });
 
   it("sends, drains through the mock provider, and reads delivery truth back", async () => {
