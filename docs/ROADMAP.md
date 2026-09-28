@@ -76,6 +76,27 @@ Money: ★NO USAGE WRITES → no aggregation → no enforcement → billing unre
 - CI `verify`: typecheck + lint + `format:check` + unit tests. Integration tests skip without `RUN_INTEGRATION_TESTS=1` + live Postgres → CI never proves pipeline joints. **Add a Postgres service to CI.**
 - Vercel previews per PR (web/api/dashboard); worker needs AWS creds on host; `ALLOW_DEV_LOGIN` must stay unset in prod; `CRON_SECRET` must be set in prod.
 
+### 2.5 Build pipeline (verified — works, was unnamed in prior roadmap)
+
+| Step                          | Command                                                                                                 | Guarantee                                                                                                                 | Status |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------ |
+| Monorepo build                | `pnpm build` → `turbo run build`                                                                        | `^build` ordering (packages before apps); outputs `dist/**`, `.next/**`                                                   | B      |
+| Packages (×10)                | `tsc -p tsconfig.json` → `dist/`                                                                        | Compiled JS shipped, never `src/*.ts` (ADR-030); `main`/`exports` point at `dist`                                         | B      |
+| `apps/api`                    | `tsc` + `node scripts/bundle-serverless.mjs`                                                            | Esbuild bundle + fetch-object shape (ADR-029 — the fix for the 100%-error-rate incident); `start: node dist/src/index.js` | B      |
+| `apps/worker`                 | `tsc`                                                                                                   | `start: node dist/index.js` (long-lived host)                                                                             | B      |
+| `apps/dashboard` / `apps/web` | `next build`                                                                                            | Vercel + preview deploys per PR                                                                                           | B      |
+| CI                            | `verify` job runs install → format → lint → typecheck → test → **build** (`.github/workflows/ci.yml`)   | Build breaks block merge                                                                                                  | B      |
+| Boot proof                    | `apps/api` `launch-check` (provider creds, SES sandbox, tenant seed, template, queue, secrets, origins) | Build ≠ boot: only the API has a boot gate; worker/dashboard boot-proof is manual                                         | C      |
+
+Gaps: no Postgres service in CI (integration tests skip — §16 fix); no worker/dashboard `launch-check` equivalent; bundle staleness risk if `dist/` committed accidentally (gitignored — confirm); `turbo build` cache could mask dirty-`dist` states locally (`pnpm clean` before release builds).
+
+### 2.6 npm / SDK distribution (verified — NOT STARTED)
+
+- All 10 workspace packages are `"private": true` with no `publishConfig`; no `.changeset`, no release workflow, no versioning policy; every package sits at `0.1.0`.
+- No SDK package exists (`packages/` = auth, billing, config, db, email, observability, providers, queue, rate-limit, ui, validation — all internal). Internal packages must NEVER publish as-is (auth/crypto, db schema, provider logic are not client surface).
+- SDK surface today = placeholder `/sdks` page + one `plans.ts` "SDKs and CLI" label. No client library, no snippets with real keys, no API reference beyond `docs/API.md` (verify currency before SDK work).
+- Decision required in §H: new public package (proposed `@calder/sdk`: send, idempotency keys, retries, typed errors, webhook verification helper) + publish pipeline (changesets or manual versioning, npm provenance, public scope, changelog, deprecation policy). Gated: post-launch + demand (report §19 stands).
+
 ## 3. Feature Inventory (full)
 
 | #    | Feature                          | Area      | Frontend           | Backend         | DB                | Integration        | Tests          | Status                   | Dependencies        | Next action                                                           |
@@ -111,10 +132,10 @@ Money: ★NO USAGE WRITES → no aggregation → no enforcement → billing unre
 | 3.29 | Webhooks manager                 | Develop   | IMPL               | PARTIAL-reg     | IMPL              | delivery           | none           | PARTIAL                  | M3                  | Registry done; value after engine                                     |
 | 3.30 | Billing actions (control)        | Billing   | SCAFFOLD-honest    | MISSING         | PARTIAL-no-ledger | Bachs              | none           | MISSING                  | metering            | Reads real; actions post-launch                                       |
 | 3.31 | Broadcasts (control)             | Comms     | REAL-CLI-honest    | PARTIAL-admin   | IMPL              | ADMIN_API_KEY      | unit           | PARTIAL                  | UI (deferred)       | Fine as-is                                                            |
-| 3.32 | Campaigns/Aud/Auto               | Comms     | SCAFFOLD           | MISSING         | MISSING           | mktg infra         | none           | MISSING                  | everything          | Defer                                                                 |
+| 3.32 | Campaigns/Aud/Auto               | Comms     | SCAFFOLD           | MISSING         | MISSING           | mktg infra         | none           | MISSING                  | everything          | Specified in §I; gated post-launch                                    |
 | 3.33 | Alerts evaluator                 | Control   | IMPL-live          | IMPL            | IMPL              | ingestion          | none           | PARTIAL→live (M1.2/M1.3) | ingestion           | delivery/bounce/complaint/queue-age rules test-verified firing (M1.3) |
 | 3.34 | Flags/maintenance/status         | Ops       | SCAFFOLD-static    | MISSING         | MISSING           | —                  | none           | MISSING                  | decision            | Defer UI                                                              |
-| 3.35 | Marketing suite                  | Marketing | MISSING            | MISSING         | MISSING           | —                  | none           | MISSING                  | launch              | Deferred; scrub implying copy                                         |
+| 3.35 | Marketing suite                  | Marketing | MISSING            | MISSING         | MISSING           | —                  | none           | MISSING                  | launch              | Automation engine in §I; rest deferred; scrub implying copy           |
 | 3.36 | Cron drain                       | Infra     | —                  | C-duplicated    | IMPL              | Vercel cron/secret | none           | PARTIAL                  | —                   | Lease + dedupe (M0.2)                                                 |
 | 3.37 | Beacon ingest                    | Web/API   | IMPL               | IMPL            | IMPL              | —                  | unit           | PROD READY               | —                   | Exemplary (no PII, silent-fail, capped)                               |
 | 3.38 | Waitlist + confirmation versions | Growth    | IMPL               | IMPL            | IMPL              | SES                | unit           | PROD READY               | —                   | Pattern to copy (draft→publish→immutable)                             |
@@ -298,7 +319,7 @@ Primary-button literal ×6+ (`keys/manager:6`, `webhooks/manager:7`, `wizard:58`
 
 **LAUNCH BLOCKERS (reasoned):** (1) SES ingestion — "send and know" unkept without it. (2) Domain DNS verify + SES linkage — self-verify is a spoofing primitive. (3) Usage writers + quotas — pricing sells unenforced limits. (4) Test/live isolation — one branch. (5) Webhook secret-once + engine — registry without delivery is dead. (6) Idempotency atomicity — duplicates violate the API contract. (7) Synthetic-send removal — fabricated mail is a red line. (8) Suppression at ingest — checklist + ARCHITECTURE §9. (9) Drain lease + dedupe — scheduled double-send. (10) Prod env proof (FOUNDER_EMAILS, CRON_SECRET, SES feedback config, ALLOW_DEV_LOGIN unset, limiter topology). (11) UI trust repairs (fake preview, /pricing, templates 404s, SMTP instruction, reset theater). (12) Repeat-render 500s (founder's first screen must not 500).
 **POST-LAUNCH (ordered):** error/loading states; logs search + deliveries filters; suppressions manager; customer audit view; /team consolidation; auth hardening (H4, logout-everywhere, reset-revoke, lockout, callback limit, pepper); replayable DLQ + replay; staged template publishing; grant tightening + reasons; seed FK + prod guard; queries hardening; read-page WHERE audit.
-**NICE TO HAVE:** SDK snippets; GitHub/Vercel integrations; metrics/incidents; storage/networking probes; maintenance switches; status publishing; SDK libs; MCP/CLI; migration guides.
+**NICE TO HAVE:** SDK snippets; GitHub/Vercel integrations; metrics/incidents; storage/networking probes; maintenance switches; status publishing; SDK + npm pipeline (§H); MCP/CLI; migration guides.
 **LONG-TERM:** SMTP gateway (after truth + metering); marketing suite on separate streams (after launch + demand); inbound; failover/dedicated IPs/SSO/regional.
 
 # PART B — ROADMAP TO PRODUCTION: PHASES & MILESTONES
@@ -566,7 +587,7 @@ Audit (§10 header): CONTROL-PLANE phantoms → real files; `control.css` ADR-02
 - Coupons/credits/invoices/entitlements actions: no ledger/provider; spec text correct.
 - Failover/dedicated IPs/SSO/regional: no scale evidence; ADR-007 unmet.
 - AI layer/codemods/MCP/`doctor`: marketing before truth.
-- DLQ replay UI: after the DLQ exists. Command/search, automations canvas, advanced analytics: deferred by design.
+- DLQ replay UI: after the DLQ exists. Command/search, advanced analytics: deferred by design. Automations canvas/engine: specified in §I, gated post-launch (NOT a launch blocker — see §I why).
 
 ## 20. First Implementation Session (Phase 0 core)
 
@@ -578,7 +599,7 @@ All 12 §12 blockers cleared + re-verified prod-like (real SES sandbox + simulat
 
 ## POST-LAUNCH BACKLOG (ordered)
 
-Metrics/incidents → storage/networking probes → maintenance switches → status publishing → staged template publishing → SDK libraries → GitHub/Vercel integrations → MCP/CLI → migration guides → SMTP gateway (gated: truth + metering) → marketing suite (gated: demand) → inbound → failover/dedicated IPs/SSO/regional.
+Metrics/incidents → storage/networking probes → maintenance switches → status publishing → staged template publishing → SDK + npm pipeline (§H) → GitHub/Vercel integrations → MCP/CLI → migration guides → SMTP gateway (gated: truth + metering) → automation engine §I (gated: truth + metering + suppression + demand) → rest of marketing suite (gated: demand) → inbound → failover/dedicated IPs/SSO/regional.
 
 ## §G — GMAIL QUICKSTART: PROTECTED TRACK
 
@@ -586,3 +607,54 @@ _Why special:_ no-domain, no-budget onboarding — the Nigeria-first wedge. Real
 _Present safeguards (verified):_ minimum OAuth scope (`gmail.send` + identity, never passwords); AES-256-GCM tokens, in-memory-only decrypt; 400/day cap pre-send; sender pinning (only the connected address); revocation fail-closed with explicit `gmail_revoked`; no bulk by design + cap.
 _Abuse scenarios → safeguard → milestone:_ burst spam → velocity baselines + warn→limit→suspend+appeal, audit-logged → M2.5 · cap evasion across projects → per-project UTC-day accounting, exact sent-count metric → M2.4 · phishing via self-verified domain → M4.1 kills the primitive; Gmail senders pinned regardless → M2.4 pinning test · credential abuse → revocation surfacing + session review → M2.4/M6.1 · reputation contagion → per-account velocity flags + Gmail inventory dashboard in control → M2.5 · silent over-cap → graduation prompts (M2.4) → hard gate: over-cap Gmail must verify a domain (M4) · demo/prod bleed → seed Gmail transports never touch prod; launch-gate proof.
 _PR rule:_ any Gmail-path change states how it's abused, what stops it, what pages — or it doesn't merge.
+
+## §H — BUILD & RELEASE TRACK (npm + API build)
+
+_Why it matters:_ the API build is what actually ships to Vercel (ADR-029/030 exist because the build/deploy seam broke production once); npm/SDK is how developers will consume Calder. Both were unnamed in the prior roadmap — named and gated here.
+_Present (verified §2.5):_ turbo `^build` ordering; per-package `tsc → dist`; api `tsc + bundle-serverless.mjs`; worker `tsc`; dashboard/web `next build`; CI `verify` ends with `pnpm build`; API `launch-check` boot gate.
+_Milestones:_
+
+- **H1 Build hardening (Phase 6 window).** Postgres service in CI so integration tests run; worker + dashboard boot-proof (`launch-check` equivalent or documented manual gate); `pnpm clean` before release builds (no stale-`dist` masking); `.env.example` ↔ config reconciliation (§10 item 5) so builds never surprise. _Exit:_ CI proves joints, not just units; release build is reproducible from a clean tree.
+- **H2 SDK package (post-launch, gated: launch + developer demand).** New PUBLIC package (proposed `@calder/sdk` — typed send, idempotency keys, retries, typed errors, webhook-signature verification helper). Never publish internals (auth/crypto, db, providers stay `private`). Scope first client: Node + fetch; SMTP/WordPress/Laravel guides ride on docs, not code. _Exit:_ SDK sends through the real API against staging in CI.
+- **H3 npm publish pipeline (with H2).** Versioning policy (changesets or manual + changelog); npm provenance; public scope ownership; deprecation policy; `docs/API.md` currency gate (SDK can't ship against stale API docs); `/sdks` page serves real snippets with project key injection. _Exit:_ versioned release cut from main, installable, with changelog.
+  _Rule:_ no internal package ever flips `private: false` without a publish review (secrets, schema, and provider logic must not leak into client bundles).
+
+## §I — AUTOMATION ENGINE SPEC (event-driven sequences, post-launch)
+
+_Why now in the roadmap:_ Resend shipped event-driven Automations (April 2026) and SendGrid has long sold list-driven Automation — the category is validated and the shape is known. Calder specs it now so the data model underneath (events, runs, stream separation) gets built correctly later, and so no one builds a sequence UI on today's pipeline. **Explicitly NOT a launch blocker:** automations without delivery truth, suppression automation, and metering would be theater. Backend-owned sequencing over Calder primitives (§8 recipe: scheduled sends + idempotency + webhooks + suppression) is the supported pattern until this ships.
+
+### I.1 Model (developer-operated, Resend-shaped — not list-driven)
+
+- A customer's app emits **custom events** (`event name + contact email + payload`, e.g. `user.created {plan: pro}`); Calder runs the matching published automations. No list membership required; no marketer console needed for v1.
+- An automation is a **directed graph of steps**: `trigger` (event name) → `send_email` (published template + variables) → `delay` (durations like `1 day`, max 30 days) → `wait_for_event` (condition with timeout) → `condition` (branch on contact/event data) → `contact_update` / `exit`. Created `disabled` by default; explicit publish.
+- Defined three ways, same schema: **code** (REST/SDK/CLI create with steps + connections), **visual** editor later, AI builder explicitly out of scope for v1.
+- **Stream separation is structural:** automation (marketing-lifecycle) sends never share suppression pools, rate limits, quotas, or reputation with transactional sends. A marketing step can never silently become transactional delivery. Gmail-connected projects may only run transactional steps — automation steps require a verified domain (abuse bar from §G).
+
+### I.2 Data (new tables, Drizzle migrations when built)
+
+- `automation_definitions` (project-scoped, versioned: draft vs published — edits never mutate a running automation).
+- `automation_runs` (one row per contact per entry: current step, state `waiting/sending/done/exited/failed`, idempotency key per step so replays never double-send).
+- `contact_events` (append-only ingress log: event name, email, payload, received-at — the audit trail for "why did this person get this email").
+- Runs advance via the existing queue/worker (delay = scheduled claim, same lease discipline as the drain — M0.2 pattern reused, never a second scheduler design).
+
+### I.3 Behavior contract
+
+- Entry: event ingested → matching published automations start a run (dedupe: same event id never starts two runs).
+- Timing: delay steps survive deploys/restarts (durable claims, not in-memory timers); max delay 30 days; overdue runs surface in control, never silently dropped.
+- Branching: conditions evaluate on contact + event payload only (documented field set — no arbitrary user-data access).
+- Exit: run ends on final step, exit condition (e.g. purchase event), unsubscribe/suppression (immediate, mid-sequence), automation unpublished (in-flight runs drain honestly, labeled), or contact deleted.
+- Observability: per-run timeline in customer dashboard (entered → step → sent → exited); per-automation funnel (entered, per-step conversion, exited) in control; every send lands in the same logs/events/webhooks/usage as manual sends (no second event model).
+- Metering: runs metered under the marketing allowance (contacts-based per PRD §11), never the transactional quota.
+
+### I.4 API surface (when built)
+
+- `POST /v1/events` (ingest: event, email, payload, idempotency key) · `POST /v1/automations` (create disabled: steps + connections) · `POST /v1/automations/:id/publish|pause` · `GET /v1/automations/:id/runs` + per-run timeline · SDK: `events.send()` + `automations.create()` in `@calder/sdk` (§H).
+- Error shape follows the standard contract; unpublished/validation failures are 4xx with reasons, never silent.
+
+### I.5 Migration path (protects today's users)
+
+Backend-owned sequencing (scheduled sends + idempotency + webhooks) keeps working unchanged. When §I ships, a migration guide shows the mechanical translation (scheduled step → delay step; webhook branch → condition step); no API removed. Templates, events, suppression, and usage carry over untouched — the engine is a new interface over trusted primitives, per the roadmap's core principle.
+
+### I.6 Exit criteria (definition of done, when scheduled)
+
+Sample automation (welcome day 0/1/3 + purchase-exit branch) runs end-to-end on staging: event → run → delayed sends land on schedule across a deploy restart → purchase mid-sequence exits honestly → unsubscribe mid-sequence suppresses → funnel + timelines render → runs meter against marketing allowance → failure matrix green (duplicate event, provider fail mid-run, unpublished mid-flight, payload missing field). Security: event-auth (key-scoped), payload size caps, per-project run-rate limits, no cross-project run leakage (tenant tests per read).
