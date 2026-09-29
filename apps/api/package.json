@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc --project tsconfig.json && node scripts/bundle-serverless.mjs",
+    "build": "tsc --project tsconfig.build.json && node scripts/bundle-serverless.mjs",
     "start": "node dist/src/index.js",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
