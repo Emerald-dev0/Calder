@@ -173,7 +173,16 @@ gate("gmail abuse watch (live Postgres)", async () => {
     // GMAIL_WATCH defaults: warn 40/h, limit 120/h, suspend 600/h.
     await seedGmailHistory(45); // past warn, below limit
     const id = await queueOne();
-    const row = await drainUntilSettled(id);
+    // Guarantee the row was actually processed before asserting the audit
+    // side effect: on a shared DB, foreign queued rows can fill every drain
+    // batch and leave ours unclaimed for rounds at a time (attemptCount 0,
+    // no evaluation, no audit row). Any drain counts — the evaluation code
+    // is identical everywhere.
+    let row = await drainUntilSettled(id);
+    for (let i = 0; i < 10 && !(row && row.attemptCount >= 1); i++) {
+      row = await drainUntilSettled(id);
+    }
+    expect(row?.attemptCount ?? 0).toBeGreaterThanOrEqual(1);
     // Mail was NOT refused by the watch (leg either delivered via fallback
     // error or requeued for the junk-credential construction error — the
     // important bit: no velocity refusal text).

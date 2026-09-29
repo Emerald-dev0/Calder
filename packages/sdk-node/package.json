@@ -29,7 +29,7 @@
   "license": "MIT",
   "sideEffects": false,
   "scripts": {
-    "build": "tsc -p .",
+    "build": "tsc -p tsconfig.build.json",
     "test": "vitest run --pool=forks",
     "typecheck": "tsc --noEmit -p .",
     "prepublishOnly": "pnpm build && pnpm test"
