@@ -248,12 +248,12 @@ values; rotate immediately on any leak.
 
 ## Production environment inventory
 
-| App       | Required env                                                                                                                                                                           | Notes                                                |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| dashboard | `DATABASE_URL` (Neon, pooled), `AUTH_SECRET` (32+ chars, generated), `AUTH_URL=https://app.calder.click`, `GOOGLE_*`, `GITHUB_*`, `FOUNDER_EMAILS`, `API_URL=https://api.calder.click` | `ALLOW_DEV_LOGIN` must be unset                      |
-| api       | `DATABASE_URL`, `REDIS_URL` (`rediss://` Upstash), `AUTH_SECRET`, `AWS_*` (SES), `WEBHOOK_SIGNING_SECRET`, `ADMIN_API_KEY`                                                             | Migrations run before deploy (`drizzle-kit migrate`) |
-| worker    | Same as api + `WORKER_CONCURRENCY`                                                                                                                                                     | Shares Redis + Postgres with api                     |
-| web       | None required (static)                                                                                                                                                                 | Rebuild on copy changes                              |
+| App       | Required env                                                                                                                                                                           | Notes                                                        |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| dashboard | `DATABASE_URL` (Neon, pooled), `AUTH_SECRET` (32+ chars, generated), `AUTH_URL=https://app.calder.click`, `GOOGLE_*`, `GITHUB_*`, `FOUNDER_EMAILS`, `API_URL=https://api.calder.click` | `ALLOW_DEV_LOGIN` must be unset                              |
+| api       | `DATABASE_URL`, `REDIS_URL` (`rediss://` Upstash), `AUTH_SECRET`, `AWS_*` (SES), `WEBHOOK_SIGNING_SECRET`, `ADMIN_API_KEY`                                                             | Migrations run before deploy (see Migration execution below) |
+| worker    | Same as api + `WORKER_CONCURRENCY`                                                                                                                                                     | Shares Redis + Postgres with api                             |
+| web       | None required (static)                                                                                                                                                                 | Rebuild on copy changes                                      |
 
 Secrets live in the hosting provider's env store (Vercel env / container
 secrets), never in the repo. Rotate `AUTH_SECRET` invalidates all sessions by
@@ -273,6 +273,19 @@ Every PR: typecheck → lint → unit tests → integration tests → build → 
 - [x] Queue implementation → BullMQ over Redis-compatible store
 - [ ] Redis provider → recommended Upstash (URL swap only), final call with hosting
 - [x] DB client production posture → TLS outside localhost, pooler-safe, `DB_POOL_MAX`
-- [ ] Migration execution strategy in CI/CD
+- [x] Migration execution strategy in CI/CD (decided 2026-09-29, after it bit us)
+
+  Run `pnpm --filter @calder/db db:migrate` (drizzle journal-tracked,
+  idempotent, forward-only) against the target database **before** the deploy
+  goes live. Two gotchas, both learned the hard way:
+  1. The `postgres` JS driver cannot parse `channel_binding=require` in
+     `DATABASE_URL` (psql accepts it, the driver times out) — strip that
+     parameter for the migrate run; keep it for psql sessions.
+  2. Never regenerate applied migrations (see `AGENTS.md`): drizzle re-runs
+     by journal-timestamp cutoff, and a bumped `when` replays history.
+     `pnpm --filter @calder/api launch-check` gates this: its `migrations`
+     check fails on any pending migration or any regenerated timestamp, so a
+     schema-behind deploy cannot pass the gate.
+
 - [ ] Rollback procedure
 - [ ] Performance budget thresholds (LCP/CLS/bundle size)

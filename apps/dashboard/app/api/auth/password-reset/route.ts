@@ -8,6 +8,7 @@ import {
 import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { logger } from "@calder/observability";
 import { clientIp } from "../../../../lib/client-ip";
+import { safeAuthError } from "../../../../lib/auth-error";
 
 /**
  * POST /api/auth/password-reset { email, code, newPassword }
@@ -59,8 +60,13 @@ export async function POST(req: Request): Promise<Response> {
     return NextResponse.json({ ok: true });
   } catch (err) {
     logger.warn({ err, email }, "Password reset failed");
+    // Enumeration-safe: an unknown email looks exactly like success, so the
+    // endpoint never reveals which addresses hold accounts.
+    if (err instanceof Error && err.message === "No account found for this email.") {
+      return NextResponse.json({ ok: true });
+    }
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Password reset failed." },
+      { error: safeAuthError(err, "Password reset failed.") },
       { status: 400 }
     );
   }

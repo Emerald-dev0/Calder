@@ -28,6 +28,7 @@ This file governs how AI coding agents (Claude Code, Codex, OpenCode, etc.) must
 - Every production-critical operation must be observable.
 - Preserve multi-tenant isolation on every new query, not just at auth middleware.
 - All schema changes go through migrations.
+- Never regenerate, edit, or re-timestamp an applied migration or its journal entry. Drizzle's migrator re-runs everything newer than the newest applied migration, so a bumped `when` replays an applied migration and crashes on existing objects — this exact failure took down production auth (missing columns). Always add a new migration instead.
 - Mutating operations that could cause harm if duplicated must support idempotency keys.
 - Write tests for meaningful business logic.
 - Update documentation only when behavior actually changes.

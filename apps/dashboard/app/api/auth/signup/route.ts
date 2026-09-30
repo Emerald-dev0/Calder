@@ -9,6 +9,7 @@ import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { logger } from "@calder/observability";
 import { clientIp } from "../../../../lib/client-ip";
 import { sendOtpEmail } from "../../../../lib/send-auth-email";
+import { safeAuthError } from "../../../../lib/auth-error";
 
 /**
  * POST /api/auth/signup { name, email, password }
@@ -61,10 +62,7 @@ export async function POST(req: Request): Promise<Response> {
     }
   } catch (err) {
     logger.warn({ err, email }, "Signup operation failed");
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Signup failed." },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: safeAuthError(err, "Signup failed.") }, { status: 400 });
   }
 
   return NextResponse.json({ ok: true, email });
