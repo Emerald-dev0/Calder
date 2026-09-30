@@ -72,7 +72,7 @@ export async function migrationStatus(
     ...e,
     hash: hashMigrationFile(readFileSync(join(dir, `${e.tag}.sql`))),
   }));
-  let appliedHashes = new Set<string>();
+  const appliedHashes = new Set<string>();
   let maxAppliedAt: number | null = null;
   try {
     const rows = await db.execute<{ hash: string; created_at: string }>(
