@@ -162,10 +162,42 @@ async function checkDatabase(): Promise<void> {
     return;
   }
   try {
-    const { getDb, organizations, projects, waitlistConfirmation, suppressions } =
+    const { getDb, organizations, projects, waitlistConfirmation, suppressions, migrationStatus } =
       await import("@calder/db");
     const { eq, count } = await import("drizzle-orm");
     const db = getDb();
+
+    // Schema drift gate: the database must have every journaled migration
+    // applied, and no applied migration may carry a regenerated timestamp
+    // (drizzle re-runs everything newer than the newest applied migration —
+    // a bumped `when` replays an applied migration and crashes on existing
+    // objects, which is exactly how production lost its auth columns).
+    try {
+      const drift = await migrationStatus(db);
+      if (drift.regenerated.length > 0) {
+        add(
+          "fail",
+          "migrations",
+          `journal timestamps regenerated post-apply (${drift.regenerated.join(", ")}); ` +
+            `fix the journal timestamps, never edit applied migrations`
+        );
+      } else if (drift.pending.length > 0) {
+        add(
+          "fail",
+          "migrations",
+          `${drift.pending.length} migration(s) not applied (${drift.pending.join(", ")}); ` +
+            `run db:migrate before launch (applied ${drift.applied}/${drift.total})`
+        );
+      } else {
+        add("pass", "migrations", `schema current (applied ${drift.applied}/${drift.total})`);
+      }
+    } catch (err) {
+      add(
+        "fail",
+        "migrations",
+        `could not verify migration state: ${err instanceof Error ? err.message : "unknown error"}`
+      );
+    }
 
     const internalProjects = await db
       .select({ id: projects.id })

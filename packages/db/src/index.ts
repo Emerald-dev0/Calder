@@ -7,3 +7,4 @@ export * from "./gmail-watch.js";
 export * from "./webhook-deliveries.js";
 export * from "./dns-challenge.js";
 export * from "./domain-verification.js";
+export * from "./migration-status.js";

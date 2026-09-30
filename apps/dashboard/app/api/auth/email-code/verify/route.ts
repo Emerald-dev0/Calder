@@ -10,6 +10,7 @@ import {
 } from "@calder/auth";
 import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { clientIp } from "../../../../../lib/client-ip";
+import { safeAuthError } from "../../../../../lib/auth-error";
 import { postLoginRedirect } from "../../../../../lib/control/post-login";
 
 /**
@@ -75,7 +76,7 @@ export async function POST(req: Request): Promise<Response> {
     return NextResponse.json({ ok: true, verified: true });
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Verification failed." },
+      { error: safeAuthError(err, "Verification failed.") },
       { status: 400 }
     );
   }

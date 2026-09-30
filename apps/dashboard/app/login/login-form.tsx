@@ -675,9 +675,13 @@ export function LoginForm({ providers, initialError, devLogin }: LoginFormProps)
           <div className="login-divider">or continue with</div>
           <div className="login-oauth">
             {providers.map((p) => (
-              <Link key={p} href={`/api/auth/${p}`} className="login-oauth-btn">
+              // Plain anchor, never Next <Link>: this URL 307-redirects to
+              // Google/GitHub, and Link's RSC prefetch follows that redirect
+              // with fetch, which dies on CORS (console errors) instead of
+              // navigating. A full browser navigation is the correct behavior.
+              <a key={p} href={`/api/auth/${p}`} className="login-oauth-btn">
                 {LABELS[p]}
-              </Link>
+              </a>
             ))}
           </div>
         </>
