@@ -14,9 +14,12 @@ export function SenderFilter({
 }) {
   const router = useRouter();
   return (
-    <div style={{ marginBottom: 16 }}>
-      <label style={{ fontSize: 12, color: "#737373", marginRight: 8 }} htmlFor="sender-filter">
-        Sender
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      <label
+        style={{ fontSize: 12, fontWeight: 600, color: "var(--color-muted)" }}
+        htmlFor="sender-filter"
+      >
+        Sender:
       </label>
       <select
         id="sender-filter"
@@ -24,18 +27,13 @@ export function SenderFilter({
         onChange={(e) => {
           const v = e.target.value;
           router.push(
-            v ? `/emails?project=${projectId}&sender=${v}` : `/emails?project=${projectId}`
+            v ? `/emails?project=${projectId}&sender=${v}` : `/emails?project=${projectId}`,
           );
         }}
-        style={{
-          fontSize: 13,
-          padding: "6px 10px",
-          borderRadius: 8,
-          border: "1px solid #E5E5E5",
-          background: "#fff",
-        }}
+        className="ds-select"
+        style={{ height: 32, width: "auto", minWidth: 200, fontSize: 12.5 }}
       >
-        <option value="">All senders</option>
+        <option value="">All sender identities</option>
         {senders.map((s) => (
           <option key={s.id} value={s.id}>
             {s.displayName} · {s.email}
