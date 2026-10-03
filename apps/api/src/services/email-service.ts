@@ -225,16 +225,6 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
     logger.warn({ err: supErr, projectId }, "Suppression check unavailable, skipping (dev)");
   }
 
-  // ── Quota check (PRICING §5: hard limits, no silent overages) ──
-  // After suppression (never charge a refused send) and BEFORE persistence.
-  // Idempotent replays returned earlier and never re-hit this gate; test-key
-  // traffic and Calder's internal org are exempt by policy.
-  {
-    const { getDb } = await import("@calder/db");
-    const { checkSendQuota, assertQuotaAllowed } = await import("../lib/quotas.js");
-    assertQuotaAllowed(await checkSendQuota(getDb(), params.organizationId, env));
-  }
-
   const emailRecord = {
     id: emailId,
     projectId,
@@ -256,33 +246,27 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       ...((input.metadata as Record<string, unknown> | undefined) ?? {}),
       ...(Object.keys(safeHeaders).length > 0 ? { headers: safeHeaders } : {}),
     },
-    // Annotation recorded after every gate (sender, suppression, quota) has
-    // passed; it cannot grant a bypass of any of them.
-    stream: resolveEmailStream(input),
     status: "queued" as const,
     attemptCount: 0,
   };
 
   const response = { id: emailId, status: "queued" as const, message: "Email queued for delivery" };
 
-  // ── Persist + atomic idempotency claim ─────────────────────
-  // With an Idempotency-Key the claim row is inserted FIRST, inside the
-  // same transaction as the email row. INSERT ... ON CONFLICT waits for a
-  // concurrent transaction holding the same key, then either replays the
-  // committed response (no second row, no second send) or becomes the
-  // winner when the loser rolled back. Concurrent same-key sends can no
-  // longer produce duplicate deliveries.
+  // ── Eligibility, durable persist + atomic idempotency claim ──
+  // The same organization-row lock serializes new-org/monthly limits with
+  // state changes. The email and queued event are committed in that
+  // transaction; the queue remains a wake-up and the DB drain the backstop.
   let persisted = false;
   try {
-    const { getDb, emails, emailEvents, idempotencyKeys } = await import("@calder/db");
+    const { getDb, emails, emailEvents, idempotencyKeys, withOrganizationSendingEligibility } =
+      await import("@calder/db");
+    const { and, eq, lt } = await import("drizzle-orm");
     const db = getDb();
     const insertEmail = {
       id: emailRecord.id,
       projectId: emailRecord.projectId,
       idempotencyKey: emailRecord.idempotencyKey,
-      // Stamped from the accepting API key. Omitting it would fall back to the
-      // column default ("live"), which would meter test traffic against the
-      // plan and route sandbox mail through the real provider chain.
+      // Preserve test/live stamping for provider routing and exactly-once billing.
       env: emailRecord.env,
       from: emailRecord.from,
       senderIdentityId: emailRecord.senderIdentityId,
@@ -297,7 +281,6 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       metadata: emailRecord.metadata,
       scheduledFor: emailRecord.scheduledFor,
       attachments: emailRecord.attachments,
-      stream: emailRecord.stream,
       status: "queued" as const,
       attemptCount: 0,
     };
@@ -309,73 +292,90 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       data: { requestId, env },
     };
 
-    if (idempotencyKey) {
-      const { and, eq, lt } = await import("drizzle-orm");
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      const claimed = await db.transaction(async (tx) => {
-        const rows = await tx
-          .insert(idempotencyKeys)
-          .values({
-            id: `idm_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
-            projectId,
-            key: idempotencyKey,
-            responseStatus: null,
-            responseBody: null,
-            expiresAt,
-          })
-          .onConflictDoUpdate({
-            target: [idempotencyKeys.projectId, idempotencyKeys.key],
-            // An expired claim may be refreshed and re-claimed. A live
-            // claim fails this WHERE, RETURNING comes back empty, and the
-            // committed response is replayed below instead.
-            set: { expiresAt, responseStatus: null, responseBody: null },
-            setWhere: lt(idempotencyKeys.expiresAt, new Date()),
-          })
-          .returning({ id: idempotencyKeys.id });
-
-        if (rows.length === 0) return false;
-
-        await tx.insert(emails).values(insertEmail);
+    const admission = await withOrganizationSendingEligibility(
+      db,
+      { organizationId: params.organizationId, projectId, env },
+      async (tx) => {
+        if (idempotencyKey) {
+          const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+          const rows = await tx
+            .insert(idempotencyKeys)
+            .values({
+              id: `idm_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+              projectId,
+              key: idempotencyKey,
+              responseStatus: null,
+              responseBody: null,
+              expiresAt,
+            })
+            .onConflictDoUpdate({
+              target: [idempotencyKeys.projectId, idempotencyKeys.key],
+              set: { expiresAt, responseStatus: null, responseBody: null },
+              setWhere: lt(idempotencyKeys.expiresAt, new Date()),
+            })
+            .returning({ id: idempotencyKeys.id });
+          if (rows.length === 0) return false;
+          await tx.insert(emails).values({
+            ...insertEmail,
+            // Materialize the stream only after shared eligibility passes.
+            stream: resolveEmailStream(input),
+          });
+          await tx.insert(emailEvents).values(queuedEvent);
+          await tx
+            .update(idempotencyKeys)
+            .set({ responseStatus: 202, responseBody: response })
+            .where(
+              and(eq(idempotencyKeys.projectId, projectId), eq(idempotencyKeys.key, idempotencyKey))
+            );
+          return true;
+        }
+        await tx.insert(emails).values({
+          ...insertEmail,
+          // Materialize the stream only after shared eligibility passes.
+          stream: resolveEmailStream(input),
+        });
         await tx.insert(emailEvents).values(queuedEvent);
-        await tx
-          .update(idempotencyKeys)
-          .set({ responseStatus: 202, responseBody: response })
-          .where(
-            and(eq(idempotencyKeys.projectId, projectId), eq(idempotencyKeys.key, idempotencyKey))
-          );
         return true;
-      });
+      }
+    );
 
-      if (!claimed) {
-        // ON CONFLICT waits for the winner's transaction to commit, so the
-        // stored response is visible by now.
+    if (!admission.allowed) {
+      if (idempotencyKey) {
         const stored = await lookupIdempotency(projectId, idempotencyKey);
         if (stored) {
-          logger.info({ projectId, idempotencyKey, requestId }, "Idempotent replay (concurrent)");
           return {
             response: stored.responseBody as { id: string; status: string; message: string },
             idempotentReplay: true,
           };
         }
-        throw new AppError(
-          "idempotency_conflict",
-          "A request with this Idempotency-Key is already in flight.",
-          409,
-          undefined,
-          "Retry with the same Idempotency-Key in a few seconds."
-        );
       }
-    } else {
-      await db.insert(emails).values(insertEmail);
-      await db.insert(emailEvents).values(queuedEvent);
+      const { assertOrganizationAdmissionAllowed } = await import("../lib/organization-sending.js");
+      assertOrganizationAdmissionAllowed(admission.decision);
     }
 
+    if (admission.allowed && !admission.value) {
+      // ON CONFLICT waits for the winner's transaction to commit, so the
+      // stored response is visible by now.
+      const stored = await lookupIdempotency(projectId, idempotencyKey!);
+      if (stored) {
+        logger.info({ projectId, idempotencyKey, requestId }, "Idempotent replay (concurrent)");
+        return {
+          response: stored.responseBody as { id: string; status: string; message: string },
+          idempotentReplay: true,
+        };
+      }
+      throw new AppError(
+        "idempotency_conflict",
+        "A request with this Idempotency-Key is already in flight.",
+        409,
+        undefined,
+        "Retry with the same Idempotency-Key in a few seconds."
+      );
+    }
     persisted = true;
   } catch (err) {
     if (err instanceof AppError) throw err;
     if (idempotencyKey && isUniqueViolation(err)) {
-      // Defensive: claim won but the email row already existed. The
-      // original response is the correct reply.
       const stored = await lookupIdempotency(projectId, idempotencyKey);
       if (stored) {
         return {
@@ -392,12 +392,10 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       );
     }
     if (isProduction()) {
-      // Fail closed: a 202 without a durable row is a lost send.
-      logger.error({ err, projectId, emailId }, "Failed to persist send");
-      throw new AppError("internal_error", "Could not persist the send; nothing was queued.", 500);
+      logger.error({ err, projectId, emailId }, "Failed eligibility check or send persistence");
+      throw new AppError("internal_error", "Could not accept the send; nothing was queued.", 500);
     }
-    // Dev scaffold without a database: keep the in-memory fallback alive.
-    logger.warn({ err, projectId, emailId }, "DB persist failed, using in-memory fallback");
+    logger.warn({ err, projectId, emailId }, "DB unavailable, using in-memory fallback");
     memoryEmails.set(emailId, emailRecord);
   }
 

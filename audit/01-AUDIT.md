@@ -9,27 +9,27 @@ Plain English: the core email pipe (API → queue → worker → SES → events 
 
 ## Scorecard
 
-| Area | Status | One line |
-|---|---|---|
-| A. Auth & account security | PARTIAL | Hashing/sessions/magic-link/reset solid; no MFA; no security notification emails; 30-day sessions w/o rotation |
-| B. Authorization & tenant isolation | PARTIAL | Every public endpoint scopes by project; central helpers are dead code (drift risk); 2 narrow residual spots |
-| C. API keys & public surface | PARTIAL | Hashing/prefix/scoping/idempotency/CORS/request-IDs real; expiry never checked; pagination gaps; OpenAPI stale |
-| D. Sending core (email) | PARTIAL | Pipe is real incl. retries/DLQ-state/suppression re-checks; InMemory default loses jobs; no email-replay endpoint |
-| E. Deliverability & domains | PARTIAL | Ownership verify + DKIM + bounce/complaint wiring + suppression + RFC-8058 unsubscribe real; SPF display-only; no DMARC; no warmup; sandbox never blocks at runtime |
-| F. Abuse prevention | FAIL | Per-key rate limits + Gmail caps exist; no signup friction, no disposable-email block, no auto-pause on bounce/complaint spikes, no suspend-org tool. A spammer can hurt you. |
-| G. Architecture readiness (email scope) | PASS w/ notes | Provider abstraction real; message model email-wired; 9 decisions to lock now (see 08) |
-| H. Webhooks & events / SMTP / inbound | PARTIAL | Webhooks genuinely good (sign/retry/replay/SSRF). SMTP: spec only, advertised as live — BLOCKER. Inbound: absent, OOS. |
-| I. Billing, plans, unit economics | FAIL (as commerce) / PASS (as metering) | Metering exactly-once and honest; but provider is mock — no checkout, no upgrade/downgrade/cancel self-serve, no refunds, no credit ledger; margin math unverifiable |
-| J. Infra, reliability, ops | FAIL | Env separation/migrations/pooling/health-checks real; backups/restore/RPO/RTO unchecked; rollback open; no error tracking; alerting not wired; no e2e coverage gate |
-| K. Secrets, deps, supply chain | PARTIAL | No committed secrets (verified); API security headers real; web/dashboard headers not found; dep-scan claim false; 48 vulns open |
-| L. Legal, privacy, compliance | PARTIAL | Legal pages exist and are honest; deletion/export is "ask support" with no tested path; DPA-on-request only |
-| M. Product UX & onboarding | PARTIAL | Wizard real with resume; dead links from live UI (`/templates/new`, `/templates/:id`, `/pricing`); login step-2 advances client-side w/o verifying |
-| N. DX, docs, SDKs | PARTIAL | `/v1/openapi.json` served live; route table matches; Node SDK tested-but-unpublished; Python tested; Ruby/PHP runtime-unverified |
-| O. Code quality & testing | PARTIAL | 80 unit tests pass, 57 integration skipped (no DB in this env); CI has Postgres + migrate before test; no coverage gate, no e2e job |
-| P. Marketing site, brand, trust | PARTIAL | Core claims honest w/ `status:"dev"` labels; SMTP-on-every-plan overstates; no 500/error boundary; status page static-but-honest |
-| Q. Color & identity | recommendation only | 3 palettes proposed, one recommended — see 06 |
-| R. Competitors | done | 11 email + 7 adjacent profiled with sources — see 05 |
-| S. Landing redesign | prototype only | Standalone prototype in `landing-redesign/`, renders, screenshots pending real browser — see 07 |
+| Area                                    | Status                                  | One line                                                                                                                                                                      |
+| --------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A. Auth & account security              | PARTIAL                                 | Hashing/sessions/magic-link/reset solid; no MFA; no security notification emails; 30-day sessions w/o rotation                                                                |
+| B. Authorization & tenant isolation     | PARTIAL                                 | Every public endpoint scopes by project; central helpers are dead code (drift risk); 2 narrow residual spots                                                                  |
+| C. API keys & public surface            | PARTIAL                                 | Hashing/prefix/scoping/idempotency/CORS/request-IDs real; expiry never checked; pagination gaps; OpenAPI stale                                                                |
+| D. Sending core (email)                 | PARTIAL                                 | Pipe is real incl. retries/DLQ-state/suppression re-checks; InMemory default loses jobs; no email-replay endpoint                                                             |
+| E. Deliverability & domains             | PARTIAL                                 | Ownership verify + DKIM + bounce/complaint wiring + suppression + RFC-8058 unsubscribe real; SPF display-only; no DMARC; no warmup; sandbox never blocks at runtime           |
+| F. Abuse prevention                     | FAIL                                    | Per-key rate limits + Gmail caps exist; no signup friction, no disposable-email block, no auto-pause on bounce/complaint spikes, no suspend-org tool. A spammer can hurt you. |
+| G. Architecture readiness (email scope) | PASS w/ notes                           | Provider abstraction real; message model email-wired; 9 decisions to lock now (see 08)                                                                                        |
+| H. Webhooks & events / SMTP / inbound   | PARTIAL                                 | Webhooks genuinely good (sign/retry/replay/SSRF). SMTP: spec only, advertised as live — BLOCKER. Inbound: absent, OOS.                                                        |
+| I. Billing, plans, unit economics       | FAIL (as commerce) / PASS (as metering) | Metering exactly-once and honest; but provider is mock — no checkout, no upgrade/downgrade/cancel self-serve, no refunds, no credit ledger; margin math unverifiable          |
+| J. Infra, reliability, ops              | FAIL                                    | Env separation/migrations/pooling/health-checks real; backups/restore/RPO/RTO unchecked; rollback open; no error tracking; alerting not wired; no e2e coverage gate           |
+| K. Secrets, deps, supply chain          | PARTIAL                                 | No committed secrets (verified); API security headers real; web/dashboard headers not found; dep-scan claim false; 48 vulns open                                              |
+| L. Legal, privacy, compliance           | PARTIAL                                 | Legal pages exist and are honest; deletion/export is "ask support" with no tested path; DPA-on-request only                                                                   |
+| M. Product UX & onboarding              | PARTIAL                                 | Wizard real with resume; dead links from live UI (`/templates/new`, `/templates/:id`, `/pricing`); login step-2 advances client-side w/o verifying                            |
+| N. DX, docs, SDKs                       | PARTIAL                                 | `/v1/openapi.json` served live; route table matches; Node SDK tested-but-unpublished; Python tested; Ruby/PHP runtime-unverified                                              |
+| O. Code quality & testing               | PARTIAL                                 | 80 unit tests pass, 57 integration skipped (no DB in this env); CI has Postgres + migrate before test; no coverage gate, no e2e job                                           |
+| P. Marketing site, brand, trust         | PARTIAL                                 | Core claims honest w/ `status:"dev"` labels; SMTP-on-every-plan overstates; no 500/error boundary; status page static-but-honest                                              |
+| Q. Color & identity                     | recommendation only                     | 3 palettes proposed, one recommended — see 06                                                                                                                                 |
+| R. Competitors                          | done                                    | 11 email + 7 adjacent profiled with sources — see 05                                                                                                                          |
+| S. Landing redesign                     | prototype only                          | Standalone prototype in `landing-redesign/`, renders, screenshots pending real browser — see 07                                                                               |
 
 ## Verification actually run (evidence/)
 
@@ -49,6 +49,8 @@ Severity: BLOCKER = cannot show to anyone / HIGH = cannot launch publicly / MEDI
 ### BLOCKERs
 
 **ABUSE-001 [F] No signup friction; a spammer can burn your SES reputation (and your AWS account).** No disposable-email block, no new-account sending caps beyond per-key rate limits, no content heuristics, no auto-pause on bounce/complaint spikes, no admin suspend-org/key tool found. Evidence: rate limits only per-key/IP (`apps/api/src/middleware/rate-limit.ts:11-22`, preset 100/min `packages/rate-limit/src/index.ts:66`); Gmail caps exist (`packages/email/src/transport.ts:42`, enforced `drain.ts:149-158`) but non-Gmail new accounts have only quota ceilings (`packages/config/src/plan-limits.ts:22-27`). Why it matters: SES suspends senders with high bounce/complaint rates; one malicious signup can throttle the shared identity for every customer. Fix direction: disposable-domain blocklist + lower day-1 caps + bounce/complaint-rate auto-pause + admin suspend endpoint + abuse@ mailbox and runbook. Gate: 0.
+
+**Implementation follow-up (2026-10-03):** The as-found statement above is preserved as the audit baseline. Phase 1 implementation now provides server-side disposable-domain account-creation blocking, a configurable org-wide new-account live-send cap, deterministic recent SES feedback auto-pause, a tested API/worker delivery gate, and founder/admin org suspension with all-project API-key revocation. Migration 0024 was applied in a temporary Postgres 17 integration run; API, worker, SES, password, magic-link, and OAuth integration tests passed. See `docs/PHASE1-ABUSE.md`, `audit/02-LAUNCH_CHECKLIST.md`, and `audit/04-RISK_REGISTER.md`. Residual launch obligations: owner validates production SNS/SES wiring, admin secret access, and daily reputation review; no live abuse was sent through the shared SES identity.
 
 **SMTP-001 [H/P] SMTP relay is advertised as live on every plan; it does not exist.** Marketing `apps/web/components/smtp-section.tsx:18-20,64` + `plans.ts:62-75,94-110` sell "REST API + SMTP relay" in-plan; PRD §10b specifies `smtp.calder.com:587`. Reality: no `apps/smtp-gateway` dir, `docs/SMTP.md:1` "specified, not yet implemented", dashboard `smtp/page.tsx:28` "not available yet" (the dashboard is honest; the marketing site is not). Host even disagrees (`smtp.calder.click` vs `smtp.calder.com`). Why it matters: an SMTP buyer converts, then finds no host, no credentials, no docs path that works. That is a false claim, not a roadmap note. Fix direction: either build the gateway (ADR-014) or relabel every SMTP mention "coming soon" and remove it from plan feature lists. Gate: 0.
 

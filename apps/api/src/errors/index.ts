@@ -16,7 +16,8 @@ export type ErrorCode =
   | "suppressed"
   | "idempotency_conflict"
   | "sender_not_ready"
-  | "plan_limit_reached";
+  | "plan_limit_reached"
+  | "organization_sending_unavailable";
 
 export class AppError extends Error {
   constructor(

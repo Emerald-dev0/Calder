@@ -22,6 +22,7 @@ const USER_SAFE_ERRORS = new Set([
   "Invalid code. Please check and try again.",
   "Invalid email or password.",
   "This link is invalid or expired.",
+  "This email address isn't supported. Use a different email address.",
 ]);
 
 export function safeAuthError(err: unknown, fallback: string): string {

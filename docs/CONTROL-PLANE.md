@@ -104,7 +104,11 @@ means "no data yet", never a fabricated value.
 - Users list (plan, orgs, emails sent); Organizations list (MRR, plan, health);
   360° org detail: plan control (apply plan founder-side, audit-logged),
   subscription history, members, projects + transports with default identity,
-  metered usage periods, org-scoped audit trail.
+  metered usage periods, org-scoped audit trail, and a sending-safety panel.
+  Founder/platform-admin/security roles can suspend or resume sending with a
+  required audit reason; suspension revokes every project API key in the same
+  transaction. Resuming does not restore revoked keys. Automatic SES feedback
+  pauses appear as `abuse_paused` with their audit record.
 - Customer Health: scored cohorts computed live — approaching limits, dormant
   (stopped sending), failed-delivery clusters — each row links to the org.
 - Support: internal notes + recent contacts (CRM-lite).
@@ -155,11 +159,13 @@ links. Incidents (timeline, escalation path: alert → notification → incident
 
 ### Security
 
-Abuse (signals + actions: warn, rate-limit, require verification, pause,
-suspend, restore — all audit-logged), Security Events, Restrictions
-(user/org/platform levels), Admin Access (role matrix: Founder > Platform
-Admin > specialized roles Support/Billing/Marketing/Infra/Security/Developer/
-Analyst, multi-role assignment, read-only roles list).
+Abuse (Phase 1: server-side disposable-domain signup blocking, an org-wide
+new-account live-send ceiling, deterministic SES feedback auto-pause, and the
+organization sending kill-switch; suspension/resume and automatic pauses are
+audit-logged), Security Events (existing audit activity plus the SES feedback
+ledger), Restrictions (user/org/platform levels), Admin Access (role matrix:
+Founder > Platform Admin > specialized roles Support/Billing/Marketing/Infra/
+Security/Developer/Analyst, multi-role assignment, read-only roles list).
 
 ### Operations
 

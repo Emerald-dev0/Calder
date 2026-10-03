@@ -67,6 +67,12 @@ export {
   type IssueEmailCodeResult,
 } from "./email-code.js";
 export {
+  isDisposableEmail,
+  assertNotDisposableEmail,
+  DisposableEmailError,
+  BUILTIN_DISPOSABLE_EMAIL_DOMAINS,
+} from "./disposable-email.js";
+export {
   hashPassword,
   verifyPassword,
   validatePasswordStrength,

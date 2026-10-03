@@ -1,15 +1,18 @@
 import Link from "next/link";
+import { randomUUID } from "node:crypto";
 import { notFound } from "next/navigation";
 import { fmtAgo, fmtDate, fmtInt, fmtMoney } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
 import { orgDetail } from "@/lib/control/queries";
-import { Badge, Dot, Empty, PageHeader, Panel, Stat, Tag } from "@/control/_components/ui";
-import { setSubscription } from "../../actions";
+import { Badge, Dot, Empty, PageHeader, Panel, Stat, Tag, KV } from "@/control/_components/ui";
+import { setOrganizationSafetyStatus, setSubscription } from "../../actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrgDetailPage({ params }: { params: { id: string } }) {
-  await requireSection("customers");
+  const control = await requireSection("customers");
+  const canManageSafety = ["founder", "platform_admin", "security"].includes(control.role);
+  const safetyActionIdempotencyKey = randomUUID();
   const data = await orgDetail(params.id);
   if (!data) notFound();
   const {
@@ -43,7 +46,22 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
             {org.id} · created {fmtDate(new Date(org.createdAt))}
           </span>
         }
-        right={plan ? <Badge tone="accent">{plan.name}</Badge> : <Badge>no active plan</Badge>}
+        right={
+          <>
+            <Badge
+              tone={
+                org.sendingStatus === "active"
+                  ? "ok"
+                  : org.sendingStatus === "abuse_paused"
+                    ? "warn"
+                    : "bad"
+              }
+            >
+              sending: {org.sendingStatus.replace(/_/g, " ")}
+            </Badge>
+            {plan ? <Badge tone="accent">{plan.name}</Badge> : <Badge>no active plan</Badge>}
+          </>
+        }
       />
 
       <div className="cp-stats">
@@ -172,6 +190,90 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
                 </tbody>
               </table>
             </div>
+          )}
+        </Panel>
+      </div>
+
+      <div className="cp-grid cp-grid-2">
+        <Panel
+          title="Sending safety"
+          caption="organization-wide gate; suspension revokes all API keys atomically, and resuming does not restore them"
+        >
+          <KV
+            k="Current status"
+            v={
+              <Badge
+                tone={
+                  org.sendingStatus === "active"
+                    ? "ok"
+                    : org.sendingStatus === "abuse_paused"
+                      ? "warn"
+                      : "bad"
+                }
+              >
+                {org.sendingStatus.replace(/_/g, " ")}
+              </Badge>
+            }
+          />
+          {org.sendingStatusReason ? <KV k="Reason" v={org.sendingStatusReason} /> : null}
+          {org.sendingStatusAt ? (
+            <KV k="Changed" v={fmtAgo(new Date(org.sendingStatusAt))} />
+          ) : null}
+          {canManageSafety ? (
+            <form
+              action={async (formData: FormData) => {
+                "use server";
+                const status = String(formData.get("status") ?? "suspended");
+                if (status !== "active" && status !== "suspended") {
+                  throw new Error("Unsupported organization sending status.");
+                }
+                const outcome = await setOrganizationSafetyStatus(
+                  org.id,
+                  status,
+                  String(formData.get("reason") ?? ""),
+                  String(formData.get("idempotencyKey") ?? "")
+                );
+                if (!outcome.ok) {
+                  throw new Error(outcome.error ?? "Organization safety action rejected.");
+                }
+              }}
+              style={{
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+                alignItems: "center",
+                marginTop: 12,
+              }}
+            >
+              <input type="hidden" name="idempotencyKey" value={safetyActionIdempotencyKey} />
+              <select
+                className="cp-select"
+                name="status"
+                defaultValue={org.sendingStatus === "active" ? "suspended" : "active"}
+                aria-label="New sending status"
+              >
+                <option value="suspended">Suspend sending</option>
+                <option value="active">Resume sending</option>
+              </select>
+              <input
+                className="cp-input"
+                type="text"
+                name="reason"
+                placeholder="reason (required — audit)"
+                required
+                minLength={6}
+                maxLength={500}
+                style={{ minWidth: 220 }}
+                aria-label="Reason for this sending status change"
+              />
+              <button className="cp-btn primary" type="submit">
+                Apply safety action
+              </button>
+            </form>
+          ) : (
+            <p className="cp-panel-caption" style={{ marginTop: 12 }}>
+              This action is limited to founder, platform-admin, and security roles.
+            </p>
           )}
         </Panel>
       </div>

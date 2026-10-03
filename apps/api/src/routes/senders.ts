@@ -259,28 +259,37 @@ senders.post("/:id/test", authMiddleware, async (c) => {
     );
   }
   const emailId = `em_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
-  await db.insert(emails).values({
-    id: emailId,
-    projectId: a.projectId,
-    from: sender.email,
-    senderIdentityId: sender.id,
-    fromName: sender.displayName,
-    to,
-    subject: `Test send from ${sender.displayName}`,
-    text: `This is a test send from ${sender.displayName} <${sender.email}> via Calder.`,
-    status: "queued",
-    // Inherit the credential's environment, like /v1/emails and
-    // /v1/emails/batch do. Without this the row defaulted to "live", so a
-    // test-mode key ran a real SES send and metered it as live usage.
-    env: a.env,
-  });
-  await db.insert(emailEvents).values({
-    id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
-    emailId,
-    projectId: a.projectId,
-    type: "queued",
-    data: { via: "api-test-send" },
-  });
+  const { withOrganizationSendingEligibility } = await import("@calder/db");
+  const admission = await withOrganizationSendingEligibility(
+    db,
+    { organizationId: a.organizationId, projectId: a.projectId, env: a.env },
+    async (tx) => {
+      await tx.insert(emails).values({
+        id: emailId,
+        projectId: a.projectId,
+        from: sender.email,
+        senderIdentityId: sender.id,
+        fromName: sender.displayName,
+        to,
+        subject: `Test send from ${sender.displayName}`,
+        text: `This is a test send from ${sender.displayName} <${sender.email}> via Calder.`,
+        status: "queued",
+        // Inherit the credential's environment, like /v1/emails and
+        // /v1/emails/batch do; test traffic is never metered as live.
+        env: a.env,
+      });
+      await tx.insert(emailEvents).values({
+        id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+        emailId,
+        projectId: a.projectId,
+        type: "queued",
+        data: { via: "api-test-send", env: a.env },
+      });
+      return true;
+    }
+  );
+  const { assertOrganizationAdmissionAllowed } = await import("../lib/organization-sending.js");
+  assertOrganizationAdmissionAllowed(admission.decision);
   await createQueue<{ emailId: string; projectId: string }>("email:send", {
     maxAttempts: 5,
   }).enqueue("send-email", { emailId, projectId: a.projectId });
