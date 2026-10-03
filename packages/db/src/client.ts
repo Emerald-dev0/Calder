@@ -6,6 +6,9 @@ let client: ReturnType<typeof postgres> | null = null;
 let dbInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
 export type DbClient = ReturnType<typeof drizzle<typeof schema>>;
+export type DbTransaction = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
+export type DbExecutor =
+  Pick<DbClient, "select" | "insert" | "update" | "delete" | "execute"> | DbTransaction;
 
 function getConnectionString(): string {
   return process.env.DATABASE_URL ?? "postgresql://calder:calder@localhost:5432/calder";

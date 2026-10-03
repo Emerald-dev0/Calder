@@ -1,6 +1,11 @@
 import { pgEnum } from "drizzle-orm/pg-core";
 
 export const organizationRoleEnum = pgEnum("organization_role", ["owner", "admin", "member"]);
+export const organizationSendingStatusEnum = pgEnum("organization_sending_status", [
+  "active",
+  "abuse_paused",
+  "suspended",
+]);
 export const apiKeyEnvEnum = pgEnum("api_key_env", ["test", "live"]);
 export const domainStatusEnum = pgEnum("domain_status", [
   "pending",

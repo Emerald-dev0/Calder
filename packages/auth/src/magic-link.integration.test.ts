@@ -25,6 +25,7 @@ gate("magic-link integration (live Postgres)", async () => {
   const { requestMagicLink, consumeMagicLink, getSessionUser } = await import("./index");
 
   const email = `mlink-${randomBytes(4).toString("hex")}@test.test`;
+  const disposableEmail = `mlink-${randomBytes(4).toString("hex")}@mailinator.com`;
 
   afterAll(async () => {
     if (!(await reachable())) return;
@@ -44,6 +45,14 @@ gate("magic-link integration (live Postgres)", async () => {
       .delete(magicLinkTokens)
       .where(eq(magicLinkTokens.email, email))
       .catch(() => {});
+    await db
+      .delete(users)
+      .where(eq(users.email, disposableEmail))
+      .catch(() => {});
+    await db
+      .delete(magicLinkTokens)
+      .where(eq(magicLinkTokens.email, disposableEmail))
+      .catch(() => {});
   });
 
   it("request then consume signs in and verifies the email", async () => {
@@ -62,6 +71,18 @@ gate("magic-link integration (live Postgres)", async () => {
     const { sealSessionCookie } = await import("./index");
     const user = await getSessionUser(await sealSessionCookie(sessionId));
     expect(user?.userId).toBe(u?.id);
+  });
+
+  it("allows link requests but blocks disposable-domain account creation on consumption", async () => {
+    if (!(await reachable())) return;
+    const raw = await requestMagicLink(disposableEmail);
+    expect(raw).toMatch(/^[a-f0-9]{64}$/);
+    await expect(consumeMagicLink(raw)).rejects.toThrow(
+      "This email address isn't supported. Use a different email address."
+    );
+    const db = getDb();
+    const [u] = await db.select().from(users).where(eq(users.email, disposableEmail)).limit(1);
+    expect(u).toBeUndefined();
   });
 
   it("a consumed link cannot be reused", async () => {

@@ -39,7 +39,7 @@ async function resolveServiceChain(
   const chain: TransportCandidate[] = [];
   try {
     const { getDb, projectTransports, senderIdentities } = await import("@calder/db");
-    const { eq, and } = await import("drizzle-orm");
+    const { eq } = await import("drizzle-orm");
     const db = getDb();
     const rows = await db
       .select()
@@ -181,6 +181,22 @@ function getProvider() {
     logger.warn({ reason: status.reason }, "Using mock email provider");
   }
   return status.provider;
+}
+
+/** Fresh, uncached org state check immediately before each provider leg. */
+async function assertOrganizationMayDeliver(projectId: string, env: string): Promise<void> {
+  const { getDb, checkProjectSendingEligibility } = await import("@calder/db");
+  const decision = await checkProjectSendingEligibility(getDb(), projectId, {
+    env: env === "test" ? "test" : "live",
+    phase: "delivery",
+  });
+  if (!decision.allowed) {
+    throw Object.assign(new Error("Sending is currently unavailable for this organization."), {
+      code: "organization_sending_unavailable",
+      transient: false,
+      statusCode: 403,
+    });
+  }
 }
 
 /** Terminal outcomes of processing one job. A throw signals "retry with backoff". */
@@ -346,6 +362,7 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
       for (let i = 0; i < chain.length; i++) {
         const leg = chain[i]!;
         try {
+          await assertOrganizationMayDeliver(projectId, email.env);
           result = await leg.service.send(payload);
           transportName = leg.transport;
           if (i > 0) jobLogger.info({ transport: transportName }, "Failover leg delivered");

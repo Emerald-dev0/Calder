@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { eq, and, isNull } from "drizzle-orm";
-import { getDb, apiKeys } from "@calder/db";
+import { getDb, apiKeys, insertApiKeyForActiveOrganization } from "@calder/db";
 import { generateApiKey } from "@calder/auth";
 import { getTenantContext } from "../../../lib/auth";
 
@@ -52,7 +52,7 @@ export async function createKey(
   const generated = generateApiKey(env);
   const db = getDb();
   const id = rid("key");
-  await db.insert(apiKeys).values({
+  await insertApiKeyForActiveOrganization(db, projectId, {
     id,
     projectId,
     name: clean,

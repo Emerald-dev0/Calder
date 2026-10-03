@@ -28,7 +28,7 @@ Outgoing webhooks are signed (HMAC-SHA256). The signing secret is shown to the c
 
 ## 7. Abuse prevention
 
-Mandatory. New accounts progress: limited sending → domain verification → reputation checks → full production sending. Continuously monitor bounce rate, complaint rate, sending velocity, account behavior, Calder's own SES reputation depends on this.
+Mandatory. New-account creation blocks a curated disposable-domain set server-side; live sends from newly created organizations share a configurable organization-wide allowance. Verified recent SES feedback can atomically pause the organization after an adequate denominator. Organization status is checked at send admission and immediately before delivery/retry by both worker and drain. A founder/platform-admin/security operator can suspend an organization, atomically revoke all project API keys, and audit the action; resumed organizations require new keys after manual suspension. See `docs/PHASE1-ABUSE.md` for defaults, limitations, and operator response. This is a deterministic Phase 1 floor, not a comprehensive abuse-scoring or content-filtering system.
 
 ## 8. Input handling
 
@@ -44,7 +44,7 @@ Dependency scanning in CI. No dependency added without stated justification (see
 
 ## 11. Audit logs
 
-Immutable-from-UI records for: `organization.created`, `member.invited`, `api_key.created`, `api_key.revoked`, `domain.added`, `domain.verified`, `template.published`, `subscription.changed`, `project.created`.
+Immutable-from-UI records for: `organization.created`, `member.invited`, `api_key.created`, `api_key.revoked`, `domain.added`, `domain.verified`, `template.published`, `subscription.changed`, `project.created`, and organization sending-state actions (`organization.sending.*`, including automatic SES pauses and manual suspend/resume).
 
 ## 12. Visual QA tooling, security note
 

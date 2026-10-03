@@ -500,10 +500,7 @@ export async function saveOrgAndProjectStep(input: {
 }
 
 /** Step 4: Save chosen sending path and advance to Step 5 (First send). */
-export async function saveSendingSetupStep(input: {
-  projectId: string;
-  mode: SendingSetupMode;
-}) {
+export async function saveSendingSetupStep(input: { projectId: string; mode: SendingSetupMode }) {
   const ctx = await assertProjectAccess(input.projectId);
   const db = getDb();
   await db
@@ -524,7 +521,8 @@ export async function createTestKey(projectId: string, name: string) {
   const generated = generateApiKey("test");
   const db = getDb();
   const id = rid("key");
-  await db.insert(apiKeys).values({
+  const { insertApiKeyForActiveOrganization } = await import("@calder/db");
+  await insertApiKeyForActiveOrganization(db, projectId, {
     id,
     projectId,
     name: clean,
@@ -596,7 +594,8 @@ export async function sendFirstEmail(input: {
   let secret = input.keySecret;
   if (!secret) {
     const generated = generateApiKey("test");
-    await db.insert(apiKeys).values({
+    const { insertApiKeyForActiveOrganization } = await import("@calder/db");
+    await insertApiKeyForActiveOrganization(db, input.projectId, {
       id: rid("key"),
       projectId: input.projectId,
       name: "onboarding test key",
@@ -646,23 +645,34 @@ export async function sendFirstEmail(input: {
 
   if (!emailId) {
     emailId = `em_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
-    await db.insert(emails).values({
-      id: emailId,
-      projectId: input.projectId,
-      from: "welcome@calder.click",
-      to: cleanTo,
-      subject: cleanSubject,
-      text: cleanText,
-      status: "queued",
-      env: "test",
-    });
-    await db.insert(emailEvents).values({
-      id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
-      emailId,
-      projectId: input.projectId,
-      type: "queued",
-      data: { via: "onboarding-first-send" },
-    });
+    const { withProjectSendingEligibility } = await import("@calder/db");
+    const admission = await withProjectSendingEligibility(
+      db,
+      { projectId: input.projectId, env: "test" },
+      async (tx) => {
+        await tx.insert(emails).values({
+          id: emailId!,
+          projectId: input.projectId,
+          from: "welcome@calder.click",
+          to: cleanTo,
+          subject: cleanSubject,
+          text: cleanText,
+          status: "queued",
+          env: "test",
+        });
+        await tx.insert(emailEvents).values({
+          id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+          emailId: emailId!,
+          projectId: input.projectId,
+          type: "queued",
+          data: { via: "onboarding-first-send" },
+        });
+        return true;
+      }
+    );
+    if (!admission.allowed) {
+      throw new Error("Sending is currently unavailable for this organization.");
+    }
     try {
       const { createQueue } = await import("@calder/queue");
       const queue = createQueue<{ emailId: string; projectId: string }>("email:send", {
@@ -736,8 +746,33 @@ export async function getEmailStatus(input: { projectId: string; emailId: string
     }
 
     // For test-env onboarding sends where the separate API/worker process wasn't
-    // running to drain the row, complete the mock provider transition cleanly.
+    // running to drain the row, re-check current org state before simulating the
+    // mock provider transition (the worker and drain apply the same gate).
     if (row.env === "test") {
+      const { checkProjectSendingEligibility } = await import("@calder/db");
+      const currentDecision = await checkProjectSendingEligibility(db, input.projectId, {
+        env: "test",
+        phase: "delivery",
+      });
+      if (!currentDecision.allowed) {
+        const failedAt = new Date();
+        await db
+          .update(emails)
+          .set({
+            status: "failed",
+            lastError: "Sending is currently unavailable for this organization.",
+            updatedAt: failedAt,
+          })
+          .where(eq(emails.id, row.id));
+        await db.insert(emailEvents).values({
+          id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+          emailId: row.id,
+          projectId: input.projectId,
+          type: "failed",
+          data: { code: "organization_sending_unavailable" },
+        });
+        return { status: "failed" as const };
+      }
       const done = new Date();
       const msgId = `mock_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
       await db
@@ -817,11 +852,7 @@ export async function addDomain(projectId: string, domain: string) {
   if (result.kind === "cross_tenant")
     throw new Error("This domain is already verified by another organization.");
   if (result.kind === "existing") {
-    const [existingRow] = await db
-      .select()
-      .from(domains)
-      .where(eq(domains.id, result.id))
-      .limit(1);
+    const [existingRow] = await db.select().from(domains).where(eq(domains.id, result.id)).limit(1);
     const token = existingRow?.verificationToken ?? "";
     return {
       created: false as const,

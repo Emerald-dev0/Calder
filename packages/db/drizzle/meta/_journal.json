@@ -169,6 +169,13 @@
       "when": 1790290800000,
       "tag": "0023_email_streams",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791030195205,
+      "tag": "0024_organization_sending_safety",
+      "breakpoints": true
     }
   ]
 }

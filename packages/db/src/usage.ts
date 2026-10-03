@@ -14,8 +14,13 @@
  */
 
 import { and, count, eq, gte, lt, sql } from "drizzle-orm";
-import { currentUsagePeriod, METRIC_EMAILS_SENT, type UsagePeriod } from "@calder/config";
-import type { DbClient } from "./client.js";
+import {
+  currentUsagePeriod,
+  METRIC_EMAILS_SENT,
+  planEmailsLimit,
+  type UsagePeriod,
+} from "@calder/config";
+import type { DbClient, DbExecutor } from "./client.js";
 import { emails } from "./schema/emails.js";
 import { plans } from "./schema/billing.js";
 import { subscriptions } from "./schema/billing.js";
@@ -23,7 +28,7 @@ import { projects } from "./schema/projects.js";
 import { usageRecords, usageSummaries } from "./schema/billing.js";
 
 /** Resolve an org's plan tier from its active subscription. Default: free. */
-export async function resolveOrgTier(db: DbClient, organizationId: string): Promise<string> {
+export async function resolveOrgTier(db: DbExecutor, organizationId: string): Promise<string> {
   const [row] = await db
     .select({ tier: plans.tier })
     .from(subscriptions)
@@ -37,7 +42,7 @@ export async function resolveOrgTier(db: DbClient, organizationId: string): Prom
 
 /** The current usage period for an org (subscription cycle if stamped, else UTC month). */
 export async function orgUsagePeriod(
-  db: DbClient,
+  db: DbExecutor,
   organizationId: string,
   now: Date = new Date()
 ): Promise<UsagePeriod> {
@@ -58,7 +63,7 @@ export async function orgUsagePeriod(
  * (PRICING §5: test-key traffic is never metered).
  */
 export async function orgAcceptedLiveInPeriod(
-  db: DbClient,
+  db: DbExecutor,
   organizationId: string,
   period: UsagePeriod
 ): Promise<number> {
@@ -75,6 +80,55 @@ export async function orgAcceptedLiveInPeriod(
       )
     );
   return Number(row?.value ?? 0);
+}
+
+/** Calder's own transactional mail is never constrained by customer quotas. */
+export const INTERNAL_ORGANIZATION_ID = "org_avenor";
+
+export interface OrganizationQuotaDecision {
+  allowed: boolean;
+  tier: string;
+  limit: number | null;
+  usage: number;
+  period: UsagePeriod;
+  reason?: "test-env" | "internal-org" | "unlimited-tier";
+}
+
+/**
+ * Shared quota decision used inside the organization send-admission
+ * transaction. The caller holds the organization row lock while inserting,
+ * so parallel projects/keys cannot race the same period ceiling.
+ */
+export async function checkOrganizationQuota(
+  db: DbExecutor,
+  organizationId: string,
+  env: "test" | "live",
+  incoming = 1,
+  now: Date = new Date()
+): Promise<OrganizationQuotaDecision> {
+  const period = await orgUsagePeriod(db, organizationId, now);
+  if (env === "test") {
+    return { allowed: true, tier: "n/a", limit: null, usage: 0, period, reason: "test-env" };
+  }
+  if (organizationId === INTERNAL_ORGANIZATION_ID) {
+    return {
+      allowed: true,
+      tier: "internal",
+      limit: null,
+      usage: 0,
+      period,
+      reason: "internal-org",
+    };
+  }
+  const [tier, usage] = await Promise.all([
+    resolveOrgTier(db, organizationId),
+    orgAcceptedLiveInPeriod(db, organizationId, period),
+  ]);
+  const limit = planEmailsLimit(tier);
+  if (limit === null) {
+    return { allowed: true, tier, limit: null, usage, period, reason: "unlimited-tier" };
+  }
+  return { allowed: usage + incoming <= limit, tier, limit, usage, period };
 }
 
 /**

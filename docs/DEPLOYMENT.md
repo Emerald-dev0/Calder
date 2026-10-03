@@ -73,7 +73,7 @@ pnpm launch-check          # exits non-zero when the path is not launch-ready
 | waitlist template | dynamic confirmation template present (editable without a deploy)                                                                                                              |
 | queue             | `REDIS_URL` set, so retries and delayed sends survive a restart                                                                                                                |
 | delivery wake-up  | `CRON_SECRET` set, so a `202` leaves immediately instead of waiting for the scheduled drain                                                                                    |
-| admin access      | `ADMIN_API_KEY` set, so broadcasts and template edits work                                                                                                                     |
+| admin access      | `ADMIN_API_KEY` set, so broadcasts, template edits, and organization safety actions work                                                                                       |
 | secrets           | `AUTH_SECRET` and `WEBHOOK_SIGNING_SECRET` are no longer development defaults                                                                                                  |
 | allowed origins   | `ALLOWED_ORIGINS` lists the first-party origins (`https://calder.click`, `https://app.calder.click`)                                                                           |
 
@@ -91,6 +91,27 @@ pnpm launch-check          # exits non-zero when the path is not launch-ready
 | `ADMIN_API_KEY`            |     |           | required |          |
 | `ALLOWED_ORIGINS`          |     |           | required |          |
 | `API_URL`                  |     | required  | required |          |
+
+### Phase 1 abuse/sending configuration
+
+All settings are validated in `@calder/config` and have safe defaults:
+
+| Variable                       |       Default | Used by         | Meaning                                                                    |
+| ------------------------------ | ------------: | --------------- | -------------------------------------------------------------------------- |
+| `ORG_NEW_SEND_LIMIT`           |          `50` | API + dashboard | Org-wide accepted live-send ceiling for a new organization                 |
+| `ORG_NEW_SEND_WINDOW_HOURS`    |          `24` | API + dashboard | Age from organization creation while the ceiling applies                   |
+| `ORG_ABUSE_WINDOW_HOURS`       |         `168` | API             | Recent window for matched live SES feedback                                |
+| `ORG_ABUSE_MINIMUM_SENDS`      |          `20` | API             | Minimum provider-accepted live denominator before auto-pause is eligible   |
+| `ORG_BOUNCE_RATE_THRESHOLD`    |        `0.10` | API             | Permanent-bounce rate that pauses an active org; `0` disables this signal  |
+| `ORG_COMPLAINT_RATE_THRESHOLD` |        `0.02` | API             | Complaint rate that pauses an active org; `0` disables this signal         |
+| `DISPOSABLE_EMAIL_DOMAINS`     | built-in list | dashboard       | Optional comma-separated domains appended to the built-in signup blocklist |
+
+Keep `ORG_NEW_SEND_LIMIT` and `ORG_NEW_SEND_WINDOW_HOURS` identical on API and
+dashboard deployments: both the REST API and direct dashboard-send paths use
+the same transactional gate. `ORG_ABUSE_*` affects SES feedback ingestion on
+the API. The worker and API drain read current organization state from Postgres
+before delivery; they do not cache it. Apply the forward-only
+`0024_organization_sending_safety` migration before deploying the code.
 
 Notes that cost time when missed:
 

@@ -41,6 +41,7 @@ calder_pk_live_... calder_sk_live_...
 Beyond validation (`400`), send endpoints can fail at ingest with:
 
 - `422 { error: { code: "suppressed" } }`, the recipient is on the project's suppression list; the message gives the reason (`bounce`/`complaint`/`unsubscribe`/`manual`). Nothing is persisted or queued for a suppressed send.
+- `403 { error: { code: "organization_sending_unavailable" } }`, org sending is paused/suspended or a live send is outside the configured new-organization allowance. The public message is generic; internal detection thresholds are not exposed. Nothing is persisted or queued.
 - `409 { error: { code: "idempotency_conflict" } }`, see above.
 
 ## Error shape
@@ -54,6 +55,17 @@ Beyond validation (`400`), send endpoints can fail at ingest with:
   }
 }
 ```
+
+## Organization sending safety (operator API)
+
+`POST /v1/admin/organizations/:orgId/sending-status` is an internal operator
+route, not an integrator endpoint. It requires `Authorization: Bearer
+<ADMIN_API_KEY>`, a unique `Idempotency-Key` header, and a JSON body such as
+`{"status":"suspended","reason":"Abuse safety review"}`. Suspension revokes
+all active API keys across the organization’s projects in the same transaction
+as the status and audit update. Setting `status` to `active` resumes sending but
+does not restore revoked keys. Reusing the same idempotency key and request
+replays the original result; reusing it for a different request returns `409`.
 
 Errors that carry machine-readable context add `details`; errors with a
 known remedy add `fix` (plain language, safe to show a user):
@@ -129,8 +141,11 @@ origins, plus an optional topic allowlist (`SES_SNS_TOPIC_ARNS`, also required
 to auto-confirm subscriptions). Accepts SNS envelopes (`text/plain` body):
 delivery/open/click advance truth, permanent bounces and complaints update
 the email and auto-insert a `suppressions` row, transient bounces only record
-an event. Idempotent on the SNS MessageId — replays are acknowledged no-ops.
-Unknown message ids are ledgered (`unmatched: true`) and acknowledged with 200.
+an event. Recent-window permanent-bounce/complaint rates can atomically move an
+organization from `active` to `abuse_paused` after the configured minimum live
+send denominator; the event, pause, and audit row commit together. Idempotent
+on the SNS MessageId — replays are acknowledged no-ops. Unknown message ids
+are ledgered (`unmatched: true`) and acknowledged with 200.
 Responses: `200 { ok: true, duplicate?, unmatched?, applied?, status? }`;
 `400` on any authenticity/validation failure (SNS redelivers on 5xx, not 4xx,
 so forged payloads are dropped permanently, not retried).

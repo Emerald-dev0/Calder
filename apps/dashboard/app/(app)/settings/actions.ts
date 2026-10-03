@@ -87,9 +87,13 @@ export async function getTeam(orgId: string) {
     .select()
     .from(orgInvitations)
     .where(eq(orgInvitations.organizationId, orgId));
-  const org = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
+  const [organization] = await db
+    .select({ id: organizations.id, name: organizations.name, slug: organizations.slug })
+    .from(organizations)
+    .where(eq(organizations.id, orgId))
+    .limit(1);
   return {
-    organization: org[0] ?? null,
+    organization: organization ?? null,
     callerRole: role,
     callerUserId: ctx.user.userId,
     members: members.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() })),

@@ -46,6 +46,9 @@ gate("POST /v1/ses/events (live Postgres, real RSA signatures)", async () => {
     emailEvents,
     suppressions,
     providerEvents,
+    auditLogs,
+    checkOrganizationSendingEligibility,
+    setOrganizationSendingStatus,
     cleanupSuiteOrg,
   } = await import("@calder/db");
   const { eq, and, count } = await import("drizzle-orm");
@@ -57,6 +60,12 @@ gate("POST /v1/ses/events (live Postgres, real RSA signatures)", async () => {
   const orgId = `org_ses_${suffix}`;
   const projId = `proj_ses_${suffix}`;
   const userId = `usr_ses_${suffix}`;
+  const abuseOrgId = `org_abuse_${suffix}`;
+  const abuseProjectId = `proj_abuse_${suffix}`;
+  const abuseUserId = `usr_abuse_${suffix}`;
+  const raceOrgId = `org_race_${suffix}`;
+  const raceProjectId = `proj_race_${suffix}`;
+  const raceUserId = `usr_race_${suffix}`;
   const TOPIC = `arn:aws:sns:us-east-1:123456789012:ses-events-${suffix}`;
   const CERT_URL = `https://sns.us-east-1.amazonaws.com/fixture-${suffix}.pem`;
 
@@ -152,9 +161,21 @@ gate("POST /v1/ses/events (live Postgres, real RSA signatures)", async () => {
   const providerMessageIdOf = (id: string) => `ses-${suffix}-${id}`;
 
   const savedTopics = process.env.SES_SNS_TOPIC_ARNS;
+  const savedAbuseConfig = {
+    ORG_ABUSE_WINDOW_HOURS: process.env.ORG_ABUSE_WINDOW_HOURS,
+    ORG_ABUSE_MINIMUM_SENDS: process.env.ORG_ABUSE_MINIMUM_SENDS,
+    ORG_BOUNCE_RATE_THRESHOLD: process.env.ORG_BOUNCE_RATE_THRESHOLD,
+    ORG_COMPLAINT_RATE_THRESHOLD: process.env.ORG_COMPLAINT_RATE_THRESHOLD,
+  };
 
   beforeAll(async () => {
     if (!(await reachable())) return;
+    process.env.ORG_ABUSE_WINDOW_HOURS = "168";
+    process.env.ORG_ABUSE_MINIMUM_SENDS = "20";
+    process.env.ORG_BOUNCE_RATE_THRESHOLD = "0.1";
+    process.env.ORG_COMPLAINT_RATE_THRESHOLD = "0.02";
+    const { resetConfig } = await import("@calder/config");
+    resetConfig();
     setSnsCertFetcher(async () => certPem);
     delete process.env.SES_SNS_TOPIC_ARNS; // allowlist disabled by default
     const db = getDb();
@@ -164,14 +185,58 @@ gate("POST /v1/ses/events (live Postgres, real RSA signatures)", async () => {
       .insert(organizationMembers)
       .values({ id: `orgm_ses_${suffix}`, organizationId: orgId, userId, role: "owner" });
     await db.insert(projects).values({ id: projId, organizationId: orgId, name: "P", slug: "p" });
+    await db.insert(users).values({ id: abuseUserId, email: `abuse-user-${suffix}@test.test` });
+    await db.insert(organizations).values({
+      id: abuseOrgId,
+      name: "Abuse Policy Test",
+      slug: `abuse-${suffix}`,
+    });
+    await db.insert(organizationMembers).values({
+      id: `orgm_abuse_${suffix}`,
+      organizationId: abuseOrgId,
+      userId: abuseUserId,
+      role: "owner",
+    });
+    await db.insert(projects).values({
+      id: abuseProjectId,
+      organizationId: abuseOrgId,
+      name: "Abuse P",
+      slug: "abuse-p",
+    });
+    await db.insert(users).values({ id: raceUserId, email: `race-user-${suffix}@test.test` });
+    await db.insert(organizations).values({
+      id: raceOrgId,
+      name: "Concurrent Feedback Test",
+      slug: `race-${suffix}`,
+    });
+    await db.insert(organizationMembers).values({
+      id: `orgm_race_${suffix}`,
+      organizationId: raceOrgId,
+      userId: raceUserId,
+      role: "owner",
+    });
+    await db.insert(projects).values({
+      id: raceProjectId,
+      organizationId: raceOrgId,
+      name: "Concurrent P",
+      slug: "race-p",
+    });
   });
 
   afterAll(async () => {
     setSnsCertFetcher(undefined);
     if (savedTopics === undefined) delete process.env.SES_SNS_TOPIC_ARNS;
     else process.env.SES_SNS_TOPIC_ARNS = savedTopics;
+    for (const [key, value] of Object.entries(savedAbuseConfig)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    const { resetConfig } = await import("@calder/config");
+    resetConfig();
     if (!(await reachable())) return;
     const db = getDb();
+    await cleanupSuiteOrg(db, raceOrgId, raceUserId);
+    await cleanupSuiteOrg(db, abuseOrgId, abuseUserId);
     await cleanupSuiteOrg(db, orgId, userId);
   });
 
@@ -349,6 +414,180 @@ gate("POST /v1/ses/events (live Postgres, real RSA signatures)", async () => {
       .where(and(eq(suppressions.projectId, projId), eq(suppressions.email, victim)));
     expect(sups.length).toBe(1);
     expect(sups[0]?.reason).toBe("complaint");
+  });
+
+  it("auto-pauses only with a sufficient live-send denominator and preserves manual suspension", async () => {
+    if (!(await reachable())) return;
+    const db = getDb();
+    const sentIds = Array.from({ length: 20 }, (_, index) => `em_abuse_${suffix}_${index}`);
+    await db.insert(emails).values(
+      sentIds.map((id) => ({
+        id,
+        projectId: abuseProjectId,
+        from: `abuse-${suffix}@test.test`,
+        to: `abuse-recipient-${id}@example.test`,
+        subject: "abuse policy denominator",
+        text: "test",
+        status: "sent" as const,
+        env: "live",
+        providerMessageId: `ses-abuse-${suffix}-${id}`,
+      }))
+    );
+    const targetId = sentIds[0]!;
+    const complaint = (emailId: string) =>
+      envelope({
+        message: sesMsg(`ses-abuse-${suffix}-${emailId}`, "complaint", {
+          complaint: {
+            complainedRecipients: [{ emailAddress: `abuse-recipient-${emailId}@example.test` }],
+          },
+        }),
+      });
+
+    const response = await post(complaint(targetId));
+    expect(response.status).toBe(200);
+    const [organization] = await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.id, abuseOrgId))
+      .limit(1);
+    expect(organization?.sendingStatus).toBe("abuse_paused");
+    const decision = await checkOrganizationSendingEligibility(db, {
+      organizationId: abuseOrgId,
+      projectId: abuseProjectId,
+      env: "live",
+      phase: "delivery",
+    });
+    expect(decision.allowed).toBe(false);
+    expect(decision.reason).toBe("organization_abuse_paused");
+    const autoAudit = await db
+      .select({ action: auditLogs.action })
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.organizationId, abuseOrgId),
+          eq(auditLogs.action, "organization.sending.auto_paused")
+        )
+      );
+    expect(autoAudit).toHaveLength(1);
+
+    const { registerDevKey } = await import("../middleware/auth.js");
+    const apiKey = `calder_sk_live_abuse_${suffix}_${"k".repeat(12)}`;
+    registerDevKey(apiKey, {
+      apiKeyId: `key_abuse_${suffix}`,
+      projectId: abuseProjectId,
+      organizationId: abuseOrgId,
+      env: "live",
+    });
+    const blockedSend = await createApp().request("/v1/emails", {
+      method: "POST",
+      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        from: `sender-${suffix}@example.test`,
+        to: `new-recipient-${suffix}@example.test`,
+        subject: "must not be accepted",
+        text: "blocked",
+      }),
+    });
+    expect(blockedSend.status).toBe(403);
+    const blockedBody = (await blockedSend.json()) as { error: { code: string; message: string } };
+    expect(blockedBody.error.code).toBe("organization_sending_unavailable");
+    expect(blockedBody.error.message).not.toMatch(/threshold|bounce|complaint|20/);
+    const blockedKeyCreation = await createApp().request("/v1/keys", {
+      method: "POST",
+      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+      body: JSON.stringify({ name: "blocked safety key", env: "live", scope: "full" }),
+    });
+    expect(blockedKeyCreation.status).toBe(403);
+    const blockedKeyBody = (await blockedKeyCreation.json()) as {
+      error: { code: string; message: string };
+    };
+    expect(blockedKeyBody.error.code).toBe("organization_sending_unavailable");
+    expect(blockedKeyBody.error.message).not.toMatch(/threshold|bounce|complaint|20/);
+
+    await setOrganizationSendingStatus(db, {
+      organizationId: abuseOrgId,
+      status: "suspended",
+      actorUserId: abuseUserId,
+      reason: "Manual test suspension",
+      idempotencyKey: `ses-suspend-${suffix}`,
+    });
+    await post(complaint(sentIds[1]!));
+    const [stillSuspended] = await db
+      .select({ sendingStatus: organizations.sendingStatus })
+      .from(organizations)
+      .where(eq(organizations.id, abuseOrgId))
+      .limit(1);
+    expect(stillSuspended?.sendingStatus).toBe("suspended");
+  });
+
+  it("serializes concurrent feedback so a threshold crossing cannot be missed", async () => {
+    if (!(await reachable())) return;
+    const db = getDb();
+    const previousPolicy = {
+      ORG_ABUSE_WINDOW_HOURS: process.env.ORG_ABUSE_WINDOW_HOURS,
+      ORG_ABUSE_MINIMUM_SENDS: process.env.ORG_ABUSE_MINIMUM_SENDS,
+      ORG_BOUNCE_RATE_THRESHOLD: process.env.ORG_BOUNCE_RATE_THRESHOLD,
+      ORG_COMPLAINT_RATE_THRESHOLD: process.env.ORG_COMPLAINT_RATE_THRESHOLD,
+    };
+    process.env.ORG_ABUSE_WINDOW_HOURS = "168";
+    process.env.ORG_ABUSE_MINIMUM_SENDS = "100";
+    process.env.ORG_BOUNCE_RATE_THRESHOLD = "1";
+    process.env.ORG_COMPLAINT_RATE_THRESHOLD = "0.1";
+    const { resetConfig } = await import("@calder/config");
+    resetConfig();
+
+    try {
+      const sentIds = Array.from({ length: 100 }, (_, index) => `em_race_${suffix}_${index}`);
+      await db.insert(emails).values(
+        sentIds.map((id) => ({
+          id,
+          projectId: raceProjectId,
+          from: `race-${suffix}@test.test`,
+          to: `race-recipient-${id}@example.test`,
+          subject: "concurrent feedback denominator",
+          text: "test",
+          status: "sent" as const,
+          env: "live",
+          providerMessageId: `ses-race-${suffix}-${id}`,
+        }))
+      );
+      const responses = await Promise.all(
+        sentIds.slice(0, 10).map((id) =>
+          post(
+            envelope({
+              message: sesMsg(`ses-race-${suffix}-${id}`, "complaint", {
+                complaint: {
+                  complainedRecipients: [{ emailAddress: `race-recipient-${id}@example.test` }],
+                },
+              }),
+            })
+          )
+        )
+      );
+      expect(responses.every((response) => response.status === 200)).toBe(true);
+      const [organization] = await db
+        .select({ sendingStatus: organizations.sendingStatus })
+        .from(organizations)
+        .where(eq(organizations.id, raceOrgId))
+        .limit(1);
+      expect(organization?.sendingStatus).toBe("abuse_paused");
+      const [autoAuditCount] = await db
+        .select({ value: count() })
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.organizationId, raceOrgId),
+            eq(auditLogs.action, "organization.sending.auto_paused")
+          )
+        );
+      expect(Number(autoAuditCount?.value)).toBe(1);
+    } finally {
+      for (const [key, value] of Object.entries(previousPolicy)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+      resetConfig();
+    }
   });
 
   it("unknown message id → 200 with unmatched ledger row (no endless redelivery)", async () => {

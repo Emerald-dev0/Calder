@@ -258,28 +258,36 @@ export async function sendTestEmail(input: {
   const renderedText = renderSample(input.text);
   const subject = `[TEST] ${input.subject}`;
 
-  await db.transaction(async (tx) => {
-    await tx.insert(emails).values({
-      id: emailId,
-      projectId: INTERNAL_PROJECT,
-      from: INTERNAL_FROM,
-      to,
-      subject,
-      html: brandEmail(renderedHtml, { preheader: subject }),
-      text: renderedText,
-      status: "queued",
-      // Explicit: a preview of the confirmation email is still real mail.
-      env: "live",
-      metadata: { test: true, via: "confirmation-email-editor" },
-    });
-    await tx.insert(emailEvents).values({
-      id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
-      emailId,
-      projectId: INTERNAL_PROJECT,
-      type: "queued",
-      data: { via: "confirmation-email-editor", test: true },
-    });
-  });
+  const { withProjectSendingEligibility } = await import("@calder/db");
+  const admission = await withProjectSendingEligibility(
+    db,
+    { projectId: INTERNAL_PROJECT, env: "live" },
+    async (tx) => {
+      await tx.insert(emails).values({
+        id: emailId,
+        projectId: INTERNAL_PROJECT,
+        from: INTERNAL_FROM,
+        to,
+        subject,
+        html: brandEmail(renderedHtml, { preheader: subject }),
+        text: renderedText,
+        status: "queued",
+        env: "live",
+        metadata: { test: true, via: "confirmation-email-editor" },
+      });
+      await tx.insert(emailEvents).values({
+        id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+        emailId,
+        projectId: INTERNAL_PROJECT,
+        type: "queued",
+        data: { via: "confirmation-email-editor", test: true },
+      });
+      return true;
+    }
+  );
+  if (!admission.allowed) {
+    throw new Error("Sending is currently unavailable for this organization.");
+  }
 
   const queue = createQueue<{ emailId: string; projectId: string }>("email:send", {
     maxAttempts: 5,

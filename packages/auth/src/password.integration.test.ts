@@ -33,6 +33,7 @@ gate("password auth integration (live Postgres)", async () => {
   } = await import("./index");
 
   const email = `pass-${randomBytes(4).toString("hex")}@test.test`;
+  const disposableEmail = `pass-${randomBytes(4).toString("hex")}@mailinator.com`;
   const initialPassword = "initial-secure-password-123";
   const newPassword = "new-updated-password-456";
   let verificationCode: string = "";
@@ -55,6 +56,14 @@ gate("password auth integration (live Postgres)", async () => {
       .delete(emailCodeChallenges)
       .where(eq(emailCodeChallenges.email, email))
       .catch(() => {});
+    await db
+      .delete(users)
+      .where(eq(users.email, disposableEmail))
+      .catch(() => {});
+    await db
+      .delete(emailCodeChallenges)
+      .where(eq(emailCodeChallenges.email, disposableEmail))
+      .catch(() => {});
   });
 
   it("cold signup creates unverified user and returns verification code", async () => {
@@ -71,6 +80,16 @@ gate("password auth integration (live Postgres)", async () => {
     expect(u?.emailVerifiedAt).toBeNull();
     expect(u?.passwordHash).not.toBeNull();
     expect(u?.passwordHash).toContain(":");
+  });
+
+  it("rejects disposable-domain password signup before creating a user", async () => {
+    if (!(await reachable())) return;
+    await expect(
+      signupWithPassword("Disposable User", disposableEmail, initialPassword)
+    ).rejects.toThrow("This email address isn't supported. Use a different email address.");
+    const db = getDb();
+    const [u] = await db.select().from(users).where(eq(users.email, disposableEmail)).limit(1);
+    expect(u).toBeUndefined();
   });
 
   it("unverified login redirects to code step, does not create session", async () => {

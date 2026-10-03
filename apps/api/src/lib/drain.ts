@@ -63,6 +63,29 @@ export async function recordDrainEvent(
     throw err;
   }
 }
+
+/** Best-effort customer webhook for a queued send blocked by a current org pause. */
+async function enqueueOrganizationBlockedWebhook(
+  db: DbClient,
+  projectId: string,
+  emailId: string
+): Promise<void> {
+  try {
+    const { enqueueWebhookDeliveries } = await import("@calder/db");
+    await enqueueWebhookDeliveries(db, {
+      projectId,
+      event: "email.failed",
+      data: {
+        emailId,
+        code: "organization_sending_unavailable",
+        error: "Sending is currently unavailable for this organization.",
+      },
+    });
+  } catch (err) {
+    logger.warn({ err, emailId }, "drain: unable to enqueue organization-safety webhook");
+  }
+}
+
 /** A claimed ("sending") row abandoned mid-drain becomes claimable again after this window. */
 export const DRAIN_STALE_CLAIM_MINUTES = 10;
 
@@ -343,6 +366,32 @@ export async function drainPendingEmails(
       continue;
     }
 
+    // Organization status is re-read immediately before delivery (never cached).
+    // Failed queue rows are terminal and never metered as provider-accepted.
+    const { checkProjectSendingEligibility } = await import("@calder/db");
+    const sendingDecision = await checkProjectSendingEligibility(db, row.projectId, {
+      env: row.env === "test" ? "test" : "live",
+      phase: "delivery",
+      now,
+    });
+    if (!sendingDecision.allowed) {
+      const message = "Sending is currently unavailable for this organization.";
+      await db
+        .update(emails)
+        .set({ status: "failed", lastError: message, updatedAt: now })
+        .where(eq(emails.id, row.id));
+      await recordDrainEvent(db, {
+        id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+        emailId: row.id,
+        projectId: row.projectId,
+        type: "failed",
+        data: { code: "organization_sending_unavailable" },
+      });
+      await enqueueOrganizationBlockedWebhook(db, row.projectId, row.id);
+      failed++;
+      continue;
+    }
+
     // Claim attempt
     await db
       .update(emails)
@@ -426,9 +475,22 @@ export async function drainPendingEmails(
     let lastErr: unknown = null;
     let isCap = false;
     let senderNotReady = false;
+    let organizationUnavailable = false;
     for (let i = 0; i < chain.length; i++) {
       const leg = chain[i]!;
       try {
+        // Fresh read for each provider leg closes stale state/cache bypasses,
+        // including a suspension that lands while transport resolution runs.
+        const currentSendingDecision = await checkProjectSendingEligibility(db, row.projectId, {
+          env: row.env === "test" ? "test" : "live",
+          phase: "delivery",
+          now: new Date(),
+        });
+        if (!currentSendingDecision.allowed) {
+          organizationUnavailable = true;
+          lastErr = new Error("Sending is currently unavailable for this organization.");
+          break;
+        }
         const r = await leg.service.send(payload as never);
         result = r;
         transportName = leg.transport;
@@ -522,18 +584,26 @@ export async function drainPendingEmails(
     // Failure path
     const transient = isTransientError(lastErr);
     const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
-    if (isCap || senderNotReady) {
+    if (isCap || senderNotReady || organizationUnavailable) {
+      const terminalMessage = organizationUnavailable
+        ? "Sending is currently unavailable for this organization."
+        : msg;
       await db
         .update(emails)
-        .set({ status: "failed", lastError: msg, updatedAt: new Date() })
+        .set({ status: "failed", lastError: terminalMessage, updatedAt: new Date() })
         .where(eq(emails.id, row.id));
       await recordDrainEvent(db, {
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
         projectId: row.projectId,
         type: "failed",
-        data: { error: msg, transient: false },
+        data: organizationUnavailable
+          ? { code: "organization_sending_unavailable" }
+          : { error: msg, transient: false },
       });
+      if (organizationUnavailable) {
+        await enqueueOrganizationBlockedWebhook(db, row.projectId, row.id);
+      }
       failed++;
       continue;
     }

@@ -66,7 +66,7 @@ export default async function SecurityEventsPage() {
           bullets={[
             "Auth failure spikes per IP / email (rate limiter already counts them)",
             "Compromised API key signals: sudden geo + volume shifts",
-            "Suspicious signup bursts (disposable domains, temp-mail patterns)",
+            "Aggregate signup rejection volumes and repeat-abuse patterns (no matched-domain detail shown to customers)",
             "Alert integration with the rule book",
           ]}
         >

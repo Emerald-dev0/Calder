@@ -83,12 +83,14 @@ describe("stream cannot bypass send gates (source guard)", () => {
     return i;
   };
 
-  it("sender resolution, suppression and quota gates run BEFORE the stream is recorded", () => {
+  it("sender resolution, suppression and organization eligibility run BEFORE the stream is recorded", () => {
     const annotation = at("stream: resolveEmailStream(input)");
     expect(at("resolveSender(")).toBeLessThan(annotation); // sender verification
     expect(at("── Suppression check")).toBeLessThan(annotation);
-    expect(at("── Quota check")).toBeLessThan(annotation);
     expect(at("Sender identity resolution")).toBeLessThan(annotation);
+    expect(at("const admission = await withOrganizationSendingEligibility(")).toBeLessThan(
+      annotation
+    );
   });
 
   it("no control flow branches on the stream value", () => {

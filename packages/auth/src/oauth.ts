@@ -11,6 +11,7 @@ import {
 } from "@calder/db";
 import { getConfig } from "@calder/config";
 import { createSession } from "./session.js";
+import { assertNotDisposableEmail } from "./disposable-email.js";
 
 export type OAuthProvider = "google" | "github";
 
@@ -195,6 +196,7 @@ export async function completeOAuth(
       }
       userId = same[0].id;
     } else {
+      assertNotDisposableEmail(profile.email);
       userId = newId("usr");
       await db.insert(users).values({
         id: userId,

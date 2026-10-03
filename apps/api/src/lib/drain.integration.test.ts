@@ -36,6 +36,7 @@ gate("delivery drain lease (live Postgres)", async () => {
     emails,
     emailEvents,
     suppressions,
+    usageRecords,
     cleanupSuiteOrg,
   } = await import("@calder/db");
   const { eq, and, inArray, count, ne } = await import("drizzle-orm");
@@ -188,6 +189,46 @@ gate("delivery drain lease (live Postgres)", async () => {
             claimed.map((r) => r.id)
           )
         );
+    }
+  });
+
+  it("fails queued mail for a suspended org without provider acceptance or usage metering", async () => {
+    if (!(await reachable())) return;
+    const db = getDb();
+    const id = await seedQueued(`suspended-${suffix}@example.test`);
+    await db
+      .update(organizations)
+      .set({ sendingStatus: "suspended", sendingStatusReason: "integration test" })
+      .where(eq(organizations.id, orgId));
+
+    try {
+      const result = await drainPendingEmails(db, { batch: 1000 });
+      expect(result.failed).toBeGreaterThanOrEqual(1);
+
+      const [row] = await db.select().from(emails).where(eq(emails.id, id)).limit(1);
+      expect(row?.status).toBe("failed");
+      expect(row?.providerMessageId).toBeNull();
+      expect(row?.lastError).toBe("Sending is currently unavailable for this organization.");
+      const [failedEventCount] = await db
+        .select({ value: count() })
+        .from(emailEvents)
+        .where(and(eq(emailEvents.emailId, id), eq(emailEvents.type, "failed")));
+      expect(Number(failedEventCount?.value)).toBe(1);
+      const [sentEventCount] = await db
+        .select({ value: count() })
+        .from(emailEvents)
+        .where(and(eq(emailEvents.emailId, id), eq(emailEvents.type, "sent")));
+      expect(Number(sentEventCount?.value)).toBe(0);
+      const [meterCount] = await db
+        .select({ value: count() })
+        .from(usageRecords)
+        .where(eq(usageRecords.id, `ur_${id}`));
+      expect(Number(meterCount?.value ?? 0)).toBe(0);
+    } finally {
+      await db
+        .update(organizations)
+        .set({ sendingStatus: "active", sendingStatusReason: null })
+        .where(eq(organizations.id, orgId));
     }
   });
 });

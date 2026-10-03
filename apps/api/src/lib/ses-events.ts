@@ -379,125 +379,252 @@ export async function applySesEvent(
   env: SnsEnvelope,
   msg: SesMessage
 ): Promise<ApplyResult> {
-  const { providerEvents, emails, emailEvents, suppressions } = await import("@calder/db");
-  const { eq } = await import("drizzle-orm");
+  const { providerEvents, emails, emailEvents, suppressions, projects, organizations, auditLogs } =
+    await import("@calder/db");
+  const { and, count, eq, gte, isNotNull, lt, sql } = await import("drizzle-orm");
+  const { getConfig } = await import("@calder/config");
+  const { evaluateOrganizationAbusePolicy } = await import("./abuse-policy.js");
 
-  const eventRowId = `pev_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
-  const inserted = await db
-    .insert(providerEvents)
-    .values({
-      id: eventRowId,
-      provider: "ses",
-      snsMessageId: env.MessageId,
-      sesMessageId: msg.mail.messageId,
-      eventType: msg.eventType,
-      payload: JSON.parse(env.Message) as Record<string, unknown>,
-    })
-    .onConflictDoNothing({ target: providerEvents.snsMessageId })
-    .returning({ id: providerEvents.id });
+  // The dedupe claim, provider-event link, email state, suppressions, automatic
+  // organization pause and audit entry are one transaction. If any step fails,
+  // SNS redelivery can retry the entire application rather than finding a
+  // committed dedupe key with partially-applied feedback.
+  return db.transaction(async (tx) => {
+    const eventRowId = `pev_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
+    const inserted = await tx
+      .insert(providerEvents)
+      .values({
+        id: eventRowId,
+        provider: "ses",
+        snsMessageId: env.MessageId,
+        sesMessageId: msg.mail.messageId,
+        eventType: msg.eventType,
+        payload: JSON.parse(env.Message) as Record<string, unknown>,
+      })
+      .onConflictDoNothing({ target: providerEvents.snsMessageId })
+      .returning({ id: providerEvents.id });
 
-  if (inserted.length === 0) {
-    return {
-      duplicate: true,
-      unmatched: false,
-      applied: false,
-      emailId: null,
-      status: null,
-      suppressed: [],
-      eventId: null,
-    };
-  }
+    if (inserted.length === 0) {
+      return {
+        duplicate: true,
+        unmatched: false,
+        applied: false,
+        emailId: null,
+        status: null,
+        suppressed: [],
+        eventId: null,
+      };
+    }
 
-  // Join to our durable send record via the provider message id stamped at send.
-  const [row] = await db
-    .select({
-      id: emails.id,
-      projectId: emails.projectId,
-      to: emails.to,
-      status: emails.status,
-    })
-    .from(emails)
-    .where(eq(emails.providerMessageId, msg.mail.messageId))
-    .limit(1);
+    // Join to our durable send record via the provider message id stamped at send.
+    const [row] = await tx
+      .select({
+        id: emails.id,
+        projectId: emails.projectId,
+        to: emails.to,
+        status: emails.status,
+      })
+      .from(emails)
+      .where(eq(emails.providerMessageId, msg.mail.messageId))
+      .limit(1);
 
-  if (!row) {
-    // Unknown message id: keep the ledger row (forensics), flag unmatched,
-    // and 200 so SNS does not redeliver someone else's traffic forever.
-    await db
+    if (!row) {
+      // Unknown message id: keep the ledger row (forensics), flag unmatched,
+      // and 200 so SNS does not redeliver someone else's traffic forever.
+      await tx
+        .update(providerEvents)
+        .set({ unmatched: true })
+        .where(eq(providerEvents.id, eventRowId));
+      return {
+        duplicate: false,
+        unmatched: true,
+        applied: false,
+        emailId: null,
+        status: null,
+        suppressed: [],
+        eventId: eventRowId,
+      };
+    }
+
+    const transition = classifySesEvent(row.status, msg);
+    const now = new Date();
+    const suppressed: string[] = [];
+
+    if (transition.status) {
+      await tx
+        .update(emails)
+        .set({ status: transition.status as never, updatedAt: now })
+        .where(eq(emails.id, row.id));
+    }
+    if (transition.eventType) {
+      await tx.insert(emailEvents).values({
+        id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+        emailId: row.id,
+        projectId: row.projectId,
+        type: transition.eventType as never,
+        data: {
+          source: "ses-feedback",
+          snsMessageId: env.MessageId,
+          ...(msg.bounce?.bounceType ? { bounceType: msg.bounce.bounceType } : {}),
+          ...(msg.bounce?.bounceSubType ? { bounceSubType: msg.bounce.bounceSubType } : {}),
+          ...(msg.delivery?.smtpResponse ? { smtpResponse: msg.delivery.smtpResponse } : {}),
+          ...(msg.click?.link ? { link: msg.click.link } : {}),
+          ...(msg.reject?.reason ? { reason: msg.reject.reason } : {}),
+          ...(msg.complaint?.complaintFeedbackType
+            ? { complaintFeedbackType: msg.complaint.complaintFeedbackType }
+            : {}),
+        },
+      });
+    }
+    if (transition.suppression) {
+      for (const recipient of transition.recipients) {
+        const email = recipient.trim().toLowerCase();
+        if (!email) continue;
+        const ins = await tx
+          .insert(suppressions)
+          .values({
+            id: `sup_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+            projectId: row.projectId,
+            email,
+            reason: transition.suppression,
+          })
+          .onConflictDoNothing({ target: [suppressions.projectId, suppressions.email] })
+          .returning({ id: suppressions.id });
+        if (ins.length > 0) suppressed.push(email);
+      }
+    }
+
+    await tx
       .update(providerEvents)
-      .set({ unmatched: true })
+      .set({
+        emailId: row.id,
+        projectId: row.projectId,
+        recipient: transition.recipients[0] ?? row.to,
+      })
       .where(eq(providerEvents.id, eventRowId));
+
+    // A hard (permanent) bounce or complaint is counted once per accepted
+    // email, regardless of recipient fan-out or SNS redelivery. Test traffic,
+    // unmatched events, and events outside the configured recent window are
+    // excluded. Only an active org transitions automatically; an operator-set
+    // suspension can never be overwritten by feedback processing.
+    if (msg.eventType === "bounce" || msg.eventType === "complaint") {
+      const config = getConfig();
+      const windowHours = config.ORG_ABUSE_WINDOW_HOURS;
+      const windowStart = new Date(now.getTime() - windowHours * 60 * 60 * 1000);
+      const [project] = await tx
+        .select({ organizationId: projects.organizationId })
+        .from(projects)
+        .where(eq(projects.id, row.projectId))
+        .limit(1);
+      const [organization] = project
+        ? await tx
+            .select({ id: organizations.id, sendingStatus: organizations.sendingStatus })
+            .from(organizations)
+            .where(eq(organizations.id, project.organizationId))
+            .limit(1)
+            .for("update")
+        : [];
+      // Serialize threshold evaluation per org so concurrent feedback events
+      // cannot each observe a sub-threshold partial count and miss the pause.
+      if (project && organization?.sendingStatus === "active") {
+        const [denominator] = await tx
+          .select({ value: count() })
+          .from(emails)
+          .innerJoin(projects, eq(emails.projectId, projects.id))
+          .where(
+            and(
+              eq(projects.organizationId, project.organizationId),
+              eq(emails.env, "live"),
+              isNotNull(emails.providerMessageId),
+              gte(emails.createdAt, windowStart),
+              lt(emails.createdAt, now)
+            )
+          );
+        const [feedback] = await tx
+          .select({
+            permanentBounceCount: sql<number>`count(distinct case
+              when ${providerEvents.eventType} = 'bounce'
+                and lower(${providerEvents.payload}->'bounce'->>'bounceType') = 'permanent'
+              then ${emails.id} end)`,
+            complaintCount: sql<number>`count(distinct case
+              when ${providerEvents.eventType} = 'complaint'
+              then ${emails.id} end)`,
+          })
+          .from(providerEvents)
+          .innerJoin(emails, eq(providerEvents.emailId, emails.id))
+          .innerJoin(projects, eq(emails.projectId, projects.id))
+          .where(
+            and(
+              eq(projects.organizationId, project.organizationId),
+              eq(emails.env, "live"),
+              isNotNull(emails.providerMessageId),
+              eq(providerEvents.unmatched, false),
+              gte(emails.createdAt, windowStart),
+              lt(emails.createdAt, now)
+            )
+          );
+        const metrics = {
+          sentCount: Number(denominator?.value ?? 0),
+          permanentBounceCount: Number(feedback?.permanentBounceCount ?? 0),
+          complaintCount: Number(feedback?.complaintCount ?? 0),
+        };
+        const policy = {
+          minimumSends: config.ORG_ABUSE_MINIMUM_SENDS,
+          bounceRateThreshold: config.ORG_BOUNCE_RATE_THRESHOLD,
+          complaintRateThreshold: config.ORG_COMPLAINT_RATE_THRESHOLD,
+        };
+        const evaluation = evaluateOrganizationAbusePolicy(metrics, policy);
+        if (evaluation.pause) {
+          const [paused] = await tx
+            .update(organizations)
+            .set({
+              sendingStatus: "abuse_paused",
+              sendingStatusReason: `Automatic feedback safety pause (${evaluation.signals.join(", ")}).`,
+              sendingStatusAt: now,
+              sendingStatusActorUserId: null,
+              updatedAt: now,
+            })
+            .where(
+              and(eq(organizations.id, organization.id), eq(organizations.sendingStatus, "active"))
+            )
+            .returning({ id: organizations.id });
+          if (paused) {
+            await tx.insert(auditLogs).values({
+              id: `audit_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+              organizationId: project.organizationId,
+              action: "organization.sending.auto_paused",
+              targetType: "organization",
+              targetId: project.organizationId,
+              metadata: {
+                reason: "automatic_feedback_threshold",
+                signals: evaluation.signals,
+                windowHours,
+                windowStart: windowStart.toISOString(),
+                sentCount: evaluation.sentCount,
+                permanentBounceCount: evaluation.permanentBounceCount,
+                complaintCount: evaluation.complaintCount,
+                bounceRate: evaluation.bounceRate,
+                complaintRate: evaluation.complaintRate,
+                minimumSends: policy.minimumSends,
+                bounceRateThreshold: policy.bounceRateThreshold,
+                complaintRateThreshold: policy.complaintRateThreshold,
+                providerEventId: eventRowId,
+              },
+            });
+          }
+        }
+      }
+    }
+
     return {
       duplicate: false,
-      unmatched: true,
-      applied: false,
-      emailId: null,
-      status: null,
-      suppressed: [],
+      unmatched: false,
+      applied: Boolean(transition.status || transition.eventType || suppressed.length > 0),
+      emailId: row.id,
+      status: transition.status,
+      suppressed,
       eventId: eventRowId,
     };
-  }
-
-  const t = classifySesEvent(row.status, msg);
-  const now = new Date();
-  const suppressed: string[] = [];
-
-  if (t.status) {
-    await db
-      .update(emails)
-      .set({ status: t.status as never, updatedAt: now })
-      .where(eq(emails.id, row.id));
-  }
-  if (t.eventType) {
-    await db.insert(emailEvents).values({
-      id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
-      emailId: row.id,
-      projectId: row.projectId,
-      type: t.eventType as never,
-      data: {
-        source: "ses-feedback",
-        snsMessageId: env.MessageId,
-        ...(msg.bounce?.bounceType ? { bounceType: msg.bounce.bounceType } : {}),
-        ...(msg.bounce?.bounceSubType ? { bounceSubType: msg.bounce.bounceSubType } : {}),
-        ...(msg.delivery?.smtpResponse ? { smtpResponse: msg.delivery.smtpResponse } : {}),
-        ...(msg.click?.link ? { link: msg.click.link } : {}),
-        ...(msg.reject?.reason ? { reason: msg.reject.reason } : {}),
-        ...(msg.complaint?.complaintFeedbackType
-          ? { complaintFeedbackType: msg.complaint.complaintFeedbackType }
-          : {}),
-      },
-    });
-  }
-  if (t.suppression) {
-    for (const recipient of t.recipients) {
-      const email = recipient.trim().toLowerCase();
-      if (!email) continue;
-      const ins = await db
-        .insert(suppressions)
-        .values({
-          id: `sup_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
-          projectId: row.projectId,
-          email,
-          reason: t.suppression,
-        })
-        .onConflictDoNothing({ target: [suppressions.projectId, suppressions.email] })
-        .returning({ id: suppressions.id });
-      if (ins.length > 0) suppressed.push(email);
-    }
-  }
-
-  await db
-    .update(providerEvents)
-    .set({ emailId: row.id, projectId: row.projectId, recipient: t.recipients[0] ?? row.to })
-    .where(eq(providerEvents.id, eventRowId));
-
-  return {
-    duplicate: false,
-    unmatched: false,
-    applied: Boolean(t.status || t.eventType || suppressed.length > 0),
-    emailId: row.id,
-    status: t.status,
-    suppressed,
-    eventId: eventRowId,
-  };
+  });
 }

@@ -3,12 +3,68 @@
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { auditLogs, organizations, plans, subscriptions } from "@calder/db";
+import {
+  auditLogs,
+  organizations,
+  plans,
+  subscriptions,
+  OrganizationSendingStatusIdempotencyConflictError,
+  setOrganizationSendingStatus as persistOrganizationSendingStatus,
+} from "@calder/db";
 import { getDb } from "@calder/db";
 import { requireControl } from "@/lib/control/guard";
 import { isFounderRole } from "@/lib/control/roles";
 
 const TIERS = ["free", "starter", "pro", "scale"] as const;
+const ORGANIZATION_SAFETY_ROLES = new Set(["founder", "platform_admin", "security"]);
+
+/** Founder/security kill-switch. Suspension revokes all project keys atomically. */
+export async function setOrganizationSafetyStatus(
+  orgId: string,
+  status: "active" | "suspended",
+  reason: string,
+  idempotencyKey: string
+): Promise<{ ok: boolean; error?: string; revokedKeyCount?: number }> {
+  const ctx = await requireControl();
+  if (!ORGANIZATION_SAFETY_ROLES.has(ctx.role)) {
+    return { ok: false, error: "Founder or security/platform admin only." };
+  }
+  const trimmed = reason.trim();
+  if (trimmed.length < 6 || trimmed.length > 500) {
+    return { ok: false, error: "A reason between 6 and 500 characters is required." };
+  }
+  if (
+    typeof idempotencyKey !== "string" ||
+    idempotencyKey.trim().length < 1 ||
+    idempotencyKey.length > 255
+  ) {
+    return { ok: false, error: "A valid sending-safety action key is required." };
+  }
+  if (status !== "active" && status !== "suspended") {
+    return { ok: false, error: "Unsupported organization sending status." };
+  }
+  try {
+    const result = await persistOrganizationSendingStatus(getDb(), {
+      organizationId: orgId,
+      status,
+      actorUserId: ctx.user.userId,
+      reason: trimmed,
+      idempotencyKey: idempotencyKey.trim(),
+    });
+    revalidatePath("/control/customers/organizations");
+    revalidatePath(`/control/customers/organizations/${orgId}`);
+    revalidatePath("/control/security/events");
+    return { ok: true, revokedKeyCount: result.revokedKeyCount };
+  } catch (err) {
+    if (err instanceof Error && err.message === "Organization not found.") {
+      return { ok: false, error: "Organization not found." };
+    }
+    if (err instanceof OrganizationSendingStatusIdempotencyConflictError) {
+      return { ok: false, error: err.message };
+    }
+    throw err;
+  }
+}
 
 /**
  * Founder/operator action: set an organization's plan by cancelling any
