@@ -24,6 +24,7 @@ export async function listKeys(projectId: string) {
       id: apiKeys.id,
       name: apiKeys.name,
       prefix: apiKeys.keyPrefix,
+      scope: apiKeys.scope,
       env: apiKeys.env,
       lastUsedAt: apiKeys.lastUsedAt,
       revokedAt: apiKeys.revokedAt,
@@ -39,9 +40,15 @@ export async function listKeys(projectId: string) {
   }));
 }
 
-export async function createKey(projectId: string, name: string, env: "test" | "live") {
+export async function createKey(
+  projectId: string,
+  name: string,
+  env: "test" | "live",
+  scope: "full" | "send" | "read" = "full"
+) {
   await assertProject(projectId);
   const clean = name.trim().slice(0, 100) || `${env} key`;
+  const validScope = scope === "send" || scope === "read" ? scope : "full";
   const generated = generateApiKey(env);
   const db = getDb();
   const id = rid("key");
@@ -50,6 +57,7 @@ export async function createKey(projectId: string, name: string, env: "test" | "
     projectId,
     name: clean,
     keyPrefix: generated.prefix,
+    scope: validScope,
     keyHash: generated.hash,
     env,
   });

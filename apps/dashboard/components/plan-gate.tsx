@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Sparkles, Check, ExternalLink, Lock, ArrowRight } from "lucide-react";
 import { pricingUrl } from "../lib/pricing";
 
 type Tier = "PRO" | "PREMIUM" | "SCALE";
@@ -26,101 +27,134 @@ const tierCTA: Record<Tier, string> = {
 export function PlanGate({ title, description, tier, features, preview }: PlanGateProps) {
   return (
     <div
+      className="ds-card"
       style={{
-        background: "#fff",
-        border: "1px solid var(--color-border)",
-        borderRadius: 14,
-        padding: "40px 24px",
+        padding: "36px 28px",
         textAlign: "center",
         margin: "12px 0",
+        background: "var(--color-surface)",
+        position: "relative",
+        overflow: "hidden",
       }}
     >
       <div
         style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "4px 10px",
+          borderRadius: "var(--radius-full)",
+          background: "var(--color-accent-muted)",
+          color: "var(--color-accent)",
           fontSize: 11,
-          letterSpacing: "0.08em",
-          color: "var(--color-muted)",
-          marginBottom: 8,
+          fontWeight: 700,
+          letterSpacing: "0.06em",
           textTransform: "uppercase",
+          marginBottom: 14,
         }}
       >
-        {tierLabel[tier]}
+        <Sparkles size={12} />
+        <span>{tierLabel[tier]}</span>
       </div>
-      <h3 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 8px", color: "var(--color-ink)" }}>
+
+      <h3
+        style={{
+          fontSize: 20,
+          fontWeight: 700,
+          letterSpacing: "-0.02em",
+          margin: "0 0 8px",
+          color: "var(--color-ink)",
+        }}
+      >
         {title}
       </h3>
       <p
         style={{
           color: "var(--color-muted)",
-          fontSize: 14,
-          lineHeight: 1.5,
-          maxWidth: 460,
-          margin: "0 auto 16px",
+          fontSize: 13.5,
+          lineHeight: 1.6,
+          maxWidth: 480,
+          margin: "0 auto 20px",
         }}
       >
         {description}
       </p>
+
       {features && (
-        <ul
+        <div
           style={{
-            listStyle: "none",
-            padding: 0,
-            margin: "0 auto 20px",
-            maxWidth: 360,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: 10,
+            maxWidth: 560,
+            margin: "0 auto 24px",
             textAlign: "left",
-            fontSize: 13,
-            color: "var(--color-ink)",
-            lineHeight: 1.8,
+            padding: 16,
+            borderRadius: "var(--radius-lg)",
+            background: "var(--color-surface-elevated)",
+            border: "1px solid var(--color-border)",
           }}
         >
           {features.map((f) => (
-            <li key={f} style={{ display: "flex", gap: 8 }}>
-              <span style={{ color: "var(--color-signal)" }}>✓</span> {f}
-            </li>
+            <div
+              key={f}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 8,
+                fontSize: 12.5,
+                color: "var(--color-ink-secondary)",
+                lineHeight: 1.45,
+              }}
+            >
+              <span
+                style={{
+                  color: "var(--color-success)",
+                  marginTop: 1,
+                  flexShrink: 0,
+                }}
+              >
+                <Check size={14} />
+              </span>
+              <span>{f}</span>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
+
       {preview && (
         <div
           style={{
-            opacity: 0.45,
-            filter: "blur(0.3px)",
+            opacity: 0.72,
             pointerEvents: "none",
-            margin: "0 auto 20px",
-            maxWidth: 520,
+            margin: "0 auto 24px",
+            maxWidth: 640,
+            borderRadius: "var(--radius-lg)",
+            border: "1px dashed var(--color-border-strong)",
+            padding: 14,
+            background: "var(--color-surface-elevated)",
           }}
         >
           {preview}
         </div>
       )}
-      <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+
+      <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
         <a
           href={pricingUrl()}
-          style={{
-            background: "var(--color-ink)",
-            color: "#fff",
-            padding: "8px 18px",
-            borderRadius: 8,
-            fontSize: 13,
-            fontWeight: 600,
-            textDecoration: "none",
-          }}
+          className="ds-btn ds-btn-primary"
+          style={{ textDecoration: "none" }}
         >
-          {tierCTA[tier]}
+          <Sparkles size={14} />
+          <span>{tierCTA[tier]}</span>
+          <ExternalLink size={13} />
         </a>
         <a
           href={pricingUrl()}
-          style={{
-            border: "1px solid var(--color-border)",
-            color: "var(--color-ink)",
-            padding: "8px 18px",
-            borderRadius: 8,
-            fontSize: 13,
-            fontWeight: 600,
-            textDecoration: "none",
-          }}
+          className="ds-btn ds-btn-secondary"
+          style={{ textDecoration: "none" }}
         >
-          Compare plans
+          <span>Compare plans</span>
         </a>
       </div>
     </div>
@@ -130,13 +164,17 @@ export function PlanGate({ title, description, tier, features, preview }: PlanGa
 export function PlanBadge({ tier }: { tier: Tier }) {
   return (
     <span
+      className="mono"
       style={{
-        fontSize: 10,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 3,
+        fontSize: 9.5,
         fontWeight: 700,
         letterSpacing: "0.06em",
-        padding: "2px 6px",
+        padding: "1px 6px",
         borderRadius: 4,
-        background: "var(--color-paper)",
+        background: "var(--color-surface-elevated)",
         border: "1px solid var(--color-border)",
         color: "var(--color-muted)",
       }}
@@ -159,53 +197,68 @@ export function LimitState({
   limit: number;
   tier: Tier;
 }) {
+  const pct = Math.min(100, Math.round((used / Math.max(1, limit)) * 100));
   return (
     <div
+      className="ds-card"
       style={{
-        background: "#fff",
-        border: "1px solid var(--color-border)",
-        borderRadius: 14,
         padding: "32px 24px",
         textAlign: "center",
         margin: "12px 0",
       }}
     >
-      <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 6px" }}>{title}</h3>
-      <p style={{ color: "var(--color-muted)", fontSize: 13, margin: "0 0 12px" }}>{description}</p>
-      <div style={{ fontSize: 12, color: "var(--color-muted)", marginBottom: 16 }}>
-        {used} / {limit} used
+      <div
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 10,
+          background: "var(--color-warning-bg)",
+          color: "var(--color-warning)",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 12,
+        }}
+      >
+        <Lock size={18} />
+      </div>
+      <h3 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 6px", color: "var(--color-ink)" }}>
+        {title}
+      </h3>
+      <p style={{ color: "var(--color-muted)", fontSize: 13.5, margin: "0 0 14px" }}>
+        {description}
+      </p>
+      <div
+        className="mono tabular-nums"
+        style={{ fontSize: 12, color: "var(--color-ink-secondary)", marginBottom: 10 }}
+      >
+        {used.toLocaleString()} / {limit.toLocaleString()} used ({pct}%)
       </div>
       <div
         style={{
           height: 6,
-          background: "var(--color-paper)",
-          borderRadius: 3,
+          background: "var(--color-surface-sunken)",
+          borderRadius: 99,
           overflow: "hidden",
           maxWidth: 320,
-          margin: "0 auto 16px",
+          margin: "0 auto 18px",
         }}
       >
         <div
           style={{
-            width: `${Math.min(100, (used / limit) * 100)}%`,
+            width: `${pct}%`,
             height: "100%",
-            background: "var(--color-ink)",
+            background: pct >= 90 ? "var(--color-danger)" : "var(--color-accent)",
           }}
         />
       </div>
       <a
         href={pricingUrl()}
-        style={{
-          background: "var(--color-ink)",
-          color: "#fff",
-          padding: "8px 18px",
-          borderRadius: 8,
-          fontSize: 13,
-          fontWeight: 600,
-          textDecoration: "none",
-        }}
+        className="ds-btn ds-btn-primary"
+        style={{ textDecoration: "none" }}
       >
-        {tierCTA[tier]}
+        <Sparkles size={14} />
+        <span>{tierCTA[tier]}</span>
       </a>
     </div>
   );
@@ -224,22 +277,22 @@ export function SetupState({
 }) {
   return (
     <div
+      className="ds-card"
       style={{
-        background: "#fff",
-        border: "1px solid var(--color-border)",
-        borderRadius: 14,
         padding: "32px 24px",
         textAlign: "center",
         margin: "12px 0",
       }}
     >
-      <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 6px" }}>{title}</h3>
+      <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 6px", color: "var(--color-ink)" }}>
+        {title}
+      </h3>
       <p
         style={{
           color: "var(--color-muted)",
-          fontSize: 13,
-          lineHeight: 1.5,
-          maxWidth: 380,
+          fontSize: 13.5,
+          lineHeight: 1.55,
+          maxWidth: 400,
           margin: "0 auto 16px",
         }}
       >
@@ -247,17 +300,11 @@ export function SetupState({
       </p>
       <Link
         href={actionHref}
-        style={{
-          background: "var(--color-ink)",
-          color: "#fff",
-          padding: "8px 18px",
-          borderRadius: 8,
-          fontSize: 13,
-          fontWeight: 600,
-          textDecoration: "none",
-        }}
+        className="ds-btn ds-btn-primary"
+        style={{ textDecoration: "none" }}
       >
-        {actionLabel}
+        <span>{actionLabel}</span>
+        <ArrowRight size={14} />
       </Link>
     </div>
   );

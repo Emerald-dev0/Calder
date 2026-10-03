@@ -48,7 +48,12 @@ export async function POST(req: Request): Promise<Response> {
   await ensureFounderAccess(db, userId, email);
   await acceptPendingInvites(db, userId, email);
 
-  const sessionId = await createSession(userId);
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip")?.trim() ||
+    "127.0.0.1";
+  const userAgent = req.headers.get("user-agent") || "Calder Dev Session";
+  const sessionId = await createSession(userId, { ip, userAgent });
   const sealed = await sealSessionCookie(sessionId);
   const res = NextResponse.redirect(new URL(await postLoginRedirect(email), req.url));
   res.headers.append("Set-Cookie", sessionCookieHeader(sealed, 30 * 24 * 60 * 60));

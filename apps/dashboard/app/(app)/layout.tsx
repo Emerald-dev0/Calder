@@ -1,14 +1,14 @@
-import Link from "next/link";
+import { Suspense } from "react";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { eq, inArray, count, isNull, and } from "drizzle-orm";
 import { getConfig } from "@calder/config";
+import { getDb, users, emails, domains, apiKeys } from "@calder/db";
 import { getTenantContext } from "../../lib/auth";
-import { ContextSwitcher } from "../../components/context-switcher";
 import { OnboardingGate } from "../../components/onboarding-gate";
-import { CalderLockup } from "@calder/ui";
-import { PlanBadge } from "../../components/plan-gate";
+import { AppShell } from "../../components/app-shell";
 
 function isFounder(email: string): boolean {
-  // Same parsing as lib/control/roles.ts resolvePlatformRole: split on ","
-  // then trim, so "a@x.com,b@y.com" and "a@x.com, b@y.com" both work.
   const founders = (getConfig().FOUNDER_EMAILS ?? "")
     .split(",")
     .map((s) => s.trim().toLowerCase())
@@ -16,78 +16,26 @@ function isFounder(email: string): boolean {
   return founders.includes(email.toLowerCase());
 }
 
-// Every item must have a real href, a null href once rendered a "soon" span,
-// which is dead code removed in Phase 0 (routes are live or removed).
-const NAV_GROUPS: Array<{
-  heading: string;
-  items: Array<{
-    label: string;
-    href: string;
-    tier?: "PRO" | "PREMIUM" | "SCALE";
-    founder?: boolean;
-  }>;
-}> = [
-  { heading: "Workspace", items: [{ label: "Overview", href: "/" }] },
-  {
-    heading: "SEND",
-    items: [
-      { label: "Email", href: "/emails" },
-      { label: "Templates", href: "/templates" },
-      { label: "Senders", href: "/senders" },
-    ],
-  },
-  {
-    heading: "RECEIVE",
-    items: [
-      { label: "Inbox", href: "/inbox", tier: "PRO" },
-      { label: "Webhooks", href: "/webhooks" },
-    ],
-  },
-  {
-    heading: "DEVELOP",
-    items: [
-      { label: "API Keys", href: "/keys" },
-      { label: "SDKs", href: "/sdks" },
-      { label: "SMTP", href: "/smtp" },
-      { label: "Logs", href: "/logs" },
-    ],
-  },
-  {
-    heading: "CONFIGURE",
-    items: [
-      { label: "Domains", href: "/domains" },
-      { label: "Integrations", href: "/integrations" },
-    ],
-  },
-  {
-    heading: "OBSERVE",
-    items: [
-      { label: "Deliveries", href: "/deliveries" },
-      { label: "Analytics", href: "/analytics", tier: "PRO" },
-      { label: "Suppressions", href: "/suppressions" },
-      { label: "Usage", href: "/usage" },
-    ],
-  },
-  {
-    heading: "ORGANIZATION",
-    items: [{ label: "Audit Logs", href: "/audit-logs" }],
-  },
-  {
-    heading: "",
-    items: [
-      { label: "Settings", href: "/settings" },
-      { label: "Control Plane", href: "/control", founder: true },
-    ],
-  },
-];
-
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getTenantContext();
+  const db = getDb();
+  const [me] = await db
+    .select({
+      name: users.name,
+      onboardingCompletedAt: users.onboardingCompletedAt,
+      onboardingState: users.onboardingState,
+    })
+    .from(users)
+    .where(eq(users.id, ctx.user.userId))
+    .limit(1);
+  const onboardingComplete =
+    Boolean(me?.onboardingCompletedAt) || me?.onboardingState === "completed";
+  const onboardingPaused = cookies().get("calder_onboarding_paused")?.value === "1";
+  if (!onboardingComplete && !onboardingPaused) {
+    redirect("/onboarding");
+  }
+
   const showAdmin = isFounder(ctx.user.email);
-  const visibleGroups = NAV_GROUPS.map((g) => ({
-    ...g,
-    items: g.items.filter((i) => !(i.founder && !showAdmin)),
-  })).filter((g) => g.items.length > 0);
   const memberships = ctx.memberships.map((m) => ({
     organization: { id: m.organization.id, name: m.organization.name, slug: m.organization.slug },
     role: m.role,
@@ -98,104 +46,58 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       environment: p.metadata?.environment ?? "development",
     })),
   }));
+
+  const projectIds = memberships.flatMap((m) => m.projects.map((p) => p.id));
+  let sentThisMonth = 0;
+  let verifiedDomains = 0;
+  let activeKeys = 0;
+
+  if (projectIds.length > 0) {
+    const [emailRow] = await db
+      .select({ value: count() })
+      .from(emails)
+      .where(inArray(emails.projectId, projectIds));
+    sentThisMonth = emailRow?.value ?? 0;
+
+    const [domRow] = await db
+      .select({ value: count() })
+      .from(domains)
+      .where(and(inArray(domains.projectId, projectIds), eq(domains.status, "verified")));
+    verifiedDomains = domRow?.value ?? 0;
+
+    const [keyRow] = await db
+      .select({ value: count() })
+      .from(apiKeys)
+      .where(and(inArray(apiKeys.projectId, projectIds), isNull(apiKeys.revokedAt)));
+    activeKeys = keyRow?.value ?? 0;
+  }
+
   return (
-    <div className="dash-shell">
-      <OnboardingGate orgCount={ctx.memberships.length} />
-      <aside className="dash-sidebar">
-        <div style={{ margin: "0 0 4px" }}>
-          <CalderLockup size={20} />
-        </div>
-        <p className="mono dash-email" title={ctx.user.email}>
-          {ctx.user.email}
-        </p>
-        <ContextSwitcher memberships={memberships} />
-        <nav aria-label="Dashboard" className="dash-nav">
-          {visibleGroups.map((group) => (
-            <div key={group.heading} style={{ marginBottom: group.heading ? 14 : 0 }}>
-              {group.heading && (
-                <div
-                  style={{
-                    fontSize: 10,
-                    letterSpacing: "0.08em",
-                    color: "var(--color-muted)",
-                    margin: "10px 0 6px",
-                    fontWeight: 700,
-                  }}
-                >
-                  {group.heading}
-                </div>
-              )}
-              {group.items.map((item) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className="dash-link"
-                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                >
-                  <span>{item.label}</span>
-                  {item.tier && <PlanBadge tier={item.tier} />}
-                </Link>
-              ))}
-            </div>
-          ))}
-        </nav>
-        <form action="/api/auth/logout" method="POST" style={{ marginTop: 24 }}>
-          <button type="submit" className="dash-signout">
-            Sign out
-          </button>
-        </form>
-      </aside>
-      <div className="dash-main-col">
-        <header className="dash-topbar">
-          <span style={{ fontWeight: 700 }}>Calder</span>
-          <span className="mono dash-topbar-email" title={ctx.user.email}>
-            {ctx.user.email}
-          </span>
-          <form action="/api/auth/logout" method="POST">
-            <button type="submit" className="dash-logout dash-logout-compact" aria-label="Sign out">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <path
-                  d="M6 3H3v10h3M10 5l3 3-3 3M13 8H6"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-          </form>
-        </header>
-        <div className="dash-context-mobile">
-          <ContextSwitcher memberships={memberships} compact />
-        </div>
-        <nav aria-label="Dashboard" className="dash-tabs">
-          {visibleGroups
-            .flatMap((g) => g.items)
-            .map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className="dash-tab"
-                style={{ display: "inline-flex", gap: 6, alignItems: "center" }}
-              >
-                {item.label}{" "}
-                {item.tier && (
-                  <span
-                    style={{
-                      fontSize: 9,
-                      border: "1px solid var(--color-border)",
-                      padding: "0 4px",
-                      borderRadius: 3,
-                    }}
-                  >
-                    {item.tier}
-                  </span>
-                )}
-              </Link>
-            ))}
-        </nav>
-        <main className="dash-main">{children}</main>
-      </div>
-    </div>
+    <>
+      <OnboardingGate
+        orgCount={ctx.memberships.length}
+        incomplete={!onboardingComplete && !onboardingPaused}
+      />
+      <Suspense fallback={null}>
+        <AppShell
+          user={{
+            userId: ctx.user.userId,
+            email: ctx.user.email,
+            name: me?.name ?? null,
+          }}
+          memberships={memberships}
+          showAdmin={showAdmin}
+          usageSummary={{
+            sentThisMonth,
+            monthlyQuota: 5000,
+            planName: "Free",
+            verifiedDomains,
+            activeKeys,
+          }}
+        >
+          {children}
+        </AppShell>
+      </Suspense>
+    </>
   );
 }

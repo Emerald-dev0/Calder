@@ -2,7 +2,9 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { KeyRound, Sparkles, ExternalLink } from "lucide-react";
 import { createTestKey } from "../onboarding/actions";
+import { CodeBlock, DsBanner } from "../../../components/design-system";
 
 const KEY_PLACEHOLDER = "calder_sk_test_…";
 
@@ -95,7 +97,7 @@ curl_setopt_array($ch, [
   CURLOPT_POSTFIELDS => json_encode([
     "from" => "app@yourdomain.com",
     "to" => "you@example.com",
-    "subject" => "Hello from Calder",
+    "subject": "Hello from Calder",
     "text" => "It works.",
   ]),
   CURLOPT_TIMEOUT => 10,
@@ -161,164 +163,133 @@ result = calder.emails.send(
   },
 ];
 
-/**
- * M5.2: SDK snippets with REAL key injection. The key never leaves the
- * browser when pasted here; it is embedded only into the copy/downloaded
- * snippet. Creating a fresh test key mints server-side and is shown once.
- */
 export function SdkHub({ projectId, hasKeys }: { projectId: string; hasKeys: boolean }) {
   const router = useRouter();
-  const [lang, setLang] = React.useState("node");
   const [key, setKey] = React.useState("");
-  const [copied, setCopied] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const snippet = SNIPPETS.find((s) => s.id === lang)!;
-  const rendered = snippet.code(key.trim() || KEY_PLACEHOLDER);
+
+  const activeKey = key.trim() || KEY_PLACEHOLDER;
 
   return (
     <div>
-      <p style={{ fontSize: 13, color: "var(--color-muted)", margin: "0 0 12px" }}>
-        Official SDK packages live in the Calder repository (Node + Python tested in-repo; Ruby /
-        PHP source-available) and publish to npm/PyPI with the launch checklist — the Node SDK /
-        Python SDK tabs mirror exactly what lands there. Every SDK and raw snippet sends
-        idempotently by default.
-      </p>
-      <div
-        style={{
-          background: "#fff",
-          border: "1px solid var(--color-border)",
-          borderRadius: 12,
-          padding: 16,
-          marginBottom: 16,
-        }}
-      >
-        <label
-          style={{ fontSize: 12, color: "var(--color-muted)", display: "block", marginBottom: 6 }}
-        >
-          Paste an API key to inject it into every snippet below (never sent to the server —
-          substitution happens in your browser):
-        </label>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            placeholder={KEY_PLACEHOLDER}
-            className="mono"
-            style={{
-              flex: 1,
-              minWidth: 260,
-              height: 38,
-              border: "1px solid var(--color-border)",
-              borderRadius: 8,
-              padding: "0 12px",
-              fontSize: 13,
-            }}
-          />
-          <button
-            onClick={async () => {
-              setBusy(true);
-              setError(null);
-              try {
-                const r = await createTestKey(projectId, "sdk-snippets key");
-                setKey(r.secret);
-                router.refresh();
-              } catch (e) {
-                setError(e instanceof Error ? e.message : "Could not create key.");
-              } finally {
-                setBusy(false);
-              }
-            }}
-            disabled={busy}
-            style={{
-              height: 38,
-              padding: "0 16px",
-              border: "1px solid var(--color-border)",
-              borderRadius: 8,
-              background: "#fff",
-              fontSize: 13,
-              cursor: "pointer",
-            }}
-          >
-            {hasKeys ? "Mint a new test key" : "Mint my first test key"}
-          </button>
+      <div className="ds-card" style={{ marginBottom: 20 }}>
+        <div className="ds-card-header">
+          <div>
+            <h2 className="ds-card-title">Browser-Local API Key Injection</h2>
+            <p className="ds-card-subtitle">
+              Paste an existing key or mint a sandbox test key to populate every code snippet below (substitution happens strictly in your browser).
+            </p>
+          </div>
         </div>
-        {error && (
-          <p role="alert" style={{ color: "#DC2626", fontSize: 13, margin: "8px 0 0" }}>
-            {error}
-          </p>
-        )}
-        {key && (
-          <p style={{ fontSize: 12, color: "#B45309", margin: "8px 0 0" }}>
-            New keys are shown once — save the minted key somewhere safe (or copy a snippet below,
-            then clear this field).
-          </p>
-        )}
+        <div className="ds-card-body">
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <input
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+              placeholder={KEY_PLACEHOLDER}
+              className="ds-input mono"
+              style={{ flex: 1, minWidth: 260 }}
+            />
+            <button
+              type="button"
+              onClick={async () => {
+                setBusy(true);
+                setError(null);
+                try {
+                  const r = await createTestKey(projectId, "sdk-snippets key");
+                  setKey(r.secret);
+                  router.refresh();
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "Could not create key.");
+                } finally {
+                  setBusy(false);
+                }
+              }}
+              disabled={busy}
+              className="ds-btn ds-btn-secondary"
+            >
+              <KeyRound size={14} />
+              <span>{hasKeys ? "Mint a new test key" : "Mint my first test key"}</span>
+            </button>
+          </div>
+          {error && (
+            <div style={{ marginTop: 12 }}>
+              <DsBanner tone="danger" title="Could not create key" description={error} />
+            </div>
+          )}
+          {key && (
+            <div style={{ marginTop: 12 }}>
+              <DsBanner
+                tone="warning"
+                title="Save your minted key safely"
+                description="New keys are shown once—copy your snippet below or store the key in your secret manager before leaving this page."
+              />
+            </div>
+          )}
+        </div>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-        {SNIPPETS.map((s) => (
-          <button
-            key={s.id}
-            onClick={() => setLang(s.id)}
-            style={{
-              fontSize: 12,
-              border: `1px solid ${lang === s.id ? "#0B0C0E" : "var(--color-border)"}`,
-              padding: "4px 10px",
-              borderRadius: 6,
-              background: lang === s.id ? "#0B0C0E" : "#fff",
-              color: lang === s.id ? "#fff" : "inherit",
-              cursor: "pointer",
-            }}
-          >
-            {s.label}
-          </button>
-        ))}
-        <span style={{ flex: 1 }} />
-        <button
-          onClick={async () => {
-            await navigator.clipboard.writeText(rendered);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-          }}
-          style={{
-            fontSize: 12,
-            border: "1px solid var(--color-border)",
-            padding: "4px 12px",
-            borderRadius: 6,
-            background: "#fff",
-            cursor: "pointer",
-          }}
-        >
-          {copied ? "copied ✓" : "copy"}
-        </button>
-      </div>
+      <CodeBlock
+        tabs={SNIPPETS.map((s) => ({
+          id: s.id,
+          label: s.label,
+          filename: s.filename,
+          code: s.code(activeKey),
+        }))}
+      />
 
       <div
+        className="ds-card"
         style={{
-          background: "#0B0C0E",
-          borderRadius: 12,
-          padding: 16,
-          color: "#E8E9EA",
-          position: "relative",
+          marginTop: 16,
+          padding: "12px 16px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+          fontSize: 12.5,
+          color: "var(--color-muted)",
         }}
       >
-        <span style={{ position: "absolute", top: 10, right: 14, fontSize: 11, color: "#B5B5B5" }}>
-          {snippet.filename}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <Sparkles size={14} style={{ color: "var(--color-accent)" }} />
+          <span>
+            Official Node & Python SDKs send idempotently by default and support automatic retry backoff.
+          </span>
         </span>
-        <pre
-          className="mono"
-          style={{ fontSize: 12, lineHeight: 1.6, overflowX: "auto", margin: 0, whiteSpace: "pre" }}
-        >
-          {rendered}
-        </pre>
+        <div style={{ display: "inline-flex", gap: 14 }}>
+          <a
+            href="https://calder.click/docs/api-reference"
+            style={{
+              color: "var(--color-ink)",
+              fontWeight: 600,
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <span>API Reference</span>
+            <ExternalLink size={12} />
+          </a>
+          <a
+            href="https://calder.click/docs/webhooks"
+            style={{
+              color: "var(--color-ink)",
+              fontWeight: 600,
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <span>Webhook Verification</span>
+            <ExternalLink size={12} />
+          </a>
+        </div>
       </div>
-
-      <p style={{ fontSize: 12, color: "var(--color-muted)", marginTop: 10 }}>
-        Full contract: <a href="https://calder.click/docs/api-reference">API reference</a> ·
-        templates by alias · <a href="https://calder.click/docs/webhooks">webhook verification</a>{" "}
-        snippets in the same four languages.
-      </p>
     </div>
   );
 }

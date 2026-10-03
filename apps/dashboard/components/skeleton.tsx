@@ -1,3 +1,5 @@
+import React from "react";
+
 export function Skeleton({
   className,
   style,
@@ -7,12 +9,8 @@ export function Skeleton({
 }) {
   return (
     <div
-      className={className}
+      className={`ds-skeleton ${className ?? ""}`}
       style={{
-        background:
-          "linear-gradient(90deg, var(--color-paper) 25%, #f3f3f3 50%, var(--color-paper) 75%)",
-        backgroundSize: "200% 100%",
-        animation: "skeleton 1.2s ease-in-out infinite",
         borderRadius: 8,
         ...style,
       }}
@@ -23,10 +21,8 @@ export function Skeleton({
 export function CardSkeleton() {
   return (
     <div
+      className="ds-card"
       style={{
-        background: "#fff",
-        border: "1px solid var(--color-border)",
-        borderRadius: 12,
         padding: 16,
       }}
     >
@@ -38,14 +34,7 @@ export function CardSkeleton() {
 
 export function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div
-      style={{
-        background: "#fff",
-        border: "1px solid var(--color-border)",
-        borderRadius: 12,
-        overflow: "hidden",
-      }}
-    >
+    <div className="ds-card" style={{ overflow: "hidden" }}>
       {Array.from({ length: rows }).map((_, i) => (
         <div
           key={i}
@@ -53,7 +42,7 @@ export function TableSkeleton({ rows = 5 }: { rows?: number }) {
             display: "flex",
             gap: 12,
             padding: "12px 14px",
-            borderBottom: i === rows - 1 ? "none" : "1px solid #f5f5f5",
+            borderBottom: i === rows - 1 ? "none" : "1px solid var(--color-border)",
           }}
         >
           <Skeleton style={{ height: 12, flex: 1 }} />

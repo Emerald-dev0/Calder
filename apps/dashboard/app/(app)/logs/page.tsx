@@ -1,6 +1,7 @@
 import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { getDb, emails, emailEvents } from "@calder/db";
-import { getTenantContext } from "../../../lib/auth";
+import { getTenantContext, resolveProject } from "../../../lib/auth";
+import { ProjectPicker } from "../project-picker";
 import { EmptyState } from "../../../components/empty-state";
 import {
   decodeCursor,
@@ -10,6 +11,13 @@ import {
   PAGE_SIZE,
 } from "../../../lib/pagination";
 import Link from "next/link";
+import { ScrollText, Search, Send, ArrowRight } from "lucide-react";
+import {
+  DsPageHeader,
+  StatusPill,
+  RelativeTime,
+  CopyableMono,
+} from "../../../components/design-system";
 
 export const metadata = { title: "Calder — Logs" };
 
@@ -26,22 +34,28 @@ const ALLOWED_TYPES = new Set([
   "suppressed",
 ]);
 
-/**
- * M5.1: real observability read. Search across recipient / email id / subject,
- * filter by event type, cursor-paginate. The WHERE always carries the tenant
- * project set before anything user-controlled is applied.
- */
 export default async function LogsPage({
   searchParams,
 }: {
   searchParams: { q?: string; type?: string; cursor?: string; project?: string };
 }) {
   const ctx = await getTenantContext();
-  const projectIds = ctx.memberships.flatMap((m) => m.projects.map((p) => p.id));
+  const projects = ctx.memberships.flatMap((m) =>
+    m.projects.map((p) => ({ id: p.id, slug: p.slug }))
+  );
+  const scope = resolveProject(ctx, searchParams.project);
+  const current = scope?.project ?? null;
+  const projectIds = current
+    ? [current.id]
+    : ctx.memberships.flatMap((m) => m.projects.map((p) => p.id));
   if (projectIds.length === 0) {
     return (
       <div>
-        <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px" }}>Logs</h1>
+        <DsPageHeader
+          icon={<ScrollText size={18} />}
+          title="Delivery Event Logs"
+          description="Real-time lifecycle event stream across all projects."
+        />
         <EmptyState
           title="No project yet"
           description="Create a project and logs will appear here."
@@ -64,7 +78,6 @@ export default async function LogsPage({
   const cw = cursorWhere(cursor, emailEvents.createdAt, emailEvents.id);
   if (cw) conds.push(cw);
 
-  // Join emails so a "q" covers recipient + subject, not just opaque ids.
   const base = db
     .select({
       id: emailEvents.id,
@@ -96,131 +109,173 @@ export default async function LogsPage({
     hasMore && last ? encodeCursor({ createdAt: last.createdAt, id: last.id }) : null;
   const qs = (extra: Record<string, string | undefined>) =>
     "?" +
-    Object.entries({ q, type: typeFilter, ...extra })
+    Object.entries({ q, type: typeFilter, project: current?.id, ...extra })
       .filter(([, v]) => v)
       .map(([k, v]) => `${k}=${encodeURIComponent(v!)}`)
       .join("&");
 
   return (
     <div>
-      <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px" }}>Logs</h1>
-      <p style={{ color: "var(--color-muted)", fontSize: 13, margin: "0 0 12px" }}>
-        Every lifecycle event, searchable and paginated. Timeline per message on{" "}
-        <Link href="/deliveries">Deliveries</Link>.
-      </p>
+      <DsPageHeader
+        icon={<ScrollText size={18} />}
+        title="Delivery Event Logs"
+        badge={<StatusPill status="active" label="Live Stream" />}
+        description={
+          <span>
+            Every lifecycle event (`created → queued → sent → delivered`), searchable and cursor-paginated. View message-grouped timelines on{" "}
+            <Link href="/deliveries" style={{ color: "var(--color-accent)", fontWeight: 600 }}>
+              Deliveries
+            </Link>
+            .
+          </span>
+        }
+        actions={
+          <>
+            <Link
+              href="/deliveries"
+              className="ds-btn ds-btn-secondary"
+              style={{ textDecoration: "none" }}
+            >
+              <span>Message Explorer</span>
+            </Link>
+            <Link
+              href="/emails/new"
+              className="ds-btn ds-btn-primary"
+              style={{ textDecoration: "none" }}
+            >
+              <Send size={14} />
+              <span>Send test email</span>
+            </Link>
+          </>
+        }
+      />
 
-      <form method="get" style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <input
-          type="search"
-          name="q"
-          defaultValue={q ?? ""}
-          placeholder="Search recipient, subject, or email id…"
-          style={{
-            flex: 1,
-            height: 38,
-            border: "1px solid var(--color-border)",
-            borderRadius: 8,
-            padding: "0 12px",
-            fontSize: 13,
-          }}
-        />
+      {current ? (
+        <ProjectPicker projects={projects} currentId={current.id} basePath="/logs" />
+      ) : null}
+
+      <form
+        method="get"
+        style={{
+          display: "flex",
+          gap: 10,
+          marginBottom: 16,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        {current ? <input type="hidden" name="project" value={current.id} /> : null}
+        <div style={{ position: "relative", flex: 1, minWidth: 240 }}>
+          <Search
+            size={14}
+            style={{
+              position: "absolute",
+              left: 11,
+              top: 11,
+              color: "var(--color-muted)",
+            }}
+          />
+          <input
+            type="search"
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="Search recipient, subject, or message ID…"
+            className="ds-input"
+            style={{ paddingLeft: 32 }}
+          />
+        </div>
         <select
           name="type"
           defaultValue={typeFilter ?? ""}
-          style={{
-            height: 38,
-            border: "1px solid var(--color-border)",
-            borderRadius: 8,
-            padding: "0 10px",
-            fontSize: 13,
-            background: "#fff",
-          }}
+          className="ds-select"
+          style={{ width: "auto", minWidth: 160 }}
         >
-          <option value="">all types</option>
+          <option value="">All event types</option>
           {[...ALLOWED_TYPES].map((t) => (
             <option key={t} value={t}>
               {t}
             </option>
           ))}
         </select>
-        <button
-          type="submit"
-          style={{
-            height: 38,
-            padding: "0 16px",
-            border: "1px solid var(--color-border)",
-            borderRadius: 8,
-            background: "#fff",
-            fontSize: 13,
-            cursor: "pointer",
-          }}
-        >
+        <button type="submit" className="ds-btn ds-btn-secondary">
           Filter
         </button>
+        {(q || typeFilter) && (
+          <Link
+            href="/logs"
+            className="ds-btn ds-btn-ghost ds-btn-sm"
+            style={{ textDecoration: "none" }}
+          >
+            Clear
+          </Link>
+        )}
       </form>
 
       {page.length === 0 ? (
         <EmptyState
+          icon={<ScrollText size={22} />}
           title={q || typeFilter ? "No events match" : "No events yet"}
           description={
             q || typeFilter
-              ? "Try widening the search or clearing the filter."
-              : "Once your application sends its first message, its lifecycle — queued → provider → delivered — appears here."
+              ? "Try widening the search or clearing the event type filter."
+              : "Once your application sends its first message, its lifecycle — queued → provider → delivered — appears here in real time."
           }
           actionLabel={q || typeFilter ? "Clear filters" : "Send test email"}
           actionHref={q || typeFilter ? "/logs" : "/emails/new"}
         />
       ) : (
-        <>
-          <div
-            style={{
-              background: "#fff",
-              border: "1px solid var(--color-border)",
-              borderRadius: 12,
-              overflow: "hidden",
-            }}
-          >
-            {page.map((r) => (
-              <div
-                key={r.id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  padding: "10px 14px",
-                  borderBottom: "1px solid #f5f5f5",
-                  fontSize: 12,
-                }}
-              >
-                <span>
-                  <b style={{ textTransform: "capitalize" }}>{r.type}</b>{" "}
-                  <span style={{ color: "var(--color-muted)" }}>
-                    · {r.to ?? r.emailId}
-                    {r.subject ? ` — ${r.subject.slice(0, 60)}` : ""}
-                  </span>
-                </span>
-                <span className="mono" style={{ color: "var(--color-muted)", flexShrink: 0 }}>
-                  {new Date(r.createdAt).toLocaleString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-              </div>
-            ))}
+        <div className="ds-table-shell">
+          <div className="ds-table-scroll">
+            <table className="ds-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 140 }}>Event Type</th>
+                  <th>Recipient & Subject</th>
+                  <th style={{ width: 200 }}>Message ID</th>
+                  <th style={{ width: 130, textAlign: "right" }}>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody>
+                {page.map((r) => (
+                  <tr key={r.id}>
+                    <td>
+                      <StatusPill status={r.type} />
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>
+                        {r.to ?? "Unknown recipient"}
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--color-muted)" }}>
+                        {r.subject ? r.subject.slice(0, 80) : "—"}
+                      </div>
+                    </td>
+                    <td>
+                      <CopyableMono value={r.emailId} />
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <RelativeTime value={r.createdAt} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <p style={{ fontSize: 11, color: "var(--color-muted)", marginTop: 8 }}>
-            Timeline: Request → Validated → Queued → Provider accepted → Delivered (truthful states,
-            never fake Delivered).
+          <div className="ds-card-footer" style={{ justifyContent: "space-between" }}>
+            <span style={{ fontSize: 11.5, color: "var(--color-muted)" }}>
+              Pipeline: Request → Validated → Queued → Provider accepted → Delivered (truthful states only).
+            </span>
             {nextCursor && (
-              <>
-                {" · "}
-                <Link href={`/logs${qs({ cursor: nextCursor })}`}>older events →</Link>
-              </>
+              <Link
+                href={`/logs${qs({ cursor: nextCursor })}`}
+                className="ds-btn ds-btn-secondary ds-btn-sm"
+                style={{ textDecoration: "none" }}
+              >
+                <span>Older events</span>
+                <ArrowRight size={13} />
+              </Link>
             )}
-          </p>
-        </>
+          </div>
+        </div>
       )}
     </div>
   );
