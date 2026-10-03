@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calder — Transactional email that bills in Naira and answers in WAT</title>
+<meta name="description" content="Resend-simple transactional email API with Naira billing, WAT human support, and deliverability defaults that get Nigerian product email to the inbox.">
+<style>
+:root{
+  --paper:#F6F5F0; --surface:#FFFFFF; --ink:#101210; --muted:#5B625B;
+  --primary:#0E5C3F; --primary-ink:#FFFFFF; --accent:#D7F542;
+  --warn:#8A5200; --err:#B3261E; --line:#E2E1D8; --dark:#101210; --dark-ink:#F2F3ED; --dark-muted:#A7AFA6;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--paper);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+nav{position:sticky;top:0;background:rgba(246,245,240,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);z-index:10}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+.logo{font-weight:800;font-size:20px;letter-spacing:-.02em}
+.logo i{display:inline-block;width:12px;height:12px;background:var(--primary);border-radius:3px;margin-right:8px;font-style:normal}
+.navlinks{display:flex;gap:24px;font-size:14px}
+.navlinks a{color:var(--muted);text-decoration:none}
+.navlinks a:hover{color:var(--ink)}
+.btn{display:inline-block;background:var(--primary);color:var(--primary-ink);padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;border:none;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--primary);border:2px solid var(--primary)}
+.hero{padding:96px 0 64px;display:grid;grid-template-columns:1.1fr .9fr;gap:48px;align-items:center}
+.hero>div{min-width:0}
+.eyebrow{display:inline-block;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--primary);border:1px solid var(--primary);border-radius:999px;padding:6px 14px;margin-bottom:24px}
+h1{font-size:clamp(36px,5vw,58px);line-height:1.05;letter-spacing:-.03em;margin-bottom:20px}
+h1 em{font-style:normal;color:var(--primary)}
+.sub{font-size:19px;color:var(--muted);max-width:34em;margin-bottom:32px}
+.cta-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.micro{font-size:13px;color:var(--muted);font-family:var(--mono)}
+.code{background:var(--dark);color:var(--dark-ink);border-radius:12px;padding:24px;font-family:var(--mono);font-size:13.5px;line-height:1.7;overflow-x:auto;box-shadow:0 24px 60px -24px rgba(16,18,16,.45)}
+.code .k{color:var(--accent)} .code .s{color:#9FE8B8} .code .c{color:var(--dark-muted)} .code .f{color:#7CC4FF}
+.tabs{display:flex;gap:8px;margin-bottom:12px}
+.tabs button{background:#22251F;color:var(--dark-muted);border:none;font-family:var(--mono);font-size:12px;padding:6px 12px;border-radius:6px;cursor:pointer}
+.tabs button.on{background:var(--accent);color:#101210;font-weight:700}
+section{padding:64px 0;border-top:1px solid var(--line)}
+h2{font-size:clamp(26px,3.4vw,38px);letter-spacing:-.02em;line-height:1.15;margin-bottom:12px}
+.sec-sub{color:var(--muted);font-size:17px;max-width:40em;margin-bottom:36px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:28px}
+.card h3{font-size:17px;margin-bottom:8px}
+.card p{font-size:14.5px;color:var(--muted)}
+.card .tag{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--primary);display:block;margin-bottom:10px}
+.status{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;margin-top:12px}
+.status.live{background:#E3F3E9;color:var(--primary)}
+.status.soon{background:#F7ECD4;color:var(--warn)}
+table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:15px}
+th,td{padding:14px 18px;text-align:left;border-bottom:1px solid var(--line)}
+th{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+tr:last-child td{border-bottom:none}
+td.naira{font-weight:800;color:var(--primary)}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.vs .card.bad{border-left:4px solid var(--err)} .vs .card.good{border-left:4px solid var(--primary)}
+footer{padding:48px 0 64px;color:var(--muted);font-size:13.5px}
+footer .wrap{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.reveal{opacity:1}
+html.js .reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease}
+html.js .reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){html.js .reveal{opacity:1;transform:none;transition:none}}
+@media(max-width:860px){h1{font-size:32px;overflow-wrap:break-word}.hero{grid-template-columns:1fr;padding:56px 0 40px}.grid3{grid-template-columns:1fr}.vs{grid-template-columns:1fr}.navlinks{display:none}table{font-size:13.5px}th,td{padding:10px 12px}nav .wrap{height:56px}.btn{padding:10px 18px;font-size:14px}}
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <div class="logo"><i>■</i>Calder</div>
+  <div class="navlinks"><a href="#product">Product</a><a href="#pricing">Pricing</a><a href="#compare">Compare</a><a href="#docs">Docs</a></div>
+  <a class="btn" href="#cta" style="padding:9px 18px;font-size:14px">Get an API key</a>
+</div></nav>
+
+<div class="wrap">
+<header class="hero">
+  <div>
+    <span class="eyebrow">Transactional email · Nigeria-first</span>
+    <h1>Product email that reaches the inbox. <em>Billed in Naira.</em></h1>
+    <p class="sub">Calder is the transactional email API for developers who are tired of dollar cards that decline. Resend-simple sending, human support in your timezone, deliverability defaults on from day one.</p>
+    <div class="cta-row">
+      <a class="btn" href="#cta">Send your first email</a>
+      <a class="btn ghost" href="#compare">Compare the math</a>
+    </div>
+    <p class="micro">3,000 emails/mo free · no card · ~5 min to first send</p>
+  </div>
+  <div>
+    <div class="tabs">
+      <button class="on" data-l="node">Node.js</button><button data-l="py">Python</button><button data-l="curl">cURL</button>
+    </div>
+    <pre class="code" id="codeblock"><code><span class="c">// npm install calder</span>
+<span class="k">import</span> Calder <span class="k">from</span> <span class="s">"calder"</span>;
+
+<span class="k">const</span> calder = <span class="k">new</span> <span class="f">Calder</span>(process.env.<span class="s">CALDER_API_KEY</span>);
+
+<span class="k">await</span> calder.emails.<span class="f">send</span>({
+  <span class="s">from</span>: <span class="s">"alerts@yourapp.com"</span>,
+  <span class="s">to</span>: <span class="s">"ada@example.com"</span>,
+  <span class="s">subject</span>: <span class="s">"Your receipt"</span>,
+  <span class="s">html</span>: <span class="s">"&lt;h1&gt;Payment confirmed&lt;/h1&gt;"</span>,
+}, { <span class="s">idempotencyKey</span>: <span class="s">"rcpt_9f27"</span> });
+
+<span class="c">// → 202 accepted · queued · delivered · webhook fired</span></code></pre>
+  </div>
+</header>
+</div>
+
+<div class="wrap">
+<section id="product">
+  <h2>One pipe. Every receipt, reset, and OTP.</h2>
+  <p class="sec-sub">API in, queue, worker, provider, event log, webhook out. The same lifecycle for every message — debuggable per email, not per prayer.</p>
+  <div class="grid3">
+    <div class="card reveal"><span class="tag">Send</span><h3>REST send + idempotency keys</h3><p>POST /v1/emails, duplicate-safe retries, batch up to 100. Suppression checked before every send — blocked with a reason, never silently dropped.</p><span class="status live">●&nbsp;Live</span></div>
+    <div class="card reveal"><span class="tag">Prove</span><h3>Per-message timeline + webhooks</h3><p>Queued → sent → delivered → opened/clicked, or bounced/complained with the provider payload attached. Signed webhooks, 8 retries, manual replay.</p><span class="status live">●&nbsp;Live</span></div>
+    <div class="card reveal"><span class="tag">Protect</span><h3>Domains, DKIM, suppression</h3><p>Guided DNS verification, DKIM via SES, automatic bounce/complaint suppression, one-click List-Unsubscribe. Your reputation, guarded.</p><span class="status live">●&nbsp;Live</span></div>
+  </div>
+  <div class="grid3" style="margin-top:20px">
+    <div class="card reveal"><span class="tag">Start</span><h3>Gmail Quickstart — no domain needed</h3><p>Connect a Google account over OAuth, send up to 400/day while you build. Graduate to your own domain when you're ready.</p><span class="status live">●&nbsp;Live</span></div>
+    <div class="card reveal"><span class="tag">Migrate</span><h3>SMTP relay for legacy stacks</h3><p>WordPress, Laravel, Django — keep your mailer, point it at Calder. Same pipeline, same tracking, same bill.</p><span class="status soon">▲&nbsp;Coming soon</span></div>
+    <div class="card reveal"><span class="tag">Grow</span><h3>Marketing stream, separate reputation</h3><p>Campaigns and lifecycle mail on their own stream — never sharing reputation with your password resets.</p><span class="status soon">▲&nbsp;In development</span></div>
+  </div>
+</section>
+
+<section id="pricing">
+  <h2>Honest pricing, in the currency you actually hold.</h2>
+  <p class="sec-sub">Separate Naira and Dollar price points — never an FX conversion. Hard limits, never surprise overages. Marketing contacts counted separately.</p>
+  <table>
+    <tr><th>Plan</th><th>USD</th><th>NGN</th><th>Emails / month</th><th>Logs</th></tr>
+    <tr><td><strong>Beginner</strong></td><td>$0</td><td class="naira">NGN 0</td><td>5,000</td><td>7 days</td></tr>
+    <tr><td><strong>Pro</strong></td><td>$15</td><td class="naira">NGN 25,000</td><td>50,000</td><td>30 days</td></tr>
+    <tr><td><strong>Premium</strong></td><td>$49</td><td class="naira">NGN 75,000</td><td>250,000</td><td>90 days</td></tr>
+    <tr><td><strong>Scale</strong></td><td>Custom</td><td class="naira">Custom</td><td>Custom</td><td>Custom</td></tr>
+  </table>
+  <p class="micro" style="margin-top:12px">Paid plans in early access during beta — alpha is free. Email packs and bank-transfer top-ups on the roadmap.</p>
+</section>
+
+<section id="compare">
+  <h2>Why switch? Do the math.</h2>
+  <p class="sec-sub">Same 50,000 emails. Different bill — and a very different support timezone.</p>
+  <div class="vs">
+    <div class="card bad reveal"><h3>Them: $20 + your dollar card + their timezone</h3><p>Resend Pro: $20/mo for 50k. Postmark: ~$50. Your bank adds FX fees, your card may decline, and support replies while you sleep.</p></div>
+    <div class="card good reveal"><h3>Calder: ₦25,000 + transfer + WAT mornings</h3><p>Pay by card or bank transfer. DNS hand-holding in plain English. Abuse screening that protects the shared pool — so your resets land.</p></div>
+  </div>
+</section>
+
+<section id="docs">
+  <h2>Five minutes to first delivery.</h2>
+  <p class="sec-sub">Key → verified sender → send → webhook. Every sample below runs against the real API; the reference is generated from the code, so it can't drift.</p>
+  <div class="grid3">
+    <div class="card reveal"><span class="tag">01</span><h3>Create a key</h3><p>Test keys for building, live keys for shipping. Scoped, prefixed, revocable in one click, expiry enforced.</p></div>
+    <div class="card reveal"><span class="tag">02</span><h3>Verify your domain</h3><p>Three DNS records, live status checks, re-verification when records vanish. Or skip it — start with Gmail Quickstart.</p></div>
+    <div class="card reveal"><span class="tag">03</span><h3>Send + watch it land</h3><p>Per-message timeline, bounce/complaint events, webhook redelivery. When something doesn't arrive, you'll know exactly why.</p></div>
+  </div>
+</section>
+
+<section id="cta">
+  <h2>Your resets deserve better than "maybe delivered".</h2>
+  <p class="sec-sub">Join the beta. Free tier, no card, humans on the other end.</p>
+  <a class="btn" href="#">Get an API key</a>
+  <p class="micro" style="margin-top:12px">Status: <strong>private alpha</strong> — SMTP relay and marketing stream clearly labeled, paid billing in early access.</p>
+</section>
+</div>
+
+<footer><div class="wrap">
+  <div>© 2026 Calder · Transactional email infrastructure</div>
+  <div>Prototype only — inside /audit/landing-redesign. Claims limited to built features (SMTP + marketing labeled coming soon).</div>
+</div></footer>
+
+<script>
+if(!/noreveal/.test(location.search)){document.documentElement.classList.add('js');}
+document.querySelectorAll('.tabs button').forEach(function(b){
+  b.addEventListener('click',function(){
+    document.querySelectorAll('.tabs button').forEach(function(x){x.classList.remove('on')});
+    b.classList.add('on');
+    var snippets={
+      node:'<span class="c">// npm install calder</span>\n<span class="k">await</span> calder.emails.<span class="f">send</span>({ <span class="s">from</span>: <span class="s">"alerts@yourapp.com"</span>, <span class="s">to</span>: <span class="s">"ada@example.com"</span> });',
+      py:'<span class="c"># pip install calder</span>\ncalder.emails.<span class="f">send</span>(<span class="s">from_</span>=<span class="s">"alerts@yourapp.com"</span>, <span class="s">to</span>=<span class="s">"ada@example.com"</span>)',
+      curl:'<span class="c"># any stack, incl. PHP/Ruby/Go</span>\ncurl -X POST https://api.calder.dev/v1/emails \\\n  -H <span class="s">"Authorization: Bearer $KEY"</span> \\ \n  -d <span class="s">\'{"from":"alerts@yourapp.com"}\'</span>'
+    };
+    document.getElementById('codeblock').innerHTML='<code>'+snippets[b.dataset.l]+'</code>';
+  });
+});
+var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{threshold:.12});
+document.querySelectorAll('.reveal').forEach(function(el){io.observe(el)});
+</script>
+</body>
+</html>
