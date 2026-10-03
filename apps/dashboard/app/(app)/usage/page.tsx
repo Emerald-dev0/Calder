@@ -3,24 +3,27 @@ import { getDb, usageSummaries, plans, planPrices, orgUsageSnapshot } from "@cal
 import { planEmailsLimit, PLAN_LIMITS } from "@calder/config";
 import { getTenantContext } from "../../../lib/auth";
 import { pricingUrl } from "../../../lib/pricing";
+import { Gauge, Sparkles, ExternalLink, CheckCircle2 } from "lucide-react";
+import {
+  DsPageHeader,
+  StatusPill,
+  StatCard,
+} from "../../../components/design-system";
 
 export default async function UsagePage() {
   const ctx = await getTenantContext();
   const orgIds = ctx.memberships.map((m) => m.organization.id);
   const db = getDb();
 
-  // Live quota state per membership org: accepted usage against the plan
-  // limit for the CURRENT period (subscription period or UTC month), plus
-  // the metered (delivered) total from the usage ledger. Never trust the
-  // summary table alone — the cron may not have run since the last send.
   const snapshots = await Promise.all(
     ctx.memberships.map(async (m) => ({
       orgName: m.organization.name,
       orgId: m.organization.id,
       snap: await orgUsageSnapshot(db, m.organization.id),
-    }))
+    })),
   );
   const sentThisMonth = snapshots.reduce((n, s) => n + s.snap.acceptedLive, 0);
+  const meteredThisMonth = snapshots.reduce((n, s) => n + s.snap.metered, 0);
 
   const aggregated =
     orgIds.length > 0
@@ -39,10 +42,43 @@ export default async function UsagePage() {
 
   return (
     <div>
-      <h1 style={{ fontSize: 28, margin: "0 0 4px" }}>Usage</h1>
-      <p style={{ color: "#737373", margin: "0 0 20px", fontSize: 14 }}>
-        Metered from durable records, the invoice always matches this page.
-      </p>
+      <DsPageHeader
+        icon={<Gauge size={18} />}
+        title="Usage & Quotas"
+        badge={<StatusPill status="active" label="Live Ledger" />}
+        description="Metered directly from durable delivery records—your invoice always matches this ledger."
+        actions={
+          <a
+            href={pricingUrl()}
+            className="ds-btn ds-btn-primary"
+            style={{ textDecoration: "none" }}
+          >
+            <Sparkles size={14} />
+            <span>Compare Plans</span>
+            <ExternalLink size={13} />
+          </a>
+        }
+      />
+
+      <div className="ds-grid-3" style={{ marginBottom: 20 }}>
+        <StatCard
+          label="Accepted Sends (Current Cycle)"
+          value={sentThisMonth.toLocaleString()}
+          status="active"
+          sub="Live production API & Composer sends"
+        />
+        <StatCard
+          label="Metered Delivered"
+          value={meteredThisMonth.toLocaleString()}
+          status="delivered"
+          sub="Confirmed remote MX 250 OK"
+        />
+        <StatCard
+          label="Historical Billing Periods"
+          value={aggregated.length.toLocaleString()}
+          sub="Test-key sends are never metered"
+        />
+      </div>
 
       {snapshots.map(({ orgName, orgId, snap }) => {
         const limit = planEmailsLimit(snap.tier);
@@ -53,185 +89,196 @@ export default async function UsagePage() {
         return (
           <section
             key={orgId}
+            className="ds-card"
             style={{
-              background: "#fff",
-              border: `1px solid ${hot ? "#FCA5A5" : "#E5E5E5"}`,
-              borderRadius: 12,
-              padding: 20,
-              marginBottom: 16,
+              marginBottom: 20,
+              borderColor: hot ? "var(--color-danger-border)" : undefined,
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                flexWrap: "wrap",
-                gap: 8,
-                marginBottom: 10,
-              }}
-            >
-              <p style={{ fontWeight: 700, margin: 0 }}>
-                {orgName} <span style={{ color: "#737373", fontWeight: 400 }}>({snap.tier})</span>
-              </p>
-              <p style={{ margin: 0, fontSize: 14, color: exhausted ? "#B91C1C" : "#171717" }}>
+            <div className="ds-card-header">
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <h2 className="ds-card-title">{orgName}</h2>
+                <StatusPill status="active" label={snap.tier.toUpperCase()} />
+              </div>
+              <div
+                className="mono tabular-nums"
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: exhausted ? "var(--color-danger)" : "var(--color-ink)",
+                }}
+              >
                 {exhausted ? "Limit reached — sends return plan_limit_reached · " : ""}
                 {snap.acceptedLive.toLocaleString()} /{" "}
                 {limit === null ? "custom" : limit.toLocaleString()} emails (
                 {snap.metered.toLocaleString()} delivered)
-              </p>
+              </div>
             </div>
-            <div
-              style={{
-                height: 10,
-                borderRadius: 5,
-                background: "#F0F0F0",
-                overflow: "hidden",
-              }}
-              role="progressbar"
-              aria-valuenow={snap.acceptedLive}
-              aria-valuemax={limit ?? undefined}
-              aria-label={`Email usage for ${orgName}`}
-            >
+
+            <div className="ds-card-body">
               <div
                 style={{
-                  height: "100%",
-                  width: `${pct}%`,
-                  background: exhausted ? "#B91C1C" : hot ? "#D97706" : "#171717",
-                  transition: "width .3s",
+                  height: 10,
+                  borderRadius: 99,
+                  background: "var(--color-surface-sunken)",
+                  overflow: "hidden",
                 }}
-              />
+                role="progressbar"
+                aria-valuenow={snap.acceptedLive}
+                aria-valuemax={limit ?? undefined}
+                aria-label={`Email usage for ${orgName}`}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${Math.max(2, pct)}%`,
+                    background: exhausted
+                      ? "var(--color-danger)"
+                      : hot
+                        ? "var(--color-warning)"
+                        : "var(--color-accent)",
+                    transition: "width .3s ease",
+                  }}
+                />
+              </div>
+              <p style={{ fontSize: 12, color: "var(--color-muted)", margin: "10px 0 0" }}>
+                Period {snap.period.start.toISOString().slice(0, 10)} →{" "}
+                {snap.period.end.toISOString().slice(0, 10)} · test-key sends are never metered ·{" "}
+                {exhausted ? (
+                  <>
+                    <a
+                      href={pricingUrl()}
+                      style={{ color: "var(--color-danger)", fontWeight: 600 }}
+                    >
+                      Upgrade to keep sending
+                    </a>{" "}
+                    or wait for the period reset.
+                  </>
+                ) : (
+                  <>
+                    upgrade anytime on the{" "}
+                    <a
+                      href={pricingUrl()}
+                      style={{ color: "var(--color-ink)", fontWeight: 600 }}
+                    >
+                      pricing page
+                    </a>
+                    .
+                  </>
+                )}
+              </p>
             </div>
-            <p style={{ fontSize: 12, color: "#737373", margin: "8px 0 0" }}>
-              Period {snap.period.start.toISOString().slice(0, 10)} →{" "}
-              {snap.period.end.toISOString().slice(0, 10)} · test-key sends are never metered ·{" "}
-              {exhausted ? (
-                <>
-                  <a href={pricingUrl()} style={{ color: "#B91C1C", textDecoration: "underline" }}>
-                    Upgrade to keep sending
-                  </a>{" "}
-                  or wait for the period reset.
-                </>
-              ) : (
-                <>
-                  upgrade anytime on the{" "}
-                  <a href={pricingUrl()} style={{ color: "inherit", textDecoration: "underline" }}>
-                    pricing page
-                  </a>
-                  .
-                </>
-              )}
-            </p>
           </section>
         );
       })}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-          gap: 16,
-          marginBottom: 24,
-        }}
-      >
-        <div
-          style={{ background: "#fff", border: "1px solid #E5E5E5", borderRadius: 12, padding: 20 }}
-        >
-          <p style={{ fontSize: 24, fontWeight: 700, margin: "0 0 4px" }}>
-            {sentThisMonth.toLocaleString()}
-          </p>
-          <p style={{ fontSize: 12, color: "#737373", margin: 0 }}>Accepted sends (live count)</p>
-        </div>
-        <div
-          style={{ background: "#fff", border: "1px solid #E5E5E5", borderRadius: 12, padding: 20 }}
-        >
-          <p style={{ fontSize: 24, fontWeight: 700, margin: "0 0 4px" }}>{aggregated.length}</p>
-          <p style={{ fontSize: 12, color: "#737373", margin: 0 }}>Aggregated periods</p>
-        </div>
-      </div>
 
-      <p style={{ fontWeight: 600, margin: "0 0 12px" }}>Plans</p>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: 16,
-          marginBottom: 24,
-        }}
-      >
-        {tiers.length === 0 && (
-          <p style={{ color: "#737373", fontSize: 14 }}>
-            Plans seed at launch, see{" "}
-            <a href={pricingUrl()} style={{ color: "inherit", textDecoration: "underline" }}>
-              pricing
-            </a>{" "}
-            for the schedule.
-          </p>
-        )}
-        {tiers.map((t) => {
-          const ngn = priceOf(t.id, "NGN");
-          const usd = priceOf(t.id, "USD");
-          return (
-            <div
-              key={t.id}
-              style={{
-                background: "#fff",
-                border: "1px solid #E5E5E5",
-                borderRadius: 12,
-                padding: 20,
-              }}
-            >
-              <p style={{ fontWeight: 700, margin: "0 0 4px", textTransform: "capitalize" }}>
-                {t.tier}
-              </p>
-              <p className="mono" style={{ fontSize: 13, margin: "0 0 4px" }}>
-                {ngn ? `₦${(ngn.amountCents / 100).toLocaleString()}` : ", "} ·{" "}
-                {usd ? `$${usd.amountCents / 100}` : ", "}/mo
-              </p>
-              <p style={{ fontSize: 12, color: "#737373", margin: 0 }}>
-                {(() => {
-                  const q = Object.values(PLAN_LIMITS).find(
-                    (l) => l.tier === t.tier
-                  )?.emailsPerMonth;
-                  return q === null || q === undefined
-                    ? "Custom emails/mo"
-                    : `${q.toLocaleString()} emails/mo`;
-                })()}{" "}
-                · hard limit enforced
-              </p>
+      <div className="ds-card" style={{ marginBottom: 20 }}>
+        <div className="ds-card-header">
+          <div>
+            <h2 className="ds-card-title">Available Plans & Monthly Quotas</h2>
+            <p className="ds-card-subtitle">
+              Predictable volume tiers in NGN and USD with hard-cap protection
+            </p>
+          </div>
+        </div>
+        <div className="ds-card-body">
+          {tiers.length === 0 ? (
+            <p style={{ color: "var(--color-muted)", fontSize: 13.5, margin: 0 }}>
+              Plans seed at launch—see{" "}
+              <a href={pricingUrl()} style={{ color: "var(--color-accent)", fontWeight: 600 }}>
+                pricing
+              </a>{" "}
+              for the full schedule.
+            </p>
+          ) : (
+            <div className="ds-grid-4">
+              {tiers.map((t) => {
+                const ngn = priceOf(t.id, "NGN");
+                const usd = priceOf(t.id, "USD");
+                const q = Object.values(PLAN_LIMITS).find(
+                  (l) => l.tier === t.tier,
+                )?.emailsPerMonth;
+                return (
+                  <div
+                    key={t.id}
+                    style={{
+                      background: "var(--color-surface-elevated)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: "var(--radius-lg)",
+                      padding: 16,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 8,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          fontSize: 14,
+                          textTransform: "capitalize",
+                        }}
+                      >
+                        {t.tier}
+                      </span>
+                      <CheckCircle2 size={14} style={{ color: "var(--color-success)" }} />
+                    </div>
+                    <p
+                      className="mono tabular-nums"
+                      style={{ fontSize: 15, fontWeight: 700, margin: "0 0 6px" }}
+                    >
+                      {ngn ? `₦${(ngn.amountCents / 100).toLocaleString()}` : "Custom"} ·{" "}
+                      {usd ? `$${usd.amountCents / 100}/mo` : ""}
+                    </p>
+                    <p style={{ fontSize: 12, color: "var(--color-muted)", margin: 0 }}>
+                      {q === null || q === undefined
+                        ? "Custom emails/mo"
+                        : `${q.toLocaleString()} emails/mo`}{" "}
+                      · hard limit enforced
+                    </p>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          )}
+        </div>
       </div>
 
       {aggregated.length > 0 && (
-        <>
-          <p style={{ fontWeight: 600, margin: "0 0 12px" }}>History</p>
-          <div
-            style={{
-              background: "#fff",
-              border: "1px solid #E5E5E5",
-              borderRadius: 12,
-              overflow: "hidden",
-            }}
-          >
-            {aggregated.map((u, i) => (
-              <div
-                key={u.id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  padding: "10px 16px",
-                  borderTop: i === 0 ? "none" : "1px solid #F0F0F0",
-                  fontSize: 14,
-                }}
-              >
-                <span className="mono" style={{ fontSize: 13 }}>
-                  {u.metric} · {u.periodStart.toISOString().slice(0, 10)}
-                </span>
-                <b>{u.quantity.toLocaleString()}</b>
-              </div>
-            ))}
+        <div className="ds-table-shell">
+          <div className="ds-table-toolbar">
+            <span style={{ fontWeight: 700, fontSize: 13.5 }}>Historical Period Summaries</span>
           </div>
-        </>
+          <div className="ds-table-scroll">
+            <table className="ds-table">
+              <thead>
+                <tr>
+                  <th>Metric</th>
+                  <th>Period Start</th>
+                  <th style={{ textAlign: "right" }}>Metered Quantity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aggregated.map((u) => (
+                  <tr key={u.id}>
+                    <td className="mono">{u.metric}</td>
+                    <td className="mono">{u.periodStart.toISOString().slice(0, 10)}</td>
+                    <td
+                      className="mono tabular-nums"
+                      style={{ textAlign: "right", fontWeight: 700 }}
+                    >
+                      {u.quantity.toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   );

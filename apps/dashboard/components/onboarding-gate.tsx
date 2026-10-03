@@ -4,21 +4,26 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 /**
- * Brand-new users (no organization yet) belong in onboarding, not staring
- * at an empty dashboard. Settings stays reachable so Workspace creation
- * remains an alternate path. Existing members are never redirected.
+ * Route guard: users with an incomplete onboarding (unless explicitly paused
+ * via "Save and exit") are redirected to /onboarding from dashboard pages.
  */
-export function OnboardingGate({ orgCount }: { orgCount: number }) {
+export function OnboardingGate({
+  orgCount,
+  incomplete = false,
+}: {
+  orgCount: number;
+  incomplete?: boolean;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   useEffect(() => {
     if (
-      orgCount === 0 &&
+      (incomplete || orgCount === 0) &&
       !pathname.startsWith("/onboarding") &&
       !pathname.startsWith("/settings")
     ) {
       router.replace("/onboarding");
     }
-  }, [orgCount, pathname, router]);
+  }, [incomplete, orgCount, pathname, router]);
   return null;
 }

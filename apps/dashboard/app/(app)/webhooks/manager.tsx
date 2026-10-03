@@ -1,20 +1,10 @@
 "use client";
 
 import * as React from "react";
+import { Plus, RotateCw, Power, RefreshCw } from "lucide-react";
 import { createWebhook, setWebhookEnabled, replayDelivery, rotateWebhookSecret } from "./actions";
 import { WEBHOOK_EVENTS } from "./events";
-
-const btnPrimary: React.CSSProperties = {
-  background: "#0B0C0E",
-  color: "#fff",
-  border: "none",
-  borderRadius: 10,
-  height: 44,
-  padding: "0 22px",
-  fontSize: 14,
-  fontWeight: 600,
-  cursor: "pointer",
-};
+import { CopyField, DsBanner } from "../../../components/design-system";
 
 export function WebhookCreator({ projectId }: { projectId: string }) {
   const [url, setUrl] = React.useState("");
@@ -42,89 +32,92 @@ export function WebhookCreator({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div
-      style={{
-        background: "#fff",
-        border: "1px solid #E5E5E5",
-        borderRadius: 12,
-        padding: 20,
-        marginBottom: 20,
-      }}
-    >
-      <p style={{ fontWeight: 600, margin: "0 0 12px" }}>New endpoint</p>
-      <input
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        placeholder="https://acme.com/hooks/calder"
-        style={{
-          width: "100%",
-          height: 44,
-          border: "1px solid #D4D4D4",
-          borderRadius: 10,
-          padding: "0 14px",
-          fontSize: 14,
-          boxSizing: "border-box",
-          marginBottom: 12,
-        }}
-      />
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
-        {WEBHOOK_EVENTS.map((e) => {
-          const on = events.includes(e);
-          return (
-            <button
-              key={e}
-              type="button"
-              onClick={() => toggle(e)}
-              className="mono"
-              style={{
-                border: on ? "2px solid #0B0C0E" : "1px solid #D4D4D4",
-                background: on ? "#F5F4EF" : "#fff",
-                borderRadius: 999,
-                padding: "6px 12px",
-                fontSize: 12,
-                cursor: "pointer",
-              }}
-            >
-              {e}
-            </button>
-          );
-        })}
-      </div>
-      <button onClick={() => void create()} disabled={busy} style={btnPrimary}>
-        Add endpoint
-      </button>
-      {secret && (
-        <div
-          style={{
-            marginTop: 14,
-            background: "#0B0C0E",
-            color: "#fff",
-            borderRadius: 10,
-            padding: "14px 16px",
-            fontFamily: "monospace",
-            fontSize: 13,
-            wordBreak: "break-all",
-          }}
-        >
-          {secret}
-          <span
-            style={{
-              display: "block",
-              fontSize: 12,
-              color: "#B5B5B5",
-              marginTop: 6,
-              fontFamily: "sans-serif",
-            }}
-          >
-            Signing secret, shown once. Verify HMAC-SHA256 with it.
-          </span>
+    <div className="ds-card" style={{ marginBottom: 20 }}>
+      <div className="ds-card-header">
+        <div>
+          <h2 className="ds-card-title">Register Webhook Endpoint</h2>
+          <p className="ds-card-subtitle">
+            Subscribe an HTTPS URL to receive real-time HMAC-SHA256 signed event payloads.
+          </p>
         </div>
-      )}
-      {error && (
-        <p role="alert" style={{ color: "#DC2626", fontSize: 14 }}>
-          {error}
-        </p>
-      )}
+      </div>
+
+      <div className="ds-card-body">
+        <div style={{ marginBottom: 14 }}>
+          <label className="ds-label" style={{ display: "block", marginBottom: 6 }}>
+            Endpoint HTTPS URL
+          </label>
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://acme.com/hooks/calder"
+            className="ds-input mono"
+          />
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label className="ds-label" style={{ display: "block", marginBottom: 8 }}>
+            Subscribed Event Types
+          </label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {WEBHOOK_EVENTS.map((e) => {
+              const on = events.includes(e);
+              return (
+                <button
+                  key={e}
+                  type="button"
+                  onClick={() => toggle(e)}
+                  className="mono"
+                  style={{
+                    border: `1px solid ${on ? "var(--color-ink)" : "var(--color-border-strong)"}`,
+                    boxShadow: on ? "inset 0 0 0 1px var(--color-ink)" : "none",
+                    background: on ? "var(--color-surface-elevated)" : "var(--color-surface)",
+                    color: "var(--color-ink)",
+                    borderRadius: 999,
+                    padding: "5px 12px",
+                    fontSize: 12,
+                    fontWeight: on ? 600 : 400,
+                    cursor: "pointer",
+                  }}
+                >
+                  {on ? "✓ " : ""}
+                  {e}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => void create()}
+          disabled={busy || !url.trim()}
+          className="ds-btn ds-btn-primary"
+        >
+          <Plus size={14} />
+          <span>{busy ? "Adding…" : "Add endpoint"}</span>
+        </button>
+
+        {secret && (
+          <div style={{ marginTop: 14 }}>
+            <DsBanner
+              tone="warning"
+              title="Signing secret generated — copy it now (shown only once)"
+              description={
+                <div style={{ marginTop: 8 }}>
+                  <CopyField label="Secret" value={secret} />
+                </div>
+              }
+            />
+          </div>
+        )}
+
+        {error && (
+          <div style={{ marginTop: 12 }}>
+            <DsBanner tone="danger" title="Could not create endpoint" description={error} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -141,20 +134,15 @@ export function ToggleButton({
   const [on, setOn] = React.useState(enabled);
   return (
     <button
+      type="button"
       onClick={async () => {
         await setWebhookEnabled(projectId, webhookId, !on);
         setOn(!on);
       }}
-      style={{
-        background: "none",
-        border: "1px solid #E5E5E5",
-        borderRadius: 8,
-        padding: "6px 12px",
-        fontSize: 13,
-        cursor: "pointer",
-      }}
+      className="ds-btn ds-btn-secondary ds-btn-sm"
     >
-      {on ? "Disable" : "Enable"}
+      <Power size={12} />
+      <span>{on ? "Disable" : "Enable"}</span>
     </button>
   );
 }
@@ -163,8 +151,9 @@ export function RotateButton({ projectId, webhookId }: { projectId: string; webh
   const [secret, setSecret] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
       <button
+        type="button"
         onClick={async () => {
           setBusy(true);
           try {
@@ -175,34 +164,12 @@ export function RotateButton({ projectId, webhookId }: { projectId: string; webh
           }
         }}
         disabled={busy}
-        style={{
-          background: "none",
-          border: "1px solid #E5E5E5",
-          borderRadius: 8,
-          padding: "6px 12px",
-          fontSize: 13,
-          cursor: "pointer",
-        }}
+        className="ds-btn ds-btn-secondary ds-btn-sm"
       >
-        Rotate secret
+        <RotateCw size={12} />
+        <span>Rotate secret</span>
       </button>
-      {secret && (
-        <code
-          style={{
-            background: "#0B0C0E",
-            color: "#fff",
-            borderRadius: 8,
-            padding: "6px 10px",
-            fontSize: 12,
-            maxWidth: 380,
-            wordBreak: "break-all",
-            display: "inline-block",
-          }}
-          title="Shown once"
-        >
-          {secret}
-        </code>
-      )}
+      {secret && <CopyField label="New secret" value={secret} compact />}
     </span>
   );
 }
@@ -219,6 +186,7 @@ export function ReplayButton({
   const [state, setState] = React.useState<"idle" | "busy" | "done" | "error">("idle");
   return (
     <button
+      type="button"
       onClick={async () => {
         setState("busy");
         try {
@@ -229,23 +197,28 @@ export function ReplayButton({
         }
       }}
       disabled={state === "busy"}
+      className="ds-btn ds-btn-ghost ds-btn-sm"
       style={{
-        background: "none",
-        border: "1px solid #E5E5E5",
-        borderRadius: 6,
-        padding: "3px 10px",
-        fontSize: 11,
-        cursor: "pointer",
-        color: state === "error" ? "#DC2626" : state === "done" ? "#16A34A" : "inherit",
+        height: 26,
+        fontSize: 11.5,
+        color:
+          state === "error"
+            ? "var(--color-danger)"
+            : state === "done"
+              ? "var(--color-success)"
+              : undefined,
       }}
     >
-      {state === "busy"
-        ? "…"
-        : state === "done"
-          ? "replayed"
-          : state === "error"
-            ? "failed"
-            : "replay"}
+      <RefreshCw size={11} />
+      <span>
+        {state === "busy"
+          ? "…"
+          : state === "done"
+            ? "replayed"
+            : state === "error"
+              ? "failed"
+              : "replay"}
+      </span>
     </button>
   );
 }

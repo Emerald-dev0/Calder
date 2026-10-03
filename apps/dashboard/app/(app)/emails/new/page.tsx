@@ -1,7 +1,11 @@
+import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { getDb, senderIdentities } from "@calder/db";
 import { getTenantContext, resolveProject } from "../../../../lib/auth";
 import { Composer } from "./composer";
+import { Send, ArrowLeft } from "lucide-react";
+import { DsPageHeader, StatusPill } from "../../../../components/design-system";
+import { EmptyState } from "../../../../components/empty-state";
 
 export const metadata = { title: "Calder — New email" };
 
@@ -15,8 +19,17 @@ export default async function NewEmailPage({
   if (!scope) {
     return (
       <div>
-        <h1 style={{ fontSize: 28, margin: "0 0 8px" }}>New email</h1>
-        <p style={{ color: "#737373" }}>No project found. Create one to start sending.</p>
+        <DsPageHeader
+          icon={<Send size={18} />}
+          title="Compose Email"
+          description="No project found. Create a project to start sending."
+        />
+        <EmptyState
+          title="No project found"
+          description="Provision an organization and project to dispatch emails."
+          actionLabel="Configure workspace"
+          actionHref="/settings#workspace"
+        />
       </div>
     );
   }
@@ -39,15 +52,28 @@ export default async function NewEmailPage({
 
   return (
     <div>
-      <p style={{ fontSize: 13, margin: "0 0 8px" }}>
-        <a href={`/emails?project=${scope.project.id}`} style={{ color: "#737373" }}>
-          ← Emails
-        </a>
-      </p>
-      <h1 style={{ fontSize: 28, margin: "0 0 4px" }}>New email</h1>
-      <p style={{ color: "#737373", margin: "0 0 20px", fontSize: 14 }}>
-        {scope.organization.name} → {scope.project.name}
-      </p>
+      <DsPageHeader
+        icon={<Send size={18} />}
+        title="Compose & Send Email"
+        badge={
+          <StatusPill
+            status="active"
+            label={`${scope.organization.name} · ${scope.project.name}`}
+          />
+        }
+        description="Dispatch a live or sandbox test email with full DKIM signing and real-time event tracking."
+        actions={
+          <Link
+            href={`/emails?project=${scope.project.id}`}
+            className="ds-btn ds-btn-secondary"
+            style={{ textDecoration: "none" }}
+          >
+            <ArrowLeft size={14} />
+            <span>Back to Emails</span>
+          </Link>
+        }
+      />
+
       <Composer
         projectId={scope.project.id}
         senders={rows.map((r) => ({

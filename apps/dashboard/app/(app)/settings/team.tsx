@@ -2,31 +2,17 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { UserPlus, Trash2 } from "lucide-react";
 import { inviteMember, updateMemberRole, removeMember, revokeInvite } from "./actions";
+import {
+  Avatar,
+  CopyField,
+  DsBanner,
+  StatusPill,
+  ConfirmDialog,
+} from "../../../components/design-system";
 
 type Role = "owner" | "admin" | "member";
-
-const btnPrimary: React.CSSProperties = {
-  background: "#0B0C0E",
-  color: "#fff",
-  border: "none",
-  borderRadius: 10,
-  height: 44,
-  padding: "0 22px",
-  fontSize: 14,
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-const btnDanger: React.CSSProperties = {
-  background: "none",
-  border: "1px solid #E5E5E5",
-  borderRadius: 8,
-  padding: "6px 12px",
-  fontSize: 13,
-  color: "#DC2626",
-  cursor: "pointer",
-};
 
 export function InviteForm({ orgId, canManage }: { orgId: string; canManage: boolean }) {
   const router = useRouter();
@@ -53,82 +39,63 @@ export function InviteForm({ orgId, canManage }: { orgId: string; canManage: boo
   }
 
   return (
-    <div
-      style={{
-        background: "#fff",
-        border: "1px solid #E5E5E5",
-        borderRadius: 12,
-        padding: 20,
-        marginBottom: 20,
-      }}
-    >
-      <p style={{ fontWeight: 600, margin: "0 0 12px" }}>Invite a teammate</p>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <input
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="teammate@example.com"
-          type="email"
-          style={{
-            height: 44,
-            border: "1px solid #D4D4D4",
-            borderRadius: 10,
-            padding: "0 14px",
-            fontSize: 14,
-            flex: 1,
-            minWidth: 200,
-          }}
-        />
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value as "admin" | "member")}
-          style={{
-            height: 44,
-            border: "1px solid #D4D4D4",
-            borderRadius: 10,
-            padding: "0 14px",
-            fontSize: 14,
-          }}
-        >
-          <option value="member">member</option>
-          <option value="admin">admin</option>
-        </select>
-        <button onClick={() => void send()} disabled={busy} style={btnPrimary}>
-          Invite
-        </button>
-      </div>
-      {link && (
-        <div
-          style={{
-            marginTop: 14,
-            background: "#0B0C0E",
-            color: "#fff",
-            borderRadius: 10,
-            padding: "14px 16px",
-            fontFamily: "monospace",
-            fontSize: 13,
-            wordBreak: "break-all",
-          }}
-        >
-          {link}
-          <span
-            style={{
-              display: "block",
-              fontSize: 12,
-              color: "#B5B5B5",
-              marginTop: 6,
-              fontFamily: "sans-serif",
-            }}
-          >
-            Share this link, it expires in 7 days and they join on sign-in.
-          </span>
+    <div className="ds-card" style={{ marginBottom: 20 }}>
+      <div className="ds-card-header">
+        <div>
+          <h2 className="ds-card-title">Invite a Teammate</h2>
+          <p className="ds-card-subtitle">
+            Generate a 7-day signed invitation link for an engineer or operator.
+          </p>
         </div>
-      )}
-      {error && (
-        <p role="alert" style={{ color: "#DC2626", fontSize: 14 }}>
-          {error}
-        </p>
-      )}
+      </div>
+      <div className="ds-card-body">
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="teammate@example.com"
+            type="email"
+            className="ds-input"
+            style={{ flex: 1, minWidth: 220 }}
+          />
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value as "admin" | "member")}
+            className="ds-select"
+            style={{ width: "auto", minWidth: 140 }}
+          >
+            <option value="member">member</option>
+            <option value="admin">admin</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => void send()}
+            disabled={busy || !email.trim()}
+            className="ds-btn ds-btn-primary"
+          >
+            <UserPlus size={14} />
+            <span>{busy ? "Inviting…" : "Invite"}</span>
+          </button>
+        </div>
+        {link && (
+          <div style={{ marginTop: 14 }}>
+            <DsBanner
+              tone="info"
+              title="Share this invitation link (expires in 7 days)"
+              description={
+                <div style={{ marginTop: 8 }}>
+                  <CopyField label="Invite URL" value={link} />
+                </div>
+              }
+            />
+          </div>
+        )}
+        {error && (
+          <div style={{ marginTop: 12 }}>
+            <DsBanner tone="danger" title="Could not invite member" description={error} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -155,6 +122,7 @@ export function MemberRow({
 }) {
   const router = useRouter();
   const [error, setError] = React.useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = React.useState(false);
 
   async function act(fn: () => Promise<unknown>) {
     setError(null);
@@ -175,33 +143,36 @@ export function MemberRow({
           alignItems: "center",
           gap: 12,
           padding: "12px 16px",
-          fontSize: 14,
+          fontSize: 13.5,
+          flexWrap: "wrap",
         }}
       >
-        <div>
-          <b>{member.name ?? member.email}</b>{" "}
-          <span style={{ color: "#737373", fontSize: 13 }}>{member.email}</span>{" "}
-          <span
-            className="mono"
-            style={{
-              fontSize: 11,
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              color: "#737373",
-            }}
-          >
-            {member.role}
-          </span>
-          {isSelf && <span style={{ fontSize: 12, color: "#737373" }}> (you)</span>}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Avatar name={member.name} email={member.email} size={32} />
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <b style={{ fontSize: 13.5 }}>{member.name ?? member.email}</b>
+              <StatusPill status="active" label={member.role} />
+              {isSelf && (
+                <span className="mono" style={{ fontSize: 11, color: "var(--color-muted)" }}>
+                  (you)
+                </span>
+              )}
+            </div>
+            <div className="mono" style={{ fontSize: 12, color: "var(--color-muted)" }}>
+              {member.email}
+            </div>
+          </div>
         </div>
         {canAdminister && !isSelf && (
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <select
               value={member.role}
               onChange={(e) =>
                 void act(() => updateMemberRole(orgId, member.id, e.target.value as Role))
               }
-              style={{ height: 36, border: "1px solid #E5E5E5", borderRadius: 8, fontSize: 13 }}
+              className="ds-select"
+              style={{ height: 32, width: "auto", fontSize: 12.5 }}
               aria-label={`Role for ${member.email}`}
             >
               <option value="member">member</option>
@@ -209,19 +180,32 @@ export function MemberRow({
               <option value="owner">owner</option>
             </select>
             <button
-              onClick={() => void act(() => removeMember(orgId, member.id))}
-              style={btnDanger}
+              type="button"
+              onClick={() => setConfirmRemove(true)}
+              className="ds-btn ds-btn-danger ds-btn-sm"
             >
-              Remove
+              <Trash2 size={12} />
+              <span>Remove</span>
             </button>
           </div>
         )}
       </div>
       {error && (
-        <p role="alert" style={{ color: "#DC2626", fontSize: 13, margin: "0 16px 12px" }}>
-          {error}
-        </p>
+        <div style={{ padding: "0 16px 12px" }}>
+          <DsBanner tone="danger" title="Member update failed" description={error} />
+        </div>
       )}
+      <ConfirmDialog
+        open={confirmRemove}
+        onClose={() => setConfirmRemove(false)}
+        onConfirm={async () => {
+          setConfirmRemove(false);
+          await act(() => removeMember(orgId, member.id));
+        }}
+        title={`Remove ${member.email} from organization?`}
+        description="They will immediately lose access to all projects, domains, and API keys in this organization."
+        confirmLabel="Remove member"
+      />
     </div>
   );
 }
@@ -229,17 +213,19 @@ export function MemberRow({
 export function RevokeInviteButton({ orgId, inviteId }: { orgId: string; inviteId: string }) {
   const router = useRouter();
   const [done, setDone] = React.useState(false);
-  if (done) return <span style={{ fontSize: 13, color: "#737373" }}>revoked</span>;
+  if (done) return <StatusPill status="revoked" />;
   return (
     <button
+      type="button"
       onClick={async () => {
         await revokeInvite(orgId, inviteId);
         setDone(true);
         router.refresh();
       }}
-      style={btnDanger}
+      className="ds-btn ds-btn-danger ds-btn-sm"
     >
-      Revoke
+      <Trash2 size={12} />
+      <span>Revoke</span>
     </button>
   );
 }

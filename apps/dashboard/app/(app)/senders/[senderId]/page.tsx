@@ -1,26 +1,18 @@
+import Link from "next/link";
 import { count, desc, eq } from "drizzle-orm";
 import { getDb, emails, senderIdentities } from "@calder/db";
 import { getTenantContext } from "../../../../lib/auth";
 import { SenderActions } from "./sender-actions";
+import { UserCheck, ArrowLeft } from "lucide-react";
+import {
+  DsPageHeader,
+  StatusPill,
+  StatCard,
+} from "../../../../components/design-system";
+import { EmptyState } from "../../../../components/empty-state";
 
 export async function generateMetadata({ params }: { params: { senderId: string } }) {
   return { title: `Calder — Sender ${params.senderId.slice(0, 18)}` };
-}
-
-const STATUS_DOT: Record<string, string> = {
-  verified: "#16A34A",
-  connected: "#1E3A8A",
-  pending: "#B45309",
-  disabled: "#737373",
-  failed: "#DC2626",
-};
-
-function statusLabel(s: string): string {
-  if (s === "verified") return "✓ Verified";
-  if (s === "connected") return "✓ Connected";
-  if (s === "pending") return "◷ Verification pending";
-  if (s === "disabled") return "⊘ Disabled";
-  return "✕ Failed";
 }
 
 export default async function SenderDetailPage({ params }: { params: { senderId: string } }) {
@@ -35,8 +27,13 @@ export default async function SenderDetailPage({ params }: { params: { senderId:
   if (!sender || !projectIds.has(sender.projectId)) {
     return (
       <div>
-        <h1 style={{ fontSize: 28, margin: "0 0 8px" }}>Sender</h1>
-        <p style={{ color: "#737373" }}>Sender not found in your projects.</p>
+        <DsPageHeader icon={<UserCheck size={18} />} title="Sender Not Found" />
+        <EmptyState
+          title="Sender not found"
+          description="This sender identity does not exist in your accessible projects."
+          actionLabel="Back to Senders"
+          actionHref="/senders"
+        />
       </div>
     );
   }
@@ -61,74 +58,52 @@ export default async function SenderDetailPage({ params }: { params: { senderId:
     .limit(10);
 
   const org = ctx.memberships.flatMap((m) =>
-    m.projects.filter((p) => p.id === projectId).map(() => m.organization)
+    m.projects.filter((p) => p.id === projectId).map(() => m.organization),
   )[0];
 
   return (
     <div>
-      <p style={{ fontSize: 13, margin: "0 0 8px" }}>
-        <a href={`/senders?project=${projectId}`} style={{ color: "#737373" }}>
-          ← Senders
-        </a>
-      </p>
-      <h1 style={{ fontSize: 28, margin: "0 0 4px" }}>{sender.displayName}</h1>
-      <p className="mono" style={{ fontSize: 14, color: "#525252", margin: "0 0 6px" }}>
-        {sender.email}
-      </p>
-      <p style={{ fontSize: 13, margin: "0 0 20px" }}>
-        <span
-          aria-hidden="true"
-          style={{
-            display: "inline-block",
-            width: 9,
-            height: 9,
-            borderRadius: "50%",
-            background: STATUS_DOT[sender.status] ?? "#737373",
-            marginRight: 6,
-          }}
-        />
-        {statusLabel(sender.status)}
-        <span style={{ color: "#737373" }}>
-          {" "}
-          ·{" "}
-          {sender.type === "gmail"
-            ? "Gmail sender"
-            : sender.type === "domain"
-              ? "Domain sender"
-              : "Managed sender"}
-          {sender.isDefault ? " · Default" : ""} · {org?.name ?? ""}
-        </span>
-      </p>
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-          gap: 12,
-          marginBottom: 24,
-        }}
-      >
-        {[
-          { label: "Emails sent", value: String(total) },
-          { label: "Delivered", value: String(byStatus.delivered ?? 0) },
-          {
-            label: "Bounced + failed",
-            value: String((byStatus.bounced ?? 0) + (byStatus.failed ?? 0)),
-          },
-        ].map((s) => (
-          <div
-            key={s.label}
-            style={{
-              background: "#fff",
-              border: "1px solid #E5E5E5",
-              borderRadius: 12,
-              padding: 16,
-            }}
+      <DsPageHeader
+        icon={<UserCheck size={18} />}
+        title={sender.displayName}
+        badge={<StatusPill status={sender.status} />}
+        description={
+          <span>
+            <span className="mono">{sender.email}</span> ·{" "}
+            {sender.type === "gmail"
+              ? "Gmail sender"
+              : sender.type === "domain"
+                ? "Domain sender"
+                : "Managed sender"}
+            {sender.isDefault ? " · Default Identity" : ""} · {org?.name ?? ""}
+          </span>
+        }
+        actions={
+          <Link
+            href={`/senders?project=${projectId}`}
+            className="ds-btn ds-btn-secondary"
+            style={{ textDecoration: "none" }}
           >
-            <p style={{ fontSize: 22, fontWeight: 700, margin: "0 0 2px" }}>{s.value}</p>
-            <p style={{ fontSize: 12, color: "#737373", margin: 0 }}>{s.label}</p>
-          </div>
-        ))}
+            <ArrowLeft size={14} />
+            <span>Back to Senders</span>
+          </Link>
+        }
+      />
+
+      <div className="ds-grid-3" style={{ marginBottom: 20 }}>
+        <StatCard label="Emails Sent" value={total.toLocaleString()} sub="Total volume" />
+        <StatCard
+          label="Delivered"
+          value={(byStatus.delivered ?? 0).toLocaleString()}
+          status="delivered"
+          sub="Confirmed 250 OK"
+        />
+        <StatCard
+          label="Bounced + Failed"
+          value={((byStatus.bounced ?? 0) + (byStatus.failed ?? 0)).toLocaleString()}
+          status={(byStatus.bounced ?? 0) + (byStatus.failed ?? 0) > 0 ? "bounced" : "healthy"}
+          sub="Delivery rejections"
+        />
       </div>
 
       <SenderActions
@@ -143,40 +118,43 @@ export default async function SenderDetailPage({ params }: { params: { senderId:
         }}
       />
 
-      <p style={{ fontWeight: 600, margin: "24px 0 12px" }}>Recent deliveries</p>
-      {recent.length === 0 ? (
-        <p style={{ color: "#737373", fontSize: 14 }}>Nothing sent from this sender yet.</p>
-      ) : (
-        <div
-          style={{
-            background: "#fff",
-            border: "1px solid #E5E5E5",
-            borderRadius: 12,
-            overflow: "hidden",
-          }}
-        >
-          {recent.map((r, i) => (
-            <div
-              key={r.id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 12,
-                padding: "10px 16px",
-                borderTop: i === 0 ? "none" : "1px solid #F0F0F0",
-                fontSize: 14,
-              }}
-            >
-              <span>
-                <b>{r.subject}</b> <span style={{ color: "#737373" }}>→ {r.to}</span>
-              </span>
-              <span className="mono" style={{ fontSize: 12, color: "#737373" }}>
-                {r.status}
-              </span>
-            </div>
-          ))}
+      <div className="ds-card" style={{ marginTop: 20 }}>
+        <div className="ds-card-header">
+          <h2 className="ds-card-title">Recent Deliveries from {sender.email}</h2>
         </div>
-      )}
+        <div className="ds-card-body">
+          {recent.length === 0 ? (
+            <p style={{ color: "var(--color-muted)", fontSize: 13.5, margin: 0 }}>
+              Nothing sent from this sender identity yet.
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {recent.map((r, i) => (
+                <div
+                  key={r.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "10px 4px",
+                    borderTop: i === 0 ? "none" : "1px solid var(--color-border)",
+                    fontSize: 13.5,
+                  }}
+                >
+                  <span>
+                    <b>{r.subject}</b>{" "}
+                    <span className="mono" style={{ color: "var(--color-muted)", fontSize: 12 }}>
+                      → {r.to}
+                    </span>
+                  </span>
+                  <StatusPill status={r.status} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

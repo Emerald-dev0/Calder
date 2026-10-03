@@ -2,8 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Send,
+  Monitor,
+  Smartphone,
+  Code2,
+  ChevronDown,
+  ChevronRight,
+  CheckCircle2,
+  Paperclip,
+} from "lucide-react";
 import { SenderSelector, type SenderOption } from "./sender-selector";
 import { sendComposerEmail } from "./actions";
+import { CodeBlock, DsBanner, StatusPill } from "../../../../components/design-system";
 
 const EMAIL_RE = /^[^\s@]{1,200}@[^\s@]{1,200}\.[^\s@]{2,}$/;
 
@@ -30,15 +41,15 @@ function ChipInput({
   }
   return (
     <div style={{ marginBottom: 14 }}>
-      <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+      <label className="ds-label" style={{ display: "block", marginBottom: 6 }}>
         {label}
       </label>
       <div
         style={{
-          border: "1px solid #D4D4D4",
-          borderRadius: 10,
-          padding: values.length > 0 ? "6px 8px" : "0 8px",
-          background: "#fff",
+          border: "1px solid var(--color-border-strong)",
+          borderRadius: "var(--radius-md)",
+          padding: values.length > 0 ? "5px 8px" : "0 10px",
+          background: "var(--color-surface)",
           display: "flex",
           flexWrap: "wrap",
           gap: 6,
@@ -54,15 +65,19 @@ function ChipInput({
           return (
             <span
               key={v}
+              className="mono"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 4,
-                fontSize: 13,
-                background: bad ? "#FEF2F2" : "#F5F4EF",
-                border: `1px solid ${bad ? "#FCA5A5" : "#E5E5E5"}`,
+                fontSize: 12,
+                background: bad ? "var(--color-danger-bg)" : "var(--color-surface-elevated)",
+                color: bad ? "var(--color-danger)" : "var(--color-ink)",
+                border: `1px solid ${
+                  bad ? "var(--color-danger-border)" : "var(--color-border)"
+                }`,
                 borderRadius: 999,
-                padding: "3px 4px 3px 10px",
+                padding: "2px 6px 2px 10px",
               }}
             >
               {v}
@@ -73,6 +88,7 @@ function ChipInput({
                 style={{
                   border: "none",
                   background: "transparent",
+                  color: "inherit",
                   cursor: "pointer",
                   fontSize: 13,
                   padding: "0 4px",
@@ -102,8 +118,9 @@ function ChipInput({
             minWidth: 140,
             border: "none",
             outline: "none",
-            height: 38,
-            fontSize: 14,
+            height: 34,
+            fontSize: 13.5,
+            color: "var(--color-ink)",
             background: "transparent",
           }}
         />
@@ -112,7 +129,7 @@ function ChipInput({
   );
 }
 
-/** Email composer: explicit sender, chips, collapsed advanced, honest result. */
+/** Split-pane Email Composer with live Desktop/Mobile preview & API code generator. */
 export function Composer({
   projectId,
   senders,
@@ -137,12 +154,13 @@ export function Composer({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sentId, setSentId] = useState<string | null>(null);
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile" | "api">("desktop");
 
   const sender = senders.find((s) => s.id === senderId) ?? null;
   const badTo = to.filter((e) => !EMAIL_RE.test(e));
 
   async function readFiles(
-    list: File[]
+    list: File[],
   ): Promise<Array<{ filename: string; contentType?: string; contentBase64: string }>> {
     const out = [];
     for (const f of list.slice(0, 10)) {
@@ -197,38 +215,48 @@ export function Composer({
   if (sentId) {
     return (
       <div
+        className="ds-card"
         style={{
-          background: "#fff",
-          border: "1px solid #E5E5E5",
-          borderRadius: 12,
-          padding: 32,
+          padding: 36,
           textAlign: "center",
-          maxWidth: 520,
+          maxWidth: 540,
+          margin: "0 auto",
         }}
       >
-        <p style={{ fontSize: 15, fontWeight: 700, margin: "0 0 8px" }}>
-          ✓ Accepted{sender ? ` as ${sender.displayName}` : ""}.
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            background: "var(--color-success-bg)",
+            color: "var(--color-success)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 12,
+          }}
+        >
+          <CheckCircle2 size={22} />
+        </div>
+        <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 6px" }}>
+          Accepted for delivery{sender ? ` as ${sender.displayName}` : ""}
         </p>
-        <p className="mono" style={{ fontSize: 12, color: "#737373", margin: "0 0 20px" }}>
+        <p
+          className="mono"
+          style={{ fontSize: 12, color: "var(--color-muted)", margin: "0 0 16px" }}
+        >
           {sentId}
         </p>
-        <p style={{ fontSize: 13, color: "#737373", margin: "0 0 20px" }}>
-          Queued for delivery. Watch its actual state, we report acceptance only.
+        <p style={{ fontSize: 13.5, color: "var(--color-muted)", margin: "0 0 22px" }}>
+          Queued for SES worker dispatch. Watch its live state in the Message Explorer—we report acceptance honestly and mark Delivered only upon remote MX confirmation.
         </p>
-        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
           <a
             href={`/emails?project=${projectId}`}
-            style={{
-              background: "#0B0C0E",
-              color: "#fff",
-              borderRadius: 8,
-              padding: "10px 18px",
-              fontSize: 14,
-              fontWeight: 600,
-              textDecoration: "none",
-            }}
+            className="ds-btn ds-btn-primary"
+            style={{ textDecoration: "none" }}
           >
-            View delivery
+            View delivery timeline
           </a>
           <button
             type="button"
@@ -240,261 +268,374 @@ export function Composer({
               setFiles([]);
               setConfirming(false);
             }}
-            style={{
-              background: "#fff",
-              border: "1px solid #D4D4D4",
-              borderRadius: 8,
-              padding: "10px 18px",
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
+            className="ds-btn ds-btn-secondary"
           >
-            Write another
+            Compose another
           </button>
         </div>
       </div>
     );
   }
 
+  const apiPayload = JSON.stringify(
+    {
+      from: sender ? `${sender.displayName} <${sender.email}>` : "sender@yourdomain.com",
+      to: to.length > 0 ? to : ["recipient@example.com"],
+      ...(cc.length > 0 ? { cc } : {}),
+      ...(bcc.length > 0 ? { bcc } : {}),
+      subject: subject || "Welcome to Calder",
+      text: text || "Hello from Calder transactional email.",
+      ...(replyTo ? { reply_to: replyTo } : {}),
+    },
+    null,
+    2,
+  );
+
   return (
-    <div style={{ maxWidth: 680 }}>
-      <div style={{ marginBottom: 14 }}>
-        <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-          From
-        </label>
-        <SenderSelector
-          senders={senders}
-          value={senderId}
-          onChange={(id) => {
-            setSenderId(id);
-            setConfirming(false);
-          }}
-        />
-        {senders.length === 0 && (
-          <p style={{ fontSize: 12, color: "#B45309", margin: "8px 0 0" }}>
-            No senders on this project yet.{" "}
-            <a href={`/senders?project=${projectId}`} style={{ color: "#0B0C0E" }}>
-              Add one first
-            </a>
-            .
-          </p>
-        )}
-      </div>
-
-      <ChipInput label="To" values={to} onChange={setTo} placeholder="recipient@example.com" />
-
-      <div style={{ marginBottom: 14 }}>
-        <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-          Subject
-        </label>
-        <input
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          placeholder="Welcome to Calder"
-          style={{
-            width: "100%",
-            height: 42,
-            border: "1px solid #D4D4D4",
-            borderRadius: 10,
-            padding: "0 14px",
-            fontSize: 14,
-            background: "#fff",
-            boxSizing: "border-box",
-          }}
-        />
-      </div>
-
-      <div style={{ marginBottom: 14 }}>
-        <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-          Message
-        </label>
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Hello…"
-          rows={8}
-          style={{
-            width: "100%",
-            border: "1px solid #D4D4D4",
-            borderRadius: 10,
-            padding: 14,
-            fontSize: 14,
-            fontFamily: "inherit",
-            background: "#fff",
-            boxSizing: "border-box",
-            resize: "vertical",
-          }}
-        />
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setShowAdvanced((s) => !s)}
-        aria-expanded={showAdvanced}
-        style={{
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          fontSize: 13,
-          fontWeight: 600,
-          padding: "4px 0",
-          marginBottom: 8,
-        }}
-      >
-        Advanced options {showAdvanced ? "▾" : "▸"}
-      </button>
-      {showAdvanced && (
-        <div
-          style={{
-            background: "#fff",
-            border: "1px solid #E5E5E5",
-            borderRadius: 12,
-            padding: 16,
-            marginBottom: 14,
-          }}
-        >
-          <ChipInput label="Cc" values={cc} onChange={setCc} placeholder="cc@example.com" />
-          <ChipInput label="Bcc" values={bcc} onChange={setBcc} placeholder="bcc@example.com" />
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-              Reply-to
-            </label>
-            <input
-              value={replyTo}
-              onChange={(e) => setReplyTo(e.target.value)}
-              placeholder="support@example.com"
-              style={{
-                width: "100%",
-                height: 40,
-                border: "1px solid #D4D4D4",
-                borderRadius: 8,
-                padding: "0 12px",
-                fontSize: 14,
-                background: "#fff",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-              Send at (optional)
-            </label>
-            <input
-              type="datetime-local"
-              value={scheduledAt}
-              onChange={(e) => setScheduledAt(e.target.value)}
-              style={{
-                height: 40,
-                border: "1px solid #D4D4D4",
-                borderRadius: 8,
-                padding: "0 12px",
-                fontSize: 14,
-                background: "#fff",
-              }}
-            />
-          </div>
+    <div className="ds-grid-2" style={{ alignItems: "start" }}>
+      {/* Left Pane: Composer Form */}
+      <div className="ds-card">
+        <div className="ds-card-header">
           <div>
-            <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-              Attachments{" "}
-              <span style={{ fontWeight: 400, color: "#737373" }}>(max 10, 25 MB total)</span>
+            <h2 className="ds-card-title">Compose Message</h2>
+            <p className="ds-card-subtitle">
+              Explicit verified sender identity, recipient validation, and idempotency protection.
+            </p>
+          </div>
+          <StatusPill status={canSend ? "active" : "pending"} label={canSend ? "Ready" : "Draft"} />
+        </div>
+
+        <div className="ds-card-body">
+          <div style={{ marginBottom: 14 }}>
+            <label className="ds-label" style={{ display: "block", marginBottom: 6 }}>
+              From (Verified Sender Identity)
             </label>
-            <input
-              type="file"
-              multiple
-              onChange={(e) => setFiles(Array.from(e.target.files ?? []).slice(0, 10))}
-              style={{ fontSize: 13 }}
+            <SenderSelector
+              senders={senders}
+              value={senderId}
+              onChange={(id) => {
+                setSenderId(id);
+                setConfirming(false);
+              }}
             />
-            {files.length > 0 && (
-              <ul style={{ fontSize: 12, color: "#525252", margin: "8px 0 0", paddingLeft: 18 }}>
-                {files.map((f) => (
-                  <li key={f.name + f.size}>
-                    {f.name} · {(f.size / 1024).toFixed(0)} KB
-                  </li>
-                ))}
-              </ul>
+            {senders.length === 0 && (
+              <div style={{ marginTop: 10 }}>
+                <DsBanner
+                  tone="warning"
+                  title="No verified senders on this project yet"
+                  description={
+                    <span>
+                      Register and verify a sender address before dispatching outbound messages.{" "}
+                      <a
+                        href={`/senders?project=${projectId}`}
+                        style={{ color: "var(--color-ink)", fontWeight: 600 }}
+                      >
+                        Add a sender identity →
+                      </a>
+                    </span>
+                  }
+                />
+              </div>
             )}
           </div>
-        </div>
-      )}
 
-      {error && (
-        <p className="login-error" style={{ margin: "0 0 12px" }}>
-          {error}
-        </p>
-      )}
+          <ChipInput
+            label="To"
+            values={to}
+            onChange={setTo}
+            placeholder="recipient@example.com (press Enter or comma)"
+          />
 
-      {!confirming ? (
-        <button
-          type="button"
-          disabled={!canSend || busy}
-          onClick={() => setConfirming(true)}
-          style={{
-            background: !canSend || busy ? "#A3A3A3" : "#0B0C0E",
-            color: "#fff",
-            border: "none",
-            borderRadius: 10,
-            padding: "0 26px",
-            height: 46,
-            fontSize: 15,
-            fontWeight: 600,
-            cursor: !canSend || busy ? "not-allowed" : "pointer",
-          }}
-        >
-          Review & send →
-        </button>
-      ) : (
-        <div
-          style={{ background: "#fff", border: "1px solid #0B0C0E", borderRadius: 12, padding: 16 }}
-        >
-          <p style={{ fontSize: 13, color: "#737373", margin: "0 0 4px" }}>Sending as</p>
-          <p style={{ fontSize: 15, fontWeight: 700, margin: "0 0 2px" }}>{sender?.displayName}</p>
-          <p className="mono" style={{ fontSize: 12, color: "#525252", margin: "0 0 4px" }}>
-            {sender?.email}
-          </p>
-          <p style={{ fontSize: 13, color: "#737373", margin: "0 0 14px" }}>
-            To {to.length} recipient{to.length > 1 ? "s" : ""}
-            {scheduledAt ? ` · scheduled ${scheduledAt}` : ""}
-            {files.length > 0 ? ` · ${files.length} attachment${files.length > 1 ? "s" : ""}` : ""}.
-          </p>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={send}
+          <div style={{ marginBottom: 14 }}>
+            <label className="ds-label" style={{ display: "block", marginBottom: 6 }}>
+              Subject
+            </label>
+            <input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Welcome to Calder"
+              className="ds-input"
+            />
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label className="ds-label" style={{ display: "block", marginBottom: 6 }}>
+              Message Body
+            </label>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Write your transactional message or paste HTML…"
+              rows={8}
+              className="ds-textarea"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowAdvanced((s) => !s)}
+            aria-expanded={showAdvanced}
+            className="ds-btn ds-btn-ghost ds-btn-sm"
+            style={{ marginBottom: 10, paddingLeft: 4 }}
+          >
+            {showAdvanced ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <span>Advanced options (Cc, Bcc, Reply-To, Schedule, Attachments)</span>
+          </button>
+
+          {showAdvanced && (
+            <div
               style={{
-                background: "#0B0C0E",
-                color: "#fff",
-                border: "none",
-                borderRadius: 8,
-                padding: "0 20px",
-                height: 42,
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: busy ? "wait" : "pointer",
+                background: "var(--color-surface-elevated)",
+                border: "1px solid var(--color-border)",
+                borderRadius: "var(--radius-lg)",
+                padding: 14,
+                marginBottom: 14,
               }}
             >
-              {busy ? "Sending…" : "Send email →"}
+              <ChipInput label="Cc" values={cc} onChange={setCc} placeholder="cc@example.com" />
+              <ChipInput label="Bcc" values={bcc} onChange={setBcc} placeholder="bcc@example.com" />
+              <div style={{ marginBottom: 14 }}>
+                <label className="ds-label" style={{ display: "block", marginBottom: 6 }}>
+                  Reply-to
+                </label>
+                <input
+                  value={replyTo}
+                  onChange={(e) => setReplyTo(e.target.value)}
+                  placeholder="support@example.com"
+                  className="ds-input"
+                />
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <label className="ds-label" style={{ display: "block", marginBottom: 6 }}>
+                  Send at (optional scheduled dispatch)
+                </label>
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                  className="ds-input"
+                />
+              </div>
+              <div>
+                <label className="ds-label" style={{ display: "block", marginBottom: 6 }}>
+                  <Paperclip size={12} style={{ marginRight: 4, verticalAlign: "middle" }} />
+                  Attachments{" "}
+                  <span style={{ fontWeight: 400, color: "var(--color-muted)" }}>
+                    (max 10 files, 25 MB total)
+                  </span>
+                </label>
+                <input
+                  type="file"
+                  multiple
+                  onChange={(e) => setFiles(Array.from(e.target.files ?? []).slice(0, 10))}
+                  style={{ fontSize: 12.5 }}
+                />
+                {files.length > 0 && (
+                  <ul
+                    className="mono"
+                    style={{
+                      fontSize: 11.5,
+                      color: "var(--color-muted)",
+                      margin: "8px 0 0",
+                      paddingLeft: 18,
+                    }}
+                  >
+                    {files.map((f) => (
+                      <li key={f.name + f.size}>
+                        {f.name} · {(f.size / 1024).toFixed(0)} KB
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div style={{ marginBottom: 12 }}>
+              <DsBanner tone="danger" title="Send failed" description={error} />
+            </div>
+          )}
+
+          {!confirming ? (
+            <button
+              type="button"
+              disabled={!canSend || busy}
+              onClick={() => setConfirming(true)}
+              className="ds-btn ds-btn-primary ds-btn-lg"
+              style={{ width: "100%" }}
+            >
+              <Send size={15} />
+              <span>Review & send →</span>
+            </button>
+          ) : (
+            <div
+              style={{
+                background: "var(--color-surface-elevated)",
+                border: "1px solid var(--color-ink)",
+                borderRadius: "var(--radius-lg)",
+                padding: 16,
+              }}
+            >
+              <p style={{ fontSize: 12, color: "var(--color-muted)", margin: "0 0 4px" }}>
+                Confirm outbound dispatch as
+              </p>
+              <p style={{ fontSize: 14.5, fontWeight: 700, margin: "0 0 2px" }}>
+                {sender?.displayName}
+              </p>
+              <p
+                className="mono"
+                style={{ fontSize: 12, color: "var(--color-muted)", margin: "0 0 6px" }}
+              >
+                {sender?.email}
+              </p>
+              <p style={{ fontSize: 12.5, color: "var(--color-muted)", margin: "0 0 14px" }}>
+                To {to.length} recipient{to.length > 1 ? "s" : ""}
+                {scheduledAt ? ` · scheduled ${scheduledAt}` : ""}
+                {files.length > 0
+                  ? ` · ${files.length} attachment${files.length > 1 ? "s" : ""}`
+                  : ""}
+                .
+              </p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={send}
+                  className="ds-btn ds-btn-primary"
+                >
+                  <Send size={14} />
+                  <span>{busy ? "Sending…" : "Send email →"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirming(false)}
+                  className="ds-btn ds-btn-secondary"
+                >
+                  Back
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Right Pane: Live Envelope Preview & Equivalent API Request */}
+      <div className="ds-card">
+        <div className="ds-card-header">
+          <div>
+            <h2 className="ds-card-title">Live Message Preview</h2>
+            <p className="ds-card-subtitle">
+              Inspect how recipients and API clients see this payload
+            </p>
+          </div>
+          <div className="ds-tabs" role="tablist" aria-label="Preview mode">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={previewDevice === "desktop"}
+              onClick={() => setPreviewDevice("desktop")}
+              className={`ds-tab ${previewDevice === "desktop" ? "is-active" : ""}`}
+            >
+              <Monitor size={13} />
+              <span>Desktop</span>
             </button>
             <button
               type="button"
-              onClick={() => setConfirming(false)}
-              style={{
-                background: "#fff",
-                border: "1px solid #D4D4D4",
-                borderRadius: 8,
-                padding: "0 18px",
-                height: 42,
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
+              role="tab"
+              aria-selected={previewDevice === "mobile"}
+              onClick={() => setPreviewDevice("mobile")}
+              className={`ds-tab ${previewDevice === "mobile" ? "is-active" : ""}`}
             >
-              Back
+              <Smartphone size={13} />
+              <span>Mobile</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={previewDevice === "api"}
+              onClick={() => setPreviewDevice("api")}
+              className={`ds-tab ${previewDevice === "api" ? "is-active" : ""}`}
+            >
+              <Code2 size={13} />
+              <span>API Request</span>
             </button>
           </div>
         </div>
-      )}
+
+        <div className="ds-card-body">
+          {previewDevice === "api" ? (
+            <CodeBlock
+              title="POST /v1/emails"
+              tabs={[
+                {
+                  id: "curl",
+                  label: "cURL",
+                  code: `curl -X POST https://api.calder.build/v1/emails \\
+  -H "Authorization: Bearer $CALDER_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '${apiPayload}'`,
+                },
+                {
+                  id: "json",
+                  label: "JSON Body",
+                  code: apiPayload,
+                },
+              ]}
+            />
+          ) : (
+            <div
+              style={{
+                maxWidth: previewDevice === "mobile" ? 340 : "100%",
+                margin: "0 auto",
+                border: "1px solid var(--color-border)",
+                borderRadius: "var(--radius-lg)",
+                background: "var(--color-surface-elevated)",
+                overflow: "hidden",
+                transition: "max-width 200ms ease",
+              }}
+            >
+              <div
+                style={{
+                  padding: "12px 16px",
+                  borderBottom: "1px solid var(--color-border)",
+                  background: "var(--color-surface)",
+                  fontSize: 12,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ color: "var(--color-muted)" }}>From:</span>
+                  <span className="mono" style={{ fontWeight: 600 }}>
+                    {sender ? `${sender.displayName} <${sender.email}>` : "Select a sender"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ color: "var(--color-muted)" }}>To:</span>
+                  <span className="mono">
+                    {to.length > 0 ? to.join(", ") : "recipient@example.com"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "var(--color-muted)" }}>Subject:</span>
+                  <span style={{ fontWeight: 700 }}>{subject || "(No subject yet)"}</span>
+                </div>
+              </div>
+              <div
+                style={{
+                  padding: 20,
+                  minHeight: 220,
+                  fontSize: 13.5,
+                  lineHeight: 1.6,
+                  color: text ? "var(--color-ink)" : "var(--color-muted)",
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {text || "Start typing your message body on the left to preview it live here…"}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

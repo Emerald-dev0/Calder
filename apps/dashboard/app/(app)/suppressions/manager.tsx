@@ -2,7 +2,13 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { ShieldBan, Trash2 } from "lucide-react";
 import { addSuppression, removeSuppression } from "./actions";
+import {
+  StatusPill,
+  RelativeTime,
+  DsBanner,
+} from "../../../components/design-system";
 
 const REASONS = ["manual", "bounce", "complaint"];
 
@@ -45,141 +51,96 @@ export function SuppressionManager({
 
   return (
     <div>
-      <div
-        style={{
-          background: "#fff",
-          border: "1px solid var(--color-border)",
-          borderRadius: 12,
-          padding: 16,
-          marginBottom: 16,
-        }}
-      >
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="block@this-address.com"
-            style={{
-              flex: 1,
-              minWidth: 220,
-              height: 38,
-              border: "1px solid var(--color-border)",
-              borderRadius: 8,
-              padding: "0 12px",
-              fontSize: 13,
-            }}
-          />
-          <select
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            style={{
-              height: 38,
-              border: "1px solid var(--color-border)",
-              borderRadius: 8,
-              padding: "0 10px",
-              fontSize: 13,
-              background: "#fff",
-            }}
-          >
-            {REASONS.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => void add()}
-            disabled={busy || !email}
-            style={{
-              height: 38,
-              padding: "0 16px",
-              border: "none",
-              borderRadius: 8,
-              background: "#0B0C0E",
-              color: "#fff",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Block address
-          </button>
+      <div className="ds-card" style={{ marginBottom: 20 }}>
+        <div className="ds-card-header">
+          <div>
+            <h2 className="ds-card-title">Add Address to Suppression List</h2>
+            <p className="ds-card-subtitle">
+              Hard bounces and ISP spam complaints block automatically. You can also block recipients manually below.
+            </p>
+          </div>
         </div>
-        {error && (
-          <p role="alert" style={{ color: "#DC2626", fontSize: 13, margin: "8px 0 0" }}>
-            {error}
-          </p>
-        )}
-        <p style={{ fontSize: 12, color: "var(--color-muted)", margin: "10px 0 0" }}>
-          Bounces and complaints from provider feedback block automatically and show up here.
-          Removing a row re-enables the recipient immediately.
-        </p>
+        <div className="ds-card-body">
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="block@this-address.com"
+              className="ds-input mono"
+              style={{ flex: 1, minWidth: 220 }}
+            />
+            <select
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="ds-select"
+              style={{ width: "auto", minWidth: 150 }}
+            >
+              {REASONS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => void add()}
+              disabled={busy || !email}
+              className="ds-btn ds-btn-primary"
+            >
+              <ShieldBan size={14} />
+              <span>Block address</span>
+            </button>
+          </div>
+          {error && (
+            <div style={{ marginTop: 12 }}>
+              <DsBanner tone="danger" title="Could not add suppression" description={error} />
+            </div>
+          )}
+        </div>
       </div>
 
       {rows.length > 0 && (
-        <div
-          style={{
-            background: "#fff",
-            border: "1px solid var(--color-border)",
-            borderRadius: 12,
-            overflow: "hidden",
-          }}
-        >
-          {rows.map((r) => (
-            <div
-              key={r.id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 12,
-                padding: "10px 14px",
-                borderBottom: "1px solid #f5f5f5",
-                fontSize: 13,
-              }}
-            >
-              <span>
-                <b className="mono" style={{ fontSize: 12.5 }}>
-                  {r.email}
-                </b>{" "}
-                <span
-                  style={{
-                    fontSize: 11,
-                    border: "1px solid var(--color-border)",
-                    padding: "2px 8px",
-                    borderRadius: 6,
-                    color: "var(--color-muted)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                  }}
-                >
-                  {r.reason}
-                </span>
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 12, color: "var(--color-muted)" }}>
-                  {new Date(r.createdAt).toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                  })}
-                </span>
-                <button
-                  onClick={() => void remove(r.id)}
-                  disabled={busy}
-                  style={{
-                    background: "none",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: 6,
-                    padding: "3px 10px",
-                    fontSize: 12,
-                    cursor: "pointer",
-                  }}
-                >
-                  unblock
-                </button>
-              </span>
-            </div>
-          ))}
+        <div className="ds-table-shell">
+          <div className="ds-table-scroll">
+            <table className="ds-table">
+              <thead>
+                <tr>
+                  <th>Suppressed Address</th>
+                  <th style={{ width: 150 }}>Reason</th>
+                  <th style={{ width: 140 }}>Blocked</th>
+                  <th style={{ width: 120, textAlign: "right" }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id}>
+                    <td>
+                      <b className="mono" style={{ fontSize: 13 }}>
+                        {r.email}
+                      </b>
+                    </td>
+                    <td>
+                      <StatusPill status={r.reason} label={r.reason} />
+                    </td>
+                    <td>
+                      <RelativeTime value={r.createdAt} />
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <button
+                        type="button"
+                        onClick={() => void remove(r.id)}
+                        disabled={busy}
+                        className="ds-btn ds-btn-secondary ds-btn-sm"
+                      >
+                        <Trash2 size={12} />
+                        <span>Unblock</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

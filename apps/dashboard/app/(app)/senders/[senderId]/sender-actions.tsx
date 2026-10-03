@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Send, Save, Trash2, CheckCircle2, Ban } from "lucide-react";
 import {
   setDefaultSender,
   updateSenderDisplayName,
@@ -9,30 +10,7 @@ import {
   deleteSender,
   testSend,
 } from "../actions";
-
-const btnSecondary = {
-  background: "#fff",
-  color: "#0B0C0E",
-  border: "1px solid #D4D4D4",
-  borderRadius: 8,
-  padding: "0 14px",
-  height: 38,
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: "pointer",
-} as const;
-
-const btnDanger = {
-  background: "#fff",
-  color: "#DC2626",
-  border: "1px solid #FCA5A5",
-  borderRadius: 8,
-  padding: "0 14px",
-  height: 38,
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: "pointer",
-} as const;
+import { DsBanner, ConfirmDialog } from "../../../../components/design-system";
 
 export interface SenderActionTarget {
   id: string;
@@ -49,7 +27,7 @@ export function SenderActions({ sender }: { sender: SenderActionTarget }) {
   const router = useRouter();
   const [testTo, setTestTo] = useState("");
   const [testMsg, setTestMsg] = useState<{ text: string; ok: boolean; emailId?: string } | null>(
-    null
+    null,
   );
   const [name, setName] = useState(sender.displayName);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
@@ -72,180 +50,196 @@ export function SenderActions({ sender }: { sender: SenderActionTarget }) {
   const usable = sender.status === "verified" || sender.status === "connected";
 
   return (
-    <div
-      style={{
-        background: "#fff",
-        border: "1px solid #E5E5E5",
-        borderRadius: 12,
-        padding: 16,
-        display: "flex",
-        flexDirection: "column",
-        gap: 16,
-        maxWidth: 640,
-      }}
-    >
-      <div>
-        <p style={{ fontSize: 13, fontWeight: 600, margin: "0 0 8px" }}>Test send</p>
-        <p style={{ fontSize: 12, color: "#737373", margin: "0 0 8px" }}>
-          Sends one real email through this sender. We report acceptance only, delivery lands on the
-          record.
-        </p>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            value={testTo}
-            onChange={(e) => setTestTo(e.target.value)}
-            type="email"
-            placeholder="you@example.com"
-            aria-label="Test recipient"
-            disabled={!usable}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              height: 38,
-              border: "1px solid #D4D4D4",
-              borderRadius: 8,
-              padding: "0 12px",
-              fontSize: 13,
-            }}
-          />
-          <button
-            type="button"
-            disabled={busy || !usable}
-            onClick={async () => {
-              setBusy(true);
-              setTestMsg(null);
-              try {
-                const r = await testSend(sender.id, testTo);
-                setTestMsg({
-                  text: `Accepted. Message ${r.emailId}.`,
-                  ok: true,
-                  emailId: r.emailId,
-                });
-                router.refresh();
-              } catch (err) {
-                setTestMsg({ text: err instanceof Error ? err.message : "Failed.", ok: false });
-              }
-              setBusy(false);
-            }}
-            style={btnSecondary}
-          >
-            {busy ? "Sending…" : "Send test"}
-          </button>
+    <div className="ds-grid-2">
+      <div className="ds-card">
+        <div className="ds-card-header">
+          <div>
+            <h2 className="ds-card-title">Dispatch Verification Email</h2>
+            <p className="ds-card-subtitle">
+              Send one real email through this sender identity to verify inbox placement.
+            </p>
+          </div>
         </div>
-        {!usable && (
-          <p style={{ fontSize: 12, color: "#B45309", margin: "8px 0 0" }}>
-            This sender isn&rsquo;t ready (status: {sender.status}). Test send unlocks after
-            verification.
-          </p>
-        )}
-        {testMsg && (
-          <p style={{ fontSize: 12, margin: "8px 0 0", color: testMsg.ok ? "#16A34A" : "#DC2626" }}>
-            {testMsg.text}{" "}
-            {testMsg.emailId && (
-              <a href={`/emails?project=${sender.projectId}`} style={{ color: "#0B0C0E" }}>
-                View deliveries
-              </a>
-            )}
-          </p>
-        )}
-      </div>
-
-      <div>
-        <p style={{ fontSize: 13, fontWeight: 600, margin: "0 0 8px" }}>Display name</p>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            aria-label="Display name"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              height: 38,
-              border: "1px solid #D4D4D4",
-              borderRadius: 8,
-              padding: "0 12px",
-              fontSize: 13,
-            }}
-          />
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void run(() => updateSenderDisplayName(sender.id, name), "Saved.")}
-            style={btnSecondary}
-          >
-            Save
-          </button>
-        </div>
-      </div>
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {!sender.isDefault && usable && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void run(() => setDefaultSender(sender.id), "Default sender set.")}
-            style={btnSecondary}
-          >
-            Set as default
-          </button>
-        )}
-        {sender.status !== "disabled" ? (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void run(() => setSenderEnabled(sender.id, false), "Sender disabled.")}
-            style={btnSecondary}
-          >
-            Disable sender
-          </button>
-        ) : (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void run(() => setSenderEnabled(sender.id, true), "Sender re-enabled.")}
-            style={btnSecondary}
-          >
-            Re-enable sender
-          </button>
-        )}
-        {!confirmingDelete ? (
-          <button type="button" onClick={() => setConfirmingDelete(true)} style={btnDanger}>
-            Delete sender
-          </button>
-        ) : (
-          <>
-            <span style={{ fontSize: 12, color: "#737373", alignSelf: "center" }}>
-              {sender.emailCount > 0
-                ? `Delete? ${sender.emailCount} past deliveries keep their records.`
-                : "Delete this sender? This cannot be undone."}
-            </span>
+        <div className="ds-card-body">
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              value={testTo}
+              onChange={(e) => setTestTo(e.target.value)}
+              type="email"
+              placeholder="you@example.com"
+              aria-label="Test recipient"
+              disabled={!usable}
+              className="ds-input"
+              style={{ flex: 1 }}
+            />
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || !usable}
               onClick={async () => {
                 setBusy(true);
+                setTestMsg(null);
                 try {
-                  await deleteSender(sender.id);
-                  router.push(`/senders?project=${sender.projectId}`);
+                  const r = await testSend(sender.id, testTo);
+                  setTestMsg({
+                    text: `Accepted. Message ${r.emailId}.`,
+                    ok: true,
+                    emailId: r.emailId,
+                  });
+                  router.refresh();
                 } catch (err) {
-                  setMsg({ text: err instanceof Error ? err.message : "Failed.", ok: false });
+                  setTestMsg({ text: err instanceof Error ? err.message : "Failed.", ok: false });
                 }
                 setBusy(false);
-                setConfirmingDelete(false);
               }}
-              style={btnDanger}
+              className="ds-btn ds-btn-primary"
             >
-              Confirm delete
+              <Send size={13} />
+              <span>{busy ? "Sending…" : "Send test"}</span>
             </button>
-            <button type="button" onClick={() => setConfirmingDelete(false)} style={btnSecondary}>
-              Keep
-            </button>
-          </>
-        )}
+          </div>
+          {!usable && (
+            <div style={{ marginTop: 10 }}>
+              <DsBanner
+                tone="warning"
+                title={`Sender status: ${sender.status}`}
+                description="Test send unlocks automatically once domain verification completes."
+              />
+            </div>
+          )}
+          {testMsg && (
+            <div style={{ marginTop: 10 }}>
+              <DsBanner
+                tone={testMsg.ok ? "success" : "danger"}
+                title={testMsg.ok ? "Test email dispatched" : "Test send failed"}
+                description={
+                  <span>
+                    {testMsg.text}{" "}
+                    {testMsg.emailId && (
+                      <a
+                        href={`/emails?project=${sender.projectId}`}
+                        style={{ color: "var(--color-ink)", fontWeight: 600 }}
+                      >
+                        View in Message Explorer →
+                      </a>
+                    )}
+                  </span>
+                }
+              />
+            </div>
+          )}
+        </div>
       </div>
-      {msg && (
-        <p style={{ fontSize: 12, margin: 0, color: msg.ok ? "#16A34A" : "#DC2626" }}>{msg.text}</p>
-      )}
+
+      <div className="ds-card">
+        <div className="ds-card-header">
+          <div>
+            <h2 className="ds-card-title">Identity Configuration</h2>
+            <p className="ds-card-subtitle">
+              Update display name, default project routing, or lifecycle state
+            </p>
+          </div>
+        </div>
+        <div className="ds-card-body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div>
+            <label className="ds-label" style={{ display: "block", marginBottom: 6 }}>
+              Display Name
+            </label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                aria-label="Display name"
+                className="ds-input"
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void run(() => updateSenderDisplayName(sender.id, name), "Saved.")}
+                className="ds-btn ds-btn-secondary"
+              >
+                <Save size={13} />
+                <span>Save</span>
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {!sender.isDefault && usable && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void run(() => setDefaultSender(sender.id), "Default sender set.")}
+                className="ds-btn ds-btn-secondary ds-btn-sm"
+              >
+                <CheckCircle2 size={13} />
+                <span>Set as default</span>
+              </button>
+            )}
+            {sender.status !== "disabled" ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void run(() => setSenderEnabled(sender.id, false), "Sender disabled.")}
+                className="ds-btn ds-btn-secondary ds-btn-sm"
+              >
+                <Ban size={13} />
+                <span>Disable sender</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void run(() => setSenderEnabled(sender.id, true), "Sender re-enabled.")}
+                className="ds-btn ds-btn-secondary ds-btn-sm"
+              >
+                <CheckCircle2 size={13} />
+                <span>Re-enable sender</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(true)}
+              className="ds-btn ds-btn-danger ds-btn-sm"
+            >
+              <Trash2 size={13} />
+              <span>Delete sender</span>
+            </button>
+          </div>
+
+          {msg && (
+            <DsBanner
+              tone={msg.ok ? "success" : "danger"}
+              title={msg.ok ? "Updated" : "Action failed"}
+              description={msg.text}
+            />
+          )}
+        </div>
+      </div>
+
+      <ConfirmDialog
+        open={confirmingDelete}
+        onClose={() => setConfirmingDelete(false)}
+        busy={busy}
+        onConfirm={async () => {
+          setBusy(true);
+          try {
+            await deleteSender(sender.id);
+            router.push(`/senders?project=${sender.projectId}`);
+          } catch (err) {
+            setMsg({ text: err instanceof Error ? err.message : "Failed.", ok: false });
+          }
+          setBusy(false);
+          setConfirmingDelete(false);
+        }}
+        title={`Delete sender ${sender.email}?`}
+        description={
+          sender.emailCount > 0
+            ? `This sender has ${sender.emailCount} historical deliveries. Past delivery logs will be preserved, but new sends using this identity will be rejected.`
+            : "Delete this sender identity? This action cannot be undone."
+        }
+        confirmLabel="Confirm delete"
+      />
     </div>
   );
 }

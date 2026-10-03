@@ -1,8 +1,12 @@
+import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { getDb, domains } from "@calder/db";
 import { getTenantContext, resolveProject } from "../../../lib/auth";
 import { ProjectPicker } from "../project-picker";
 import { DomainAdder, DomainRow } from "./manager";
+import { Globe, UserCheck } from "lucide-react";
+import { DsPageHeader, StatusPill } from "../../../components/design-system";
+import { EmptyState } from "../../../components/empty-state";
 
 export default async function DomainsPage({
   searchParams,
@@ -15,8 +19,17 @@ export default async function DomainsPage({
   if (!scope) {
     return (
       <div>
-        <h1 style={{ fontSize: 28, margin: "0 0 8px" }}>Domains</h1>
-        <p style={{ color: "#737373" }}>No project found. Complete onboarding first.</p>
+        <DsPageHeader
+          icon={<Globe size={18} />}
+          title="Domains & DNS"
+          description="No project found. Complete onboarding or create a project first."
+        />
+        <EmptyState
+          title="No project found"
+          description="Create a project in your workspace settings to verify sending domains."
+          actionLabel="Configure workspace"
+          actionHref="/settings#workspace"
+        />
       </div>
     );
   }
@@ -27,35 +40,51 @@ export default async function DomainsPage({
     .where(eq(domains.projectId, scope.project.id))
     .orderBy(desc(domains.createdAt));
 
+  const verifiedCount = rows.filter((d) => d.status === "verified").length;
+
   return (
     <div>
-      <h1 style={{ fontSize: 28, margin: "0 0 4px" }}>Domains</h1>
-      <p style={{ color: "#737373", margin: "0 0 20px", fontSize: 14 }}>
-        Verified identities this project may send from.
-      </p>
+      <DsPageHeader
+        icon={<Globe size={18} />}
+        title="Domains & DNS Authentication"
+        badge={
+          <StatusPill
+            status={verifiedCount > 0 ? "verified" : "pending"}
+            label={`${verifiedCount} of ${rows.length} verified`}
+          />
+        }
+        description="Authenticate your sending domains with 2048-bit RSA DKIM, SPF, and DMARC records for maximum inbox placement."
+        actions={
+          <Link
+            href={`/senders?project=${scope.project.id}`}
+            className="ds-btn ds-btn-secondary"
+            style={{ textDecoration: "none" }}
+          >
+            <UserCheck size={14} />
+            <span>Sender Identities</span>
+          </Link>
+        }
+      />
+
       <ProjectPicker
         projects={projects.map((p) => ({ id: p.id, slug: p.slug }))}
         currentId={scope.project.id}
         basePath="/domains"
       />
+
       <DomainAdder projectId={scope.project.id} />
-      <div
-        style={{
-          background: "#fff",
-          border: "1px solid #E5E5E5",
-          borderRadius: 12,
-          overflow: "hidden",
-        }}
-      >
-        {rows.length === 0 && (
-          <p style={{ padding: 20, color: "#737373", fontSize: 14, margin: 0 }}>
-            No domains yet. Add yours above, paste the three DNS records, and you can send as
-            you@yourproduct.com.
-          </p>
-        )}
-        {rows.map((d, i) => (
-          <div key={d.id} style={{ borderTop: i === 0 ? "none" : "1px solid #F0F0F0" }}>
+
+      {rows.length === 0 ? (
+        <EmptyState
+          icon={<Globe size={22} />}
+          title="No sending domains registered yet"
+          description="Add your root domain or subdomain above, publish the generated TXT and CNAME records in your DNS provider, and start sending authenticated mail."
+        />
+      ) : (
+        <div>
+          {rows.map((d) => (
             <DomainRow
+              key={d.id}
               domain={{
                 id: d.id,
                 domain: d.domain,
@@ -77,9 +106,9 @@ export default async function DomainsPage({
                 lastVerifyError: d.lastVerifyError,
               }}
             />
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

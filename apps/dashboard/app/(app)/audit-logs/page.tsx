@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, inArray } from "drizzle-orm";
+import { and, desc, ilike, inArray } from "drizzle-orm";
 import { getDb, auditLogs } from "@calder/db";
 import { getTenantContext } from "../../../lib/auth";
 import { EmptyState } from "../../../components/empty-state";
@@ -10,14 +10,15 @@ import {
   PAGE_SIZE,
 } from "../../../lib/pagination";
 import Link from "next/link";
+import { History, Search, ArrowRight } from "lucide-react";
+import {
+  DsPageHeader,
+  StatusPill,
+  RelativeTime,
+} from "../../../components/design-system";
 
 export const metadata = { title: "Calder — Audit Logs" };
 
-/**
- * M5.1: the tenant-side audit view. Reads the same `audit_logs` rows the
- * control plane writes — scoped to the caller's project set, filterable by
- * action, cursor-paginated. There is no plan gating on your own audit trail.
- */
 export default async function AuditLogsPage({
   searchParams,
 }: {
@@ -28,7 +29,11 @@ export default async function AuditLogsPage({
   if (projectIds.length === 0) {
     return (
       <div>
-        <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px" }}>Audit Logs</h1>
+        <DsPageHeader
+          icon={<History size={18} />}
+          title="Audit Logs"
+          description="Immutable security trail across your projects."
+        />
         <EmptyState
           title="No project yet"
           description="Create a project and security events will be logged here."
@@ -69,120 +74,142 @@ export default async function AuditLogsPage({
 
   return (
     <div>
-      <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px" }}>Audit Logs</h1>
-      <p style={{ color: "var(--color-muted)", fontSize: 13, margin: "0 0 12px" }}>
-        Security-relevant events across your projects: keys, domains, senders, webhook changes,
-        abuse actions. Written by the system, not by dashboards.
-      </p>
+      <DsPageHeader
+        icon={<History size={18} />}
+        title="Audit Logs"
+        badge={<StatusPill status="active" label="Immutable Trail" />}
+        description="Security-relevant events across your projects: API keys, domains, senders, webhook changes, and abuse guard actions."
+      />
 
-      <form method="get" style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <input
-          type="search"
-          name="action"
-          defaultValue={actionFilter ?? ""}
-          placeholder="Filter by action (e.g. api_key, domain, transport)…"
-          style={{
-            flex: 1,
-            maxWidth: 420,
-            height: 38,
-            border: "1px solid var(--color-border)",
-            borderRadius: 8,
-            padding: "0 12px",
-            fontSize: 13,
-          }}
-        />
-        <button
-          type="submit"
-          style={{
-            height: 38,
-            padding: "0 16px",
-            border: "1px solid var(--color-border)",
-            borderRadius: 8,
-            background: "#fff",
-            fontSize: 13,
-            cursor: "pointer",
-          }}
-        >
+      <form
+        method="get"
+        style={{
+          display: "flex",
+          gap: 10,
+          marginBottom: 16,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        <div style={{ position: "relative", flex: 1, maxWidth: 440 }}>
+          <Search
+            size={14}
+            style={{
+              position: "absolute",
+              left: 11,
+              top: 11,
+              color: "var(--color-muted)",
+            }}
+          />
+          <input
+            type="search"
+            name="action"
+            defaultValue={actionFilter ?? ""}
+            placeholder="Filter by action (e.g. api_key, domain, transport)…"
+            className="ds-input"
+            style={{ paddingLeft: 32 }}
+          />
+        </div>
+        <button type="submit" className="ds-btn ds-btn-secondary">
           Filter
         </button>
+        {actionFilter && (
+          <Link
+            href="/audit-logs"
+            className="ds-btn ds-btn-ghost ds-btn-sm"
+            style={{ textDecoration: "none" }}
+          >
+            Clear
+          </Link>
+        )}
       </form>
 
       {page.length === 0 ? (
         <EmptyState
+          icon={<History size={22} />}
           title={actionFilter ? "No events match" : "No audit events yet"}
           description={
             actionFilter
               ? "Try another action filter."
-              : "Events appear as keys rotate, domains verify, and transports change state."
+              : "Events appear automatically as API keys rotate, domains verify, and transports change state."
           }
           actionLabel={actionFilter ? "Clear filter" : undefined}
           actionHref={actionFilter ? "/audit-logs" : undefined}
         />
       ) : (
-        <>
-          <div
-            style={{
-              background: "#fff",
-              border: "1px solid var(--color-border)",
-              borderRadius: 12,
-              overflow: "hidden",
-            }}
-          >
-            {page.map((r) => (
-              <div
-                key={r.id}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr auto",
-                  gap: 8,
-                  padding: "10px 14px",
-                  borderBottom: "1px solid #f5f5f5",
-                  fontSize: 12.5,
-                  alignItems: "center",
-                }}
-              >
-                <span style={{ minWidth: 0 }}>
-                  <b className="mono" style={{ fontSize: 12 }}>
-                    {r.action}
-                  </b>{" "}
-                  <span style={{ color: "var(--color-muted)" }}>
-                    · {r.targetType ?? "—"} {r.targetId ? `(${r.targetId})` : ""}
-                  </span>
-                  {r.metadata && Object.keys(r.metadata).length > 0 && (
-                    <span
-                      className="mono"
-                      style={{
-                        display: "block",
-                        fontSize: 11,
-                        color: "var(--color-muted)",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        marginTop: 2,
-                      }}
-                    >
-                      {JSON.stringify(r.metadata)}
-                    </span>
-                  )}
-                </span>
-                <span className="mono" style={{ fontSize: 11, color: "var(--color-muted)" }}>
-                  {new Date(r.createdAt).toLocaleString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                  })}
-                </span>
-              </div>
-            ))}
+        <div className="ds-table-shell">
+          <div className="ds-table-scroll">
+            <table className="ds-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 220 }}>Action</th>
+                  <th style={{ width: 220 }}>Target Resource</th>
+                  <th>Metadata</th>
+                  <th style={{ width: 140, textAlign: "right" }}>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody>
+                {page.map((r) => (
+                  <tr key={r.id}>
+                    <td>
+                      <span
+                        className="mono"
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          padding: "2px 7px",
+                          borderRadius: 5,
+                          background: "var(--color-surface-elevated)",
+                          border: "1px solid var(--color-border)",
+                        }}
+                      >
+                        {r.action}
+                      </span>
+                    </td>
+                    <td className="mono" style={{ fontSize: 12, color: "var(--color-ink-secondary)" }}>
+                      {r.targetType ?? "—"} {r.targetId ? `(${r.targetId.slice(0, 14)})` : ""}
+                    </td>
+                    <td>
+                      {r.metadata && Object.keys(r.metadata).length > 0 ? (
+                        <code
+                          className="mono"
+                          style={{
+                            fontSize: 11.5,
+                            color: "var(--color-muted)",
+                            display: "block",
+                            maxWidth: 420,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {JSON.stringify(r.metadata)}
+                        </code>
+                      ) : (
+                        <span style={{ color: "var(--color-muted)" }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <RelativeTime value={r.createdAt} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
           {nextCursor && (
-            <p style={{ fontSize: 12, marginTop: 10 }}>
-              <Link href={`/audit-logs${qs({ cursor: nextCursor })}`}>older events →</Link>
-            </p>
+            <div className="ds-card-footer">
+              <Link
+                href={`/audit-logs${qs({ cursor: nextCursor })}`}
+                className="ds-btn ds-btn-secondary ds-btn-sm"
+                style={{ textDecoration: "none" }}
+              >
+                <span>Older events</span>
+                <ArrowRight size={13} />
+              </Link>
+            </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );
