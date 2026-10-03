@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Check, ChevronDown, Plus, Search } from "lucide-react";
+import { StatusPill } from "../../../../components/design-system";
 
 export interface SenderOption {
   id: string;
@@ -10,25 +12,9 @@ export interface SenderOption {
   isDefault: boolean;
 }
 
-const DOT: Record<string, string> = {
-  verified: "#16A34A",
-  connected: "#1E3A8A",
-  pending: "#B45309",
-  disabled: "#737373",
-  failed: "#DC2626",
-};
-
-function statusText(s: string): string {
-  if (s === "verified") return "Verified";
-  if (s === "connected") return "Connected";
-  if (s === "pending") return "Pending";
-  if (s === "disabled") return "Disabled";
-  return "Failed";
-}
-
 /**
  * Sender identity selector: search, checkmark + name + address + status
- * (never color alone), full keyboard support, sheet on mobile.
+ * (never color alone), full keyboard support.
  */
 export function SenderSelector({
   senders,
@@ -110,41 +96,37 @@ export function SenderSelector({
           width: "100%",
           display: "flex",
           alignItems: "center",
+          justifyContent: "space-between",
           gap: 10,
-          background: "#fff",
-          border: "1px solid #D4D4D4",
-          borderRadius: 10,
-          padding: "10px 14px",
-          fontSize: 14,
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-border-strong)",
+          borderRadius: "var(--radius-md)",
+          padding: "9px 12px",
+          fontSize: 13.5,
+          color: "var(--color-ink)",
           cursor: "pointer",
           textAlign: "left",
         }}
       >
         {selected ? (
-          <>
-            <span
-              aria-hidden="true"
-              style={{
-                width: 9,
-                height: 9,
-                borderRadius: "50%",
-                background: DOT[selected.status] ?? "#737373",
-                flexShrink: 0,
-              }}
-            />
-            <span style={{ minWidth: 0 }}>
-              <b style={{ display: "block", fontSize: 14 }}>{selected.displayName}</b>
-              <span className="mono" style={{ display: "block", fontSize: 12, color: "#525252" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+            <span style={{ minWidth: 0, flex: 1 }}>
+              <b style={{ display: "block", fontSize: 13.5 }}>{selected.displayName}</b>
+              <span
+                className="mono"
+                style={{ display: "block", fontSize: 11.5, color: "var(--color-muted)" }}
+              >
                 {selected.email}
               </span>
             </span>
-          </>
+            <StatusPill status={selected.status} />
+          </div>
         ) : (
-          <span style={{ color: "#737373" }}>Choose a sender…</span>
+          <span style={{ color: "var(--color-muted)" }}>
+            Choose a verified sender identity…
+          </span>
         )}
-        <span aria-hidden="true" style={{ marginLeft: "auto", fontSize: 11, color: "#737373" }}>
-          ▾
-        </span>
+        <ChevronDown size={15} style={{ color: "var(--color-muted)", flexShrink: 0 }} />
       </button>
 
       {open && (
@@ -158,37 +140,49 @@ export function SenderSelector({
             top: "calc(100% + 6px)",
             left: 0,
             right: 0,
-            background: "#fff",
-            border: "1px solid #E5E5E5",
-            borderRadius: 12,
-            boxShadow: "0 12px 32px rgba(11,12,14,0.12)",
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--radius-lg)",
+            boxShadow: "var(--shadow-lg)",
             padding: 8,
             maxHeight: 320,
             overflowY: "auto",
           }}
         >
-          <input
-            ref={searchRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search senders…"
-            aria-label="Search senders"
+          <div style={{ position: "relative", marginBottom: 6 }}>
+            <Search
+              size={13}
+              style={{
+                position: "absolute",
+                left: 10,
+                top: 11,
+                color: "var(--color-muted)",
+              }}
+            />
+            <input
+              ref={searchRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search senders…"
+              aria-label="Search senders"
+              className="ds-input"
+              style={{ paddingLeft: 30, height: 34 }}
+            />
+          </div>
+          <p
+            className="mono"
             style={{
-              width: "100%",
-              height: 36,
-              border: "1px solid #E5E5E5",
-              borderRadius: 8,
-              padding: "0 10px",
-              fontSize: 13,
-              marginBottom: 6,
-              boxSizing: "border-box",
+              fontSize: 10,
+              color: "var(--color-muted)",
+              margin: "4px 6px 6px",
+              fontWeight: 700,
+              letterSpacing: "0.06em",
             }}
-          />
-          <p className="mono" style={{ fontSize: 10, color: "#737373", margin: "4px 4px 6px" }}>
+          >
             YOUR SENDERS
           </p>
           {ordered.length === 0 && (
-            <p style={{ fontSize: 13, color: "#737373", padding: "8px 4px", margin: 0 }}>
+            <p style={{ fontSize: 12.5, color: "var(--color-muted)", padding: "8px 6px", margin: 0 }}>
               No senders match.
             </p>
           )}
@@ -206,51 +200,55 @@ export function SenderSelector({
                   display: "flex",
                   alignItems: "center",
                   gap: 10,
-                  padding: "9px 10px",
-                  borderRadius: 8,
-                  background: i === highlight ? "#F5F4EF" : "transparent",
+                  padding: "8px 10px",
+                  borderRadius: "var(--radius-md)",
+                  background:
+                    i === highlight ? "var(--color-surface-elevated)" : "transparent",
                   cursor: ready ? "pointer" : "not-allowed",
                   opacity: ready ? 1 : 0.65,
                 }}
               >
-                <span style={{ width: 18, fontWeight: 700, fontSize: 13 }} aria-hidden="true">
-                  {value === s.id ? "✓" : ""}
+                <span style={{ width: 16, color: "var(--color-accent)" }} aria-hidden="true">
+                  {value === s.id ? <Check size={14} /> : null}
                 </span>
-                <span style={{ minWidth: 0 }}>
+                <span style={{ minWidth: 0, flex: 1 }}>
                   <span
                     style={{
                       display: "block",
-                      fontSize: 14,
-                      fontWeight: value === s.id ? 700 : 400,
+                      fontSize: 13,
+                      fontWeight: value === s.id ? 700 : 500,
                     }}
                   >
                     {s.displayName}
                   </span>
                   <span
                     className="mono"
-                    style={{ display: "block", fontSize: 12, color: "#525252" }}
+                    style={{ display: "block", fontSize: 11.5, color: "var(--color-muted)" }}
                   >
                     {s.email}
                   </span>
                 </span>
-                <span style={{ marginLeft: "auto", fontSize: 11, color: "#737373", flexShrink: 0 }}>
-                  {statusText(s.status)}
-                </span>
+                <StatusPill status={s.status} />
               </div>
             );
           })}
           <a
             href="/senders"
             style={{
-              display: "block",
-              fontSize: 13,
-              padding: "9px 10px",
-              color: "#0B0C0E",
-              borderTop: "1px solid #F0F0F0",
-              marginTop: 4,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12.5,
+              fontWeight: 600,
+              padding: "8px 10px",
+              color: "var(--color-ink)",
+              borderTop: "1px solid var(--color-border)",
+              marginTop: 6,
+              textDecoration: "none",
             }}
           >
-            + Add sender
+            <Plus size={13} />
+            <span>Add sender identity</span>
           </a>
         </div>
       )}

@@ -2,30 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 import { createOrganization, createProject } from "../onboarding/actions";
 import { ENVIRONMENTS, type Environment } from "../../../lib/onboarding";
-
-const inputStyle = {
-  width: "100%",
-  height: 40,
-  border: "1px solid #D4D4D4",
-  borderRadius: 8,
-  padding: "0 12px",
-  fontSize: 14,
-} as const;
-
-const btnStyle = {
-  background: "#0B0C0E",
-  color: "#fff",
-  border: "none",
-  borderRadius: 8,
-  padding: "0 16px",
-  height: 40,
-  fontSize: 14,
-  fontWeight: 600,
-  cursor: "pointer",
-  whiteSpace: "nowrap",
-} as const;
+import { StatusPill } from "../../../components/design-system";
 
 /** Create a fresh organization (caller becomes owner). Any signed-in user. */
 export function NewOrgForm() {
@@ -49,22 +29,25 @@ export function NewOrgForm() {
         }
         setBusy(false);
       }}
-      style={{ display: "flex", gap: 8, marginBottom: 8 }}
+      style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
     >
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="Organization name"
+        placeholder="Organization name (e.g. Acme Infrastructure)"
         aria-label="Organization name"
-        style={{ ...inputStyle, minWidth: 0, flex: 1 }}
+        className="ds-input"
+        style={{ minWidth: 220, flex: 1 }}
       />
-      <button type="submit" disabled={busy} style={btnStyle}>
-        {busy ? "Creating" : "Create"}
+      <button type="submit" disabled={busy || !name.trim()} className="ds-btn ds-btn-primary">
+        <Plus size={14} />
+        <span>{busy ? "Creating…" : "Create organization"}</span>
       </button>
       {msg && (
-        <span style={{ fontSize: 12, alignSelf: "center", color: msg.ok ? "#16A34A" : "#DC2626" }}>
-          {msg.text}
-        </span>
+        <StatusPill
+          status={msg.ok ? "verified" : "failed"}
+          label={msg.text}
+        />
       )}
     </form>
   );
@@ -101,7 +84,8 @@ export function NewProjectForm({ orgs }: { orgs: Array<{ id: string; name: strin
         value={orgId}
         onChange={(e) => setOrgId(e.target.value)}
         aria-label="Organization"
-        style={{ ...inputStyle, width: "auto" }}
+        className="ds-select"
+        style={{ width: "auto", minWidth: 160 }}
       >
         {orgs.map((o) => (
           <option key={o.id} value={o.id}>
@@ -112,15 +96,17 @@ export function NewProjectForm({ orgs }: { orgs: Array<{ id: string; name: strin
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="Project name"
+        placeholder="Project name (e.g. Core Transactional)"
         aria-label="Project name"
-        style={{ ...inputStyle, minWidth: 0, flex: 1 }}
+        className="ds-input"
+        style={{ minWidth: 200, flex: 1 }}
       />
       <select
         value={env}
         onChange={(e) => setEnv(e.target.value as Environment)}
         aria-label="Environment"
-        style={{ ...inputStyle, width: "auto" }}
+        className="ds-select"
+        style={{ width: "auto", minWidth: 140 }}
       >
         {ENVIRONMENTS.map((v) => (
           <option key={v} value={v}>
@@ -128,11 +114,15 @@ export function NewProjectForm({ orgs }: { orgs: Array<{ id: string; name: strin
           </option>
         ))}
       </select>
-      <button type="submit" disabled={busy} style={btnStyle}>
-        {busy ? "Creating" : "Create"}
+      <button type="submit" disabled={busy || !name.trim()} className="ds-btn ds-btn-primary">
+        <Plus size={14} />
+        <span>{busy ? "Creating…" : "Create project"}</span>
       </button>
       {msg && (
-        <span style={{ fontSize: 12, color: msg.ok ? "#16A34A" : "#DC2626" }}>{msg.text}</span>
+        <StatusPill
+          status={msg.ok ? "verified" : "failed"}
+          label={msg.text}
+        />
       )}
     </form>
   );

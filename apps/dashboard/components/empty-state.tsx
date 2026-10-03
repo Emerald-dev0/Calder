@@ -1,6 +1,6 @@
-import Image from "next/image";
 import Link from "next/link";
 import React from "react";
+import { Inbox, ArrowRight, Sparkles } from "lucide-react";
 
 interface EmptyStateProps {
   title: string;
@@ -9,6 +9,9 @@ interface EmptyStateProps {
   actionHref?: string;
   onAction?: () => void;
   illustration?: "narrative" | "abstract";
+  icon?: React.ReactNode;
+  secondaryLabel?: string;
+  secondaryHref?: string;
 }
 
 export function EmptyState({
@@ -18,52 +21,22 @@ export function EmptyState({
   actionHref,
   onAction,
   illustration = "narrative",
+  icon,
+  secondaryLabel,
+  secondaryHref,
 }: EmptyStateProps) {
-  const imgSrc =
-    illustration === "abstract"
-      ? "/illustrations/empty-state-abstract.svg"
-      : "/illustrations/empty-state-narrative.webp";
-
   return (
-    <div
-      style={{
-        background: "#ffffff",
-        border: "1px solid var(--color-border)",
-        borderRadius: 14,
-        padding: "48px 24px",
-        textAlign: "center",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        margin: "12px 0",
-      }}
-    >
-      <div
-        style={{
-          position: "relative",
-          width: 140,
-          height: 96,
-          marginBottom: 16,
-          opacity: 0.9,
-        }}
-      >
-        <Image
-          src={imgSrc}
-          alt=""
-          fill
-          sizes="140px"
-          style={{ objectFit: "contain" }}
-          priority={false}
-        />
+    <div className="ds-empty" style={{ margin: "12px 0" }}>
+      <div className="ds-empty-icon">
+        {icon ?? (illustration === "abstract" ? <Sparkles size={22} /> : <Inbox size={22} />)}
       </div>
 
       <h3
         style={{
-          fontSize: 17,
+          fontSize: 16,
           fontWeight: 700,
           margin: "0 0 6px",
-          letterSpacing: "-0.01em",
+          letterSpacing: "-0.015em",
           color: "var(--color-ink)",
         }}
       >
@@ -73,51 +46,48 @@ export function EmptyState({
       <p
         style={{
           color: "var(--color-muted)",
-          fontSize: 14,
-          lineHeight: 1.5,
+          fontSize: 13.5,
+          lineHeight: 1.55,
           margin: "0 0 20px",
-          maxWidth: 380,
+          maxWidth: 420,
         }}
       >
         {description}
       </p>
 
-      {actionLabel && actionHref && (
-        <Link
-          href={actionHref}
-          style={{
-            display: "inline-block",
-            background: "var(--color-ink)",
-            color: "#ffffff",
-            padding: "8px 18px",
-            borderRadius: 8,
-            fontSize: 13,
-            fontWeight: 600,
-            textDecoration: "none",
-          }}
-        >
-          {actionLabel}
-        </Link>
-      )}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+        {actionLabel && actionHref && (
+          <Link
+            href={actionHref}
+            className="ds-btn ds-btn-primary"
+            style={{ textDecoration: "none" }}
+          >
+            <span>{actionLabel}</span>
+            <ArrowRight size={14} />
+          </Link>
+        )}
 
-      {actionLabel && onAction && !actionHref && (
-        <button
-          type="button"
-          onClick={onAction}
-          style={{
-            background: "var(--color-ink)",
-            color: "#ffffff",
-            border: "none",
-            padding: "8px 18px",
-            borderRadius: 8,
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
-          {actionLabel}
-        </button>
-      )}
+        {actionLabel && onAction && !actionHref && (
+          <button
+            type="button"
+            onClick={onAction}
+            className="ds-btn ds-btn-primary"
+          >
+            <span>{actionLabel}</span>
+            <ArrowRight size={14} />
+          </button>
+        )}
+
+        {secondaryLabel && secondaryHref && (
+          <Link
+            href={secondaryHref}
+            className="ds-btn ds-btn-secondary"
+            style={{ textDecoration: "none" }}
+          >
+            <span>{secondaryLabel}</span>
+          </Link>
+        )}
+      </div>
     </div>
   );
 }

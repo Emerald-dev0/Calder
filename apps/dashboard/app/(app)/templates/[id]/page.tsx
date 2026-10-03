@@ -1,8 +1,11 @@
+import Link from "next/link";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb, templates, templateVersions } from "@calder/db";
 import { getTenantContext } from "../../../../lib/auth";
 import { EmptyState } from "../../../../components/empty-state";
 import { TemplateEditor } from "../editor";
+import { FileCode2, ArrowLeft, History } from "lucide-react";
+import { DsPageHeader, StatusPill, RelativeTime } from "../../../../components/design-system";
 
 export const metadata = { title: "Calder — Template" };
 
@@ -46,19 +49,28 @@ export default async function TemplateDetailPage({ params }: { params: { id: str
 
   return (
     <div>
-      <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px" }}>
-        {tpl.name}{" "}
-        <span
-          className="mono"
-          style={{ fontSize: 12, color: "var(--color-muted)", fontWeight: 400 }}
-        >
-          alias: {tpl.alias}
-        </span>
-      </h1>
-      <p style={{ color: "var(--color-muted)", fontSize: 13, margin: "0 0 16px" }}>
-        {versions.length} {versions.length === 1 ? "version" : " versions"} · editing saves a new
-        version; sends always take latest ({latest?.version ?? "none"}).
-      </p>
+      <DsPageHeader
+        icon={<FileCode2 size={18} />}
+        title={tpl.name}
+        badge={
+          <StatusPill
+            status="active"
+            label={`alias: ${tpl.alias ?? "none"} · ${latest?.version ?? "v1"}`}
+          />
+        }
+        description={`${versions.length} ${versions.length === 1 ? "version" : "versions"} · saving publishes a new immutable version; API sends resolve latest (${latest?.version ?? "none"}).`}
+        actions={
+          <Link
+            href="/templates"
+            className="ds-btn ds-btn-secondary"
+            style={{ textDecoration: "none" }}
+          >
+            <ArrowLeft size={14} />
+            <span>All templates</span>
+          </Link>
+        }
+      />
+
       <TemplateEditor
         projectId={tpl.projectId}
         mode="edit"
@@ -69,36 +81,43 @@ export default async function TemplateDetailPage({ params }: { params: { id: str
           text: latest?.text ?? "",
         }}
       />
+
       {versions.length > 0 && (
-        <div style={{ marginTop: 24, maxWidth: 760 }}>
-          <p style={{ fontSize: 12, color: "var(--color-muted)", margin: "0 0 8px" }}>
-            Version history
-          </p>
-          {versions.map((v) => (
-            <div
-              key={v.id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                fontSize: 12,
-                padding: "6px 0",
-                borderBottom: "1px solid #f5f5f5",
-              }}
-            >
-              <b className="mono">{v.version}</b>
-              <span style={{ color: "var(--color-muted)" }}>
-                {new Date(v.createdAt).toLocaleString("en-GB", {
-                  day: "numeric",
-                  month: "short",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-                {" · "}
-                {v.html ? "html" : "text"}
-                {v.subject ? " · subject" : ""}
-              </span>
+        <div className="ds-card" style={{ marginTop: 20 }}>
+          <div className="ds-card-header">
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <History size={15} style={{ color: "var(--color-muted)" }} />
+              <h2 className="ds-card-title">Immutable Version History</h2>
             </div>
-          ))}
+          </div>
+          <div className="ds-card-body" style={{ paddingTop: 8, paddingBottom: 8 }}>
+            {versions.map((v, i) => (
+              <div
+                key={v.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  fontSize: 12.5,
+                  padding: "9px 4px",
+                  borderTop: i === 0 ? "none" : "1px solid var(--color-border)",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <StatusPill status={i === 0 ? "active" : "queued"} label={`v${v.version}`} />
+                  <span style={{ color: "var(--color-ink-secondary)" }}>
+                    {v.subject || "(no subject)"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span className="mono" style={{ fontSize: 11, color: "var(--color-muted)" }}>
+                    {v.html ? "HTML" : "Plaintext"}
+                  </span>
+                  <RelativeTime value={v.createdAt} />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
