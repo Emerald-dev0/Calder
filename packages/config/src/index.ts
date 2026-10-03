@@ -31,6 +31,18 @@ const envSchema = z.object({
   // Founder bootstrap: comma-separated emails auto-granted owner of org_avenor on first login
   FOUNDER_EMAILS: z.string().optional(),
 
+  // Organization-level email safety policy. New orgs get a temporary live-send
+  // ceiling; recent provider feedback can automatically pause sending.
+  ORG_NEW_SEND_LIMIT: z.coerce.number().int().positive().default(50),
+  ORG_NEW_SEND_WINDOW_HOURS: z.coerce.number().positive().default(24),
+  ORG_ABUSE_WINDOW_HOURS: z.coerce.number().positive().default(168),
+  ORG_ABUSE_MINIMUM_SENDS: z.coerce.number().int().positive().default(20),
+  ORG_BOUNCE_RATE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.1),
+  ORG_COMPLAINT_RATE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.02),
+
+  // Comma-separated additional disposable domains to reject at account creation.
+  DISPOSABLE_EMAIL_DOMAINS: z.string().optional(),
+
   // Email Provider, optional in dev (mock provider used). In production the
   // credentials are required: @calder/providers refuses to simulate delivery.
   AWS_REGION: z.string().default("us-east-1"),

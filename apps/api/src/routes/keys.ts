@@ -52,13 +52,14 @@ keys.post("/", authMiddleware, async (c) => {
   if (!parsed.success)
     throw new AppError("validation_error", "Invalid key", 400, parsed.error.flatten());
 
-  const { getDb, apiKeys } = await import("@calder/db");
+  const { getDb, insertApiKeyForActiveOrganization, OrganizationNotActiveError } =
+    await import("@calder/db");
   const { randomUUID } = await import("node:crypto");
   const db = getDb();
   const generated = generateApiKey(parsed.data.env);
-  const [created] = await db
-    .insert(apiKeys)
-    .values({
+  let created;
+  try {
+    [created] = await insertApiKeyForActiveOrganization(db, a.projectId, {
       id: `key_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
       projectId: a.projectId,
       name: parsed.data.name.trim().slice(0, 100),
@@ -66,8 +67,18 @@ keys.post("/", authMiddleware, async (c) => {
       keyHash: generated.hash,
       env: parsed.data.env,
       scope: parsed.data.scope,
-    })
-    .returning();
+    });
+  } catch (err) {
+    if (err instanceof OrganizationNotActiveError) {
+      throw new AppError(
+        "organization_sending_unavailable",
+        "Sending is currently unavailable for this organization.",
+        403
+      );
+    }
+    throw err;
+  }
+  if (!created) throw new AppError("internal_error", "Could not create API key.", 500);
   return c.json(
     {
       data: {

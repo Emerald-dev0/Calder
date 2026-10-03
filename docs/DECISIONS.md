@@ -847,3 +847,60 @@ Ruby + PHP were authored without runtimes in the sandbox and are marked
 beta/source-available until CI gains those toolchains. Publication
 (npm/PyPI/gem/Packagist) is owner-manual per the publish steps in
 `sdks/README.md`; the dashboard SDK hub only ever shows what exists.
+
+## ADR-043: Phase 1 abuse protection is an organization-wide, transactional sending gate
+
+**Status:** Accepted (2026-10-03)
+
+**Decision:** Store one sending status on the existing organization row
+(`active`, `abuse_paused`, `suspended`). At acceptance, serialize live
+new-organization allowance and existing plan quota with the email/idempotency
+write under that row's lock. Default new-org allowance is 50 persisted live
+sends during the first 24 hours. Test sends remain exempt from quotas and
+billing; Calder's internal org is exempt from quotas but not from safety state.
+
+Verified SES feedback is transactionally deduplicated/applied with suppression,
+organization auto-pause, and audit. Feedback evaluation takes the organization
+row lock so concurrent SNS events cannot all observe a below-threshold partial
+count and miss a crossing. Over a configurable recent window (default
+7 days), permanent bounces or complaints can pause only an active org after at
+least 20 provider-accepted live sends. Defaults are 10% permanent bounces and
+2% complaints; a zero threshold disables that signal. Rates count unique
+matched email rows, not duplicate SNS deliveries or recipient fan-out. Soft
+bounces remain excluded, consistent with the existing suppression policy.
+
+Every send-admission path shares the database helper; both API drain and worker
+re-read organization state before each provider leg. Founder, platform-admin,
+or security operators can suspend/resume in the Control Plane; the bearer-gated
+`POST /v1/admin/organizations/:orgId/sending-status` endpoint is the emergency
+path and requires an idempotency key so repeated actions replay one result. Suspension revokes all org API keys in the same transaction as the state
+change and audit entry. Resume never revives those keys. Key authentication has
+no application cache, so committed `revoked_at` takes effect on the next
+lookup. No stale organization-state cache is introduced.
+
+New-account creation rejects a curated built-in disposable-domain list plus
+operator-supplied `DISPOSABLE_EMAIL_DOMAINS`, across password, OAuth, and
+magic-link account creation. Existing sign-in/linking and magic-link issuance
+are unaffected. The customer-facing error is generic and reveals neither the
+matched domain nor internal abuse thresholds.
+
+**Why:** the shared SES identity makes one abusive tenant a platform-wide
+reputation and availability risk. A single canonical org state, existing email
+queue, existing usage ledger, and existing audit log avoid parallel policy
+systems. An organization row lock closes concurrent-project/key cap races;
+worker-time reads close queued/retry stale authorization. Permanent bounces
+are a more stable signal than transient mailbox/network deferrals. A manual
+resume plus explicit key replacement makes the kill-switch reversible without
+silently restoring credentials.
+
+**Configuration:** `ORG_NEW_SEND_LIMIT=50`,
+`ORG_NEW_SEND_WINDOW_HOURS=24`, `ORG_ABUSE_WINDOW_HOURS=168`,
+`ORG_ABUSE_MINIMUM_SENDS=20`, `ORG_BOUNCE_RATE_THRESHOLD=0.10`,
+`ORG_COMPLAINT_RATE_THRESHOLD=0.02`; all validated in `@calder/config`.
+`DISPOSABLE_EMAIL_DOMAINS` appends domains to the built-in list. The forward-only
+schema change is `0024_organization_sending_safety`.
+
+**Limitations:** the built-in domain list is curated, not exhaustive; tuning
+thresholds requires production feedback and daily review; SNS delivery must be
+wired and verified operationally; appeal/review is manual. This decision does
+not build SMTP, paid billing, non-email channels, referrals, or AI scoring.

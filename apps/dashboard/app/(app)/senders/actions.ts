@@ -253,26 +253,35 @@ export async function testSend(
   const usable = sender.status === "verified" || sender.status === "connected";
   if (!usable) throw new Error(`${sender.email} isn't ready. Check its status first.`);
   const emailId = `em_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
-  await db.insert(emails).values({
-    id: emailId,
-    projectId: sender.projectId,
-    from: sender.email,
-    senderIdentityId: sender.id,
-    fromName: sender.displayName,
-    to: address,
-    subject: `Test send from ${sender.displayName}`,
-    text: `This is a test send from ${sender.displayName} <${sender.email}> via Calder. If you're reading this, the sender works end to end.`,
-    status: "queued",
-    // Explicit: a human pressed "send test" in the dashboard.
-    env: "live",
-  });
-  await db.insert(emailEvents).values({
-    id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
-    emailId,
-    projectId: sender.projectId,
-    type: "queued",
-    data: { via: "dashboard-test-send" },
-  });
+  const { withProjectSendingEligibility } = await import("@calder/db");
+  const admission = await withProjectSendingEligibility(
+    db,
+    { projectId: sender.projectId, env: "live" },
+    async (tx) => {
+      await tx.insert(emails).values({
+        id: emailId,
+        projectId: sender.projectId,
+        from: sender.email,
+        senderIdentityId: sender.id,
+        fromName: sender.displayName,
+        to: address,
+        subject: `Test send from ${sender.displayName}`,
+        text: `This is a test send from ${sender.displayName} <${sender.email}> via Calder. If you're reading this, the sender works end to end.`,
+        status: "queued",
+        env: "live",
+      });
+      await tx.insert(emailEvents).values({
+        id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+        emailId,
+        projectId: sender.projectId,
+        type: "queued",
+        data: { via: "dashboard-test-send" },
+      });
+      return true;
+    }
+  );
+  const { assertDashboardAdmissionAllowed } = await import("../../../lib/sending-eligibility");
+  assertDashboardAdmissionAllowed(admission.decision);
   const { createQueue } = await import("@calder/queue");
   const queue = createQueue<{ emailId: string; projectId: string }>("email:send", {
     maxAttempts: 5,

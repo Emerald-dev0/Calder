@@ -9,6 +9,8 @@ import {
   organizationMembers,
   subscriptions,
   plans,
+  OrganizationSendingStatusIdempotencyConflictError,
+  setOrganizationSendingStatus,
 } from "@calder/db";
 import { logger } from "@calder/observability";
 import { randomUUID } from "node:crypto";
@@ -213,6 +215,11 @@ const subscriptionSchema = z.object({
   months: z.number().int().min(1).max(36).default(1),
 });
 
+const organizationSendingStatusSchema = z.object({
+  status: z.enum(["active", "suspended"]),
+  reason: z.string().trim().min(6).max(500),
+});
+
 /**
  * GET /v1/admin/organizations, every org with its active plan, period end,
  * and member count. Admin-gated. Sorted by newest first.
@@ -236,12 +243,57 @@ admin.get("/organizations", adminAuthMiddleware, async (c) => {
       id: org.id,
       name: org.name,
       slug: org.slug,
+      sendingStatus: org.sendingStatus,
+      sendingStatusReason: org.sendingStatusReason,
       members: members ?? 0,
       plan: active?.planId ?? null,
       periodEnd: active?.periodEnd ? new Date(active.periodEnd).toISOString() : null,
     });
   }
   return c.json({ data: out });
+});
+
+/**
+ * POST /v1/admin/organizations/:orgId/sending-status
+ * {status: "suspended" | "active", reason}. Requires Idempotency-Key.
+ * Suspension revokes all live/test keys across every project in one transaction.
+ */
+admin.post("/organizations/:orgId/sending-status", adminAuthMiddleware, async (c) => {
+  const idempotencyKey = c.req.header("idempotency-key")?.trim() ?? "";
+  if (idempotencyKey.length < 1 || idempotencyKey.length > 255) {
+    throw validationError("An Idempotency-Key between 1 and 255 characters is required.");
+  }
+  const parsed = organizationSendingStatusSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) {
+    throw validationError("status (active|suspended) and a 6-500 character reason are required.");
+  }
+  const organizationId = c.req.param("orgId");
+  try {
+    const result = await setOrganizationSendingStatus(getDb(), {
+      organizationId,
+      status: parsed.data.status,
+      actorUserId: null,
+      actor: "admin_api_key",
+      reason: parsed.data.reason,
+      idempotencyKey,
+    });
+    return c.json({
+      data: {
+        organizationId,
+        previousStatus: result.previousStatus,
+        status: result.status,
+        revokedKeyCount: result.revokedKeyCount,
+      },
+    });
+  } catch (err) {
+    if (err instanceof OrganizationSendingStatusIdempotencyConflictError) {
+      throw new AppError("idempotency_conflict", err.message, 409);
+    }
+    if (err instanceof Error && err.message === "Organization not found.") {
+      throw new AppError("not_found", "Organization not found.", 404);
+    }
+    throw err;
+  }
 });
 
 /**

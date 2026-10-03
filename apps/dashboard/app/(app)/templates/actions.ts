@@ -1,7 +1,13 @@
 "use server";
 
 import { and, desc, eq } from "drizzle-orm";
-import { getDb, templates, templateVersions, apiKeys } from "@calder/db";
+import {
+  getDb,
+  templates,
+  templateVersions,
+  apiKeys,
+  insertApiKeyForActiveOrganization,
+} from "@calder/db";
 import { generateApiKey } from "@calder/auth";
 import { getConfig } from "@calder/config";
 import { assertProjectAccess } from "../onboarding/actions";
@@ -112,7 +118,7 @@ export async function testSendTemplate(
 
   const key = generateApiKey("test");
   const keyId = rid("key");
-  await db.insert(apiKeys).values({
+  await insertApiKeyForActiveOrganization(db, projectId, {
     id: keyId,
     projectId,
     name: "template test-send (one-time)",

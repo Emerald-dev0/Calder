@@ -1,63 +1,35 @@
 /**
- * Ingest-time quota enforcement (Phase 2 / M2.2).
+ * Ingest-time quota enforcement.
  *
- * PRICING §5: hard limits, no silent overages — exhaustion answers
- * `plan_limit_reached` with limit, usage and reset time, plus an upgrade
- * pointer. Test-key traffic is never metered or limited; the internal org
- * (Calder's own confirmation/auth mail) is never throttled by its own
- * platform (waitlist confirmations must always send).
+ * The database package owns the shared organization quota decision so the API,
+ * dashboard and any future admission path use the same policy. The email
+ * ledger remains the exactly-once provider-accept meter; this helper only
+ * checks already-accepted live email rows before admission.
  */
 
 import { AppError } from "../errors/index.js";
-import { planEmailsLimit, PLAN_LIMITS, type UsagePeriod } from "@calder/config";
-import { orgAcceptedLiveInPeriod, orgUsagePeriod, resolveOrgTier, type DbClient } from "@calder/db";
+import { PLAN_LIMITS, type UsagePeriod } from "@calder/config";
+import {
+  checkOrganizationQuota,
+  INTERNAL_ORGANIZATION_ID,
+  type DbClient,
+  type OrganizationQuotaDecision,
+} from "@calder/db";
 
-export const INTERNAL_ORG_ID = "org_avenor";
+export const INTERNAL_ORG_ID = INTERNAL_ORGANIZATION_ID;
 
-export interface QuotaDecision {
-  allowed: boolean;
-  tier: string;
-  limit: number | null;
-  usage: number;
+export interface QuotaDecision extends OrganizationQuotaDecision {
   period: UsagePeriod;
-  reason?: "test-env" | "internal-org" | "unlimited-tier";
 }
 
-/**
- * Decide whether `organizationId` may accept `incoming` more live sends now
- * (default 1). Counts already-accepted live rows in the current period, so
- * queued mail counts too — bursting past the cap while mail is in flight is
- * not possible.
- */
-export async function checkSendQuota(
+/** Shared org-level quota calculation (test/internal exemptions included). */
+export function checkSendQuota(
   db: DbClient,
   organizationId: string,
   env: "test" | "live",
   incoming = 1
 ): Promise<QuotaDecision> {
-  const period = await orgUsagePeriod(db, organizationId);
-  if (env === "test") {
-    return { allowed: true, tier: "n/a", limit: null, usage: 0, period, reason: "test-env" };
-  }
-  if (organizationId === INTERNAL_ORG_ID) {
-    return {
-      allowed: true,
-      tier: "internal",
-      limit: null,
-      usage: 0,
-      period,
-      reason: "internal-org",
-    };
-  }
-  const [tier, usage] = await Promise.all([
-    resolveOrgTier(db, organizationId),
-    orgAcceptedLiveInPeriod(db, organizationId, period),
-  ]);
-  const limit = planEmailsLimit(tier);
-  if (limit === null) {
-    return { allowed: true, tier, limit, usage, period, reason: "unlimited-tier" };
-  }
-  return { allowed: usage + incoming <= limit, tier, limit, usage, period };
+  return checkOrganizationQuota(db, organizationId, env, incoming);
 }
 
 /** Throw the PRICING-shaped refusal when the quota gate fails. */
