@@ -1,0 +1,5 @@
+cf72908 feat: redesign onboarding flow
+16f237d Merge pull request #46 from Emerald-dev0/fix/prod-auth-outage
+923298c fix(lint): prefer-const in migration-status
+462a8c9 fix(auth): prod outage — migrated schema, quiet OAuth, sanitized errors, drift gate
+a45f25f Merge pull request #45 from Emerald-dev0/fix/build-excludes-tests
