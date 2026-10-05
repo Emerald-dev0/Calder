@@ -1,6 +1,7 @@
 # PROGRESS
 
 ## Done (2026-10-02)
+
 - 00-inventory.md: 4 apps, 16 route mounts, 34 tables, 18 sidebar items, jobs/cron, env/third-parties, REAL/PARTIAL/STUB/ABSENT scorecard.
 - Areas A–P (email scope): all sub-items PASS/FAIL/PARTIAL/NOT VERIFIED with file:line evidence (specialist passes + synthesis in 01-AUDIT.md).
 - Ran: `pnpm --filter @calder/api typecheck` (exit 0); `pnpm --filter @calder/api test` (80 passed, 57 integration-skipped); `pnpm audit` (48 vulns 2L/25M/17H/4C); secret scan repo + history (no live committed secret; .env ignored/untracked, sandbox key only); `git status` (1 uncommitted onboarding file — not covered, re-audit after merge).
@@ -11,6 +12,7 @@
 - Nothing modified outside /audit (verified: `git status --short` shows only pre-existing onboarding diff).
 
 ## NOT done / remains
+
 - Full `pnpm typecheck` (timed out 180s) — re-run per-package or longer timeout.
 - `pnpm lint`, `pnpm build`, `pnpm format:check` outputs — not captured this pass.
 - 57 integration tests — need Postgres+Redis (`RUN_INTEGRATION_TESTS=1`).
