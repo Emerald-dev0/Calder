@@ -37,6 +37,39 @@ cron.on(["GET", "POST"], "/drain", async (c) => {
 });
 
 /**
+ * GET/POST /v1/cron/alerts — evaluate every operational alert rule and return
+ * the result. Deliberately reachable by any monitor with the shared secret:
+ * alerting must not depend on a monitoring vendor being wired up first, and a
+ * human must be able to ask the same question with curl.
+ *
+ * Returns 503 when any **critical** alert is active, so a plain uptime monitor
+ * pointed at this URL pages without parsing JSON. 200 means "no alerts".
+ */
+cron.on(["GET", "POST"], "/alerts", async (c) => {
+  if (!authorized(c))
+    return c.json({ error: { code: "unauthorized", message: "Invalid cron secret" } }, 401);
+
+  const { evaluateOperationalAlerts } = await import("../lib/operational-alerts.js");
+  const evaluation = await evaluateOperationalAlerts();
+
+  if (evaluation.alerts.length > 0) {
+    logger.warn(
+      {
+        alerts: evaluation.alerts.map((a) => ({
+          id: a.id,
+          severity: a.severity,
+          summary: a.summary,
+        })),
+      },
+      `operational alerts active: ${evaluation.alerts.length}`
+    );
+  }
+
+  const critical = evaluation.alerts.some((a) => a.severity === "critical");
+  return c.json(evaluation, critical ? 503 : 200);
+});
+
+/**
  * POST/GET /cron/aggregate-usage — fold the per-email meter entries
  * (usage_records) into per-org period rollups (usage_summaries) for the
  * CURRENT period of every org. Idempotent: deterministic summary ids +

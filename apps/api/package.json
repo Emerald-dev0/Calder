@@ -13,7 +13,8 @@
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "clean": "rm -rf dist",
-    "launch-check": "tsx src/scripts/launch-check.ts"
+    "launch-check": "tsx src/scripts/launch-check.ts",
+    "verify-deploy": "tsx src/scripts/verify-deploy.ts"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.600.0",

@@ -7,14 +7,29 @@
  * and vitest), so a raw multi-file entry crashes at boot with
  * ERR_MODULE_NOT_FOUND on e.g. `@calder/observability/src/index.ts`.
  *
- * `pnpm build` therefore runs `scripts/bundle-serverless.mjs`, which compiles
- * this file — inlining every `@calder/*` workspace source while leaving npm
- * packages as normal external imports Vercel traces from node_modules — and
- * emits the self-contained `api/index.js` that actually ships (gitignored).
- * The long-running node server (`src/index.ts`) remains for local dev and
- * non-serverless deploys.
+ * `pnpm build` therefore runs `apps/api/scripts/bundle-serverless.mjs`, which
+ * compiles this file — inlining every `@calder/*` workspace source while
+ * leaving npm packages as normal external imports Vercel traces from
+ * node_modules — and emits the self-contained `api/index.js` that actually
+ * ships (gitignored). The long-running node server (`src/index.ts`) remains
+ * for local dev and non-serverless deploys.
+ *
+ * Phase 2: the deployment's queue requirement is asserted at module load. On
+ * Vercel (a hosted environment) a missing REDIS_URL makes the function fail
+ * loudly on cold start instead of quietly accepting sends onto an in-process
+ * queue that cannot survive the next invocation.
  */
+import { assertQueueBootConfig, describeBoot, redisTargetLabel } from "@calder/config";
+import { initErrorReporting, logger } from "@calder/observability";
 import { createApp } from "./app.js";
+
+const redisUrl = assertQueueBootConfig("api");
+const boot = describeBoot("api");
+void initErrorReporting({ service: "api" });
+logger.info(
+  { ...boot, redisTarget: redisTargetLabel(redisUrl) },
+  `API serverless function initialized (${boot.deployEnv})`
+);
 
 const app = createApp();
 

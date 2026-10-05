@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { SendEmailInput } from "@calder/validation";
 import { createQueue } from "@calder/queue";
-import { logger } from "@calder/observability";
+import { captureError, logger, queueEnqueueFailures } from "@calder/observability";
 import { getConfig, isProduction } from "@calder/config";
 import { AppError } from "../errors/index.js";
 import type { DbClient } from "@calder/db";
@@ -414,8 +414,20 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       logger.info({ emailId, projectId, requestId, env }, "Email enqueued");
     }
   } catch (queueErr) {
+    // Redis refused the job (or timed out) — this is the observable half of the
+    // durable design: the Postgres row is already committed and the drain is
+    // the backstop, so the send is never lost, but the failure is counted for
+    // the queue_enqueue_failures alert and reported with its classification.
+    queueEnqueueFailures.inc();
+    captureError(queueErr, {
+      service: "api",
+      requestId,
+      projectId,
+      emailId,
+      route: "queue:email:send",
+    });
     logger.error(
-      { err: queueErr, emailId, projectId, persisted },
+      { emailId, projectId, persisted },
       persisted
         ? "Enqueue failed; send remains queued and the scheduled drain will pick it up"
         : "Enqueue failed for an unpersisted (dev in-memory) send"

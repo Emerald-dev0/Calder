@@ -1,10 +1,69 @@
 import pino, { type Logger as PinoLogger } from "pino";
+import { redactText } from "./redact.js";
 
 export type Logger = PinoLogger;
 
 const isDev = process.env.NODE_ENV === "development";
 
-function createPinoOptions(level: string = process.env.LOG_LEVEL ?? "info") {
+/**
+ * Credential-shaped keys removed from every log line, whatever the caller
+ * passes. The second layer is `serializers.err` + the reporting boundary,
+ * which also pattern-scrub free-form text (connection URLs in error messages).
+ */
+const REDACT_PATHS = [
+  "password",
+  "*.password",
+  "passwd",
+  "*.passwd",
+  "secret",
+  "*.secret",
+  "token",
+  "*.token",
+  "*.accessToken",
+  "*.refreshToken",
+  "*.apiKey",
+  "*.keyHash",
+  "*.authorization",
+  "authorization",
+  "headers.authorization",
+  "*.cookie",
+  "cookie",
+  "*.dsn",
+  "dsn",
+  "*.signature",
+  "*.webhookSecret",
+  "*.clientSecret",
+  "*.otp",
+  "*.verificationCode",
+  "req.headers.authorization",
+  "req.headers.cookie",
+  "res.headers['set-cookie']",
+];
+
+export function createPinoOptions(level: string = process.env.LOG_LEVEL ?? "info") {
+  const shared = {
+    level,
+    redact: { paths: REDACT_PATHS, censor: "[redacted]" },
+    serializers: {
+      err(err: unknown) {
+        if (err instanceof Error) {
+          return {
+            type: err.name,
+            message: redactText(err.message),
+            code: (err as { code?: unknown }).code,
+          };
+        }
+        return err;
+      },
+      error(err: unknown) {
+        if (err instanceof Error) {
+          return { type: err.name, message: redactText(err.message) };
+        }
+        return err;
+      },
+    },
+  };
+
   if (isDev) {
     // pino-pretty is a dev-only pretty printer loaded via dynamic require by
     // pino's transport. In bundled/serverless runs (Vercel) the string target
@@ -14,7 +73,7 @@ function createPinoOptions(level: string = process.env.LOG_LEVEL ?? "info") {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       require.resolve("pino-pretty");
       return {
-        level,
+        ...shared,
         transport: {
           target: "pino-pretty",
           options: {
@@ -29,7 +88,7 @@ function createPinoOptions(level: string = process.env.LOG_LEVEL ?? "info") {
     }
   }
   return {
-    level,
+    ...shared,
     formatters: {
       level(label: string) {
         return { level: label };

@@ -1,10 +1,22 @@
 import { createQueue, type QueueJob } from "@calder/queue";
 import { isTransientError, getRetryDelay } from "@calder/queue";
 import { pickDefaultTransport, GMAIL_FREE_DAILY_CAP } from "@calder/email";
-import { createEmailService, MockEmailProvider, type EmailService } from "@calder/email";
+import {
+  createEmailService,
+  isProviderError,
+  MockEmailProvider,
+  type EmailService,
+} from "@calder/email";
 import { GmailTransport, resolveEmailProvider } from "@calder/providers";
 import { getGmailRefreshToken } from "@calder/auth";
-import { logger, type Logger } from "@calder/observability";
+import {
+  captureError,
+  exhaustedJobs,
+  logger,
+  providerFailures,
+  type Logger,
+} from "@calder/observability";
+import { recordJobOutcome, recordJobThrow, recordRedisError } from "./worker-stats.js";
 import { randomUUID } from "node:crypto";
 
 interface TransportCandidate {
@@ -355,7 +367,6 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
         headers: Object.keys(email.headers).length > 0 ? email.headers : undefined,
         attachments: email.attachments.length > 0 ? email.attachments : undefined,
       };
-      const { isProviderError } = await import("@calder/email");
       let result: import("@calder/email").ProviderSendResult | null = null;
       let transportName = "default";
       let lastErr: unknown = null;
@@ -465,10 +476,18 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
     } catch (err) {
       const transient = isTransientError(err);
       const attempt = job.attempts + 1;
-      logger.error(
-        { err, emailId, transient, attempt },
-        `Email job failed (transient=${transient})`
-      );
+      // Counted for the provider_failure_sustained alert; classified and
+      // logged (shipped only when it is genuinely unexpected).
+      if (isProviderError(err)) providerFailures.inc();
+      captureError(err, {
+        service: "worker",
+        jobId: job.id,
+        emailId,
+        projectId,
+        attempt,
+        transient,
+      });
+      logger.error({ emailId, transient, attempt }, `Email job failed (transient=${transient})`);
 
       if (!transient) {
         // Permanent failure, mark as failed, emit webhook, don't retry indefinitely
@@ -507,7 +526,9 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
         throw err; // queue will re-enqueue with backoff
       }
 
-      // Exhausted, dead-letter
+      // Exhausted, dead-letter: counted for the repeated-job-failures alert and
+      // left on the row as the durable record.
+      exhaustedJobs.inc();
       logger.error(
         { emailId, attempts: job.maxAttempts },
         "Email job exhausted, moving to dead-letter"
@@ -539,14 +560,33 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
 }
 
 export async function startWorker() {
-  // Shared queue, InMemory for scaffold; RedisQueue in production
+  // Redis-backed in every hosted environment. `createQueue` refuses to build an
+  // in-process queue there (see @calder/queue), so this cannot silently become
+  // a single-process consumer in staging or production.
   const queue = createQueue<EmailJobData>("email:send", { maxAttempts: 5 });
 
+  // Surface backend errors on the worker's health/status path instead of only
+  // in the Redis client's own logs.
+  if ("onError" in queue && typeof queue.onError === "function") {
+    (queue as unknown as { onError: (fn: (err: Error) => void) => void }).onError((err) =>
+      recordRedisError(err)
+    );
+  }
+
   queue.process(async (job: QueueJob<EmailJobData>) => {
-    await processEmailJob(job);
+    const started = Date.now();
+    try {
+      const outcome = await processEmailJob(job);
+      recordJobOutcome(outcome, Date.now() - started);
+    } catch (err) {
+      // Transient failure: the queue retries. Recorded here because the
+      // outcome never reaches processEmailJob's return path.
+      recordJobThrow(err, job.id, Date.now() - started);
+      throw err;
+    }
   });
 
-  logger.info("Worker consumer started on queue email:send");
+  logger.info({ driver: queue.driver }, "Worker consumer started on queue email:send");
 
   return queue;
 }
