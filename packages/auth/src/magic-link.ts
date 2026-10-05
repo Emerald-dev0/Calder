@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb, magicLinkTokens, users } from "@calder/db";
 import { createSession } from "./session.js";
 import { acceptPendingInvites, ensureFounderAccess } from "./oauth.js";
+import { assertNotDisposableEmail } from "./disposable-email.js";
 
 /** Raw magic-link token: 256 bits, hex. Only ever inside the emailed URL. */
 export const MAGIC_LINK_TTL_MINUTES = 15;
@@ -87,6 +88,7 @@ export async function consumeMagicLink(
   const [same] = await db.select().from(users).where(eq(users.email, row.email)).limit(1);
   let userId = same?.id ?? null;
   if (!userId) {
+    assertNotDisposableEmail(row.email);
     userId = newId("usr");
     await db.insert(users).values({
       id: userId,

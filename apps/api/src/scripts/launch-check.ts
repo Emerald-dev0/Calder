@@ -260,8 +260,8 @@ async function checkQueueAndOps(): Promise<void> {
     config.ADMIN_API_KEY ? "pass" : "warn",
     "admin access",
     config.ADMIN_API_KEY
-      ? "ADMIN_API_KEY set, broadcasts and template edits available"
-      : "ADMIN_API_KEY unset, /v1/admin/* disabled (no waitlist broadcasts)"
+      ? "ADMIN_API_KEY set, broadcasts, template edits, and organization safety actions available"
+      : "ADMIN_API_KEY unset, /v1/admin/* disabled (including organization safety actions)"
   );
   add(
     config.WEBHOOK_SIGNING_SECRET.startsWith("whsec_dev") ? "fail" : "pass",

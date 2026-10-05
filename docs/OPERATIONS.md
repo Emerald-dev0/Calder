@@ -16,6 +16,33 @@
 | Provider       | latency, errors                                                                                           |
 | Webhooks       | delivery failures, retry exhaustion                                                                       |
 
+## Phase 1 organization sending safety
+
+The source of truth and current defaults are in `docs/PHASE1-ABUSE.md` and
+`docs/DEPLOYMENT.md`. Verify SNS feedback wiring first: without a verified SES
+configuration set and accepted `SES_SNS_TOPIC_ARNS`, automatic feedback pause
+cannot run.
+
+- Review `organization.sending.auto_paused` and `organization.sending.*`
+  entries in the org detail audit trail / Control Plane Security Events.
+- An automatic `abuse_paused` status blocks new sends and causes queued/retried
+  mail to fail closed at delivery. API keys are not revoked by an automatic
+  pause; send eligibility is still checked on every path.
+- For an immediate manual stop, use **Control Plane → Customers → Organizations
+  → org detail → Sending safety → Suspend sending**, or the `ADMIN_API_KEY`
+  guarded `POST /v1/admin/organizations/:orgId/sending-status` endpoint. Include
+  an incident reason. The transaction changes org status, revokes all active
+  project API keys, and writes the audit row together.
+- Investigate recent matched provider events, the accepted-send denominator,
+  sender/domain verification, recipient permissions, and acquisition source.
+  Before resuming, confirm the underlying issue is addressed. Manual resume does
+  not restore revoked keys: issue replacements after review. Automatic pause
+  resume leaves keys intact. Support/appeal review is manual through
+  `support@calder.click` (subject: `sending safety review`); there is no
+  automated appeal workflow in this phase.
+- Blocked sends are not provider-delivered and do not create a usage-meter row.
+  Do not mark queued work as delivered during incident response.
+
 ## Scheduled jobs (all idempotent, safe to re-run)
 
 usage aggregation, subscription reconciliation, failed webhook retry sweep, stale domain-verification cleanup, log retention, suppression maintenance, provider health checks, billing reconciliation, scheduled email processing, expired OTP cleanup.

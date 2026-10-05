@@ -1,9 +1,10 @@
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb, users } from "@calder/db";
 import { createSession, revokeAllSessions } from "./session.js";
 import { acceptPendingInvites, ensureFounderAccess } from "./oauth.js";
 import { issueEmailCode, verifyEmailCode, normalizeEmail, isPlausibleEmail } from "./email-code.js";
+import { assertNotDisposableEmail } from "./disposable-email.js";
 
 /**
  * Scrypt parameters: N=16384, r=8, p=1, 64-byte key.
@@ -125,20 +126,16 @@ export async function signupWithPassword(
   const db = getDb();
   const [existingUser] = await db.select().from(users).where(eq(users.email, normalized)).limit(1);
 
+  // Existing verified accounts retain the enumeration-safe no-op behavior.
+  if (existingUser?.emailVerifiedAt && existingUser.passwordHash) {
+    return { ok: true, email: normalized, code: null, isNewUser: false };
+  }
+
+  assertNotDisposableEmail(normalized);
   const hash = await hashPassword(password);
   const trimmedName = name?.trim() || null;
 
   if (existingUser) {
-    // If the existing user is already verified and has a password, do not leak or overwrite.
-    if (existingUser.emailVerifiedAt && existingUser.passwordHash) {
-      return {
-        ok: true,
-        email: normalized,
-        code: null,
-        isNewUser: false,
-      };
-    }
-
     // User exists but is unverified (or has no password yet): update password and issue verification code
     await db
       .update(users)
