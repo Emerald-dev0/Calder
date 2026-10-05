@@ -193,11 +193,47 @@ jobs:
         env:
           DATABASE_URL: postgresql://calder:calder@localhost:5432/calder_e2e
 
+      # Output captured and annotated for the same reason as the verify job:
+      # GitHub's job-log endpoint returns EOF for this repo, so a red e2e step
+      # would otherwise be undiagnosable from the PR.
       - name: End-to-end journeys
-        run: pnpm --filter @calder/e2e test
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @calder/e2e test 2>&1 | tee e2e-output.log
         env:
           NODE_ENV: test
           E2E_DATABASE_URL: postgresql://calder:calder@localhost:5432/calder_e2e
           DATABASE_URL: postgresql://calder:calder@localhost:5432/calder_e2e
           REDIS_URL: redis://localhost:6379
           RUN_INTEGRATION_TESTS: "1"
+
+      - name: Upload e2e output (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-output
+          path: e2e-output.log
+          if-no-files-found: ignore
+          retention-days: 5
+
+      - name: Report failing tests as annotations
+        if: failure()
+        shell: bash
+        run: |
+          if [ ! -f e2e-output.log ]; then
+            echo "::error::e2e step failed before producing output"
+            exit 0
+          fi
+          emit() {
+            local line="$1"
+            line="${line//'%'/'%25'}"
+            line="${line//$'\r'/'%0D'}"
+            echo "::error::${line:0:600}"
+          }
+          while IFS= read -r line; do emit "$line"; done < <(
+            { grep -aE "Test Files +[0-9]+ failed|Tests +[0-9]+ failed" e2e-output.log || true
+              grep -aE "FAIL |× " e2e-output.log || true
+              grep -aE "AssertionError|Error: " e2e-output.log | head -8 || true
+            } | head -15 | sort -u
+          )
