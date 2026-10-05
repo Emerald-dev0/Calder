@@ -126,10 +126,28 @@ interface RedisClientLike {
 export class RedisRateLimiter implements RateLimiter {
   private client: RedisClientLike;
   private fallback: RateLimiter;
+  /** Rolling window for the degraded-mode counter (see `degradedSince`). */
+  private lastFallbackLogAt = 0;
+  private fallbacks = 0;
 
   constructor(redis: RedisClientLike) {
     this.client = redis;
     this.fallback = new InMemoryRateLimiter();
+  }
+
+  /**
+   * How many checks have fallen back to per-instance memory, and when the
+   * most recent fallback happened. Exposed so the API can report "limits are
+   * currently approximate" instead of degrading invisibly (ADR-041 chose
+   * availability over exactness — that choice stays, but it must be legible).
+   */
+  degradedState(): { fallbacks: number; lastFallbackAt: string | null } {
+    return {
+      fallbacks: this.fallbacks,
+      lastFallbackAt: this.lastFallbackLogAt
+        ? new Date(this.lastFallbackLogAt).toISOString()
+        : null,
+    };
   }
 
   async check(key: string, opts: RateLimitOptions): Promise<RateLimitResult> {
@@ -152,10 +170,21 @@ export class RedisRateLimiter implements RateLimiter {
         resetAt,
         retryAfterMs: allowed ? undefined : windowMs,
       };
-    } catch {
+    } catch (err) {
       // Redis down: degrade to per-instance memory rather than 500-ing every
-      // request — and log at the call site. Availability over exactness for
-      // the limiter itself (the endpoints have their own caps).
+      // request. Availability over exactness for the limiter itself (the
+      // endpoints have their own caps) — but never silently: the fallback is
+      // counted and logged once a minute, so "limits became approximate" is
+      // visible in logs and in /ready's limiter check.
+      this.fallbacks += 1;
+      const now = Date.now();
+      if (now - this.lastFallbackLogAt > 60_000) {
+        this.lastFallbackLogAt = now;
+        console.warn(
+          `[rate-limit] Redis unavailable (${err instanceof Error ? err.message : "unknown error"}): ` +
+            "falling back to per-instance limits. Requests are still served; enforcement is approximate."
+        );
+      }
       return this.fallback.check(key, opts);
     }
   }

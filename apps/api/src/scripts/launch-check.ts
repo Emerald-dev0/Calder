@@ -10,7 +10,14 @@
  */
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-import { getConfig } from "@calder/config";
+import {
+  describeBoot,
+  getConfig,
+  getRedisUrl,
+  isHostedEnv,
+  redisRequiredFor,
+} from "@calder/config";
+import { pingRedis } from "@calder/queue";
 import { resolveEmailProvider, getSesAccountStatus } from "@calder/providers";
 
 type Level = "pass" | "warn" | "fail" | "skip";
@@ -245,16 +252,54 @@ async function checkDatabase(): Promise<void> {
 
 async function checkQueueAndOps(): Promise<void> {
   const config = getConfig();
-  if (process.env.REDIS_URL) {
-    add("pass", "queue", "REDIS_URL set, durable retry queue");
+  const hosted = isHostedEnv();
+  const redisRequired = redisRequiredFor("api");
+  const redisUrl = getRedisUrl();
+
+  if (!redisUrl) {
+    if (redisRequired) {
+      add(
+        "fail",
+        "queue",
+        `REDIS_URL is required in ${describeBoot("api").deployEnv} (falls back to an in-process ` +
+          "queue that loses retries, scheduled mail and cross-process wake-ups; boot is refused)"
+      );
+    } else {
+      add(
+        "warn",
+        "queue",
+        "REDIS_URL unset, in-process queue only (allowed in development/test): retries do not " +
+          "survive a restart and scheduled/delayed mail is lost"
+      );
+    }
   } else {
-    add(
-      "warn",
-      "queue",
-      "REDIS_URL unset, in-process queue only: retries do not survive a deploy and " +
-        "scheduled/delayed mail is lost on restart"
-    );
+    const ping = await pingRedis(redisUrl, 3000);
+    if (!ping.ok) {
+      add(
+        hosted ? "fail" : "warn",
+        "queue",
+        `REDIS_URL is set but unreachable (${ping.detail}): accepts would persist, delivery would ` +
+          "stall until Redis returns"
+      );
+    } else {
+      add("pass", "queue", `REDIS_URL reachable (${ping.detail}) and durable`);
+    }
+    if (!hosted) {
+      add(
+        "warn",
+        "queue",
+        "REDIS_URL set outside a hosted environment: confirm this is intentional"
+      );
+    }
   }
+
+  add(
+    config.WORKER_EXPECTED ? "pass" : "skip",
+    "worker expectation",
+    config.WORKER_EXPECTED
+      ? `long-lived worker expected; heartbeat alerts fire after ${config.WORKER_HEARTBEAT_STALE_SECONDS}s without one`
+      : "WORKER_EXPECTED=false: delivery relies on the scheduled drain (/v1/cron/drain)"
+  );
 
   add(
     config.ADMIN_API_KEY ? "pass" : "warn",

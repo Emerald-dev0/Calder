@@ -56,6 +56,16 @@ export async function settleSuiteEmails(
  * suppressions) plus the suite user. Deleting while another file's drain
  * holds one of our rows is what used to produce foreign-key failures and
  * flaky assertions under parallel CI.
+ *
+ * Phase 2: the org's own rows are first terminalised (`queued`/`sending` →
+ * `failed`). Suites legitimately leave accepted-but-undrained sends behind
+ * (ingest tests assert the 202 and stop), and previously that meant this
+ * helper polled for the full 10-second budget on rows nothing would ever
+ * drain — which broke `afterAll` with "Hook timed out in 10000ms" whenever
+ * integration tests ran with RUN_INTEGRATION_TESTS=1. Terminalising test
+ * fixtures is safe: a drain that already claimed one of these rows tolerates
+ * the row disappearing (see lib/drain.ts / recordDrainEvent), and no
+ * production code path is affected.
  */
 export async function cleanupSuiteOrg(
   db: DbClient,
@@ -64,7 +74,21 @@ export async function cleanupSuiteOrg(
   opts: { pollMs?: number; rounds?: number } = {}
 ): Promise<void> {
   const pollMs = opts.pollMs ?? 200;
-  const rounds = opts.rounds ?? 50;
+  const rounds = opts.rounds ?? 5;
+
+  // Terminalise this suite's own drainable rows before waiting. Test data only.
+  await db
+    .update(emails)
+    .set({ status: "failed", lastError: "test suite cleanup", updatedAt: new Date() })
+    .where(
+      and(
+        inArray(
+          emails.projectId,
+          db.select({ id: projects.id }).from(projects).where(eq(projects.organizationId, orgId))
+        ),
+        drainable()
+      )
+    );
   for (let i = 0; i < rounds; i++) {
     const [inflight] = await db
       .select({ value: count() })

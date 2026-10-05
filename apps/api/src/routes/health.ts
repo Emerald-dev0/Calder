@@ -1,7 +1,16 @@
 import { Hono } from "hono";
 import type { Env } from "../app.js";
 import { createRequire } from "node:module";
-import { pingRedis } from "../lib/redis-ping.js";
+import { pingRedisUrl } from "../lib/redis-ping.js";
+import {
+  getConfig,
+  getRedisUrl,
+  isHostedEnv,
+  redisRequiredFor,
+  describeBoot,
+  ConfigurationError,
+} from "@calder/config";
+import { redactText, redactConnectionUrl, errorReportingStatus } from "@calder/observability";
 
 // Loaded via require, not a static import: per-file transpilers (esbuild,
 // including Vercel's) drop import attributes, which plain Node then rejects
@@ -33,26 +42,46 @@ health.get("/v1/openapi.json", (c) => {
   return c.json(spec);
 });
 
+/**
+ * Liveness: "is this process running and able to answer?".
+ * Deliberately dependency-free — a database blip must never make an
+ * orchestrator kill and restart an otherwise healthy process.
+ */
 health.get("/health", (c) => {
-  return c.json({ status: "ok", timestamp: new Date().toISOString() });
+  return c.json({
+    status: "ok",
+    service: "api",
+    checks: "liveness only",
+    timestamp: new Date().toISOString(),
+  });
 });
 
 type CheckState = "ok" | "degraded" | "skipped";
 
+interface CheckResult {
+  state: CheckState;
+  detail?: string;
+}
+
 /**
- * Readiness, with real checks and honest states.
+ * Readiness: "can this process safely do its job?".
  *
  * Rules this endpoint follows, because a lie here pages someone at 3am:
- * - "unavailable" is never reported as "ok"
- * - a check that cannot run is "skipped", with the reason
- * - the email provider check is the one that matters most for launch:
- *   a production deploy without credentials can accept sends and deliver
- *   nothing, so `/ready` refuses to say ready in that state.
+ * - "unavailable" is never reported as "ok";
+ * - a dependency required to do the job safely (database, queue in
+ *   staging/production, the email provider in production) gates readiness;
+ * - checks that are informational do not (the worker's own health is reported
+ *   but never flips API readiness — delivery has its own signal set);
+ * - a check that cannot run is "skipped", with the reason;
+ * - details are scrubbed: no URLs with credentials, no topology, no secrets.
  */
 health.get("/ready", async (c) => {
-  const checks: Record<string, { state: CheckState; detail?: string }> = {};
+  const checks: Record<string, CheckResult> = {};
   const required: string[] = [];
   let ready = true;
+
+  const config = getConfig();
+  const hosted = isHostedEnv();
 
   // ── Email provider (the launch-critical one) ──────────────────
   try {
@@ -62,15 +91,15 @@ health.get("/ready", async (c) => {
       state: status.deliverable ? "ok" : "degraded",
       detail: status.deliverable
         ? `driver=${status.driver}`
-        : `${status.reason ?? "not deliverable"}`,
+        : redactText(status.reason ?? "not deliverable"),
     };
-    if (!status.deliverable && process.env.NODE_ENV === "production") ready = false;
+    if (!status.deliverable && config.NODE_ENV === "production") ready = false;
     required.push("email_provider");
   } catch (err) {
     // resolveEmailProvider throws in production when credentials are missing.
     checks.email_provider = {
       state: "degraded",
-      detail: err instanceof Error ? err.message : "provider resolution failed",
+      detail: redactText(err instanceof Error ? err.message : "provider resolution failed"),
     };
     ready = false;
     required.push("email_provider");
@@ -82,31 +111,92 @@ health.get("/ready", async (c) => {
     const { sql } = await import("drizzle-orm");
     const db = getDb();
     await db.execute(sql`select 1`);
-    checks.database = { state: "ok" };
+    checks.database = { state: "ok", detail: redactConnectionUrl(config.DATABASE_URL) };
     required.push("database");
   } catch (err) {
     checks.database = {
-      state: process.env.DATABASE_URL ? "degraded" : "skipped",
-      detail: err instanceof Error ? err.message : "query failed",
+      state: "degraded",
+      detail: redactText(err instanceof Error ? err.message : "query failed"),
     };
-    if (process.env.DATABASE_URL) ready = false;
+    ready = false;
+    required.push("database");
   }
 
   // ── Queue / Redis ─────────────────────────────────────────────
-  if (process.env.REDIS_URL) {
-    const redis = await pingRedis(process.env.REDIS_URL);
+  // Required in staging and production; optional in development and test.
+  const redisUrl = getRedisUrl();
+  const queueRequired = redisRequiredFor("api");
+  if (redisUrl) {
+    const redis = await pingRedisUrl(redisUrl);
     checks.queue = {
       state: redis.ok ? "ok" : "degraded",
-      detail: redis.detail,
+      detail: redis.ok
+        ? `${redactConnectionUrl(redisUrl)} (${redis.detail})`
+        : redactText(redis.detail),
     };
     if (!redis.ok) ready = false;
+    required.push("queue");
+  } else if (queueRequired) {
+    // Should be unreachable: boot refuses to start. Kept as defence in depth
+    // for a process that was constructed without the boot assertion.
+    checks.queue = {
+      state: "degraded",
+      detail: `REDIS_URL is required in ${describeBoot("api").deployEnv} and is not set`,
+    };
+    ready = false;
     required.push("queue");
   } else {
     checks.queue = {
       state: "skipped",
-      detail: "REDIS_URL unset, in-process queue only (single instance)",
+      detail: "REDIS_URL unset: in-process queue only (development/test)",
     };
   }
+
+  // ── Informational: worker liveness ────────────────────────────
+  // Reported for operators, never gating API readiness: on serverless
+  // deployments there is no worker and delivery runs through the Postgres
+  // drain. Queue health has its own alert rules and endpoint.
+  checks.worker = config.WORKER_EXPECTED
+    ? await workerCheck(redisUrl, config.WORKER_HEARTBEAT_STALE_SECONDS, hosted)
+    : {
+        state: "skipped",
+        detail: "WORKER_EXPECTED=false: delivery runs through the scheduled drain",
+      };
+
+  // ── Informational: rate limiter posture ───────────────────────
+  // ADR-041 deliberately degrades to per-instance limits when Redis is down
+  // (availability over exactness). That is fine — silently is not. This makes
+  // "enforcement is currently approximate" visible without gating readiness.
+  try {
+    const { getRateLimiter } = await import("@calder/rate-limit");
+    const limiter = getRateLimiter() as unknown as {
+      degradedState?: () => { fallbacks: number; lastFallbackAt: string | null };
+    };
+    const state = limiter.degradedState?.();
+    checks.rate_limiter = state
+      ? {
+          state: state.fallbacks === 0 || !state.lastFallbackAt ? "ok" : "degraded",
+          detail:
+            state.fallbacks === 0
+              ? "exact (redis or memory only)"
+              : `${state.fallbacks} fallback(s), last at ${state.lastFallbackAt} (approximate)`,
+        }
+      : { state: "ok", detail: "in-process limiter (development/test)" };
+  } catch (err) {
+    checks.rate_limiter = {
+      state: "degraded",
+      detail: redactText(err instanceof Error ? err.message : "limiter check failed"),
+    };
+  }
+
+  // ── Informational: error tracking ─────────────────────────────
+  const reporting = errorReportingStatus();
+  checks.error_tracking = {
+    state: reporting.enabled ? "ok" : "skipped",
+    detail: reporting.enabled
+      ? `service=${reporting.service} environment=${reporting.environment}`
+      : "not configured: failures are logged only",
+  };
 
   return c.json(
     {
@@ -118,5 +208,52 @@ health.get("/ready", async (c) => {
     ready ? 200 : 503
   );
 });
+
+async function workerCheck(
+  redisUrl: string | null,
+  staleSeconds: number,
+  hosted: boolean
+): Promise<CheckResult> {
+  if (!redisUrl) {
+    return {
+      state: "skipped",
+      detail: hosted ? "no Redis configured" : "in-process dev mode has no worker heartbeat",
+    };
+  }
+  try {
+    const { WorkerHeartbeatStore, hasFreshHeartbeat } = await import("@calder/queue");
+    const store = new WorkerHeartbeatStore(redisUrl, { ttlSeconds: staleSeconds * 2 });
+    try {
+      const read = await store.read();
+      if (!read.ok) return { state: "degraded", detail: redactText(read.detail) };
+      if (read.heartbeats.length === 0) {
+        return {
+          state: "degraded",
+          detail: "no live worker heartbeat (serverless drain may be the path)",
+        };
+      }
+      return {
+        state: hasFreshHeartbeat(read.heartbeats, staleSeconds) ? "ok" : "degraded",
+        detail: `${read.heartbeats.length} worker(s), freshest ${freshestAge(read.heartbeats)}s ago`,
+      };
+    } finally {
+      store.close();
+    }
+  } catch (err) {
+    if (err instanceof ConfigurationError) throw err;
+    return {
+      state: "degraded",
+      detail: redactText(err instanceof Error ? err.message : "heartbeat check failed"),
+    };
+  }
+}
+
+function freshestAge(heartbeats: Array<{ updatedAt: string }>): number {
+  const newest = heartbeats.reduce((max, hb) => {
+    const t = Date.parse(hb.updatedAt);
+    return Number.isFinite(t) && t > max ? t : max;
+  }, 0);
+  return newest === 0 ? -1 : Math.round((Date.now() - newest) / 1000);
+}
 
 export default health;

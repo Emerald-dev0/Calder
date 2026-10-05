@@ -7,15 +7,43 @@ import { Reveal } from "../../components/reveal";
 export const metadata: Metadata = {
   title: "Status, Calder",
   description:
-    "Live operational status of the Calder platform: API, workers, providers, and webhooks.",
+    "Calder's operational status page: what is monitored today and where incident history is published.",
 };
 
+/**
+ * Honesty rule (§26): this page may only claim what the system can prove.
+ *
+ * Today that means: liveness/readiness endpoints exist and are monitored
+ * internally; per-component public uptime history does not exist yet. Each row
+ * therefore says what is actually known, and "history" rows are explicitly
+ * "not published" instead of implying live instrumentation.
+ */
 const COMPONENTS = [
-  { name: "API", desc: "Request validation, auth, enqueue" },
-  { name: "Workers", desc: "Send execution, retries, webhooks" },
-  { name: "Email delivery (SES)", desc: "Provider acceptance and sending" },
-  { name: "Webhooks", desc: "Event fan-out and retries" },
-  { name: "Dashboard", desc: "app.calder.click" },
+  {
+    name: "API",
+    desc: "Request validation, auth, enqueue",
+    monitoring: "liveness + readiness endpoints live; monitored internally",
+  },
+  {
+    name: "Workers",
+    desc: "Send execution, retries, webhooks",
+    monitoring: "worker health endpoint + queue metrics live; monitored internally",
+  },
+  {
+    name: "Email delivery (SES)",
+    desc: "Provider acceptance and sending",
+    monitoring: "provider errors alert internally; no public history yet",
+  },
+  {
+    name: "Webhooks",
+    desc: "Event fan-out and retries",
+    monitoring: "delivery failures alert internally; no public history yet",
+  },
+  {
+    name: "Dashboard",
+    desc: "app.calder.click",
+    monitoring: "not separately monitored yet",
+  },
 ] as const;
 
 export default function StatusPage() {
@@ -30,7 +58,7 @@ export default function StatusPage() {
               Trust through <em>transparency.</em>
             </>
           }
-          lede="Every component, its current state and its history, including the days that go badly. The public record starts now and stays public: an infrastructure company that hides its incidents is selling you a story."
+          lede="What is monitored today, stated plainly, and the incident history as it is published. This page does not show live per-component uptime yet: that data is collected internally and will be surfaced here once it is real. An infrastructure company that hides its incidents is selling you a story, and one that fakes a green dashboard is selling a worse one."
         />
         <section className="section" style={{ paddingTop: 0 }}>
           <div className="wrap">
@@ -45,7 +73,7 @@ export default function StatusPage() {
                   <span className="status-dot info" />
                   <span className="name">{c.name}</span>
                   <span className="caption">{c.desc}</span>
-                  <span className="uptime">instrumented · /health + /ready live</span>
+                  <span className="uptime">{c.monitoring}</span>
                 </div>
               ))}
             </Reveal>
@@ -63,8 +91,9 @@ export default function StatusPage() {
                   </div>
                 </div>
                 <p className="caption" style={{ marginTop: "1rem" }}>
-                  When something breaks, it goes here with a timeline and a postmortem. Subscribe
-                  via webhooks, naturally.
+                  When something breaks, it is recorded here with a timeline and a postmortem. Past
+                  incidents will only be published with dates we can evidence; there are none to
+                  show yet.
                 </p>
               </div>
             </Reveal>

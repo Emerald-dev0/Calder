@@ -8,7 +8,8 @@
     "API_URL",
     "APP_URL",
     "DASHBOARD_URL",
-    "RUN_INTEGRATION_TESTS"
+    "RUN_INTEGRATION_TESTS",
+    "E2E_DATABASE_URL"
   ],
   "tasks": {
     "build": {
@@ -49,6 +50,9 @@
     "db:studio": {
       "cache": false,
       "persistent": true
+    },
+    "db:status": {
+      "cache": false
     }
   }
 }

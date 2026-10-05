@@ -32,6 +32,19 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+      # Redis is no longer optional: the queue unit/integration suites and the
+      # end-to-end job assert the durable path (enqueue → worker → provider),
+      # and staging/production refuse to boot without it.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - uses: actions/checkout@v4
 
@@ -61,6 +74,14 @@ jobs:
         env:
           DATABASE_URL: postgresql://calder:calder@localhost:5432/calder
 
+      # Deployment safety gate: no pending migration, and no applied migration
+      # whose journal timestamp moved (that is how production lost its auth
+      # columns — drizzle re-runs re-timestamped entries).
+      - name: Migration status (no drift)
+        run: pnpm --filter @calder/db db:status
+        env:
+          DATABASE_URL: postgresql://calder:calder@localhost:5432/calder
+
       # Output is captured and uploaded on failure: GitHub's job-log endpoint
       # has been returning EOF for this repo, which makes a red Test step
       # undiagnosable without it.
@@ -72,6 +93,7 @@ jobs:
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://calder:calder@localhost:5432/calder
+          REDIS_URL: redis://localhost:6379
           RUN_INTEGRATION_TESTS: "1"
 
       - name: Upload test output (on failure)
@@ -109,3 +131,73 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  # End-to-end journey over real HTTP with real Postgres + Redis:
+  #   signup → verification → login → org/project → API key → send → worker
+  #   → mock provider → delivery state → metering, plus the Redis-outage
+  #   durability guarantees. No browser is required, so this runs everywhere;
+  #   browser-level UI coverage is tracked in docs/OPERATIONS.md.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: calder
+          POSTGRES_PASSWORD: calder
+          POSTGRES_DB: calder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U calder"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # E2E runs against its own scratch database: the drain claims queued rows
+      # globally by design, so sharing the dev database makes "must stay queued"
+      # fixtures race with other suites' drains.
+      - name: Create isolated E2E database
+        run: |
+          psql "postgresql://calder:calder@localhost:5432/calder" -c "CREATE DATABASE calder_e2e"
+
+      - name: Migrate E2E database
+        run: pnpm --filter @calder/db db:migrate
+        env:
+          DATABASE_URL: postgresql://calder:calder@localhost:5432/calder_e2e
+
+      - name: End-to-end journeys
+        run: pnpm --filter @calder/e2e test
+        env:
+          NODE_ENV: test
+          E2E_DATABASE_URL: postgresql://calder:calder@localhost:5432/calder_e2e
+          DATABASE_URL: postgresql://calder:calder@localhost:5432/calder_e2e
+          REDIS_URL: redis://localhost:6379
+          RUN_INTEGRATION_TESTS: "1"

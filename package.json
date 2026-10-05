@@ -21,7 +21,9 @@
     "db:generate": "turbo run db:generate",
     "db:migrate": "turbo run db:migrate",
     "db:studio": "turbo run db:studio",
-    "launch-check": "pnpm --filter @calder/api launch-check"
+    "launch-check": "pnpm --filter @calder/api launch-check",
+    "db:status": "turbo run db:status",
+    "verify:deploy": "pnpm --filter @calder/api verify-deploy"
   },
   "devDependencies": {
     "@types/node": "^22.7.0",

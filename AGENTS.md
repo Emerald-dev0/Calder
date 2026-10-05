@@ -23,6 +23,9 @@ This file governs how AI coding agents (Claude Code, Codex, OpenCode, etc.) must
 - Do not put business logic inside UI components.
 - Do not access the database directly from frontend applications.
 - All asynchronous delivery work goes through the queue/worker architecture, never synchronously from an API handler.
+- Redis is mandatory in staging and production: `@calder/config` refuses to boot those environments without `REDIS_URL`, and `createQueue()` throws rather than falling back to the in-process queue. Never add an escape hatch, and never let a hosted process look healthy while its durable queue is unavailable. Development/test may use the in-process queue (the code warns once).
+- Health endpoints and error tracking must never leak credentials, connection strings with userinfo, topology or secrets. Redaction rules and tests live in `@calder/observability`; treat every new health check as redaction-sensitive.
+- Alert thresholds are environment variables (`QUEUE_*`, `WORKER_*`, `API_*`, `PROVIDER_FAILURE_WARN`), documented in `docs/OPERATIONS.md` §5. Add an alert only when there is a decision an operator would act on.
 - All external providers (email, payments, hosting-verification) sit behind a provider abstraction.
 - Never expose secrets to clients. Never log raw API keys or webhook signing secrets.
 - Every production-critical operation must be observable.
@@ -31,6 +34,7 @@ This file governs how AI coding agents (Claude Code, Codex, OpenCode, etc.) must
 - Never regenerate, edit, or re-timestamp an applied migration or its journal entry. Drizzle's migrator re-runs everything newer than the newest applied migration, so a bumped `when` replays an applied migration and crashes on existing objects — this exact failure took down production auth (missing columns). Always add a new migration instead.
 - Mutating operations that could cause harm if duplicated must support idempotency keys.
 - Write tests for meaningful business logic.
+- Production reliability work must be provable: prefer an integration test with real Postgres/Redis (`RUN_INTEGRATION_TESTS=1`) over a mock when the behaviour under test is "does this survive reality". Never report a suite as passing when it was skipped or when a browser/tool could not be downloaded.
 - Update documentation only when behavior actually changes.
 - Don't duplicate an existing service or package without reading the existing pattern first.
 - Don't create a new microservice without citing which trigger in `ARCHITECTURE.md` §14 justifies it, "it felt cleaner" is not sufficient.

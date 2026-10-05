@@ -87,6 +87,9 @@ pnpm launch-check          # exits non-zero when the path is not launch-ready
 | `SES_FROM_DOMAIN`          |     |           | required |          |
 | `DATABASE_URL`             |     | required  | required | required |
 | `REDIS_URL`                |     | required  | required | required |
+| `CALDER_ENV`               |     |           | optional | optional |
+| `SENTRY_DSN`               |     |           | optional | optional |
+| `WORKER_EXPECTED`          |     |           | optional | required |
 | `CRON_SECRET`              |     |           | required |          |
 | `ADMIN_API_KEY`            |     |           | required |          |
 | `ALLOWED_ORIGINS`          |     |           | required |          |
@@ -124,6 +127,28 @@ Notes that cost time when missed:
   ran: check `scripts/verify-delivery.sh` or the dashboard timeline.
 - `/ready` returning 503 with `progress: degraded` after a deploy means the
   database, Redis or the email provider is not reachable from that deployment.
+- `launch-check` now **fails** (not warns) when `REDIS_URL` is missing in a
+  hosted environment: staging and production refuse to boot without it, so a
+  "warning" would have been a false comfort. Development/test still only warn.
+- `WORKER_EXPECTED=false` on a serverless deployment that delivers through the
+  Postgres drain: it stops worker-heartbeat alerts from being a permanent false
+  alarm. Leave it unset (or `true`) wherever a long-lived worker runs.
+- Alert thresholds and the full operational runbook live in
+  `docs/OPERATIONS.md`; the alert rules themselves are in `@calder/observability`.
+
+### Post-deploy verification (§20)
+
+```bash
+pnpm verify:deploy -- --url https://api.calder.click
+# optional mock send path (test key, never a customer):
+pnpm verify:deploy -- --url https://api.calder.click --test-key calder_sk_test_...
+```
+
+Checks: liveness, readiness (and each gated dependency), the OpenAPI endpoint,
+that an unauthenticated send is rejected, an optional mock test send, and the
+alert sweep. It never sends to a customer: the send check refuses any key that
+is not `calder_sk_test_`. The exit code is non-zero when anything required
+fails; skips are printed, never counted as passes.
 
 ## SES/DNS sanity (read before anything SES-related)
 
@@ -308,5 +333,43 @@ Every PR: typecheck → lint → unit tests → integration tests → build → 
      check fails on any pending migration or any regenerated timestamp, so a
      schema-behind deploy cannot pass the gate.
 
-- [ ] Rollback procedure
 - [ ] Performance budget thresholds (LCP/CLS/bundle size)
+
+## Rollback (§19)
+
+Detection → containment → code revert → migration handling → queued jobs →
+recovery verification. A rollback is a deployment, not an improvisation: run it
+in this order.
+
+1. **Detect.** `pnpm verify:deploy -- --url <env>` fails, or `api_5xx_rate` /
+   `provider_failure_sustained` fires, or error tracking shows a new class of
+   failures immediately after a deploy. Note the exact deploy id.
+2. **Contain.** If sending is the problem, use the org kill-switch
+   (`POST /v1/admin/organizations/:orgId/sending-status`) or remove the
+   provider credentials for the affected process; customers can be told
+   delivery is paused rather than losing mail. Do not deploy a fix onto a
+   degraded deployment.
+3. **Revert the code.** Vercel: promote the previous successful deployment
+   (`vercel rollback` / the dashboard's "Promote to Production"). Worker/API on
+   other hosts: redeploy the previous image tag. Pin the rollback target before
+   you need it: the previous deployment id is the rollback unit.
+4. **Handle migrations — forward-only, never destructive.** Calder migrations
+   are additive and journal-tracked (`AGENTS.md`). Check the order:
+   `pnpm --filter @calder/db db:status` reports `pending` (old code + new schema
+   is the safe direction) and `regenerated` (never roll back — fix forward).
+   If the new migration is not backward-compatible with the old code, the
+   correct move is a **forward fix**, not `down` SQL; there are no down
+   migrations and none may be invented during an incident.
+5. **Queued jobs.** Redis survives a deploy: jobs enqueued by the new code keep
+   their payload shape unless the payload changed. If it did, drain the queue
+   with the old code first, or dead-letter and replay after. Postgres-queued
+   rows (`emails.status='queued'`) are always safe: the drain re-reads them.
+   Never delete queue jobs to make a rollback look clean.
+6. **Verify recovery.** Re-run `pnpm verify:deploy`, confirm `/ready` is 200,
+   confirm one email moves `queued → sent`, confirm the alert sweep returns 200,
+   and confirm `usage_records` grew by exactly the number of live sends.
+   Then announce recovery; if the incident ran >15 minutes, publish a short
+   timeline in the status page history.
+
+Rehearsal: `OWNER ACTION REQUIRED` — rehearse once against a preview deployment
+and record the date in `docs/OPERATIONS.md §12`.

@@ -8,7 +8,33 @@ Credentials, email addresses, domains, application data, potentially email conte
 
 ## 2. Secrets
 
-No raw secret keys stored, API keys hashed at rest, only a prefix kept for identification. Webhook signing secrets and payment credentials never logged or exposed to clients. Managed through dedicated secret management, never hardcoded or committed. This includes CLI credentials (`gh auth`, `vercel login`, database connection strings), see `AGENTS.md` CLI-first tooling.
+No raw secret keys stored, API keys hashed at rest, only a prefix kept for identification. Webhook signing secrets and payment credentials never logged or exposed to clients. Managed through dedicated secret management, never hardcoded or committed. This includes CLI credentials (`gh auth`, `vercel login`, database connection strings, Redis URLs, the error-tracking DSN), see `AGENTS.md` CLI-first tooling.
+
+Connection strings are treated as secrets even though only their host is ever
+printed: readiness endpoints report `scheme://host:port` (via
+`redactConnectionUrl`) and never userinfo, query parameters or passwords.
+Boot/launch diagnostics report the Redis target with `redisTargetLabel()`,
+which strips credentials.
+
+## 2a. Observability redaction (Phase 2)
+
+- Health endpoints (`/health`, `/ready`, worker `/health`, `/ready`, `/status`)
+  never include credentials, full connection strings, internal topology or
+  secret values; unrun checks report `skipped` with a reason rather than a
+  fabricated `ok`.
+- Error tracking is opt-in (`SENTRY_DSN`). When disabled, failures are logged
+  with the same redaction rules and nothing leaves the process.
+- Before an event is sent to the tracking service it passes through a scrubber
+  that: drops request data/cookies/headers, strips query strings from URLs,
+  reduces URLs to origin+path, and redacts credential-shaped text in messages,
+  extra fields and contexts. Regression tests live in
+  `packages/observability/src/redact.test.ts`.
+- Captured context is limited to identifiers that an operator needs
+  (`request_id`, service, environment, release, organization/project/email/job
+  ids). Message bodies, recipient addresses, API keys, signing secrets, auth
+  codes and provider credentials must never be attached.
+- Logs are the same rule: never log raw API keys, webhook signing secrets,
+  session cookies, OTP codes or provider credentials.
 
 ## 3. API keys
 
@@ -52,7 +78,15 @@ Screenshot/preview tooling used for the `docs/DESIGN.md` visual QA loop must run
 
 ## 13. Incident posture
 
-Not yet formalized. Disaster recovery (backups, RPO/RTO, restoration) must be implemented and _tested_ before being described as supported.
+Runbooks for API, Redis, database, queue/worker, provider, abuse, bad
+deployment and data-recovery incidents live in `docs/OPERATIONS.md` §8, with an
+alert catalog in §5 and the escalation path in §12.
+
+Disaster recovery: the backup/restore chain is _documented and scripted_
+(`scripts/backup-verify.mjs`, `scripts/restore-drill.mjs`) but a restore has not
+been proven yet. Until one drill passes and its evidence is recorded, recovery
+must not be described as supported. RPO/RTO numbers in `docs/OPERATIONS.md` §7
+are provisional and owner-pending.
 
 ## 14. SMTP gateway security
 

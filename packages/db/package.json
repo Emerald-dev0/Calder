@@ -39,7 +39,8 @@
     "db:seed": "tsx src/seed.ts",
     "db:seed-demo": "NODE_ENV=development tsx src/seed-demo.ts",
     "db:studio": "drizzle-kit studio",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "db:status": "tsx src/migrate-status.ts"
   },
   "dependencies": {
     "@calder/config": "workspace:*",
