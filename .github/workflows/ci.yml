@@ -193,14 +193,20 @@ jobs:
         env:
           DATABASE_URL: postgresql://calder:calder@localhost:5432/calder_e2e
 
-      # Output captured and annotated for the same reason as the verify job:
+      # Turbo, not bare vitest: the suites import @calder/* workspace packages
+      # by name, which resolve to each package's dist/ — absent in a fresh
+      # checkout. turbo's test task dependsOn ^build, so dependencies are built
+      # first (verified: bare `vitest run` fails with "Failed to resolve entry
+      # for package @calder/queue" while this command passes).
+      #
+      # Output is captured and annotated for the same reason as the verify job:
       # GitHub's job-log endpoint returns EOF for this repo, so a red e2e step
       # would otherwise be undiagnosable from the PR.
       - name: End-to-end journeys
         shell: bash
         run: |
           set -o pipefail
-          pnpm --filter @calder/e2e test 2>&1 | tee e2e-output.log
+          pnpm exec turbo run test --filter=@calder/e2e 2>&1 | tee e2e-output.log
         env:
           NODE_ENV: test
           E2E_DATABASE_URL: postgresql://calder:calder@localhost:5432/calder_e2e
