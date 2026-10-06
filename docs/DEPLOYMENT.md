@@ -311,7 +311,7 @@ UI work (Lenis, scroll effects, imagery) must not regress core web vitals. Targe
 
 ## CI/CD (target)
 
-Every PR: typecheck → lint → unit tests → integration tests → build → dependency check. Main: tests → build → deploy → migration → health check. PR lifecycle managed via `gh` CLI; deploys via `vercel` CLI, see `AGENTS.md`.
+Every PR: secret scan → dependency audit (`node scripts/security-audit.mjs`) → typecheck → lint → unit tests → integration tests → build. Main: tests → build → deploy → migration → health check. High/critical dependency findings and any secret finding block release. PR lifecycle managed via `gh` CLI; deploys via `vercel` CLI, see `AGENTS.md`.
 
 ## To be filled in once decided
 

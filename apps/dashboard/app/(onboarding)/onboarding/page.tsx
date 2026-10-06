@@ -21,8 +21,9 @@ import { OnboardingWizard } from "./wizard";
 export default async function OnboardingPage({
   searchParams,
 }: {
-  searchParams?: { notice?: string };
+  searchParams?: Promise<{ notice?: string }>;
 }) {
+  const query = await searchParams;
   const ctx = await getTenantContext();
   const db = getDb();
   const rows = await db.select().from(users).where(eq(users.id, ctx.user.userId)).limit(1);
@@ -140,14 +141,14 @@ export default async function OnboardingPage({
     hasUsername: Boolean(me?.username),
     hasOrg,
     hasProject,
-    notice: searchParams?.notice ?? null,
+    notice: query?.notice ?? null,
   });
 
   return (
     <OnboardingWizard
       userEmail={ctx.user.email}
       initialStep={initialStep}
-      initialNotice={searchParams?.notice ?? null}
+      initialNotice={query?.notice ?? null}
       initialProfile={{
         name: me?.name ?? "",
         username: me?.username ?? "",

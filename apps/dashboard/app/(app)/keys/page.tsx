@@ -4,17 +4,18 @@ import { ProjectPicker } from "../project-picker";
 import { KeyCreator, RevokeButton } from "./manager";
 import { listKeys } from "./actions";
 import { KeyRound, Code2 } from "lucide-react";
-import {
-  DsPageHeader,
-  StatusPill,
-  RelativeTime,
-} from "../../../components/design-system";
+import { DsPageHeader, StatusPill, RelativeTime } from "../../../components/design-system";
 import { EmptyState } from "../../../components/empty-state";
 
-export default async function KeysPage({ searchParams }: { searchParams: { project?: string } }) {
+export default async function KeysPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ project?: string }>;
+}) {
+  const query = await searchParams;
   const ctx = await getTenantContext();
   const projects = ctx.memberships.flatMap((m) => m.projects);
-  const scope = resolveProject(ctx, searchParams.project);
+  const scope = resolveProject(ctx, query.project);
   if (!scope) {
     return (
       <div>
@@ -132,7 +133,10 @@ export default async function KeysPage({ searchParams }: { searchParams: { proje
                       {!k.revokedAt ? (
                         <RevokeButton projectId={scope.project.id} keyId={k.id} />
                       ) : (
-                        <span className="mono" style={{ fontSize: 11.5, color: "var(--color-muted)" }}>
+                        <span
+                          className="mono"
+                          style={{ fontSize: 11.5, color: "var(--color-muted)" }}
+                        >
                           Revoked
                         </span>
                       )}

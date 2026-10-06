@@ -9,11 +9,12 @@ import { setOrganizationSafetyStatus, setSubscription } from "../../actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function OrgDetailPage({ params }: { params: { id: string } }) {
+export default async function OrgDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const control = await requireSection("customers");
+  const { id } = await params;
   const canManageSafety = ["founder", "platform_admin", "security"].includes(control.role);
   const safetyActionIdempotencyKey = randomUUID();
-  const data = await orgDetail(params.id);
+  const data = await orgDetail(id);
   if (!data) notFound();
   const {
     org,

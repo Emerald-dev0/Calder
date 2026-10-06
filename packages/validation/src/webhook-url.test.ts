@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isPublicWebhookUrl } from "./webhook-url.js";
+import { isPublicIpAddress, isPublicWebhookUrl } from "./webhook-url.js";
 
 describe("registry SSRF guard (M3.1, write side)", () => {
   it("denies private/loopback/metadata URLs at registration", () => {
@@ -26,6 +26,22 @@ describe("registry SSRF guard (M3.1, write side)", () => {
 
   it("accepts public https", () => {
     expect(isPublicWebhookUrl("https://hooks.acme.dev/calder?key=1")).toBe(true);
+  });
+
+  it("applies the same policy to IPv6 and IPv4-mapped answers", () => {
+    for (const address of [
+      "::1",
+      "fc00::1",
+      "fe80::1",
+      "ff02::1",
+      "2001:db8::1",
+      "::ffff:127.0.0.1",
+      "::ffff:192.0.2.1",
+    ]) {
+      expect(isPublicIpAddress(address), address).toBe(false);
+      expect(isPublicWebhookUrl(`https://[${address}]/hook`), address).toBe(false);
+    }
+    expect(isPublicIpAddress("2001:4860:4860::8888")).toBe(true);
   });
 
   it("loopback escape hatch exists ONLY when explicitly enabled", () => {

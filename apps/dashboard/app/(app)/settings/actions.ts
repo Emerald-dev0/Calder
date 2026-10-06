@@ -175,7 +175,9 @@ export async function updateMemberRole(orgId: string, membershipId: string, role
     const target = await db
       .select()
       .from(organizationMembers)
-      .where(eq(organizationMembers.id, membershipId))
+      .where(
+        and(eq(organizationMembers.id, membershipId), eq(organizationMembers.organizationId, orgId))
+      )
       .limit(1);
     if (target[0]?.organizationId === orgId && target[0]?.role === "owner" && owners.length <= 1) {
       throw new Error("Cannot demote the last owner, transfer ownership first.");
@@ -205,7 +207,9 @@ export async function removeMember(orgId: string, membershipId: string) {
   const target = await db
     .select()
     .from(organizationMembers)
-    .where(eq(organizationMembers.id, membershipId))
+    .where(
+      and(eq(organizationMembers.id, membershipId), eq(organizationMembers.organizationId, orgId))
+    )
     .limit(1);
   if (!target[0] || target[0].organizationId !== orgId) throw new Error("Member not found.");
   if (target[0].role === "owner") {
@@ -220,7 +224,11 @@ export async function removeMember(orgId: string, membershipId: string) {
   if (target[0].userId === ctx.user.userId) {
     throw new Error("You can't remove yourself, ask another owner.");
   }
-  await db.delete(organizationMembers).where(eq(organizationMembers.id, membershipId));
+  await db
+    .delete(organizationMembers)
+    .where(
+      and(eq(organizationMembers.id, membershipId), eq(organizationMembers.organizationId, orgId))
+    );
   await audit(db, {
     organizationId: orgId,
     actorUserId: ctx.user.userId,

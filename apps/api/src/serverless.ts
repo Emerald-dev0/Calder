@@ -21,9 +21,11 @@
  */
 import { assertQueueBootConfig, describeBoot, redisTargetLabel } from "@calder/config";
 import { initErrorReporting, logger } from "@calder/observability";
+import { configureRateLimiterFromEnv } from "@calder/rate-limit";
 import { createApp } from "./app.js";
 
 const redisUrl = assertQueueBootConfig("api");
+await configureRateLimiterFromEnv();
 const boot = describeBoot("api");
 void initErrorReporting({ service: "api" });
 logger.info(

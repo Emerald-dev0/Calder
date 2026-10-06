@@ -9,11 +9,12 @@ export const dynamic = "force-dynamic";
 export default async function AuditLogsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; page?: string };
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
+  const query = await searchParams;
   await requireSection("administration");
-  const page = Math.max(1, Number.parseInt(searchParams.page ?? "1", 10) || 1);
-  const data = await auditRows({ q: searchParams.q, page });
+  const page = Math.max(1, Number.parseInt(query.page ?? "1", 10) || 1);
+  const data = await auditRows({ q: query.q, page });
 
   return (
     <>
@@ -30,13 +31,13 @@ export default async function AuditLogsPage({
             type="search"
             name="q"
             placeholder="Filter by action or target id…"
-            defaultValue={searchParams.q ?? ""}
+            defaultValue={query.q ?? ""}
             style={{ minWidth: 260 }}
           />
           <button className="cp-btn primary" type="submit">
             Filter
           </button>
-          {searchParams.q ? (
+          {query.q ? (
             <Link className="cp-btn" href="/control/administration/audit-logs">
               Clear
             </Link>
@@ -96,7 +97,7 @@ export default async function AuditLogsPage({
           pages={data.pages}
           total={data.total}
           basePath="/control/administration/audit-logs"
-          query={{ q: searchParams.q }}
+          query={{ q: query.q }}
         />
       </Panel>
     </>

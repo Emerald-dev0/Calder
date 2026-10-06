@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
 import {
   getDb,
   senderIdentities,
@@ -19,13 +19,14 @@ const LOCAL_PART_RE = /^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$/i;
 async function scopedSender(senderId: string) {
   const ctx = await getTenantContext();
   const db = getDb();
-  const projectIds = new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)));
+  const projectIds = [...new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)))];
+  if (projectIds.length === 0) throw new Error("Sender not found.");
   const [sender] = await db
     .select()
     .from(senderIdentities)
-    .where(eq(senderIdentities.id, senderId))
+    .where(and(eq(senderIdentities.id, senderId), inArray(senderIdentities.projectId, projectIds)))
     .limit(1);
-  if (!sender || !projectIds.has(sender.projectId)) throw new Error("Sender not found.");
+  if (!sender) throw new Error("Sender not found.");
   return { ctx, db, sender };
 }
 
@@ -157,7 +158,9 @@ export async function setDefaultSender(senderId: string): Promise<{ ok: true }> 
   await db
     .update(senderIdentities)
     .set({ isDefault: true, updatedAt: new Date() })
-    .where(eq(senderIdentities.id, senderId));
+    .where(
+      and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
+    );
   return { ok: true };
 }
 
@@ -172,7 +175,9 @@ export async function updateSenderDisplayName(
   await db
     .update(senderIdentities)
     .set({ displayName: clean, updatedAt: new Date() })
-    .where(eq(senderIdentities.id, senderId));
+    .where(
+      and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
+    );
   return { ok: true };
 }
 
@@ -187,7 +192,9 @@ export async function setSenderEnabled(senderId: string, enabled: boolean): Prom
     await db
       .update(senderIdentities)
       .set({ status: "disabled", updatedAt: new Date() })
-      .where(eq(senderIdentities.id, senderId));
+      .where(
+        and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
+      );
     return { ok: true };
   }
   if (sender.type === "domain") {
@@ -203,13 +210,20 @@ export async function setSenderEnabled(senderId: string, enabled: boolean): Prom
     await db
       .update(senderIdentities)
       .set({ status: "verified", updatedAt: new Date() })
-      .where(eq(senderIdentities.id, senderId));
+      .where(
+        and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
+      );
     return { ok: true };
   }
   const [transport] = await db
     .select()
     .from(projectTransports)
-    .where(eq(projectTransports.id, sender.transportId ?? ""))
+    .where(
+      and(
+        eq(projectTransports.id, sender.transportId ?? ""),
+        eq(projectTransports.projectId, sender.projectId)
+      )
+    )
     .limit(1);
   if (!transport || transport.status !== "active") {
     throw new Error("Reconnect the Gmail account before re-enabling this sender.");
@@ -217,7 +231,9 @@ export async function setSenderEnabled(senderId: string, enabled: boolean): Prom
   await db
     .update(senderIdentities)
     .set({ status: "connected", updatedAt: new Date() })
-    .where(eq(senderIdentities.id, senderId));
+    .where(
+      and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
+    );
   return { ok: true };
 }
 
@@ -231,8 +247,12 @@ export async function deleteSender(senderId: string): Promise<{ ok: true; emailC
   const [row] = await db
     .select({ value: count() })
     .from(emails)
-    .where(eq(emails.senderIdentityId, senderId));
-  await db.delete(senderIdentities).where(eq(senderIdentities.id, senderId));
+    .where(and(eq(emails.senderIdentityId, senderId), eq(emails.projectId, sender.projectId)));
+  await db
+    .delete(senderIdentities)
+    .where(
+      and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
+    );
   return { ok: true, emailCount: row?.value ?? 0 };
 }
 
@@ -290,6 +310,8 @@ export async function testSend(
   await db
     .update(senderIdentities)
     .set({ lastUsedAt: new Date(), updatedAt: new Date() })
-    .where(eq(senderIdentities.id, senderId));
+    .where(
+      and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
+    );
   return { ok: true, emailId };
 }

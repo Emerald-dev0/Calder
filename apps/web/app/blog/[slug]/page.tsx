@@ -15,9 +15,10 @@ export function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const post = getPost(params.slug);
+  const { slug } = await params;
+  const post = getPost(slug);
   if (!post) return {};
   return pageMeta({
     title: post.title,
@@ -26,8 +27,9 @@ export async function generateMetadata({
   });
 }
 
-export default async function BlogPost({ params }: { params: { slug: string } }) {
-  const post = getPost(params.slug);
+export default async function BlogPost({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const post = getPost(slug);
   if (!post) notFound();
   // Registry-driven import: one MDX file per slug, same name as the folder entry.
   const { default: Body } = await import(`../posts/${post.slug}.mdx`);

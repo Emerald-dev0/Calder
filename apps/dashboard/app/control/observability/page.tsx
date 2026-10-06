@@ -22,11 +22,12 @@ const EVENT_TONE: Record<string, "ok" | "warn" | "bad" | "info" | "idle"> = {
 export default async function LogsPage({
   searchParams,
 }: {
-  searchParams: { type?: string; q?: string; page?: string };
+  searchParams: Promise<{ type?: string; q?: string; page?: string }>;
 }) {
+  const query = await searchParams;
   await requireSection("observability");
-  const page = Math.max(1, Number.parseInt(searchParams.page ?? "1", 10) || 1);
-  const data = await eventRows({ type: searchParams.type, q: searchParams.q, page });
+  const page = Math.max(1, Number.parseInt(query.page ?? "1", 10) || 1);
+  const data = await eventRows({ type: query.type, q: query.q, page });
 
   return (
     <>
@@ -43,13 +44,13 @@ export default async function LogsPage({
             type="search"
             name="q"
             placeholder="Filter by recipient…"
-            defaultValue={searchParams.q ?? ""}
+            defaultValue={query.q ?? ""}
             style={{ minWidth: 220 }}
           />
           <select
             className="cp-select"
             name="type"
-            defaultValue={searchParams.type ?? ""}
+            defaultValue={query.type ?? ""}
             aria-label="Event type"
           >
             <option value="">All types</option>
@@ -62,7 +63,7 @@ export default async function LogsPage({
           <button className="cp-btn primary" type="submit">
             Apply
           </button>
-          {(searchParams.type || searchParams.q) && (
+          {(query.type || query.q) && (
             <Link className="cp-btn" href="/control/observability">
               Clear
             </Link>
@@ -115,7 +116,7 @@ export default async function LogsPage({
           pages={data.pages}
           total={data.total}
           basePath="/control/observability"
-          query={{ type: searchParams.type, q: searchParams.q }}
+          query={{ type: query.type, q: query.q }}
         />
       </Panel>
 

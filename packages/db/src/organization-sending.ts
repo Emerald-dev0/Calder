@@ -518,3 +518,48 @@ export async function insertApiKeyForActiveOrganization(
     return tx.insert(apiKeys).values(values).returning();
   });
 }
+
+/**
+ * Atomically revoke an active key and create its replacement while holding the
+ * organization lock used by the suspension kill-switch. This closes the race
+ * where rotation could otherwise create a key after a concurrent suspension.
+ */
+export async function rotateApiKeyForActiveOrganization(
+  db: DbClient,
+  projectId: string,
+  oldKeyId: string,
+  values: typeof apiKeys.$inferInsert
+) {
+  return db.transaction(async (tx) => {
+    const [project] = await tx
+      .select({ organizationId: projects.organizationId })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+    if (!project || values.projectId !== projectId) throw new OrganizationNotActiveError();
+    const organization = await readOrganization(tx, project.organizationId, true);
+    if (!organization || organization.sendingStatus !== "active") {
+      throw new OrganizationNotActiveError();
+    }
+    const [oldKey] = await tx
+      .select()
+      .from(apiKeys)
+      .where(
+        and(eq(apiKeys.id, oldKeyId), eq(apiKeys.projectId, projectId), isNull(apiKeys.revokedAt))
+      )
+      .limit(1)
+      .for("update");
+    if (!oldKey) throw new Error("API key not found.");
+
+    const [revoked] = await tx
+      .update(apiKeys)
+      .set({ revokedAt: new Date() })
+      .where(
+        and(eq(apiKeys.id, oldKeyId), eq(apiKeys.projectId, projectId), isNull(apiKeys.revokedAt))
+      )
+      .returning({ id: apiKeys.id });
+    if (!revoked) throw new Error("API key was revoked during rotation.");
+    const [created] = await tx.insert(apiKeys).values(values).returning();
+    return { oldKey, created };
+  });
+}

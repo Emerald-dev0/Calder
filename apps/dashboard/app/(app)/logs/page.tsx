@@ -11,6 +11,7 @@ import {
   PAGE_SIZE,
 } from "../../../lib/pagination";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { ScrollText, Search, Send, ArrowRight } from "lucide-react";
 import {
   DsPageHeader,
@@ -37,13 +38,14 @@ const ALLOWED_TYPES = new Set([
 export default async function LogsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; type?: string; cursor?: string; project?: string };
+  searchParams: Promise<{ q?: string; type?: string; cursor?: string; project?: string }>;
 }) {
+  const query = await searchParams;
   const ctx = await getTenantContext();
   const projects = ctx.memberships.flatMap((m) =>
     m.projects.map((p) => ({ id: p.id, slug: p.slug }))
   );
-  const scope = resolveProject(ctx, searchParams.project);
+  const scope = resolveProject(ctx, query.project);
   const current = scope?.project ?? null;
   const projectIds = current
     ? [current.id]
@@ -66,10 +68,15 @@ export default async function LogsPage({
     );
   }
 
-  const q = stringParam(searchParams.q);
-  const type = stringParam(searchParams.type);
+  const q = stringParam(query.q);
+  const type = stringParam(query.type);
   const typeFilter = type && ALLOWED_TYPES.has(type) ? type : undefined;
-  const cursor = decodeCursor(searchParams.cursor);
+  let cursor: ReturnType<typeof decodeCursor>;
+  try {
+    cursor = decodeCursor(query.cursor);
+  } catch {
+    notFound();
+  }
 
   const db = getDb();
   const conds = [inArray(emailEvents.projectId, projectIds)];
@@ -88,7 +95,10 @@ export default async function LogsPage({
       subject: emails.subject,
     })
     .from(emailEvents)
-    .leftJoin(emails, eq(emailEvents.emailId, emails.id));
+    .innerJoin(
+      emails,
+      and(eq(emailEvents.emailId, emails.id), inArray(emails.projectId, projectIds))
+    );
 
   const qConds = q
     ? [
@@ -122,7 +132,8 @@ export default async function LogsPage({
         badge={<StatusPill status="active" label="Live Stream" />}
         description={
           <span>
-            Every lifecycle event (`created → queued → sent → delivered`), searchable and cursor-paginated. View message-grouped timelines on{" "}
+            Every lifecycle event (`created → queued → sent → delivered`), searchable and
+            cursor-paginated. View message-grouped timelines on{" "}
             <Link href="/deliveries" style={{ color: "var(--color-accent)", fontWeight: 600 }}>
               Deliveries
             </Link>
@@ -262,7 +273,8 @@ export default async function LogsPage({
           </div>
           <div className="ds-card-footer" style={{ justifyContent: "space-between" }}>
             <span style={{ fontSize: 11.5, color: "var(--color-muted)" }}>
-              Pipeline: Request → Validated → Queued → Provider accepted → Delivered (truthful states only).
+              Pipeline: Request → Validated → Queued → Provider accepted → Delivered (truthful
+              states only).
             </span>
             {nextCursor && (
               <Link

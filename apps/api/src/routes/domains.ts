@@ -1,10 +1,10 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import type { Env } from "../app.js";
 import { createDomainSchema } from "@calder/validation";
-import { authMiddleware } from "../middleware/auth.js";
+import { authMiddleware, requireScope, type AuthContext } from "../middleware/auth.js";
 import { AppError, validationError } from "../errors/index.js";
 import { getDb, domains as domainsTable } from "@calder/db";
-import { and, eq, desc } from "drizzle-orm";
+import { and, desc, eq, lt, or } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import {
   attemptVerification,
@@ -13,11 +13,23 @@ import {
   regenerateChallenge,
   sweepExpiredChallenges,
 } from "../lib/domain-verification.js";
+import { decodeApiCursor, encodeApiCursor } from "../lib/pagination.js";
+import { logger } from "@calder/observability";
 
 const domains = new Hono<Env>();
 
+function projectAuth(c: Context<Env>): AuthContext {
+  return c.get("auth" as never) as AuthContext;
+}
+
+function requireProjectManagement(c: Context<Env>): AuthContext {
+  const a = projectAuth(c);
+  requireScope(a, "manage");
+  return a;
+}
+
 domains.post("/", authMiddleware, async (c) => {
-  const auth = c.get("auth" as never) as { projectId: string };
+  const auth = requireProjectManagement(c);
   const body = await c.req.json().catch(() => null);
   if (!body) throw validationError("Invalid JSON body");
   const parsed = createDomainSchema.safeParse(body);
@@ -73,16 +85,36 @@ domains.get("/", authMiddleware, async (c) => {
   const auth = c.get("auth" as never) as { projectId: string };
   const db = getDb();
   await sweepExpiredChallenges(db, auth.projectId);
+  const limit = Math.min(Math.max(Number.parseInt(c.req.query("limit") ?? "20", 10) || 20, 1), 100);
+  const cursor = c.req.query("cursor");
+  const conditions = [eq(domainsTable.projectId, auth.projectId)];
+  const position = decodeApiCursor(cursor);
+  if (position) {
+    conditions.push(
+      or(
+        lt(domainsTable.createdAt, position.createdAt),
+        and(eq(domainsTable.createdAt, position.createdAt), lt(domainsTable.id, position.id))
+      )!
+    );
+  }
   const rows = await db
     .select()
     .from(domainsTable)
-    .where(eq(domainsTable.projectId, auth.projectId))
-    .orderBy(desc(domainsTable.createdAt));
-  return c.json({ data: rows.map(publicDomainProjection) });
+    .where(and(...conditions))
+    .orderBy(desc(domainsTable.createdAt), desc(domainsTable.id))
+    .limit(limit + 1);
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const last = page[page.length - 1];
+  const nextCursor = hasMore && last ? encodeApiCursor(last.createdAt, last.id) : null;
+  return c.json({
+    data: page.map(publicDomainProjection),
+    pagination: { limit, next_cursor: nextCursor },
+  });
 });
 
 domains.post("/:id/verify", authMiddleware, async (c) => {
-  const auth = c.get("auth" as never) as { projectId: string };
+  const auth = requireProjectManagement(c);
   const id = c.req.param("id");
   const db = getDb();
   const outcome = await attemptVerification(db, auth.projectId, id);
@@ -149,7 +181,7 @@ domains.post("/:id/verify", authMiddleware, async (c) => {
 
 // Fresh challenge for expired domains (or deliberate token rotation).
 domains.post("/:id/token", authMiddleware, async (c) => {
-  const auth = c.get("auth" as never) as { projectId: string };
+  const auth = requireProjectManagement(c);
   const id = c.req.param("id");
   const db = getDb();
   const result = await regenerateChallenge(db, auth.projectId, id);
@@ -174,7 +206,7 @@ domains.post("/:id/token", authMiddleware, async (c) => {
 });
 
 domains.delete("/:id", authMiddleware, async (c) => {
-  const auth = c.get("auth" as never) as { projectId: string };
+  const auth = requireProjectManagement(c);
   const id = c.req.param("id");
   const db = getDb();
   const deleted = await db
@@ -191,7 +223,7 @@ domains.delete("/:id", authMiddleware, async (c) => {
 const SPF_GUIDANCE = { type: "TXT" as const, value: "v=spf1 include:amazonses.com ~all" };
 
 domains.post("/:id/ses/link", authMiddleware, async (c) => {
-  const auth = c.get("auth" as never) as { projectId: string };
+  const auth = requireProjectManagement(c);
   const id = c.req.param("id");
   const db = getDb();
   const [row] = await db
@@ -212,18 +244,26 @@ domains.post("/:id/ses/link", authMiddleware, async (c) => {
   try {
     link = await createSesDomainIdentity(row.domain);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "SES linkage failed";
+    // Provider exception text can contain credentials, request data, or
+    // infrastructure details. Keep it in redacted operational telemetry only;
+    // persist and return stable, non-sensitive classifications.
+    const throttled = e instanceof Error && /throttl/i.test(e.message);
+    logger.warn({ err: e, domainId: row.id }, "SES identity creation failed");
     await db
       .update(domainsTable)
-      .set({ sesIdentityStatus: "failed", lastVerifyError: msg, updatedAt: new Date() })
-      .where(eq(domainsTable.id, row.id));
-    if (/throttl/i.test(msg))
+      .set({
+        sesIdentityStatus: "failed",
+        lastVerifyError: throttled ? "throttled" : "provider_error",
+        updatedAt: new Date(),
+      })
+      .where(and(eq(domainsTable.id, row.id), eq(domainsTable.projectId, auth.projectId)));
+    if (throttled)
       throw new AppError(
         "rate_limit_error",
         "SES is throttling identity creation — retry shortly.",
         429
       );
-    throw new AppError("provider_error", `SES identity creation failed: ${msg}`, 502);
+    throw new AppError("provider_error", "SES identity creation failed. Try again later.", 502);
   }
   await db
     .update(domainsTable)
@@ -233,7 +273,7 @@ domains.post("/:id/ses/link", authMiddleware, async (c) => {
       dkimRecords: link.records,
       updatedAt: new Date(),
     })
-    .where(eq(domainsTable.id, row.id));
+    .where(and(eq(domainsTable.id, row.id), eq(domainsTable.projectId, auth.projectId)));
   return c.json({
     data: {
       status: "pending",
@@ -244,7 +284,7 @@ domains.post("/:id/ses/link", authMiddleware, async (c) => {
 });
 
 domains.post("/:id/ses/refresh", authMiddleware, async (c) => {
-  const auth = c.get("auth" as never) as { projectId: string };
+  const auth = requireProjectManagement(c);
   const id = c.req.param("id");
   const db = getDb();
   const [row] = await db
@@ -261,14 +301,14 @@ domains.post("/:id/ses/refresh", authMiddleware, async (c) => {
   try {
     snap = await getSesDomainIdentity(row.domain);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "SES status poll failed";
-    throw new AppError("provider_error", `SES status poll failed: ${msg}`, 502);
+    logger.warn({ err: e, domainId: row.id }, "SES status poll failed");
+    throw new AppError("provider_error", "SES status poll failed. Try again later.", 502);
   }
   const identityStatus = snap.verifiedForSending ? "verified" : "pending";
   await db
     .update(domainsTable)
     .set({ sesIdentityStatus: identityStatus, dkimStatus: snap.dkimStatus, updatedAt: new Date() })
-    .where(eq(domainsTable.id, row.id));
+    .where(and(eq(domainsTable.id, row.id), eq(domainsTable.projectId, auth.projectId)));
   return c.json({ data: { identityStatus, dkimStatus: snap.dkimStatus } });
 });
 

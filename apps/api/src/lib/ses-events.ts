@@ -81,6 +81,11 @@ const SNS_TYPES = new Set(["Notification", "SubscriptionConfirmation", "Unsubscr
  * any network fetch happens.
  */
 export function isAllowedSigningCertUrl(rawUrl: string): boolean {
+  return isAllowedSnsUrl(rawUrl);
+}
+
+/** SNS confirmation URLs must stay on the official regional SNS origin too. */
+export function isAllowedSnsUrl(rawUrl: string): boolean {
   let url: URL;
   try {
     url = new URL(rawUrl);
@@ -425,7 +430,7 @@ export async function applySesEvent(
         status: emails.status,
       })
       .from(emails)
-      .where(eq(emails.providerMessageId, msg.mail.messageId))
+      .where(and(eq(emails.providerMessageId, msg.mail.messageId), eq(emails.provider, "ses")))
       .limit(1);
 
     if (!row) {
@@ -454,7 +459,7 @@ export async function applySesEvent(
       await tx
         .update(emails)
         .set({ status: transition.status as never, updatedAt: now })
-        .where(eq(emails.id, row.id));
+        .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
     }
     if (transition.eventType) {
       await tx.insert(emailEvents).values({

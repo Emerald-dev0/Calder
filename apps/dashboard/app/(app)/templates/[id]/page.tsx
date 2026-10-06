@@ -10,7 +10,8 @@ import { DsPageHeader, StatusPill, RelativeTime } from "../../../../components/d
 export const metadata = { title: "Calder — Template" };
 
 /** View, edit (new version), preview with sample vars, and test-send a template. */
-export default async function TemplateDetailPage({ params }: { params: { id: string } }) {
+export default async function TemplateDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const ctx = await getTenantContext();
   const projectIds = ctx.memberships.flatMap((m) => m.projects.map((p) => p.id));
   if (projectIds.length === 0) {
@@ -27,7 +28,7 @@ export default async function TemplateDetailPage({ params }: { params: { id: str
   const [tpl] = await db
     .select()
     .from(templates)
-    .where(and(eq(templates.id, params.id), inArray(templates.projectId, projectIds)))
+    .where(and(eq(templates.id, id), inArray(templates.projectId, projectIds)))
     .limit(1);
   if (!tpl) {
     return (
@@ -40,10 +41,18 @@ export default async function TemplateDetailPage({ params }: { params: { id: str
     );
   }
   const versions = await db
-    .select()
+    .select({
+      id: templateVersions.id,
+      version: templateVersions.version,
+      subject: templateVersions.subject,
+      html: templateVersions.html,
+      text: templateVersions.text,
+      createdAt: templateVersions.createdAt,
+    })
     .from(templateVersions)
-    .where(eq(templateVersions.templateId, tpl.id))
-    .orderBy(desc(templateVersions.createdAt))
+    .innerJoin(templates, eq(templateVersions.templateId, templates.id))
+    .where(and(eq(templateVersions.templateId, tpl.id), inArray(templates.projectId, projectIds)))
+    .orderBy(desc(templateVersions.createdAt), desc(templateVersions.id))
     .limit(12);
   const latest = versions[0];
 

@@ -3,6 +3,7 @@ import type { Env } from "../app.js";
 import { createSuppressionSchema } from "@calder/validation";
 import { authMiddleware, requireScope, type AuthContext } from "../middleware/auth.js";
 import { AppError, validationError } from "../errors/index.js";
+import { decodeApiCursor, encodeApiCursor } from "../lib/pagination.js";
 
 const suppressions = new Hono<Env>();
 
@@ -14,8 +15,23 @@ function auth(c: { get: (k: string) => unknown }): AuthContext {
 suppressions.get("/", authMiddleware, async (c) => {
   const a = auth(c);
   const { getDb, suppressions: suppressionsTable } = await import("@calder/db");
-  const { eq, desc } = await import("drizzle-orm");
+  const { and, desc, eq, lt, or } = await import("drizzle-orm");
   const db = getDb();
+  const limit = Math.min(Math.max(Number.parseInt(c.req.query("limit") ?? "20", 10) || 20, 1), 100);
+  const cursor = c.req.query("cursor");
+  const conditions = [eq(suppressionsTable.projectId, a.projectId)];
+  const position = decodeApiCursor(cursor);
+  if (position) {
+    conditions.push(
+      or(
+        lt(suppressionsTable.createdAt, position.createdAt),
+        and(
+          eq(suppressionsTable.createdAt, position.createdAt),
+          lt(suppressionsTable.id, position.id)
+        )
+      )!
+    );
+  }
   const rows = await db
     .select({
       id: suppressionsTable.id,
@@ -24,10 +40,14 @@ suppressions.get("/", authMiddleware, async (c) => {
       created_at: suppressionsTable.createdAt,
     })
     .from(suppressionsTable)
-    .where(eq(suppressionsTable.projectId, a.projectId))
-    .orderBy(desc(suppressionsTable.createdAt))
-    .limit(200);
-  return c.json({ data: rows });
+    .where(and(...conditions))
+    .orderBy(desc(suppressionsTable.createdAt), desc(suppressionsTable.id))
+    .limit(limit + 1);
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const last = page[page.length - 1];
+  const nextCursor = hasMore && last ? encodeApiCursor(last.created_at, last.id) : null;
+  return c.json({ data: page, pagination: { limit, next_cursor: nextCursor } });
 });
 
 // POST /v1/suppressions, manually suppress an address

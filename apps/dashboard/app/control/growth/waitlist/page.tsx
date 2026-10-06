@@ -16,11 +16,9 @@ import { FounderTopbar } from "@/control/_components/founder-topbar";
 
 const CumulativeChart = dynamicImport(
   () => import("@/components/charts").then((m) => m.CumulativeChart),
-  { ssr: false, loading: () => <div style={{ height: 260 }} /> }
+  { loading: () => <div style={{ height: 260 }} /> }
 );
-const DailyBars = dynamicImport(() => import("@/components/charts").then((m) => m.DailyBars), {
-  ssr: false,
-});
+const DailyBars = dynamicImport(() => import("@/components/charts").then((m) => m.DailyBars), {});
 
 export const dynamic = "force-dynamic";
 
@@ -38,24 +36,27 @@ interface SearchParams {
   bulk?: string;
 }
 
-export default async function WaitlistPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function WaitlistPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   await requireSection("growth");
-  const window = parseRange(searchParams.range, searchParams.from, searchParams.to);
-  const page = Math.max(1, Number.parseInt(searchParams.page ?? "1", 10) || 1);
-  const perPage = [25, 50, 100].includes(Number(searchParams.perPage))
-    ? Number(searchParams.perPage)
-    : 50;
+  const query = await searchParams;
+  const window = parseRange(query.range, query.from, query.to);
+  const page = Math.max(1, Number.parseInt(query.page ?? "1", 10) || 1);
+  const perPage = [25, 50, 100].includes(Number(query.perPage)) ? Number(query.perPage) : 50;
 
   const [overview, daily, sources, table] = await Promise.all([
     waitlistOverview(),
     waitlistDailyCounts(window.days),
     waitlistSources(),
     waitlistRows({
-      q: searchParams.q,
-      source: searchParams.source,
-      status: searchParams.status,
-      referred: searchParams.referred,
-      sort: searchParams.sort === "oldest" ? "oldest" : "newest",
+      q: query.q,
+      source: query.source,
+      status: query.status,
+      referred: query.referred,
+      sort: query.sort === "oldest" ? "oldest" : "newest",
       page,
       perPage,
     }),
@@ -67,14 +68,14 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
   const delta = pctChange(overview.new7d, overview.prev7d);
 
   const filters = {
-    q: searchParams.q,
-    source: searchParams.source,
-    status: searchParams.status,
-    referred: searchParams.referred,
-    sort: searchParams.sort,
-    range: searchParams.range,
-    from: searchParams.from,
-    to: searchParams.to,
+    q: query.q,
+    source: query.source,
+    status: query.status,
+    referred: query.referred,
+    sort: query.sort,
+    range: query.range,
+    from: query.from,
+    to: query.to,
     perPage: perPage !== 50 ? String(perPage) : undefined,
   };
   const exportParams = new URLSearchParams();
@@ -86,8 +87,8 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
         title="Waitlist"
         context="Everyone who has raised their hand for Calder"
         rangeKey={window.key}
-        customFrom={searchParams.from}
-        customTo={searchParams.to}
+        customFrom={query.from}
+        customTo={query.to}
       />
       <main className="cp-content">
         <PageHeader
@@ -188,14 +189,14 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
               type="search"
               name="q"
               placeholder="Search name, email, or referral code…"
-              defaultValue={searchParams.q ?? ""}
+              defaultValue={query.q ?? ""}
               style={{ minWidth: 220 }}
               aria-label="Search the waitlist"
             />
             <select
               className="cp-select"
               name="source"
-              defaultValue={searchParams.source ?? ""}
+              defaultValue={query.source ?? ""}
               aria-label="Source"
             >
               <option value="">All sources</option>
@@ -211,7 +212,7 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
             <select
               className="cp-select"
               name="status"
-              defaultValue={searchParams.status ?? ""}
+              defaultValue={query.status ?? ""}
               aria-label="Status"
             >
               <option value="">All statuses</option>
@@ -224,7 +225,7 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
             <select
               className="cp-select"
               name="referred"
-              defaultValue={searchParams.referred ?? ""}
+              defaultValue={query.referred ?? ""}
               aria-label="Referral"
             >
               <option value="">Referred + organic</option>
@@ -234,36 +235,26 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
             <select
               className="cp-select"
               name="sort"
-              defaultValue={searchParams.sort ?? "newest"}
+              defaultValue={query.sort ?? "newest"}
               aria-label="Sort"
             >
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
             </select>
-            {searchParams.range ? (
-              <input type="hidden" name="range" value={searchParams.range} />
-            ) : null}
-            {searchParams.from ? (
-              <input type="hidden" name="from" value={searchParams.from} />
-            ) : null}
-            {searchParams.to ? <input type="hidden" name="to" value={searchParams.to} /> : null}
+            {query.range ? <input type="hidden" name="range" value={query.range} /> : null}
+            {query.from ? <input type="hidden" name="from" value={query.from} /> : null}
+            {query.to ? <input type="hidden" name="to" value={query.to} /> : null}
             <button className="cp-btn primary" type="submit">
               Apply
             </button>
-            {searchParams.q ||
-            searchParams.source ||
-            searchParams.status ||
-            searchParams.referred ? (
+            {query.q || query.source || query.status || query.referred ? (
               <Link className="cp-btn" href="/control/growth/waitlist">
                 Clear
               </Link>
             ) : null}
           </form>
 
-          {overview.total === 0 &&
-          !searchParams.q &&
-          !searchParams.status &&
-          !searchParams.source ? (
+          {overview.total === 0 && !query.q && !query.status && !query.source ? (
             <Empty title="Your waitlist is empty">
               Once someone joins Calder, they&apos;ll appear here.
             </Empty>
@@ -285,14 +276,14 @@ export default async function WaitlistPage({ searchParams }: { searchParams: Sea
               pages={table.pages}
               perPage={perPage}
               query={{
-                q: searchParams.q,
-                source: searchParams.source,
-                status: searchParams.status,
-                referred: searchParams.referred,
-                sort: searchParams.sort,
-                range: searchParams.range,
-                from: searchParams.from,
-                to: searchParams.to,
+                q: query.q,
+                source: query.source,
+                status: query.status,
+                referred: query.referred,
+                sort: query.sort,
+                range: query.range,
+                from: query.from,
+                to: query.to,
                 perPage: perPage !== 50 ? String(perPage) : undefined,
               }}
               basePath="/control/growth/waitlist"

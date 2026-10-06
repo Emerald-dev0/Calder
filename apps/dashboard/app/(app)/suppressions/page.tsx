@@ -13,11 +13,12 @@ export const metadata = { title: "Calder — Suppressions" };
 export default async function SuppressionsPage({
   searchParams,
 }: {
-  searchParams: { project?: string; q?: string };
+  searchParams: Promise<{ project?: string; q?: string }>;
 }) {
+  const query = await searchParams;
   const ctx = await getTenantContext();
   const projects = ctx.memberships.flatMap((m) => m.projects);
-  const scope = resolveProject(ctx, searchParams.project);
+  const scope = resolveProject(ctx, query.project);
   if (!scope) {
     return (
       <div>
@@ -36,7 +37,7 @@ export default async function SuppressionsPage({
     );
   }
 
-  const q = stringParam(searchParams.q);
+  const q = stringParam(query.q);
   const db = getDb();
   const rows = await db
     .select()
@@ -44,8 +45,8 @@ export default async function SuppressionsPage({
     .where(
       and(
         inArray(suppressions.projectId, [scope.project.id]),
-        q ? ilike(suppressions.email, `%${q}%`) : undefined,
-      ),
+        q ? ilike(suppressions.email, `%${q}%`) : undefined
+      )
     )
     .orderBy(desc(suppressions.createdAt))
     .limit(200);

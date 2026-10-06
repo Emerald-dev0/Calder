@@ -1,11 +1,12 @@
 import { Hono } from "hono";
 import type { Env } from "../app.js";
 import { createWebhookSchema, isPublicWebhookUrl } from "@calder/validation";
-import { authMiddleware } from "../middleware/auth.js";
+import { authMiddleware, requireScope, type AuthContext } from "../middleware/auth.js";
 import { AppError } from "../errors/index.js";
 import { logger } from "@calder/observability";
 import { encryptSecret } from "@calder/auth";
 import { WEBHOOK_SECRET_CONTEXT, newWebhookSecret } from "../lib/webhook-secrets.js";
+import { decodeApiCursor, encodeApiCursor } from "../lib/pagination.js";
 
 const webhooks = new Hono<Env>();
 
@@ -15,7 +16,8 @@ const webhooks = new Hono<Env>();
 // endpoint to read it back; losing it means rotating to a new secret via
 // delete + re-create.
 webhooks.post("/", authMiddleware, async (c) => {
-  const auth = c.get("auth" as never) as { projectId: string };
+  const auth = c.get("auth" as never) as AuthContext;
+  requireScope(auth, "manage");
   const body = await c.req.json().catch(() => null);
   if (!body) throw new AppError("validation_error", "Invalid JSON", 400);
   const parsed = createWebhookSchema.safeParse(body);
@@ -55,23 +57,41 @@ webhooks.post("/", authMiddleware, async (c) => {
 
 webhooks.get("/", authMiddleware, async (c) => {
   const auth = c.get("auth" as never) as { projectId: string };
-  try {
-    const { getDb, webhooks: webhooksTable } = await import("@calder/db");
-    const { eq } = await import("drizzle-orm");
-    const db = getDb();
-    const rows = await db
-      .select()
-      .from(webhooksTable)
-      .where(eq(webhooksTable.projectId, auth.projectId));
-    // Stored ciphertexts must never be exposed to clients.
-    return c.json({ data: rows.map(({ secret: _secret, ...rest }) => rest) });
-  } catch {
-    return c.json({ data: [] });
+  const { getDb, webhooks: webhooksTable } = await import("@calder/db");
+  const { and, desc, eq, lt, or } = await import("drizzle-orm");
+  const db = getDb();
+  const limit = Math.min(Math.max(Number.parseInt(c.req.query("limit") ?? "20", 10) || 20, 1), 100);
+  const cursor = c.req.query("cursor");
+  const conditions = [eq(webhooksTable.projectId, auth.projectId)];
+  const position = decodeApiCursor(cursor);
+  if (position) {
+    conditions.push(
+      or(
+        lt(webhooksTable.createdAt, position.createdAt),
+        and(eq(webhooksTable.createdAt, position.createdAt), lt(webhooksTable.id, position.id))
+      )!
+    );
   }
+  const rows = await db
+    .select()
+    .from(webhooksTable)
+    .where(and(...conditions))
+    .orderBy(desc(webhooksTable.createdAt), desc(webhooksTable.id))
+    .limit(limit + 1);
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const last = page[page.length - 1];
+  const nextCursor = hasMore && last ? encodeApiCursor(last.createdAt, last.id) : null;
+  // Stored ciphertexts must never be exposed to clients.
+  return c.json({
+    data: page.map(({ secret: _secret, ...rest }) => rest),
+    pagination: { limit, next_cursor: nextCursor },
+  });
 });
 
 webhooks.delete("/:id", authMiddleware, async (c) => {
-  const auth = c.get("auth" as never) as { projectId: string };
+  const auth = c.get("auth" as never) as AuthContext;
+  requireScope(auth, "manage");
   const id = c.req.param("id");
   const { getDb, webhooks: webhooksTable } = await import("@calder/db");
   const { eq, and } = await import("drizzle-orm");
@@ -88,7 +108,8 @@ webhooks.delete("/:id", authMiddleware, async (c) => {
 // stops signing immediately (single-secret contract; consumers must update
 // before the next delivery, deliveries keep their historical signatures).
 webhooks.post("/:id/rotate", authMiddleware, async (c) => {
-  const auth = c.get("auth" as never) as { projectId: string };
+  const auth = c.get("auth" as never) as AuthContext;
+  requireScope(auth, "manage");
   const id = c.req.param("id");
   const { getDb, webhooks: webhooksTable } = await import("@calder/db");
   const { eq, and } = await import("drizzle-orm");
@@ -103,13 +124,30 @@ webhooks.post("/:id/rotate", authMiddleware, async (c) => {
   return c.json({ data: { id, secret } });
 });
 
-// GET /v1/webhooks/:id/deliveries — most recent 25, newest first.
+// GET /v1/webhooks/:id/deliveries — bounded cursor page, newest first.
 webhooks.get("/:id/deliveries", authMiddleware, async (c) => {
   const auth = c.get("auth" as never) as { projectId: string };
   const id = c.req.param("id");
   const { getDb, webhookDeliveries } = await import("@calder/db");
-  const { eq, and, desc } = await import("drizzle-orm");
+  const { eq, and, desc, lt, or } = await import("drizzle-orm");
   const db = getDb();
+  const limit = Math.min(Math.max(Number.parseInt(c.req.query("limit") ?? "25", 10) || 25, 1), 100);
+  const position = decodeApiCursor(c.req.query("cursor"));
+  const conditions = [
+    eq(webhookDeliveries.webhookId, id),
+    eq(webhookDeliveries.projectId, auth.projectId),
+  ];
+  if (position) {
+    conditions.push(
+      or(
+        lt(webhookDeliveries.createdAt, position.createdAt),
+        and(
+          eq(webhookDeliveries.createdAt, position.createdAt),
+          lt(webhookDeliveries.id, position.id)
+        )
+      )!
+    );
+  }
   const rows = await db
     .select({
       id: webhookDeliveries.id,
@@ -124,12 +162,14 @@ webhooks.get("/:id/deliveries", authMiddleware, async (c) => {
       createdAt: webhookDeliveries.createdAt,
     })
     .from(webhookDeliveries)
-    .where(
-      and(eq(webhookDeliveries.webhookId, id), eq(webhookDeliveries.projectId, auth.projectId))
-    )
-    .orderBy(desc(webhookDeliveries.createdAt))
-    .limit(25);
-  return c.json({ data: rows });
+    .where(and(...conditions))
+    .orderBy(desc(webhookDeliveries.createdAt), desc(webhookDeliveries.id))
+    .limit(limit + 1);
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const last = page[page.length - 1];
+  const nextCursor = hasMore && last ? encodeApiCursor(last.createdAt, last.id) : null;
+  return c.json({ data: page, pagination: { limit, next_cursor: nextCursor } });
 });
 
 // POST /v1/webhooks/:id/deliveries/:deliveryId/replay — explicit operator
@@ -137,7 +177,8 @@ webhooks.get("/:id/deliveries", authMiddleware, async (c) => {
 // Replays are never auto-deduped (the operator meant it); receivers dedupe
 // on the business id inside data (e.g. emailId).
 webhooks.post("/:id/deliveries/:deliveryId/replay", authMiddleware, async (c) => {
-  const auth = c.get("auth" as never) as { projectId: string };
+  const auth = c.get("auth" as never) as AuthContext;
+  requireScope(auth, "manage");
   const id = c.req.param("id");
   const deliveryId = c.req.param("deliveryId");
   const { getDb, webhookDeliveries, enqueueWebhookDeliveries } = await import("@calder/db");

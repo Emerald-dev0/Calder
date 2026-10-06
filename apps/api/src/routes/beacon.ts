@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { getDb, analyticsEvents } from "@calder/db";
 import { beaconBatchSchema } from "@calder/validation";
 import { rateLimitMiddleware } from "../middleware/rate-limit.js";
+import { logger } from "@calder/observability";
 import type { Env } from "../app.js";
 
 const beacon = new Hono<Env>();
@@ -64,7 +65,7 @@ beacon.post("/", rateLimitMiddleware("beacon"), async (c) => {
     await db.insert(analyticsEvents).values(rows);
   } catch (err) {
     // Diagnosable server-side, silent client-side (NFR-009).
-    console.error("[beacon] insert failed", err instanceof Error ? err.message : err);
+    logger.error({ err }, "Beacon insert failed");
   }
   return c.body(null, 204);
 });

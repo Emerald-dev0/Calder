@@ -10,10 +10,11 @@ export const metadata = { title: "Calder — New template" };
 export default async function NewTemplatePage({
   searchParams,
 }: {
-  searchParams: { project?: string };
+  searchParams: Promise<{ project?: string }>;
 }) {
+  const query = await searchParams;
   const ctx = await getTenantContext();
-  const scope = resolveProject(ctx, searchParams.project);
+  const scope = resolveProject(ctx, query.project);
   if (!scope) {
     return (
       <EmptyState

@@ -1,30 +1,32 @@
 import Link from "next/link";
-import { count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { getDb, emails, senderIdentities } from "@calder/db";
 import { getTenantContext } from "../../../../lib/auth";
 import { SenderActions } from "./sender-actions";
 import { UserCheck, ArrowLeft } from "lucide-react";
-import {
-  DsPageHeader,
-  StatusPill,
-  StatCard,
-} from "../../../../components/design-system";
+import { DsPageHeader, StatusPill, StatCard } from "../../../../components/design-system";
 import { EmptyState } from "../../../../components/empty-state";
 
-export async function generateMetadata({ params }: { params: { senderId: string } }) {
-  return { title: `Calder — Sender ${params.senderId.slice(0, 18)}` };
+export async function generateMetadata({ params }: { params: Promise<{ senderId: string }> }) {
+  const { senderId } = await params;
+  return { title: `Calder — Sender ${senderId.slice(0, 18)}` };
 }
 
-export default async function SenderDetailPage({ params }: { params: { senderId: string } }) {
+export default async function SenderDetailPage({
+  params,
+}: {
+  params: Promise<{ senderId: string }>;
+}) {
+  const { senderId } = await params;
   const ctx = await getTenantContext();
-  const projectIds = new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)));
+  const projectIds = [...new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)))];
   const db = getDb();
   const [sender] = await db
     .select()
     .from(senderIdentities)
-    .where(eq(senderIdentities.id, params.senderId))
+    .where(and(eq(senderIdentities.id, senderId), inArray(senderIdentities.projectId, projectIds)))
     .limit(1);
-  if (!sender || !projectIds.has(sender.projectId)) {
+  if (!sender || !projectIds.includes(sender.projectId)) {
     return (
       <div>
         <DsPageHeader icon={<UserCheck size={18} />} title="Sender Not Found" />
@@ -42,7 +44,7 @@ export default async function SenderDetailPage({ params }: { params: { senderId:
   const totals = await db
     .select({ status: emails.status, value: count() })
     .from(emails)
-    .where(eq(emails.senderIdentityId, sender.id))
+    .where(and(eq(emails.senderIdentityId, sender.id), eq(emails.projectId, sender.projectId)))
     .groupBy(emails.status);
   const byStatus: Record<string, number> = {};
   let total = 0;
@@ -53,12 +55,12 @@ export default async function SenderDetailPage({ params }: { params: { senderId:
   const recent = await db
     .select({ id: emails.id, to: emails.to, subject: emails.subject, status: emails.status })
     .from(emails)
-    .where(eq(emails.senderIdentityId, sender.id))
+    .where(and(eq(emails.senderIdentityId, sender.id), eq(emails.projectId, sender.projectId)))
     .orderBy(desc(emails.createdAt))
     .limit(10);
 
   const org = ctx.memberships.flatMap((m) =>
-    m.projects.filter((p) => p.id === projectId).map(() => m.organization),
+    m.projects.filter((p) => p.id === projectId).map(() => m.organization)
   )[0];
 
   return (

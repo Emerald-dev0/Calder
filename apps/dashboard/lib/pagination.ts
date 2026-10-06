@@ -14,16 +14,25 @@ export function encodeCursor(c: Cursor): string {
 }
 
 export function decodeCursor(raw: string | string[] | undefined): Cursor | null {
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  if (!value) return null;
+  if (raw === undefined) return null;
+  if (Array.isArray(raw)) {
+    if (raw.length !== 1 || !raw[0]) throw new Error("Invalid pagination cursor.");
+    raw = raw[0];
+  }
+  if (!raw || raw.length > 200 || !/^[A-Za-z0-9_-]+$/.test(raw)) {
+    throw new Error("Invalid pagination cursor.");
+  }
   try {
-    const [iso, id] = Buffer.from(value, "base64url").toString("utf8").split("|");
-    if (!iso || !id) return null;
-    const createdAt = new Date(iso);
-    if (Number.isNaN(createdAt.getTime())) return null;
-    return { createdAt, id };
+    const decoded = Buffer.from(raw, "base64url").toString("utf8");
+    const parts = decoded.split("|");
+    if (parts.length !== 2 || !parts[0] || !parts[1] || parts[1].length > 255) {
+      throw new Error("shape");
+    }
+    const createdAt = new Date(parts[0]);
+    if (Number.isNaN(createdAt.getTime())) throw new Error("date");
+    return { createdAt, id: parts[1] };
   } catch {
-    return null;
+    throw new Error("Invalid pagination cursor.");
   }
 }
 

@@ -14,9 +14,10 @@ export function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: {
-  params: { term: string };
+  params: Promise<{ term: string }>;
 }): Promise<Metadata> {
-  const term = getTerm(params.term);
+  const { term: slug } = await params;
+  const term = getTerm(slug);
   if (!term) return {};
   return pageMeta({
     title: `${term.term}, Glossary`,
@@ -25,8 +26,9 @@ export async function generateMetadata({
   });
 }
 
-export default function GlossaryTerm({ params }: { params: { term: string } }) {
-  const term = getTerm(params.term);
+export default async function GlossaryTerm({ params }: { params: Promise<{ term: string }> }) {
+  const { term: slug } = await params;
+  const term = getTerm(slug);
   if (!term) notFound();
 
   return (

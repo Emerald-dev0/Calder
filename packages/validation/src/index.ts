@@ -177,13 +177,27 @@ export const patchSenderSchema = z
 
 export const keyScopeSchema = z.enum(["full", "send", "read"]);
 
+const keyExpirySchema = z
+  .string()
+  .datetime({ offset: true })
+  .refine((value) => new Date(value).getTime() > Date.now(), "Expiry must be in the future.");
+
 export const createKeySchema = z.object({
   name: z.string().min(1).max(100),
   env: z.enum(["test", "live"]),
   scope: keyScopeSchema.default("full"),
+  /** Null explicitly means no expiry; omitted preserves the legacy default. */
+  expires_at: keyExpirySchema.nullable().optional(),
+});
+
+export const rotateKeySchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  scope: keyScopeSchema.optional(),
+  expires_at: keyExpirySchema.nullable().optional(),
 });
 
 export type CreateKeyInput = z.infer<typeof createKeySchema>;
+export type RotateKeyInput = z.infer<typeof rotateKeySchema>;
 
 // ── Templates ────────────────────────────────────────────────
 

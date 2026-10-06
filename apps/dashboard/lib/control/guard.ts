@@ -20,7 +20,7 @@ export interface ControlContext {
  * separate operational surface, not a dashboard theme.
  */
 export const getControlContext = cache(async (): Promise<ControlContext | null> => {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const user = await getSessionUser(cookieStore.get(SESSION_COOKIE)?.value);
   if (!user) return null;
 

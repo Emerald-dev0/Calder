@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import {
-  verifySignupCode,
   checkEmailCode,
+  getSessionUser,
   normalizeEmail,
+  recordSecurityEvent,
+  SESSION_COOKIE,
+  verifySignupCode,
   isPlausibleEmail,
   sealSessionCookie,
   sessionCookieHeader,
@@ -11,7 +15,9 @@ import {
 import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { clientIp } from "../../../../../lib/client-ip";
 import { safeAuthError } from "../../../../../lib/auth-error";
+import { sendSecurityEmail } from "../../../../../lib/send-security-email";
 import { postLoginRedirect } from "../../../../../lib/control/post-login";
+import { sameOriginRequest } from "../../../../../lib/csrf";
 
 /**
  * POST /api/auth/email-code/verify { email, code, purpose, next? }
@@ -22,6 +28,9 @@ import { postLoginRedirect } from "../../../../../lib/control/post-login";
  * If reset: confirms code is valid for reset.
  */
 export async function POST(req: Request): Promise<Response> {
+  if (!sameOriginRequest(req)) {
+    return NextResponse.json({ error: "Cross-origin request denied." }, { status: 403 });
+  }
   const body = (await req.json().catch(() => null)) as {
     email?: string;
     code?: string;
@@ -56,12 +65,27 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     if (purpose === "verification") {
-      const result = await verifySignupCode(email, code, {
-        userAgent: req.headers.get("user-agent"),
-        ip: clientIp(req),
-      });
+      const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+      const result = await verifySignupCode(
+        email,
+        code,
+        {
+          userAgent: req.headers.get("user-agent"),
+          ip: clientIp(req),
+        },
+        previous?.sessionId
+      );
       const sealed = await sealSessionCookie(result.sessionId);
+      const sessionUser = await getSessionUser(sealed);
       const redirectTo = await postLoginRedirect(email, next);
+      if (sessionUser) {
+        await recordSecurityEvent({
+          userId: sessionUser.userId,
+          action: "auth.login.succeeded",
+          metadata: { method: "email_code" },
+        }).catch(() => {});
+        await sendSecurityEmail({ to: sessionUser.email, event: "new_login" });
+      }
       const res = NextResponse.json({ ok: true, redirectTo });
       res.headers.append("Set-Cookie", sessionCookieHeader(sealed, 30 * 24 * 60 * 60));
       return res;

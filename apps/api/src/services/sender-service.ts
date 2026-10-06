@@ -65,7 +65,7 @@ export async function resolveSender(
         422
       );
     }
-    await touchSender(db, sender.id);
+    await touchSender(db, sender.id, projectId);
     return { senderIdentityId: sender.id, email: sender.email, displayName: sender.displayName };
   }
 
@@ -82,16 +82,16 @@ export async function resolveSender(
       422
     );
   }
-  await touchSender(db, sender.id);
+  await touchSender(db, sender.id, projectId);
   return { senderIdentityId: sender.id, email: sender.email, displayName: sender.displayName };
 }
 
-async function touchSender(db: DbClient, id: string): Promise<void> {
+async function touchSender(db: DbClient, id: string, projectId: string): Promise<void> {
   try {
     await db
       .update(senderIdentities)
       .set({ lastUsedAt: new Date(), updatedAt: new Date() })
-      .where(eq(senderIdentities.id, id));
+      .where(and(eq(senderIdentities.id, id), eq(senderIdentities.projectId, projectId)));
   } catch {
     // Usage timestamps must never break a send.
   }

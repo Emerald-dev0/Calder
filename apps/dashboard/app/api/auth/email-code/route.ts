@@ -11,6 +11,7 @@ import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { logger } from "@calder/observability";
 import { clientIp } from "../../../../lib/client-ip";
 import { sendOtpEmail } from "../../../../lib/send-auth-email";
+import { sameOriginRequest } from "../../../../lib/csrf";
 
 /**
  * POST /api/auth/email-code { email, purpose }
@@ -19,6 +20,9 @@ import { sendOtpEmail } from "../../../../lib/send-auth-email";
  * Rate-limited per IP (otp) and per email (otp).
  */
 export async function POST(req: Request): Promise<Response> {
+  if (!sameOriginRequest(req)) {
+    return NextResponse.json({ error: "Cross-origin request denied." }, { status: 403 });
+  }
   const body = (await req.json().catch(() => null)) as {
     email?: string;
     purpose?: EmailCodePurpose;
@@ -48,14 +52,19 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   try {
+    const db = getDb();
+    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
     if (purpose === "reset") {
-      const db = getDb();
-      const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-      // If user doesn't exist or has no password hash, do not issue reset code, but return ok
+      // If user doesn't exist or has no password hash, do not issue reset code, but return ok.
       if (!user || !user.passwordHash) {
-        logger.info({ email }, "Password reset requested for nonexistent or passwordless user");
+        logger.info("Password reset requested for nonexistent or passwordless user");
         return NextResponse.json({ ok: true });
       }
+    } else if (!user || user.emailVerifiedAt) {
+      // Verification resend is only meaningful for an unverified account.
+      // Signup and successful password login issue their own challenge; this
+      // prevents a generic verification endpoint from becoming a login bypass.
+      return NextResponse.json({ ok: true });
     }
 
     const challenge = await issueEmailCode(email, purpose);
@@ -64,8 +73,8 @@ export async function POST(req: Request): Promise<Response> {
       code: challenge.code,
       purpose,
     });
-  } catch (err) {
-    logger.warn({ err, email, purpose }, "Failed to issue email OTP code");
+  } catch {
+    logger.warn({ purpose }, "Failed to issue email OTP code");
   }
 
   return NextResponse.json({ ok: true });

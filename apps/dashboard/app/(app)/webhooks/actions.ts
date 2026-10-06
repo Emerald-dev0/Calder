@@ -3,7 +3,9 @@
 import { randomUUID } from "node:crypto";
 import { eq, and } from "drizzle-orm";
 import { getDb, webhooks } from "@calder/db";
+import { isPublicWebhookUrl } from "@calder/validation";
 import { getTenantContext } from "../../../lib/auth";
+import { assertProjectManager } from "../onboarding/actions";
 import { encryptSecret, newWebhookSecret } from "./crypto";
 import { WEBHOOK_EVENTS } from "./events";
 
@@ -34,15 +36,17 @@ export async function listWebhooks(projectId: string) {
 }
 
 export async function createWebhook(projectId: string, url: string, events: string[]) {
-  await assertProject(projectId);
+  await assertProjectManager(projectId);
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
-    throw new Error("Enter a valid https URL.");
+    throw new Error("Enter a valid public https URL.");
   }
-  if (parsed.protocol !== "https:" && parsed.hostname !== "localhost") {
-    throw new Error("Endpoint must be https (localhost allowed for testing).");
+  if (!isPublicWebhookUrl(parsed.toString())) {
+    throw new Error(
+      "Endpoint must be a public https URL; private and loopback addresses are refused."
+    );
   }
   const clean = events.filter((e) => (WEBHOOK_EVENTS as readonly string[]).includes(e));
   if (clean.length === 0) throw new Error("Select at least one event.");
@@ -62,7 +66,7 @@ export async function createWebhook(projectId: string, url: string, events: stri
 }
 
 export async function setWebhookEnabled(projectId: string, webhookId: string, enabled: boolean) {
-  await assertProject(projectId);
+  await assertProjectManager(projectId);
   const db = getDb();
   await db
     .update(webhooks)
@@ -110,7 +114,7 @@ export async function listWebhookDeliveries(projectId: string, webhookId: string
  * receivers dedupe on the business id inside data (e.g. emailId).
  */
 export async function replayDelivery(projectId: string, webhookId: string, deliveryId: string) {
-  await assertProject(projectId);
+  await assertProjectManager(projectId);
   const db = getDb();
   const { webhookDeliveries, enqueueWebhookDeliveries } = await import("@calder/db");
   const [src] = await db
@@ -141,7 +145,7 @@ export async function replayDelivery(projectId: string, webhookId: string, deliv
 
 /** Rotate the signing secret. Shown ONCE; the old secret stops signing immediately. */
 export async function rotateWebhookSecret(projectId: string, webhookId: string) {
-  await assertProject(projectId);
+  await assertProjectManager(projectId);
   const db = getDb();
   const secret = newWebhookSecret();
   const updated = await db

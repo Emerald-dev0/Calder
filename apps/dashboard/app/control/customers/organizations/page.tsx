@@ -9,13 +9,14 @@ export const dynamic = "force-dynamic";
 export default async function OrganizationsPage({
   searchParams,
 }: {
-  searchParams: { plan?: string; q?: string };
+  searchParams: Promise<{ plan?: string; q?: string }>;
 }) {
+  const query = await searchParams;
   await requireSection("customers");
   const all = await organizationRows();
-  const q = searchParams.q?.toLowerCase();
+  const q = query.q?.toLowerCase();
   const filtered = all.filter((o) => {
-    if (searchParams.plan && o.plan !== searchParams.plan) return false;
+    if (query.plan && o.plan !== query.plan) return false;
     if (q && !`${o.name} ${o.slug}`.toLowerCase().includes(q)) return false;
     return true;
   });
@@ -54,13 +55,13 @@ export default async function OrganizationsPage({
             type="search"
             name="q"
             placeholder="Search name or slug…"
-            defaultValue={searchParams.q ?? ""}
+            defaultValue={query.q ?? ""}
             style={{ minWidth: 220 }}
           />
           <select
             className="cp-select"
             name="plan"
-            defaultValue={searchParams.plan ?? ""}
+            defaultValue={query.plan ?? ""}
             aria-label="Plan"
           >
             <option value="">All plans</option>
@@ -72,7 +73,7 @@ export default async function OrganizationsPage({
           <button className="cp-btn primary" type="submit">
             Apply
           </button>
-          {(searchParams.q || searchParams.plan) && (
+          {(query.q || query.plan) && (
             <Link className="cp-btn" href="/control/customers/organizations">
               Clear
             </Link>

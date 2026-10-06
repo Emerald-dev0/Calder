@@ -3,6 +3,7 @@ import type { Env } from "../app.js";
 import { createSenderSchema, patchSenderSchema } from "@calder/validation";
 import { authMiddleware, requireScope, type AuthContext } from "../middleware/auth.js";
 import { AppError, validationError } from "../errors/index.js";
+import { decodeApiCursor, encodeApiCursor } from "../lib/pagination.js";
 
 const senders = new Hono<Env>();
 
@@ -33,13 +34,34 @@ function present(row: Record<string, unknown>) {
 senders.get("/", authMiddleware, async (c) => {
   const a = auth(c);
   const { getDb, senderIdentities } = await import("@calder/db");
-  const { eq } = await import("drizzle-orm");
+  const { and, desc, eq, lt, or } = await import("drizzle-orm");
   const db = getDb();
+  const limit = Math.min(Math.max(Number.parseInt(c.req.query("limit") ?? "20", 10) || 20, 1), 100);
+  const cursor = c.req.query("cursor");
+  const conditions = [eq(senderIdentities.projectId, a.projectId)];
+  const position = decodeApiCursor(cursor);
+  if (position) {
+    conditions.push(
+      or(
+        lt(senderIdentities.createdAt, position.createdAt),
+        and(
+          eq(senderIdentities.createdAt, position.createdAt),
+          lt(senderIdentities.id, position.id)
+        )
+      )!
+    );
+  }
   const rows = await db
     .select()
     .from(senderIdentities)
-    .where(eq(senderIdentities.projectId, a.projectId));
-  return c.json({ data: rows.map(present) });
+    .where(and(...conditions))
+    .orderBy(desc(senderIdentities.createdAt), desc(senderIdentities.id))
+    .limit(limit + 1);
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const last = page[page.length - 1];
+  const nextCursor = hasMore && last ? encodeApiCursor(last.createdAt, last.id) : null;
+  return c.json({ data: page.map(present), pagination: { limit, next_cursor: nextCursor } });
 });
 
 // POST /v1/senders, create (domain senders need a verified domain; gmail
@@ -179,7 +201,7 @@ senders.patch("/:id", authMiddleware, async (c) => {
       ...(parsed.data.is_default !== undefined ? { isDefault: parsed.data.is_default } : {}),
       updatedAt: new Date(),
     })
-    .where(eq(senderIdentities.id, id))
+    .where(and(eq(senderIdentities.id, id), eq(senderIdentities.projectId, a.projectId)))
     .returning();
   return c.json({ data: present(updated as Record<string, unknown>) });
 });
@@ -221,7 +243,7 @@ senders.post("/:id/default", authMiddleware, async (c) => {
   const [updated] = await db
     .update(senderIdentities)
     .set({ isDefault: true, updatedAt: new Date() })
-    .where(eq(senderIdentities.id, id))
+    .where(and(eq(senderIdentities.id, id), eq(senderIdentities.projectId, a.projectId)))
     .returning();
   return c.json({ data: present(updated as Record<string, unknown>) });
 });

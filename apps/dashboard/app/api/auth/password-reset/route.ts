@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
+import { getDb, users } from "@calder/db";
 import {
-  resetPasswordWithCode,
   normalizeEmail,
+  recordSecurityEvent,
+  resetPasswordWithCode,
   isPlausibleEmail,
   validatePasswordStrength,
 } from "@calder/auth";
@@ -9,6 +12,8 @@ import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { logger } from "@calder/observability";
 import { clientIp } from "../../../../lib/client-ip";
 import { safeAuthError } from "../../../../lib/auth-error";
+import { sendSecurityEmail } from "../../../../lib/send-security-email";
+import { sameOriginRequest } from "../../../../lib/csrf";
 
 /**
  * POST /api/auth/password-reset { email, code, newPassword }
@@ -16,6 +21,9 @@ import { safeAuthError } from "../../../../lib/auth-error";
  * Rate-limited per IP and per email.
  */
 export async function POST(req: Request): Promise<Response> {
+  if (!sameOriginRequest(req)) {
+    return NextResponse.json({ error: "Cross-origin request denied." }, { status: 403 });
+  }
   const body = (await req.json().catch(() => null)) as {
     email?: string;
     code?: string;
@@ -57,9 +65,22 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     await resetPasswordWithCode(email, code, newPassword);
+    const [user] = await getDb()
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+    if (user) {
+      await recordSecurityEvent({
+        userId: user.id,
+        action: "auth.password.reset",
+        metadata: { method: "email_code" },
+      }).catch(() => logger.warn("Could not record password reset event"));
+      await sendSecurityEmail({ to: email, event: "password_reset" });
+    }
     return NextResponse.json({ ok: true });
   } catch (err) {
-    logger.warn({ err, email }, "Password reset failed");
+    logger.warn("Password reset failed");
     // Enumeration-safe: an unknown email looks exactly like success, so the
     // endpoint never reveals which addresses hold accounts.
     if (err instanceof Error && err.message === "No account found for this email.") {

@@ -3,6 +3,7 @@ import type { Env } from "../app.js";
 import { createTemplateSchema, createTemplateVersionSchema } from "@calder/validation";
 import { authMiddleware, requireScope, type AuthContext } from "../middleware/auth.js";
 import { AppError, validationError } from "../errors/index.js";
+import { decodeApiCursor, encodeApiCursor } from "../lib/pagination.js";
 
 const templates = new Hono<Env>();
 
@@ -33,14 +34,22 @@ function present(t: Record<string, unknown>, latest: Record<string, unknown> | n
 
 async function latestVersion(
   db: import("@calder/db").DbClient,
-  templateId: string
+  templateId: string,
+  projectId: string
 ): Promise<Record<string, unknown> | null> {
-  const { templateVersions } = await import("@calder/db");
-  const { eq, desc } = await import("drizzle-orm");
+  const { templateVersions, templates } = await import("@calder/db");
+  const { and, desc, eq } = await import("drizzle-orm");
   const [row] = await db
-    .select()
+    .select({
+      version: templateVersions.version,
+      subject: templateVersions.subject,
+      html: templateVersions.html,
+      text: templateVersions.text,
+      createdAt: templateVersions.createdAt,
+    })
     .from(templateVersions)
-    .where(eq(templateVersions.templateId, templateId))
+    .innerJoin(templates, eq(templateVersions.templateId, templates.id))
+    .where(and(eq(templateVersions.templateId, templateId), eq(templates.projectId, projectId)))
     .orderBy(desc(templateVersions.createdAt))
     .limit(1);
   return (row as Record<string, unknown> | undefined) ?? null;
@@ -50,18 +59,35 @@ async function latestVersion(
 templates.get("/", authMiddleware, async (c) => {
   const a = auth(c);
   const { getDb, templates: templatesTable } = await import("@calder/db");
-  const { eq, desc } = await import("drizzle-orm");
+  const { and, desc, eq, lt, or } = await import("drizzle-orm");
   const db = getDb();
+  const limit = Math.min(Math.max(Number.parseInt(c.req.query("limit") ?? "20", 10) || 20, 1), 100);
+  const cursor = c.req.query("cursor");
+  const conditions = [eq(templatesTable.projectId, a.projectId)];
+  const position = decodeApiCursor(cursor);
+  if (position) {
+    conditions.push(
+      or(
+        lt(templatesTable.createdAt, position.createdAt),
+        and(eq(templatesTable.createdAt, position.createdAt), lt(templatesTable.id, position.id))
+      )!
+    );
+  }
   const rows = await db
     .select()
     .from(templatesTable)
-    .where(eq(templatesTable.projectId, a.projectId))
-    .orderBy(desc(templatesTable.createdAt));
+    .where(and(...conditions))
+    .orderBy(desc(templatesTable.createdAt), desc(templatesTable.id))
+    .limit(limit + 1);
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
   const out = [];
-  for (const t of rows) {
-    out.push(present(t as Record<string, unknown>, await latestVersion(db, t.id)));
+  for (const t of page) {
+    out.push(present(t as Record<string, unknown>, await latestVersion(db, t.id, a.projectId)));
   }
-  return c.json({ data: out });
+  const last = page[page.length - 1];
+  const nextCursor = hasMore && last ? encodeApiCursor(last.createdAt, last.id) : null;
+  return c.json({ data: out, pagination: { limit, next_cursor: nextCursor } });
 });
 
 // POST /v1/templates (creates v1 when content is provided)
@@ -130,7 +156,9 @@ templates.get("/:id", authMiddleware, async (c) => {
     .where(and(eq(templatesTable.id, id), eq(templatesTable.projectId, a.projectId)))
     .limit(1);
   if (!row) throw new AppError("not_found", "Template not found", 404);
-  return c.json({ data: present(row as Record<string, unknown>, await latestVersion(db, id)) });
+  return c.json({
+    data: present(row as Record<string, unknown>, await latestVersion(db, id, a.projectId)),
+  });
 });
 
 // DELETE /v1/templates/:id
@@ -154,7 +182,7 @@ templates.get("/:id/versions", authMiddleware, async (c) => {
   const a = auth(c);
   const id = c.req.param("id");
   const { getDb, templates: templatesTable, templateVersions } = await import("@calder/db");
-  const { eq, and, desc } = await import("drizzle-orm");
+  const { eq, and, desc, lt, or } = await import("drizzle-orm");
   const db = getDb();
   const [t] = await db
     .select({ id: templatesTable.id })
@@ -162,8 +190,26 @@ templates.get("/:id/versions", authMiddleware, async (c) => {
     .where(and(eq(templatesTable.id, id), eq(templatesTable.projectId, a.projectId)))
     .limit(1);
   if (!t) throw new AppError("not_found", "Template not found", 404);
+  const limit = Math.min(Math.max(Number.parseInt(c.req.query("limit") ?? "20", 10) || 20, 1), 100);
+  const position = decodeApiCursor(c.req.query("cursor"));
+  const conditions = [
+    eq(templateVersions.templateId, id),
+    eq(templatesTable.projectId, a.projectId),
+  ];
+  if (position) {
+    conditions.push(
+      or(
+        lt(templateVersions.createdAt, position.createdAt),
+        and(
+          eq(templateVersions.createdAt, position.createdAt),
+          lt(templateVersions.id, position.id)
+        )
+      )!
+    );
+  }
   const versions = await db
     .select({
+      id: templateVersions.id,
       version: templateVersions.version,
       subject: templateVersions.subject,
       has_html: templateVersions.html,
@@ -171,16 +217,25 @@ templates.get("/:id/versions", authMiddleware, async (c) => {
       created_at: templateVersions.createdAt,
     })
     .from(templateVersions)
-    .where(eq(templateVersions.templateId, id))
-    .orderBy(desc(templateVersions.createdAt));
+    .innerJoin(templatesTable, eq(templateVersions.templateId, templatesTable.id))
+    .where(and(...conditions))
+    .orderBy(desc(templateVersions.createdAt), desc(templateVersions.id))
+    .limit(limit + 1);
+  const hasMore = versions.length > limit;
+  const page = hasMore ? versions.slice(0, limit) : versions;
+  const last = page[page.length - 1];
   return c.json({
-    data: versions.map((v) => ({
+    data: page.map((v) => ({
       version: v.version,
       subject: v.subject ?? null,
       has_html: !!v.has_html,
       has_text: !!v.has_text,
       created_at: v.created_at,
     })),
+    pagination: {
+      limit,
+      next_cursor: hasMore && last ? encodeApiCursor(last.created_at, last.id) : null,
+    },
   });
 });
 
@@ -211,7 +266,8 @@ templates.post("/:id/versions", authMiddleware, async (c) => {
   const [countRow] = await db
     .select({ value: sql<number>`count(*)` })
     .from(templateVersions)
-    .where(eq(templateVersions.templateId, id));
+    .innerJoin(templatesTable, eq(templateVersions.templateId, templatesTable.id))
+    .where(and(eq(templateVersions.templateId, id), eq(templatesTable.projectId, a.projectId)));
   const n = countRow?.value ?? 0;
   const [v] = await db
     .insert(templateVersions)

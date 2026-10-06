@@ -7,7 +7,12 @@ export const metadata = {
   title: "Sign in to Calder",
 };
 
-export default function LoginPage({ searchParams }: { searchParams?: { error?: string } }) {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ error?: string }>;
+}) {
+  const query = await searchParams;
   const providers = configuredProviders();
   const devLogin = process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_LOGIN === "true";
 
@@ -44,7 +49,7 @@ export default function LoginPage({ searchParams }: { searchParams?: { error?: s
 
       <div className="login-form-wrap">
         <div className="login-form">
-          <LoginForm providers={providers} initialError={searchParams?.error} devLogin={devLogin} />
+          <LoginForm providers={providers} initialError={query?.error} devLogin={devLogin} />
         </div>
       </div>
     </div>

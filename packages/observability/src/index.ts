@@ -8,6 +8,7 @@ export {
   isSensitiveKey,
   REDACTED,
 } from "./redact.js";
+export { errorCodeOf, safeDeliveryReason } from "./safe-errors.js";
 export {
   classifyError,
   describeClassification,

@@ -28,6 +28,8 @@ export interface WorkerStatsSnapshot {
   exhausted: number;
   /** Jobs whose email row vanished (should stay at zero). */
   missingRecord: number;
+  /** Duplicate/stale jobs that lost the database delivery claim. */
+  alreadyClaimed: number;
   /** Executions that threw and will be retried by the queue. */
   retried: number;
   lastJobAt: string | null;
@@ -46,6 +48,7 @@ const state = {
   suppressed: 0,
   exhausted: 0,
   missingRecord: 0,
+  alreadyClaimed: 0,
   retried: 0,
   lastJobAt: null as string | null,
   lastJobDurationMs: null as number | null,
@@ -56,7 +59,8 @@ const state = {
   heartbeatFailures: 0,
 };
 
-export type ProcessOutcomeLike = "sent" | "failed" | "suppressed" | "exhausted" | "missing_record";
+export type ProcessOutcomeLike =
+  "sent" | "failed" | "suppressed" | "exhausted" | "missing_record" | "already_claimed";
 
 export function recordJobOutcome(outcome: ProcessOutcomeLike, durationMs: number): void {
   state.lastJobAt = new Date().toISOString();
@@ -66,6 +70,7 @@ export function recordJobOutcome(outcome: ProcessOutcomeLike, durationMs: number
   else if (outcome === "suppressed") state.suppressed += 1;
   else if (outcome === "exhausted") state.exhausted += 1;
   else if (outcome === "missing_record") state.missingRecord += 1;
+  else if (outcome === "already_claimed") state.alreadyClaimed += 1;
 }
 
 /** A job execution threw; the queue will retry it. */
@@ -106,6 +111,7 @@ export function workerStatsSnapshot(workerId: string): WorkerStatsSnapshot {
     suppressed: state.suppressed,
     exhausted: state.exhausted,
     missingRecord: state.missingRecord,
+    alreadyClaimed: state.alreadyClaimed,
     retried: state.retried,
     lastJobAt: state.lastJobAt,
     lastJobDurationMs: state.lastJobDurationMs,
@@ -125,6 +131,7 @@ export function resetWorkerStats(): void {
   state.suppressed = 0;
   state.exhausted = 0;
   state.missingRecord = 0;
+  state.alreadyClaimed = 0;
   state.retried = 0;
   state.lastJobAt = null;
   state.lastJobDurationMs = null;

@@ -10,6 +10,7 @@ import { logger } from "@calder/observability";
 import { clientIp } from "../../../../lib/client-ip";
 import { sendOtpEmail } from "../../../../lib/send-auth-email";
 import { safeAuthError } from "../../../../lib/auth-error";
+import { sameOriginRequest } from "../../../../lib/csrf";
 
 /**
  * POST /api/auth/signup { name, email, password }
@@ -18,6 +19,9 @@ import { safeAuthError } from "../../../../lib/auth-error";
  * Rate-limited per IP (auth) and per email (otp).
  */
 export async function POST(req: Request): Promise<Response> {
+  if (!sameOriginRequest(req)) {
+    return NextResponse.json({ error: "Cross-origin request denied." }, { status: 403 });
+  }
   const body = (await req.json().catch(() => null)) as {
     name?: string;
     email?: string;
@@ -61,7 +65,7 @@ export async function POST(req: Request): Promise<Response> {
       });
     }
   } catch (err) {
-    logger.warn({ err, email }, "Signup operation failed");
+    logger.warn("Signup operation failed");
     return NextResponse.json({ error: safeAuthError(err, "Signup failed.") }, { status: 400 });
   }
 

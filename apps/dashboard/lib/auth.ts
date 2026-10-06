@@ -27,7 +27,7 @@ export interface TenantContext {
  * (Middleware checks cookie presence for speed; THIS is the enforcement.)
  */
 export const getTenantContext = cache(async (): Promise<TenantContext> => {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const user = await getSessionUser(cookieStore.get(SESSION_COOKIE)?.value);
   if (!user) redirect("/login");
 

@@ -13,7 +13,7 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "description": "sk_test_ or sk_live_ API key"
+        "description": "A Calder secret key: calder_sk_test_<random> or calder_sk_live_<random>. The raw secret is shown only at creation or rotation."
       }
     },
     "schemas": {
@@ -124,7 +124,44 @@
           "name": { "type": "string" },
           "prefix": { "type": "string" },
           "env": { "type": "string", "enum": ["test", "live"] },
-          "scope": { "type": "string", "enum": ["full", "send", "read"] }
+          "scope": { "type": "string", "enum": ["full", "send", "read"] },
+          "last_used_at": { "type": ["string", "null"], "format": "date-time" },
+          "expires_at": { "type": ["string", "null"], "format": "date-time" },
+          "revoked_at": { "type": ["string", "null"], "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateApiKey": {
+        "type": "object",
+        "required": ["name", "env"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "env": { "type": "string", "enum": ["test", "live"] },
+          "scope": { "type": "string", "enum": ["full", "send", "read"], "default": "full" },
+          "expires_at": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Future expiration. Null or omission means no expiration."
+          }
+        }
+      },
+      "RotateApiKey": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "maxLength": 100 },
+          "scope": { "type": "string", "enum": ["full", "send", "read"] },
+          "expires_at": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Future expiration; omission inherits the old key's expiry."
+          }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100 },
+          "next_cursor": { "type": ["string", "null"] }
         }
       },
       "Template": {
@@ -203,7 +240,15 @@
     "/v1/senders": {
       "get": {
         "summary": "List sender identities",
-        "responses": { "200": { "description": "Senders" } }
+        "parameters": [
+          { "name": "cursor", "in": "query", "schema": { "type": "string", "maxLength": 200 } },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+          }
+        ],
+        "responses": { "200": { "description": "Senders and cursor pagination" } }
       },
       "post": {
         "summary": "Create a sender (domain must be verified, gmail needs a transport)",
@@ -262,11 +307,39 @@
     "/v1/keys": {
       "get": {
         "summary": "List API keys (no secrets)",
-        "responses": { "200": { "description": "Keys" } }
+        "parameters": [
+          { "name": "cursor", "in": "query", "schema": { "type": "string", "maxLength": 200 } },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+          }
+        ],
+        "responses": { "200": { "description": "Keys and cursor pagination" } }
       },
       "post": {
         "summary": "Create a key (secret shown once)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CreateApiKey" } }
+          }
+        },
         "responses": { "201": { "description": "Key + secret" } }
+      }
+    },
+    "/v1/keys/{id}/rotate": {
+      "post": {
+        "summary": "Atomically rotate a key (old key is revoked)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/RotateApiKey" } }
+          }
+        },
+        "responses": { "201": { "description": "Replacement key + secret shown once" } }
       }
     },
     "/v1/keys/{id}/revoke": {
@@ -281,7 +354,15 @@
     "/v1/templates": {
       "get": {
         "summary": "List templates",
-        "responses": { "200": { "description": "Templates" } }
+        "parameters": [
+          { "name": "cursor", "in": "query", "schema": { "type": "string", "maxLength": 200 } },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+          }
+        ],
+        "responses": { "200": { "description": "Templates and cursor pagination" } }
       },
       "post": {
         "summary": "Create a template (v1 when content given)",
@@ -308,7 +389,13 @@
       "get": {
         "summary": "List versions",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "cursor", "in": "query", "schema": { "type": "string", "maxLength": 200 } },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+          }
         ],
         "responses": { "200": { "description": "Versions" } }
       },
@@ -323,7 +410,15 @@
     "/v1/suppressions": {
       "get": {
         "summary": "List suppressions",
-        "responses": { "200": { "description": "Suppressions" } }
+        "parameters": [
+          { "name": "cursor", "in": "query", "schema": { "type": "string", "maxLength": 200 } },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+          }
+        ],
+        "responses": { "200": { "description": "Suppressions and cursor pagination" } }
       },
       "post": {
         "summary": "Suppress an address",
@@ -340,7 +435,18 @@
       }
     },
     "/v1/domains": {
-      "get": { "summary": "List domains", "responses": { "200": { "description": "Domains" } } },
+      "get": {
+        "summary": "List domains",
+        "parameters": [
+          { "name": "cursor", "in": "query", "schema": { "type": "string", "maxLength": 200 } },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+          }
+        ],
+        "responses": { "200": { "description": "Domains and cursor pagination" } }
+      },
       "post": {
         "summary": "Add a domain (returns DNS records)",
         "responses": { "201": { "description": "Domain" } }
@@ -401,14 +507,33 @@
     },
     "/v1/projects": {
       "get": {
-        "summary": "List projects in the organization",
-        "responses": { "200": { "description": "Projects" } }
+        "summary": "Get the authenticated API key's project",
+        "parameters": [
+          { "name": "cursor", "in": "query", "schema": { "type": "string", "maxLength": 200 } },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+          }
+        ],
+        "responses": { "200": { "description": "Projects and cursor pagination" } }
       }
     },
     "/v1/webhooks": {
-      "get": { "summary": "List webhooks", "responses": { "200": { "description": "Webhooks" } } },
+      "get": {
+        "summary": "List webhooks",
+        "parameters": [
+          { "name": "cursor", "in": "query", "schema": { "type": "string", "maxLength": 200 } },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+          }
+        ],
+        "responses": { "200": { "description": "Webhooks and cursor pagination" } }
+      },
       "post": {
-        "summary": "Add a webhook (secret hashed, shown never)",
+        "summary": "Add a webhook (secret encrypted at rest, shown exactly once)",
         "responses": { "201": { "description": "Webhook" } }
       }
     },
@@ -434,7 +559,13 @@
       "get": {
         "summary": "List recent delivery attempts with response codes",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "cursor", "in": "query", "schema": { "type": "string", "maxLength": 200 } },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 25 }
+          }
         ],
         "responses": { "200": { "description": "Deliveries" } }
       }

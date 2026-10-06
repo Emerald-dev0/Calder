@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { getDb, magicLinkTokens, users } from "@calder/db";
-import { createSession } from "./session.js";
+import { rotateSession, rotateSessionInTransaction } from "./session.js";
 import { acceptPendingInvites, ensureFounderAccess } from "./oauth.js";
 import { assertNotDisposableEmail } from "./disposable-email.js";
 
@@ -44,18 +44,20 @@ export async function requestMagicLink(email: string): Promise<string> {
   const db = getDb();
   const raw = randomBytes(32).toString("hex");
   const now = new Date();
-  const live = await db
-    .select({ id: magicLinkTokens.id })
-    .from(magicLinkTokens)
-    .where(eq(magicLinkTokens.email, normalized));
-  for (const row of live) {
-    await db.update(magicLinkTokens).set({ consumedAt: now }).where(eq(magicLinkTokens.id, row.id));
-  }
-  await db.insert(magicLinkTokens).values({
-    id: newId("mlt"),
-    email: normalized,
-    tokenHash: hashMagicToken(raw),
-    expiresAt: magicLinkExpiry(now),
+  await db.transaction(async (tx) => {
+    // Serialize issuance so concurrent resend requests cannot leave two live
+    // links. The raw token remains only in the caller's email body.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`magic-link|${normalized}`}))`);
+    await tx
+      .update(magicLinkTokens)
+      .set({ consumedAt: now })
+      .where(and(eq(magicLinkTokens.email, normalized), isNull(magicLinkTokens.consumedAt)));
+    await tx.insert(magicLinkTokens).values({
+      id: newId("mlt"),
+      email: normalized,
+      tokenHash: hashMagicToken(raw),
+      expiresAt: magicLinkExpiry(now),
+    });
   });
   return raw;
 }
@@ -67,7 +69,8 @@ export async function requestMagicLink(email: string): Promise<string> {
  */
 export async function consumeMagicLink(
   rawToken: string,
-  meta: Parameters<typeof createSession>[1] = {}
+  meta: Parameters<typeof rotateSession>[2] = {},
+  previousSessionId?: string | null
 ): Promise<string> {
   const raw = rawToken.trim();
   if (!/^[a-f0-9]{64}$/.test(raw)) throw new Error("This link is invalid or expired.");
@@ -80,27 +83,49 @@ export async function consumeMagicLink(
   if (!row || !isMagicTokenLive(row)) {
     throw new Error("This link is invalid or expired.");
   }
-  await db
+  // Claim the token at the database boundary. Two concurrent callbacks can
+  // both read the live row, but only one conditional UPDATE returns a row.
+  const claimed = await db
     .update(magicLinkTokens)
     .set({ consumedAt: new Date() })
-    .where(eq(magicLinkTokens.id, row.id));
+    .where(
+      and(
+        eq(magicLinkTokens.id, row.id),
+        isNull(magicLinkTokens.consumedAt),
+        gt(magicLinkTokens.expiresAt, new Date())
+      )
+    )
+    .returning({ id: magicLinkTokens.id, email: magicLinkTokens.email });
+  if (claimed.length === 0) throw new Error("This link is invalid or expired.");
 
-  const [same] = await db.select().from(users).where(eq(users.email, row.email)).limit(1);
-  let userId = same?.id ?? null;
-  if (!userId) {
-    assertNotDisposableEmail(row.email);
-    userId = newId("usr");
-    await db.insert(users).values({
-      id: userId,
-      email: row.email,
-      emailVerifiedAt: new Date(),
-    });
-  } else if (same?.emailVerifiedAt == null) {
-    await db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.id, userId));
-  }
+  const result = await db.transaction(async (tx) => {
+    const [same] = await tx
+      .select()
+      .from(users)
+      .where(eq(users.email, row.email))
+      .limit(1)
+      .for("update");
+    let userId = same?.id ?? null;
+    if (!userId) {
+      assertNotDisposableEmail(row.email);
+      userId = newId("usr");
+      await tx.insert(users).values({
+        id: userId,
+        email: row.email,
+        emailVerifiedAt: new Date(),
+      });
+    } else if (same?.emailVerifiedAt == null) {
+      await tx
+        .update(users)
+        .set({ emailVerifiedAt: new Date(), updatedAt: new Date() })
+        .where(eq(users.id, userId));
+    }
+    const sessionId = await rotateSessionInTransaction(tx, userId, previousSessionId, meta);
+    return { userId, sessionId };
+  });
 
-  await ensureFounderAccess(db, userId, row.email);
-  await acceptPendingInvites(db, userId, row.email);
+  await ensureFounderAccess(db, result.userId, row.email);
+  await acceptPendingInvites(db, result.userId, row.email);
 
-  return createSession(userId, meta);
+  return result.sessionId;
 }

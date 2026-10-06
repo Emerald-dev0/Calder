@@ -11,11 +11,12 @@ import { EmptyState } from "../../../components/empty-state";
 export default async function DomainsPage({
   searchParams,
 }: {
-  searchParams: { project?: string };
+  searchParams: Promise<{ project?: string }>;
 }) {
+  const query = await searchParams;
   const ctx = await getTenantContext();
   const projects = ctx.memberships.flatMap((m) => m.projects);
-  const scope = resolveProject(ctx, searchParams.project);
+  const scope = resolveProject(ctx, query.project);
   if (!scope) {
     return (
       <div>

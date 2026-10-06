@@ -5,6 +5,7 @@ import { brandEmail, createEmailService } from "@calder/email";
 import { resolveEmailProvider } from "@calder/providers";
 import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { logger } from "@calder/observability";
+import { sameOriginRequest } from "../../../../lib/csrf";
 
 function clientIp(req: Request): string {
   return (
@@ -24,6 +25,9 @@ function clientIp(req: Request): string {
  * latency class as the OAuth code exchange. Bulk mail stays on the queue.
  */
 export async function POST(req: Request): Promise<Response> {
+  if (!sameOriginRequest(req)) {
+    return NextResponse.json({ error: "Cross-origin request denied." }, { status: 403 });
+  }
   const body = (await req.json().catch(() => null)) as { email?: string } | null;
   const email = normalizeEmail(String(body?.email ?? ""));
   if (!isPlausibleEmail(email)) {
@@ -46,7 +50,9 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     const raw = await requestMagicLink(email);
-    const origin = new URL(req.url).origin;
+    // Do not derive emailed links from the request Host header; a poisoned
+    // Host would turn the one-time credential into an attacker-controlled URL.
+    const origin = getConfig().DASHBOARD_URL.replace(/\/$/, "");
     const link = `${origin}/api/auth/magic-link/callback?token=${raw}`;
     const config = getConfig();
     const status = resolveEmailProvider();
@@ -74,10 +80,10 @@ export async function POST(req: Request): Promise<Response> {
       text: `Sign in to Calder with this one-time link (expires in 15 minutes):\n\n${link}\n\nIf you did not request this, ignore this email.`,
     });
     if (!result.accepted) throw new Error("Provider refused the send.");
-  } catch (err) {
+  } catch {
     // Never enumerate: log the failure, still return ok. The user experience
     // is identical whether the address exists or sending hiccuped.
-    logger.warn({ err, email }, "Magic-link request failed");
+    logger.warn("Magic-link request failed");
   }
   return NextResponse.json({ ok: true });
 }

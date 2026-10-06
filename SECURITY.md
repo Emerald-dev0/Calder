@@ -40,9 +40,18 @@ which strips credentials.
 
 `test`/`live`, cryptographically distinct, scoped to environment. Creation/last-used timestamps, revocation, rotation supported. Fine-grained permissions are future work.
 
-## 4. Authentication & authorization
+## 4. Authentication, authorization, and MFA boundary
 
 Standard, non-custom session/token mechanisms. Every data access scoped by organization/project at the data-access layer, not only route guards.
+
+MFA is intentionally **deferred**. The current architecture has no factor
+secret/enrollment state, recovery-code storage, trusted-device policy, or
+transactional step-up challenge in the schema or auth service. Adding only a
+UI toggle or an unchecked claim would be a fake control, so Phase 3 does not
+advertise MFA. The owner action is to choose and threat-model a factor model
+(TOTP/passkeys, recovery, enrollment/unenrollment, rate limits, notifications,
+and session step-up semantics), add forward-only schema migrations, then
+implement and test it at the auth trust boundary before enabling it.
 
 ## 5. Tenant isolation
 
@@ -64,9 +73,34 @@ All external input validated at the API boundary. Output encoding wherever user-
 
 Encrypted transport everywhere. Standard security headers on all web-facing surfaces.
 
-## 10. Dependencies
+## 10. Dependencies and secret scanning
 
-Dependency scanning in CI. No dependency added without stated justification (see `AGENTS.md`).
+Every CI verification run executes both `node scripts/security-audit.mjs` and
+Gitleaks with `.gitleaks.toml`. The dependency gate fails on any **high or
+critical** advisory; low and moderate findings remain visible and require a
+named owner plus an expiry/remediation issue before they may be accepted. A
+credential finding fails CI regardless of severity. The exact allowlist contains
+only deterministic, non-production redaction/provider-test fixtures; it does
+not allowlist a directory, file type, or broad token pattern.
+
+The Phase 3 lockfile audit changed from the branch baseline of **48 findings**
+(2 low, 25 moderate, 17 high, 4 critical) to **0 findings** after upgrading
+Next.js, Vitest/Vite and Drizzle ORM and pinning patched PostCSS, esbuild and
+brace-expansion resolutions. The audit must be rerun after every dependency
+change; no `pnpm audit` failure may be hidden with `|| true` in CI.
+
+If a future high/critical advisory cannot be upgraded immediately, the
+security owner must record the advisory ID, affected path, production exposure,
+mitigation, owner, and a deadline in the PR/incident tracker. The exception is
+time-bound and CI must be changed only to an explicit advisory-ID exception,
+never a blanket severity bypass. If a secret is detected, stop the release,
+revoke/rotate the credential at its issuer, identify access using audit logs,
+remove it from the repository/history where feasible, and document customer
+notification and follow-up in the incident record. Do not paste the secret into
+an issue, log, PR, or chat.
+
+No dependency is added without stating why the existing dependency set cannot
+perform the job safely (see `AGENTS.md`).
 
 ## 11. Audit logs
 

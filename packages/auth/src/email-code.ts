@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
-import { eq, and, isNull, gt, desc } from "drizzle-orm";
+import { eq, and, isNull, gt, desc, sql } from "drizzle-orm";
 import { getDb, emailCodeChallenges } from "@calder/db";
 import { getConfig } from "@calder/config";
 
@@ -68,36 +68,35 @@ export async function issueEmailCode(
   const now = new Date();
   const expiresAt = new Date(now.getTime() + EMAIL_CODE_TTL_MINUTES * 60 * 1000);
 
-  // Invalidate any previous unconsumed challenges for this email + purpose
-  const existing = await db
-    .select({ id: emailCodeChallenges.id })
-    .from(emailCodeChallenges)
-    .where(
-      and(
-        eq(emailCodeChallenges.email, normalized),
-        eq(emailCodeChallenges.purpose, purpose),
-        isNull(emailCodeChallenges.consumedAt)
-      )
-    );
-
-  for (const row of existing) {
-    await db
-      .update(emailCodeChallenges)
-      .set({ consumedAt: now })
-      .where(eq(emailCodeChallenges.id, row.id));
-  }
-
   const code = generateOtpCode();
   const challengeId = newId("ecc");
 
-  await db.insert(emailCodeChallenges).values({
-    id: challengeId,
-    email: normalized,
-    codeHash: hashCode(code, purpose, normalized),
-    purpose,
-    expiresAt,
-    attempts: 0,
-    maxAttempts: MAX_CODE_ATTEMPTS,
+  // Serialize issuance for this email/purpose. Without a lock, two resend
+  // requests can each invalidate the other's row after their initial SELECT,
+  // leaving two live codes and a race at redemption.
+  await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`email-code|${purpose}|${normalized}`}))`
+    );
+    await tx
+      .update(emailCodeChallenges)
+      .set({ consumedAt: now })
+      .where(
+        and(
+          eq(emailCodeChallenges.email, normalized),
+          eq(emailCodeChallenges.purpose, purpose),
+          isNull(emailCodeChallenges.consumedAt)
+        )
+      );
+    await tx.insert(emailCodeChallenges).values({
+      id: challengeId,
+      email: normalized,
+      codeHash: hashCode(code, purpose, normalized),
+      purpose,
+      expiresAt,
+      attempts: 0,
+      maxAttempts: MAX_CODE_ATTEMPTS,
+    });
   });
 
   return {
@@ -162,22 +161,37 @@ async function evaluateChallenge(
   // shipped (TTL ≤10m, window closed within minutes of deploy).
   const actualHashV2 = hashCode(cleanCode, challenge.purpose, challenge.email);
   const actualHashV1 = hashCodeLegacy(cleanCode);
-  const expect = Buffer.from(expectedHash, "hex");
-  const isMatch =
-    timingSafeEqual(Buffer.from(actualHashV2, "hex"), expect) ||
-    timingSafeEqual(Buffer.from(actualHashV1, "hex"), expect);
+  const equalsHash = (actual: string): boolean => {
+    const expect = Buffer.from(expectedHash, "hex");
+    const candidate = Buffer.from(actual, "hex");
+    return candidate.length === expect.length && timingSafeEqual(candidate, expect);
+  };
+  const isMatch = equalsHash(actualHashV2) || equalsHash(actualHashV1);
 
   if (!isMatch) {
     const nextAttempts = challenge.attempts + 1;
     const isExhausted = nextAttempts >= challenge.maxAttempts;
-    await db
+    // Compare-and-set the attempt number. Concurrent wrong guesses cannot
+    // overwrite one another or obtain more than maxAttempts tries.
+    const updated = await db
       .update(emailCodeChallenges)
       .set({
         attempts: nextAttempts,
         consumedAt: isExhausted ? now : null,
       })
-      .where(eq(emailCodeChallenges.id, challenge.id));
+      .where(
+        and(
+          eq(emailCodeChallenges.id, challenge.id),
+          eq(emailCodeChallenges.attempts, challenge.attempts),
+          isNull(emailCodeChallenges.consumedAt),
+          gt(emailCodeChallenges.expiresAt, now)
+        )
+      )
+      .returning({ id: emailCodeChallenges.id });
 
+    if (updated.length === 0) {
+      throw new Error("This code is invalid or has expired. Please request a new one.");
+    }
     if (isExhausted) {
       throw new Error("Too many failed attempts. Please request a new code.");
     }
@@ -202,12 +216,23 @@ export async function verifyEmailCode(
 ): Promise<{ valid: boolean; challengeId: string }> {
   const challenge = await evaluateChallenge(email, rawCode, purpose);
 
-  // Code matches! Burn challenge
+  // Code matches! Burn challenge with a conditional update. Two concurrent
+  // redemptions may both pass evaluation, but exactly one can claim the row.
   const db = getDb();
-  await db
+  const consumed = await db
     .update(emailCodeChallenges)
     .set({ consumedAt: new Date() })
-    .where(eq(emailCodeChallenges.id, challenge.id));
+    .where(
+      and(
+        eq(emailCodeChallenges.id, challenge.id),
+        isNull(emailCodeChallenges.consumedAt),
+        gt(emailCodeChallenges.expiresAt, new Date())
+      )
+    )
+    .returning({ id: emailCodeChallenges.id });
+  if (consumed.length === 0) {
+    throw new Error("This code is invalid or has expired. Please request a new one.");
+  }
 
   return { valid: true, challengeId: challenge.id };
 }

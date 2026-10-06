@@ -11,7 +11,8 @@ import {
   recordSendUsage,
   type DbClient,
 } from "@calder/db";
-import { logger } from "@calder/observability";
+import { logger, safeDeliveryReason } from "@calder/observability";
+import { isProduction } from "@calder/config";
 import {
   createEmailService,
   pickDefaultTransport,
@@ -236,7 +237,9 @@ async function resolveChain(db: DbClient, projectId: string, senderIdentityId: s
       const [sender] = await db
         .select()
         .from(senderIdentities)
-        .where(eq(senderIdentities.id, senderIdentityId))
+        .where(
+          and(eq(senderIdentities.id, senderIdentityId), eq(senderIdentities.projectId, projectId))
+        )
         .limit(1);
       if (sender && sender.projectId === projectId) {
         if (sender.status !== "verified" && sender.status !== "connected") {
@@ -275,7 +278,17 @@ async function resolveChain(db: DbClient, projectId: string, senderIdentityId: s
       code === "sender_not_ready"
     )
       throw err;
-    logger.warn({ err }, "drain: transport resolution fallback");
+    if (isProduction()) {
+      // Hosted drain delivery must not cross the project/resource trust
+      // boundary when its transport registry is unavailable. The row-level
+      // failure path records a stable reason and retries transient errors.
+      throw Object.assign(new Error("Transport resolution unavailable."), {
+        code: "transport_resolution_failed",
+        transient: true,
+        statusCode: 503,
+      });
+    }
+    logger.warn("drain: transport resolution unavailable; using development fallback");
   }
   chain.push(fallback);
   return chain;
@@ -340,7 +353,7 @@ export async function drainPendingEmails(
       await db
         .update(emails)
         .set({ status: "failed", lastError: "Exhausted retries", updatedAt: now })
-        .where(eq(emails.id, row.id));
+        .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
       failed++;
       continue;
     }
@@ -354,7 +367,7 @@ export async function drainPendingEmails(
       await db
         .update(emails)
         .set({ status: "suppressed", lastError: sup[0]!.reason, updatedAt: now })
-        .where(eq(emails.id, row.id));
+        .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
       await recordDrainEvent(db, {
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
@@ -379,7 +392,7 @@ export async function drainPendingEmails(
       await db
         .update(emails)
         .set({ status: "failed", lastError: message, updatedAt: now })
-        .where(eq(emails.id, row.id));
+        .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
       await recordDrainEvent(db, {
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
@@ -396,7 +409,7 @@ export async function drainPendingEmails(
     await db
       .update(emails)
       .set({ attemptCount: (row.attemptCount ?? 0) + 1, updatedAt: now })
-      .where(eq(emails.id, row.id));
+      .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
 
     const headers =
       typeof row.metadata === "object" &&
@@ -440,8 +453,7 @@ export async function drainPendingEmails(
             ]
           : await resolveChain(db, row.projectId, row.senderIdentityId ?? null);
     } catch (chainErr) {
-      const msg = chainErr instanceof Error ? chainErr.message : String(chainErr);
-      const code = chainErr instanceof Error ? (chainErr as { code?: string }).code : undefined;
+      const code = safeDeliveryReason(chainErr);
       const transient =
         chainErr instanceof Error && (chainErr as { transient?: boolean }).transient === true;
       if (transient && (row.attemptCount ?? 0) + 1 < DRAIN_MAX_ATTEMPTS) {
@@ -449,24 +461,24 @@ export async function drainPendingEmails(
         // Release the claim back to the pool for a later tick.
         await db
           .update(emails)
-          .set({ status: "queued", lastError: msg, updatedAt: new Date() })
-          .where(eq(emails.id, row.id));
-        logger.warn({ emailId: row.id, code, msg }, "drain: chain refused transiently, requeued");
+          .set({ status: "queued", lastError: code, updatedAt: new Date() })
+          .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
+        logger.warn({ emailId: row.id, code }, "drain: chain refused transiently, requeued");
         failed++;
         continue;
       }
       await db
         .update(emails)
-        .set({ status: "failed", lastError: msg, updatedAt: new Date() })
-        .where(eq(emails.id, row.id));
+        .set({ status: "failed", lastError: code, updatedAt: new Date() })
+        .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
       await recordDrainEvent(db, {
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
         projectId: row.projectId,
         type: "failed",
-        data: { error: msg, transient: false, code: code ?? null },
+        data: { code, transient: false },
       });
-      logger.warn({ emailId: row.id, code, msg }, "drain: chain refused, row failed");
+      logger.warn({ emailId: row.id, code }, "drain: chain refused, row failed");
       failed++;
       continue;
     }
@@ -550,7 +562,7 @@ export async function drainPendingEmails(
           lastError: null,
           updatedAt: done,
         })
-        .where(eq(emails.id, row.id));
+        .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
       // Meter at provider-accept; exactly-once via deterministic ledger id
       // (ADR-036): retries and overlapping drains can never double-count.
       // Same mid-flight-deletion tolerance as recordDrainEvent: if the org
@@ -583,15 +595,15 @@ export async function drainPendingEmails(
 
     // Failure path
     const transient = isTransientError(lastErr);
-    const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+    const reason = safeDeliveryReason(lastErr);
     if (isCap || senderNotReady || organizationUnavailable) {
       const terminalMessage = organizationUnavailable
         ? "Sending is currently unavailable for this organization."
-        : msg;
+        : reason;
       await db
         .update(emails)
         .set({ status: "failed", lastError: terminalMessage, updatedAt: new Date() })
-        .where(eq(emails.id, row.id));
+        .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
       await recordDrainEvent(db, {
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
@@ -599,7 +611,7 @@ export async function drainPendingEmails(
         type: "failed",
         data: organizationUnavailable
           ? { code: "organization_sending_unavailable" }
-          : { error: msg, transient: false },
+          : { code: reason, transient: false },
       });
       if (organizationUnavailable) {
         await enqueueOrganizationBlockedWebhook(db, row.projectId, row.id);
@@ -612,21 +624,21 @@ export async function drainPendingEmails(
       // next tick instead of hanging on this drain's lease.
       await db
         .update(emails)
-        .set({ status: "queued", lastError: msg, updatedAt: new Date() })
-        .where(eq(emails.id, row.id));
+        .set({ status: "queued", lastError: reason, updatedAt: new Date() })
+        .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
       failed++;
       continue;
     }
     await db
       .update(emails)
-      .set({ status: "failed", lastError: `Exhausted: ${msg}`, updatedAt: new Date() })
-      .where(eq(emails.id, row.id));
+      .set({ status: "failed", lastError: `Exhausted: ${reason}`, updatedAt: new Date() })
+      .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
     await recordDrainEvent(db, {
       id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
       emailId: row.id,
       projectId: row.projectId,
       type: "failed",
-      data: { error: msg, exhausted: true },
+      data: { code: reason, exhausted: true },
     });
     failed++;
   }

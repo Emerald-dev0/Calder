@@ -4,20 +4,18 @@ import { getTeam, listMySessions } from "./actions";
 import { InviteForm, MemberRow, RevokeInviteButton } from "./team";
 import { NewOrgForm, NewProjectForm } from "./workspace-forms";
 import { SessionsCard } from "./sessions";
-import {
-  Settings,
-  Building2,
-  Users,
-  Shield,
-  CreditCard,
-  FolderGit2,
-} from "lucide-react";
+import { Settings, Building2, Users, Shield, CreditCard, FolderGit2 } from "lucide-react";
 import { DsPageHeader, StatusPill } from "../../../components/design-system";
 
-export default async function SettingsPage({ searchParams }: { searchParams: { org?: string } }) {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ org?: string }>;
+}) {
+  const query = await searchParams;
   const ctx = await getTenantContext();
-  const orgId = ctx.memberships.some((m) => m.organization.id === searchParams.org)
-    ? (searchParams.org as string)
+  const orgId = ctx.memberships.some((m) => m.organization.id === query.org)
+    ? (query.org as string)
     : (ctx.memberships[0]?.organization.id ?? null);
 
   if (!orgId) {
@@ -68,10 +66,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { o
         icon={<Settings size={18} />}
         title="Organization & Security Settings"
         badge={
-          <StatusPill
-            status="active"
-            label={`${team.organization.name} · ${team.callerRole}`}
-          />
+          <StatusPill status="active" label={`${team.organization.name} · ${team.callerRole}`} />
         }
         description="Manage workspace hierarchy, team roles, operator sessions, and billing quotas."
         actions={
