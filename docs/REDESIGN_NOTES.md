@@ -179,3 +179,12 @@ The following 5 backend/logic issues were identified during the Step 0 code audi
 - **Before Screenshots**: 42 captures (`1440×900` and `390×844`) in `docs/redesign/before/`.
 - **After Screenshots**: 47 captures (`1440×900` and `390×844`, plus Dark Mode, Command Palette, and `/dev/design-system`) in `docs/redesign/after/`, verified with **0 horizontal overflows (`scrollWidth === innerWidth`)** and **0 runtime/hydration page errors**.
 
+
+## 7. Dashboard Refresh (Overview, Shell, Onboarding)
+
+Second pass focused on hierarchy and truthfulness, referencing Resend/Brimble-style developer dashboards.
+
+- **Layout fix**: `<main className="shell-page-container">` had no CSS rule, so pages had no max-width/padding and right-aligned actions clipped. It now has a 1160px centered column (`28px 40px` desktop, `20px 16px` ≤960px). The mobile drawer (`.shell-sidebar.is-mobile-open`) also had no CSS and now opens.
+- **Shell**: navigation collapsed from 6 uppercase groups to an unlabeled primary group plus `Developers`, `Deliverability`, `Organization` (sentence-case). Active item is a raised surface instead of an accent bar; `PRO` pills became quiet "Pro" text; the Domains setup badge became a dot. The hardcoded `99.99%` system-status popover and its static "Operational" service rows were removed (no real health source backs them).
+- **Overview (`/`)**: one header with a single primary action; setup checklist is a compact list that expands only the next required step and can be collapsed or dismissed (hidden once required steps are done); four KPI cards became one metric strip (last 30 days); the chart now plots real per-day/per-hour delivered vs bounced/failed counts (UTC, `lib/overview-series.ts`) instead of synthetic weights; recent activity is a plain row list; usage uses the org's billing-period snapshot (`orgUsageSnapshot`) and plan name; "Infrastructure health" with fabricated latency (`SES EU-West-1 · 184ms p50`, "Sub-second dispatch") became a factual "Sending setup" summary.
+- **Onboarding**: same six-step state machine; chrome quieted (borderless top bar, text "Save and exit"), progress uses ink instead of accent blue, uppercase mono eyebrows became sentence case, the welcome phase cards became one grouped list.
