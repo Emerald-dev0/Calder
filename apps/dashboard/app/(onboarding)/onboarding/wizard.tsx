@@ -615,8 +615,8 @@ export function OnboardingWizard({
       <div className="onb-progress-shell">
         <div className="onb-progress-inner">
           <div className="onb-progress-meta">
-            <span className="onb-progress-caption mono">SETUP PROGRESS · 3 PHASES</span>
-            <span className="onb-step-counter mono" aria-live="polite">
+            <span className="onb-progress-caption">Account setup</span>
+            <span className="onb-step-counter" aria-live="polite">
               Step {step} of {ONBOARDING_TOTAL_STEPS}
             </span>
           </div>
@@ -701,8 +701,8 @@ export function OnboardingWizard({
                 className="onb-screen"
                 aria-labelledby="onb-h1-step1"
               >
-                <motion.p variants={itemVariants} className="onb-eyebrow mono">
-                  PHASE 01 · ORGANIZATION &amp; PROJECT
+                <motion.p variants={itemVariants} className="onb-eyebrow">
+                  Phase 1 · Organization &amp; project
                 </motion.p>
                 <motion.h1
                   id="onb-h1-step1"
@@ -714,8 +714,8 @@ export function OnboardingWizard({
                   Welcome. Let&rsquo;s get your first message out.
                 </motion.h1>
                 <motion.p variants={itemVariants} className="onb-subline">
-                  Three phases across six guided steps — from workspace setup to a real email
-                  delivered to your inbox.
+                  A few short steps: set up your workspace, choose how you send, then deliver a
+                  real email to your own inbox.
                 </motion.p>
 
                 <motion.ol variants={itemVariants} className="onb-preview-list">
@@ -730,7 +730,7 @@ export function OnboardingWizard({
                       <div className="onb-preview-content">
                         <div className="onb-preview-header">
                           <span className="onb-preview-title">{phase.title}</span>
-                          <span className="onb-preview-steps mono">
+                          <span className="onb-preview-steps">
                             {phase.steps.length === 1
                               ? `Step ${phase.steps[0]}`
                               : `Steps ${phase.steps[0]}–${phase.steps[phase.steps.length - 1]}`}
@@ -768,8 +768,8 @@ export function OnboardingWizard({
                 className="onb-screen"
                 aria-labelledby="onb-h1-step2"
               >
-                <motion.p variants={itemVariants} className="onb-eyebrow mono">
-                  PHASE 01 · PROFILE
+                <motion.p variants={itemVariants} className="onb-eyebrow">
+                  Phase 1 · Profile
                 </motion.p>
                 <motion.h1
                   id="onb-h1-step2"
@@ -957,8 +957,8 @@ export function OnboardingWizard({
                 className="onb-screen"
                 aria-labelledby="onb-h1-step3"
               >
-                <motion.p variants={itemVariants} className="onb-eyebrow mono">
-                  PHASE 01 · ORGANIZATION &amp; PROJECT
+                <motion.p variants={itemVariants} className="onb-eyebrow">
+                  Phase 1 · Organization &amp; project
                 </motion.p>
                 <motion.h1
                   id="onb-h1-step3"
@@ -1091,8 +1091,8 @@ export function OnboardingWizard({
                 className="onb-screen"
                 aria-labelledby="onb-h1-step4"
               >
-                <motion.p variants={itemVariants} className="onb-eyebrow mono">
-                  PHASE 02 · SENDING SETUP
+                <motion.p variants={itemVariants} className="onb-eyebrow">
+                  Phase 2 · Sending setup
                 </motion.p>
                 <motion.h1
                   id="onb-h1-step4"
@@ -1396,8 +1396,8 @@ export function OnboardingWizard({
                 className="onb-screen"
                 aria-labelledby="onb-h1-step5"
               >
-                <motion.p variants={itemVariants} className="onb-eyebrow mono">
-                  PHASE 03 · FIRST SEND
+                <motion.p variants={itemVariants} className="onb-eyebrow">
+                  Phase 3 · First send
                 </motion.p>
                 <motion.h1
                   id="onb-h1-step5"
@@ -1588,8 +1588,8 @@ export function OnboardingWizard({
                 className="onb-screen"
                 aria-labelledby="onb-h1-step6"
               >
-                <motion.p variants={itemVariants} className="onb-eyebrow mono">
-                  PHASE 03 · COMPLETE
+                <motion.p variants={itemVariants} className="onb-eyebrow">
+                  Phase 3 · Complete
                 </motion.p>
                 <motion.h1
                   id="onb-h1-step6"

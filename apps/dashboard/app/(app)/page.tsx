@@ -1,41 +1,51 @@
 import Link from "next/link";
-import { desc, inArray, count, isNull, and, eq } from "drizzle-orm";
+import { desc, inArray, count, isNull, and, eq, gte, sql } from "drizzle-orm";
 import { getDb, emails, domains, apiKeys, webhooks, orgUsageSnapshot } from "@calder/db";
-import { planEmailsLimit } from "@calder/config";
+import { PLAN_LIMITS, planEmailsLimit, type PlanTier } from "@calder/config";
 import { getTenantContext } from "../../lib/auth";
-import {
-  LayoutDashboard,
-  Send,
-  KeyRound,
-  Globe,
-  CheckCircle2,
-  Clock,
-  AlertTriangle,
-  Mail,
-  ArrowRight,
-  Sparkles,
-  ShieldCheck,
-} from "lucide-react";
-import {
-  DsPageHeader,
-  StatCard,
-  StatusPill,
-  RelativeTime,
-} from "../../components/design-system";
+import { ArrowRight, ArrowUpRight, Globe, KeyRound, Send, Webhook, ShieldBan } from "lucide-react";
+import { RelativeTime } from "../../components/design-system";
 import {
   OverviewSetupChecklist,
-  OverviewTelemetryChart,
+  OverviewVolumeChart,
   OverviewQuickstartCurl,
   type SetupStep,
 } from "./overview-client";
+import {
+  buildDailySeries,
+  buildHourlySeries,
+  formatRate,
+  statusTone,
+  summarize,
+  type BucketCountRow,
+  type StatusCountRow,
+} from "../../lib/overview-series";
 import { pricingUrl } from "../../lib/pricing";
+
+const DAY_MS = 86_400_000;
+
+const STATUS_LABEL: Record<string, string> = {
+  created: "Created",
+  queued: "Queued",
+  sending: "Sending",
+  sent: "Sent",
+  delivered: "Delivered",
+  bounced: "Bounced",
+  complained: "Complained",
+  failed: "Failed",
+  suppressed: "Suppressed",
+};
 
 export default async function OverviewPage() {
   const ctx = await getTenantContext();
   const projectIds = ctx.memberships.flatMap((m) => m.projects.map((p) => p.id));
   const db = getDb();
+  const now = new Date();
 
-  const stats = { sent: 0, delivered: 0, queued: 0, failed: 0 };
+  let allTime: StatusCountRow[] = [];
+  let last30: StatusCountRow[] = [];
+  let dailyRows: BucketCountRow[] = [];
+  let hourlyRows: BucketCountRow[] = [];
   let recent: Array<{
     id: string;
     to: string;
@@ -50,132 +60,145 @@ export default async function OverviewPage() {
   let webhookTotal = 0;
 
   if (projectIds.length > 0) {
-    const byStatus = await db
-      .select({ status: emails.status, value: count() })
-      .from(emails)
-      .where(inArray(emails.projectId, projectIds))
-      .groupBy(emails.status);
-    for (const row of byStatus) {
-      if (row.status === "sent" || row.status === "delivered") {
-        stats.sent += row.value;
-        if (row.status === "delivered") stats.delivered += row.value;
-      } else if (row.status === "queued" || row.status === "sending") {
-        stats.queued += row.value;
-      } else {
-        stats.failed += row.value;
-      }
-    }
-    recent = await db
-      .select({
-        id: emails.id,
-        to: emails.to,
-        subject: emails.subject,
-        status: emails.status,
-        createdAt: emails.createdAt,
-      })
-      .from(emails)
-      .where(inArray(emails.projectId, projectIds))
-      .orderBy(desc(emails.createdAt))
-      .limit(10);
+    const scope = inArray(emails.projectId, projectIds);
+    const since30 = new Date(now.getTime() - 29 * DAY_MS);
+    since30.setUTCHours(0, 0, 0, 0);
+    const since24h = new Date(now.getTime() - 23 * 3_600_000);
+    since24h.setUTCMinutes(0, 0, 0);
+
+    const dayBucket = sql<string>`to_char(${emails.createdAt} at time zone 'UTC', 'YYYY-MM-DD')`;
+    const hourBucket = sql<string>`to_char(${emails.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24')`;
+
+    [allTime, dailyRows, hourlyRows, recent] = await Promise.all([
+      db
+        .select({ status: emails.status, value: count() })
+        .from(emails)
+        .where(scope)
+        .groupBy(emails.status),
+      db
+        .select({ bucket: dayBucket, status: emails.status, value: count() })
+        .from(emails)
+        .where(and(scope, gte(emails.createdAt, since30)))
+        .groupBy(dayBucket, emails.status),
+      db
+        .select({ bucket: hourBucket, status: emails.status, value: count() })
+        .from(emails)
+        .where(and(scope, gte(emails.createdAt, since24h)))
+        .groupBy(hourBucket, emails.status),
+      db
+        .select({
+          id: emails.id,
+          to: emails.to,
+          subject: emails.subject,
+          status: emails.status,
+          createdAt: emails.createdAt,
+        })
+        .from(emails)
+        .where(scope)
+        .orderBy(desc(emails.createdAt))
+        .limit(8),
+    ]);
+    last30 = dailyRows;
 
     try {
-      const [domAll] = await db
-        .select({ value: count() })
-        .from(domains)
-        .where(inArray(domains.projectId, projectIds));
+      const [[domAll], [domVer], [keysRow], [hooksRow]] = await Promise.all([
+        db.select({ value: count() }).from(domains).where(inArray(domains.projectId, projectIds)),
+        db
+          .select({ value: count() })
+          .from(domains)
+          .where(and(inArray(domains.projectId, projectIds), eq(domains.status, "verified"))),
+        db
+          .select({ value: count() })
+          .from(apiKeys)
+          .where(and(inArray(apiKeys.projectId, projectIds), isNull(apiKeys.revokedAt))),
+        db.select({ value: count() }).from(webhooks).where(inArray(webhooks.projectId, projectIds)),
+      ]);
       domainTotal = domAll?.value ?? 0;
-
-      const [domVer] = await db
-        .select({ value: count() })
-        .from(domains)
-        .where(and(inArray(domains.projectId, projectIds), eq(domains.status, "verified")));
       verifiedDomainTotal = domVer?.value ?? 0;
-
-      const [keysRow] = await db
-        .select({ value: count() })
-        .from(apiKeys)
-        .where(and(inArray(apiKeys.projectId, projectIds), isNull(apiKeys.revokedAt)));
       activeKeyTotal = keysRow?.value ?? 0;
-
-      const [hooksRow] = await db
-        .select({ value: count() })
-        .from(webhooks)
-        .where(inArray(webhooks.projectId, projectIds));
       webhookTotal = hooksRow?.value ?? 0;
     } catch {
       // best-effort counts
     }
   }
 
-  // Usage meter derived from active organization plan tier (Beginner 5k, Pro 50k, Scale 250k)
-  let quota = 5000;
+  const lifetime = summarize(allTime);
+  const month = summarize(last30);
+  const daily = buildDailySeries(dailyRows, 30, now);
+  const series = {
+    "24h": buildHourlySeries(hourlyRows, 24, now),
+    "7d": daily.slice(-7),
+    "30d": daily,
+  };
+
+  // Plan usage for the first organization's current billing period.
+  let quota: number | null = PLAN_LIMITS.free.emailsPerMonth;
+  let planName = PLAN_LIMITS.free.displayName;
+  let usedThisPeriod = 0;
+  let periodEnd: Date | null = null;
   const firstOrg = ctx.memberships[0]?.organization;
   if (firstOrg) {
     try {
       const snap = await orgUsageSnapshot(db, firstOrg.id);
-      quota = planEmailsLimit(snap.tier) ?? 50000;
+      quota = planEmailsLimit(snap.tier);
+      planName = PLAN_LIMITS[snap.tier as PlanTier]?.displayName ?? planName;
+      usedThisPeriod = snap.acceptedLive;
+      periodEnd = snap.period.end;
     } catch {
-      quota = 5000;
+      // keep free-tier defaults
     }
   }
-  const usagePct = Math.min(100, (stats.sent / Math.max(quota, 1)) * 100);
-  const deliveryRate =
-    stats.sent > 0 ? `${((stats.delivered / stats.sent) * 100).toFixed(1)}%` : "100.0%";
-  const bounceRateNum = stats.sent > 0 ? (stats.failed / stats.sent) * 100 : 0;
-  const bounceRate = `${bounceRateNum.toFixed(2)}%`;
+  const usagePct = quota ? Math.min(100, (usedThisPeriod / Math.max(quota, 1)) * 100) : 0;
 
-  const firstProject = ctx.memberships[0]?.projects[0] as
-    | { name: string; metadata?: { environment?: string } | null }
-    | undefined;
-  const rawName =
-    (ctx.user as { name?: string }).name ??
+  const meName = (ctx.user as { name?: string | null }).name?.trim();
+  const firstName =
+    meName?.split(/\s+/)[0] ??
     ctx.user.email
       .split("@")[0]
       ?.replace(/[._-]/g, " ")
       .replace(/\b\w/g, (c) => c.toUpperCase()) ??
     "there";
-  const utcHour = new Date().getUTCHours();
+  const utcHour = now.getUTCHours();
   const salutation =
     utcHour < 12 ? "Good morning" : utcHour < 18 ? "Good afternoon" : "Good evening";
-  const greeting = `${salutation}, ${rawName}.`;
 
   const setupSteps: SetupStep[] = [
     {
       id: "org",
-      title: "Create organization & project",
-      description: "Provision an isolated workspace for your team and environments.",
+      title: "Create your workspace",
+      description: "An organization and project to keep keys, domains and logs isolated.",
       done: ctx.memberships.length > 0 && projectIds.length > 0,
       href: "/settings#workspace",
-      cta: "Configure workspace",
+      cta: "Create workspace",
     },
     {
       id: "domain",
-      title: "Add & verify sending domain",
-      description: "Publish 2048-bit DKIM, SPF, and DMARC DNS records.",
+      title: domainTotal > 0 ? "Verify your sending domain" : "Add a sending domain",
+      description: "Publish the DKIM, SPF and DMARC records so mail lands in the inbox.",
       done: verifiedDomainTotal > 0,
       href: "/domains",
-      cta: domainTotal > 0 ? "Verify DNS records" : "Add domain",
+      cta: domainTotal > 0 ? "Check DNS" : "Add domain",
     },
     {
       id: "key",
-      title: "Create a scoped API key",
-      description: "Issue an Argon2id-hashed bearer credential for your app.",
+      title: "Create an API key",
+      description: "A scoped key your application uses to send through Calder.",
       done: activeKeyTotal > 0,
       href: "/keys",
-      cta: "Create API key",
+      cta: "Create key",
     },
     {
       id: "email",
-      title: "Send your first test email",
-      description: "Dispatch a live or sandbox payload via REST or Composer.",
-      done: stats.sent > 0,
+      title: "Send your first email",
+      description: "From the composer, the REST API, an SDK or SMTP.",
+      done: lifetime.total > 0,
       href: "/emails/new",
-      cta: "Send test email",
+      cta: "Send email",
     },
     {
       id: "webhook",
-      title: "Configure a webhook endpoint",
-      description: "Subscribe to real-time delivery, bounce, and complaint events.",
+      title: "Listen for events",
+      description: "Get delivery, bounce and complaint events pushed to your endpoint.",
       done: webhookTotal > 0,
       href: "/webhooks",
       cta: "Add endpoint",
@@ -183,366 +206,216 @@ export default async function OverviewPage() {
     },
   ];
 
-  const healthItems = [
+  const secondaryAction =
+    verifiedDomainTotal === 0
+      ? { href: "/domains", label: "Add domain", icon: <Globe size={14} /> }
+      : activeKeyTotal === 0
+        ? { href: "/keys", label: "Create API key", icon: <KeyRound size={14} /> }
+        : { href: "/emails", label: "View emails", icon: null };
+
+  const setupRows = [
     {
-      label: "Sending Domains",
-      detail:
+      label: "Domains",
+      icon: <Globe size={14} />,
+      value:
         verifiedDomainTotal > 0
           ? `${verifiedDomainTotal} verified`
           : domainTotal > 0
-            ? `${domainTotal} pending DNS`
-            : "No domain added",
-      status: verifiedDomainTotal > 0 ? "verified" : "pending",
+            ? `${domainTotal} awaiting DNS`
+            : "None added",
+      tone: verifiedDomainTotal > 0 ? "success" : domainTotal > 0 ? "warning" : "neutral",
       href: "/domains",
     },
     {
-      label: "Scoped API Keys",
-      detail: activeKeyTotal > 0 ? `${activeKeyTotal} active` : "None issued yet",
-      status: activeKeyTotal > 0 ? "active" : "pending",
+      label: "API keys",
+      icon: <KeyRound size={14} />,
+      value: activeKeyTotal > 0 ? `${activeKeyTotal} active` : "None yet",
+      tone: activeKeyTotal > 0 ? "success" : "neutral",
       href: "/keys",
     },
     {
-      label: "Webhook Endpoints",
-      detail: webhookTotal > 0 ? `${webhookTotal} subscribed` : "Optional",
-      status: webhookTotal > 0 ? "active" : "queued",
+      label: "Webhooks",
+      icon: <Webhook size={14} />,
+      value:
+        webhookTotal > 0 ? `${webhookTotal} endpoint${webhookTotal === 1 ? "" : "s"}` : "Optional",
+      tone: webhookTotal > 0 ? "success" : "neutral",
       href: "/webhooks",
     },
     {
-      label: "Suppression Protection",
-      detail: "Hard-bounce & FBL auto-guard enabled",
-      status: "healthy",
+      label: "Suppressions",
+      icon: <ShieldBan size={14} />,
+      value: "Automatic",
+      tone: "success",
       href: "/suppressions",
     },
-  ];
+  ] as const;
+
+  const failureHigh = (month.failureRate ?? 0) > 2;
+  const projectCount = projectIds.length;
 
   return (
-    <div>
-      <DsPageHeader
-        icon={<LayoutDashboard size={18} />}
-        title={greeting}
-        badge={
-          firstProject ? (
-            <StatusPill
-              status={
-                (firstProject.metadata?.environment ?? "development") === "production"
-                  ? "live"
-                  : "test"
-              }
-              label={`${firstProject.name} · ${(firstProject.metadata?.environment as string) ?? "development"}`}
-            />
-          ) : undefined
-        }
-        description={
-          ctx.memberships.length === 0
-            ? "You don't belong to any organization yet. Create your organization to start sending."
-            : `${new Date().toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-              })} · Command center across ${projectIds.length} project${
-                projectIds.length === 1 ? "" : "s"
-              }.`
-        }
-        actions={
-          <>
-            <Link
-              href="/domains"
-              className="ds-btn ds-btn-secondary"
-              style={{ textDecoration: "none" }}
-            >
-              <Globe size={14} />
-              <span>Add domain</span>
-            </Link>
-            <Link
-              href="/keys"
-              className="ds-btn ds-btn-secondary"
-              style={{ textDecoration: "none" }}
-            >
-              <KeyRound size={14} />
-              <span>Create API key</span>
-            </Link>
-            <Link
-              href="/emails/new"
-              className="ds-btn ds-btn-primary"
-              style={{ textDecoration: "none" }}
-            >
-              <Send size={14} />
-              <span>Send test email</span>
-            </Link>
-          </>
-        }
-      />
+    <div className="ov">
+      <header className="ov-header">
+        <div className="ov-header-text">
+          <h1 className="ov-title">
+            {salutation}, {firstName}
+          </h1>
+          <p className="ov-sub">
+            {ctx.memberships.length === 0
+              ? "You don't belong to an organization yet. Create one to start sending."
+              : `${firstOrg?.name ?? "Workspace"} · ${projectCount} project${projectCount === 1 ? "" : "s"}`}
+          </p>
+        </div>
+        <div className="ov-actions">
+          <Link href={secondaryAction.href} className="ds-btn ds-btn-secondary">
+            {secondaryAction.icon}
+            <span>{secondaryAction.label}</span>
+          </Link>
+          <Link href="/emails/new" className="ds-btn ds-btn-primary">
+            <Send size={14} />
+            <span>Send email</span>
+          </Link>
+        </div>
+      </header>
 
-      {/* Setup Checklist Card */}
       <OverviewSetupChecklist steps={setupSteps} />
 
-      {/* 4-Card KPI Metric Strip */}
-      <div className="ds-grid-4" style={{ marginBottom: 20 }}>
-        <StatCard
-          label="Emails Sent"
-          value={stats.sent.toLocaleString()}
-          icon={<Send size={15} />}
-          delta={{ value: "30d window", positive: true }}
-          sub={`${(quota - stats.sent).toLocaleString()} remaining in cycle`}
-        />
-        <StatCard
-          label="Delivered"
-          value={stats.delivered.toLocaleString()}
-          icon={<CheckCircle2 size={15} />}
-          status="delivered"
-          sub={`Delivery rate: ${deliveryRate}`}
-        />
-        <StatCard
-          label="Queued / In-flight"
-          value={stats.queued.toLocaleString()}
-          icon={<Clock size={15} />}
-          sub="Sub-second SES queue dispatch"
-        />
-        <StatCard
-          label="Bounced / Failed"
-          value={stats.failed.toLocaleString()}
-          icon={<AlertTriangle size={15} />}
-          status={bounceRateNum > 2 ? "bounced" : "healthy"}
-          sub={`Bounce rate: ${bounceRate} (threshold < 2.0%)`}
-        />
-      </div>
+      <section className="ov-metrics" aria-label="Last 30 days">
+        <div className="ov-metric">
+          <span className="ov-metric-label">Emails sent</span>
+          <span className="ov-metric-value tabular-nums">{month.total.toLocaleString()}</span>
+          <span className="ov-metric-sub">Last 30 days</span>
+        </div>
+        <div className="ov-metric">
+          <span className="ov-metric-label">Delivery rate</span>
+          <span className="ov-metric-value tabular-nums">{formatRate(month.deliveryRate)}</span>
+          <span className="ov-metric-sub">{month.delivered.toLocaleString()} delivered</span>
+        </div>
+        <div className="ov-metric">
+          <span className="ov-metric-label">Bounce &amp; failure rate</span>
+          <span className="ov-metric-value tabular-nums">{formatRate(month.failureRate)}</span>
+          <span className={`ov-metric-sub ${failureHigh ? "is-danger" : ""}`}>
+            {failureHigh
+              ? "Above the 2% threshold"
+              : `${month.failed.toLocaleString()} bounced or failed`}
+          </span>
+        </div>
+        <div className="ov-metric">
+          <span className="ov-metric-label">In queue</span>
+          <span className="ov-metric-value tabular-nums">{lifetime.pending.toLocaleString()}</span>
+          <span className="ov-metric-sub">Queued or sending now</span>
+        </div>
+      </section>
 
-      {/* Volume & Deliverability Telemetry Chart */}
-      <OverviewTelemetryChart
-        sent={stats.sent}
-        delivered={stats.delivered}
-        failed={stats.failed}
-      />
+      <OverviewVolumeChart series={series} />
 
-      {/* Two-column lower grid: Recent Activity (Left) + Infrastructure Health & Plan Usage (Right) */}
-      <div className="ds-grid-2">
-        {/* Left: Recent Activity / Live Stream */}
-        <section className="ds-card">
-          <div className="ds-card-header">
-            <div>
-              <h2 className="ds-card-title">Recent Activity & Live Stream</h2>
-              <p className="ds-card-subtitle">
-                Latest 10 outbound messages and delivery events
-              </p>
-            </div>
-            <Link
-              href="/emails"
-              className="ds-btn ds-btn-ghost ds-btn-sm"
-              style={{ textDecoration: "none" }}
-            >
-              <span>View all</span>
-              <ArrowRight size={13} />
-            </Link>
-          </div>
-          <div className="ds-card-body">
-            {recent.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "12px 4px" }}>
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 10,
-                    background: "var(--color-surface-elevated)",
-                    border: "1px solid var(--color-border)",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "var(--color-muted)",
-                    marginBottom: 10,
-                  }}
-                >
-                  <Mail size={18} />
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
-                  No emails dispatched yet
-                </div>
-                <p
-                  style={{
-                    fontSize: 12.5,
-                    color: "var(--color-muted)",
-                    margin: "0 auto 14px",
-                    maxWidth: 400,
-                  }}
-                >
-                  Send your first transactional email from the interactive composer or copy the cURL snippet below.
-                </p>
-                <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
-                  <Link
-                    href="/emails/new"
-                    className="ds-btn ds-btn-primary ds-btn-sm"
-                    style={{ textDecoration: "none" }}
-                  >
-                    <Send size={13} />
-                    <span>Send test email</span>
-                  </Link>
-                  <Link
-                    href="/sdks"
-                    className="ds-btn ds-btn-secondary ds-btn-sm"
-                    style={{ textDecoration: "none" }}
-                  >
-                    <span>Explore SDKs</span>
-                  </Link>
-                </div>
-                <OverviewQuickstartCurl />
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                {recent.map((e, i) => (
-                  <Link
-                    key={e.id}
-                    href={`/emails?inspect=${encodeURIComponent(e.id)}`}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      padding: "10px 6px",
-                      borderTop: i === 0 ? "none" : "1px solid var(--color-border)",
-                      textDecoration: "none",
-                      color: "var(--color-ink)",
-                    }}
-                  >
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 600,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {e.subject}
-                      </div>
-                      <div
-                        className="mono"
-                        style={{
-                          fontSize: 11.5,
-                          color: "var(--color-muted)",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        → {e.to}
-                      </div>
-                    </div>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                      <StatusPill status={e.status} />
-                      <RelativeTime value={e.createdAt} />
-                    </div>
-                  </Link>
-                ))}
-              </div>
+      <div className="ov-split">
+        <section className="ov-panel">
+          <div className="ov-panel-head">
+            <h2 className="ov-panel-title">Recent emails</h2>
+            {recent.length > 0 && (
+              <Link href="/emails" className="ov-link">
+                View all <ArrowRight size={13} />
+              </Link>
             )}
           </div>
+          {recent.length === 0 ? (
+            <div className="ov-empty">
+              <div className="ov-empty-title">No emails yet</div>
+              <p className="ov-empty-text">
+                Send one from the composer, or call the API with the snippet below.
+              </p>
+              <div className="ov-empty-actions">
+                <Link href="/emails/new" className="ds-btn ds-btn-primary ds-btn-sm">
+                  <Send size={13} />
+                  <span>Send test email</span>
+                </Link>
+                <Link href="/sdks" className="ds-btn ds-btn-secondary ds-btn-sm">
+                  <span>Explore SDKs</span>
+                </Link>
+              </div>
+              <OverviewQuickstartCurl />
+            </div>
+          ) : (
+            <ul className="ov-rows">
+              {recent.map((e) => (
+                <li key={e.id}>
+                  <Link href={`/emails?inspect=${encodeURIComponent(e.id)}`} className="ov-row">
+                    <span className={`ov-status ov-tone-${statusTone(e.status)}`}>
+                      <span className="ov-dot" aria-hidden="true" />
+                      <span className="ov-status-label">{STATUS_LABEL[e.status] ?? e.status}</span>
+                    </span>
+                    <span className="ov-row-main">
+                      <span className="ov-row-subject">{e.subject}</span>
+                      <span className="ov-row-to">{e.to}</span>
+                    </span>
+                    <span className="ov-row-time">
+                      <RelativeTime value={e.createdAt} />
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
-        {/* Right: Infrastructure Health & Monthly Plan Usage */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <section className="ds-card">
-            <div className="ds-card-header">
-              <div>
-                <h2 className="ds-card-title">Monthly Plan Usage</h2>
-                <p className="ds-card-subtitle">
-                  Free Tier · Resets on the 1st of next month
-                </p>
-              </div>
-              <a
-                href={pricingUrl()}
-                className="ds-btn ds-btn-secondary ds-btn-sm"
-                style={{ textDecoration: "none" }}
-              >
-                <Sparkles size={13} style={{ color: "var(--color-accent)" }} />
-                <span>Upgrade to Pro</span>
-              </a>
+        <div className="ov-side">
+          <section className="ov-panel">
+            <div className="ov-panel-head">
+              <h2 className="ov-panel-title">Usage</h2>
+              <span className="ov-chip">{planName}</span>
             </div>
-            <div className="ds-card-body">
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  justifyContent: "space-between",
-                  marginBottom: 8,
-                }}
-              >
-                <span className="mono tabular-nums" style={{ fontSize: 20, fontWeight: 700 }}>
-                  {stats.sent.toLocaleString()}{" "}
-                  <span style={{ fontSize: 13, fontWeight: 500, color: "var(--color-muted)" }}>
-                    / {quota.toLocaleString()} emails
-                  </span>
-                </span>
-                <span className="mono tabular-nums" style={{ fontSize: 12, color: "var(--color-muted)" }}>
-                  {usagePct.toFixed(1)}% used
-                </span>
+            <div className="ov-panel-body">
+              <div className="ov-usage-figure tabular-nums">
+                {usedThisPeriod.toLocaleString()}
+                <span> / {quota === null ? "Unlimited" : quota.toLocaleString()}</span>
               </div>
-              <div
-                style={{
-                  height: 8,
-                  background: "var(--color-surface-sunken)",
-                  borderRadius: 99,
-                  overflow: "hidden",
-                  marginBottom: 10,
-                }}
-              >
+              <div className="ov-meter" aria-hidden="true">
                 <div
-                  style={{
-                    width: `${Math.max(2, usagePct)}%`,
-                    height: "100%",
-                    background:
-                      usagePct > 95
-                        ? "var(--color-danger)"
-                        : usagePct > 80
-                          ? "var(--color-warning)"
-                          : "var(--color-accent)",
-                    transition: "width 300ms ease",
-                  }}
+                  className={`ov-meter-fill ${usagePct > 95 ? "is-danger" : usagePct > 80 ? "is-warning" : ""}`}
+                  style={{ width: `${Math.max(1.5, usagePct)}%` }}
                 />
               </div>
-              <p style={{ fontSize: 12, color: "var(--color-muted)", margin: 0 }}>
-                {usagePct >= 95
-                  ? `Only ${(quota - stats.sent).toLocaleString()} remaining — upgrade to Pro for 50,000+ monthly volume.`
-                  : `${(quota - stats.sent).toLocaleString()} emails remaining in current billing period · Daily cap: 200/day.`}
+              <p className="ov-usage-note">
+                {periodEnd
+                  ? `Emails this billing period · resets ${periodEnd.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      timeZone: "UTC",
+                    })}`
+                  : "Emails this billing period"}
               </p>
+              <div className="ov-usage-links">
+                <Link href="/usage" className="ov-link">
+                  Usage details <ArrowRight size={13} />
+                </Link>
+                <a href={pricingUrl()} className="ov-link is-muted">
+                  Compare plans <ArrowUpRight size={13} />
+                </a>
+              </div>
             </div>
           </section>
 
-          <section className="ds-card">
-            <div className="ds-card-header">
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <ShieldCheck size={16} style={{ color: "var(--color-success)" }} />
-                <div>
-                  <h2 className="ds-card-title">Infrastructure Health</h2>
-                  <p className="ds-card-subtitle">
-                    Authentication, credentials, and event routing checklist
-                  </p>
-                </div>
-              </div>
+          <section className="ov-panel">
+            <div className="ov-panel-head">
+              <h2 className="ov-panel-title">Sending setup</h2>
             </div>
-            <div className="ds-card-body" style={{ paddingTop: 8, paddingBottom: 8 }}>
-              {healthItems.map((item, idx) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 12,
-                    padding: "11px 4px",
-                    borderTop: idx === 0 ? "none" : "1px solid var(--color-border)",
-                    textDecoration: "none",
-                    color: "var(--color-ink)",
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{item.label}</div>
-                    <div style={{ fontSize: 11.5, color: "var(--color-muted)" }}>{item.detail}</div>
-                  </div>
-                  <StatusPill status={item.status} />
-                </Link>
+            <ul className="ov-rows">
+              {setupRows.map((row) => (
+                <li key={row.label}>
+                  <Link href={row.href} className="ov-kv">
+                    <span className="ov-kv-label">
+                      <span className="ov-kv-icon">{row.icon}</span>
+                      {row.label}
+                    </span>
+                    <span className={`ov-status ov-tone-${row.tone}`}>
+                      <span className="ov-dot" aria-hidden="true" />
+                      <span>{row.value}</span>
+                    </span>
+                  </Link>
+                </li>
               ))}
-            </div>
+            </ul>
           </section>
         </div>
       </div>

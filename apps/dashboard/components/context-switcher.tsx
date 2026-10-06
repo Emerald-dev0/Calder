@@ -29,21 +29,26 @@ function EnvBadge({ env }: { env: string }) {
   const isProd = env === "production";
   return (
     <span
-      className="mono"
       style={{
-        fontSize: 9.5,
-        fontWeight: 700,
-        letterSpacing: "0.06em",
-        textTransform: "uppercase",
-        color: isProd ? "var(--color-success)" : "var(--color-warning)",
-        background: isProd ? "var(--color-success-bg)" : "var(--color-warning-bg)",
-        border: `1px solid ${isProd ? "var(--color-success-border)" : "var(--color-warning-border)"}`,
-        borderRadius: 999,
-        padding: "1px 6px",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        fontSize: 11,
+        fontWeight: 500,
+        color: "var(--color-muted)",
         whiteSpace: "nowrap",
       }}
     >
-      {env === "production" ? "LIVE" : env === "development" ? "DEV" : env}
+      <span
+        aria-hidden="true"
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: 999,
+          background: isProd ? "var(--color-success)" : "var(--color-warning)",
+        }}
+      />
+      {env === "production" ? "Live" : env === "development" ? "Dev" : env}
     </span>
   );
 }
