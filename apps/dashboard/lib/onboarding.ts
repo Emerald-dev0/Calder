@@ -152,7 +152,7 @@ export const ONBOARDING_PHASES: readonly OnboardingPhase[] = [
   },
 ] as const;
 
-export type SendingSetupMode = "shared" | "gmail" | "domain";
+export type SendingSetupMode = "shared" | "gmail" | "domain" | "later";
 
 export interface SendingModeOption {
   id: SendingSetupMode;
@@ -166,24 +166,30 @@ export const SENDING_MODE_OPTIONS: readonly SendingModeOption[] = [
   {
     id: "shared",
     title: "Shared test sender",
-    badge: "Fastest · Recommended",
-    recommended: true,
+    badge: "No setup",
     tradeoff:
-      "Send immediately from welcome@calder.click with zero DNS or OAuth setup. Best for verifying your integration right now; recipients remain scoped to your test flow.",
+      "Send from welcome@calder.click immediately while you verify your integration. You can switch transports anytime.",
   },
   {
     id: "gmail",
-    title: "Use my Gmail",
-    badge: "Google OAuth · 400/day",
+    title: "Connect Gmail",
+    badge: "Google OAuth",
     tradeoff:
-      "Send from your own Gmail address via Google OAuth (gmail.send scope only, never passwords). No domain required, capped at 400 messages/day for development.",
+      "Use your existing Gmail address for low-volume transactional email. Calder stores only the authorized credentials it needs; never your Google password.",
   },
   {
     id: "domain",
     title: "Use my own domain",
-    badge: "Production · Custom DNS",
+    badge: "Custom DNS",
     tradeoff:
-      "Full production deliverability and custom sender addresses with SPF and DKIM signing. Requires publishing DNS records at your domain registrar.",
+      "Send from your own domain with SPF/DKIM. You can connect it after the first test send if you are not ready yet.",
+  },
+  {
+    id: "later",
+    title: "Set this up later",
+    badge: "Skip for now",
+    tradeoff:
+      "Do not choose a sender yet. You can use the project dashboard to connect Gmail or add a domain when your team is ready.",
   },
 ] as const;
 
