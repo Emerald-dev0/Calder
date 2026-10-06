@@ -9,10 +9,15 @@ import { DsPageHeader, StatusPill } from "../../../components/design-system";
 
 export const metadata = { title: "Calder — SDKs" };
 
-export default async function SdksPage({ searchParams }: { searchParams: { project?: string } }) {
+export default async function SdksPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ project?: string }>;
+}) {
+  const query = await searchParams;
   const ctx = await getTenantContext();
   const projects = ctx.memberships.flatMap((m) => m.projects);
-  const scope = resolveProject(ctx, searchParams.project);
+  const scope = resolveProject(ctx, query.project);
   if (!scope) {
     return (
       <div>

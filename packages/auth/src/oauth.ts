@@ -1,6 +1,6 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { Google, GitHub, generateState, generateCodeVerifier } from "arctic";
-import { eq, and } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import {
   getDb,
   users,
@@ -8,9 +8,10 @@ import {
   organizations,
   organizationMembers,
   orgInvitations,
+  sessions,
 } from "@calder/db";
 import { getConfig } from "@calder/config";
-import { createSession } from "./session.js";
+import { rotateSession, rotateSessionInTransaction } from "./session.js";
 import { assertNotDisposableEmail } from "./disposable-email.js";
 
 export type OAuthProvider = "google" | "github";
@@ -139,8 +140,12 @@ export async function completeOAuth(
   state: string,
   storedState: string | null,
   codeVerifier: string | null,
-  meta: Parameters<typeof createSession>[1] = {}
+  meta: Parameters<typeof rotateSession>[2] = {},
+  previousSessionId?: string | null
 ): Promise<string> {
+  if (provider !== "google" && provider !== "github") {
+    throw new Error("Unknown OAuth provider.");
+  }
   if (!storedState || !statesEqual(state, storedState)) {
     throw new Error("OAuth state mismatch. Please try signing in again.");
   }
@@ -161,62 +166,144 @@ export async function completeOAuth(
       ? await fetchGoogleProfile(tokens.accessToken())
       : await fetchGithubProfile(tokens.accessToken());
 
-  // Existing link → user.
-  const linked = await db
-    .select()
-    .from(oauthAccounts)
-    .where(
-      and(
-        eq(oauthAccounts.provider, provider),
-        eq(oauthAccounts.providerUserId, profile.providerUserId)
+  const result = await db.transaction(async (tx) => {
+    // Existing link → user. The whole link/create + session transition is one
+    // transaction so concurrent callbacks cannot create two accounts or race
+    // a disconnect/password invalidation into a live stale session.
+    const [linked] = await tx
+      .select()
+      .from(oauthAccounts)
+      .where(
+        and(
+          eq(oauthAccounts.provider, provider),
+          eq(oauthAccounts.providerUserId, profile.providerUserId)
+        )
       )
-    )
-    .limit(1);
-  let userId = linked[0]?.userId ?? null;
+      .limit(1);
+    let userId = linked?.userId ?? null;
+    let userEmail = profile.email;
 
-  if (!userId) {
-    // Link by verified email, else create the user.
-    const same = await db.select().from(users).where(eq(users.email, profile.email)).limit(1);
-    if (same[0]) {
-      // H4 decision (ADR-040): an email the provider has NOT verified must
-      // never auto-link to an existing Calder account — even when the Calder
-      // row is itself verified. An attacker sets an unverified provider-side
-      // email to the victim's address and would otherwise sign in AS the
-      // victim. Verified-side linking requires the provider's explicit
-      // verified flag; anything else signs in first and links deliberately.
-      if (!profile.emailVerified) {
-        throw new Error(
-          "That email is already registered and this provider has not verified ownership. Sign in with your original method to link accounts."
-        );
+    if (!userId) {
+      // Link by verified email, else create the user.
+      const [same] = await tx
+        .select()
+        .from(users)
+        .where(eq(users.email, profile.email))
+        .limit(1)
+        .for("update");
+      if (same) {
+        // H4 decision (ADR-040): an email the provider has NOT verified must
+        // never auto-link to an existing Calder account — even when the Calder
+        // row is itself verified. An attacker sets an unverified provider-side
+        // email to the victim's address and would otherwise sign in AS the
+        // victim. Verified-side linking requires the provider's explicit
+        // verified flag; anything else signs in first and links deliberately.
+        if (!profile.emailVerified) {
+          throw new Error(
+            "That email is already registered and this provider has not verified ownership. Sign in with your original method to link accounts."
+          );
+        }
+        // Conversely: a provider-verified email proves control at link time —
+        // mark the Calder side verified too if it wasn't yet.
+        if (same.emailVerifiedAt == null) {
+          await tx
+            .update(users)
+            .set({ emailVerifiedAt: new Date(), updatedAt: new Date() })
+            .where(eq(users.id, same.id));
+        }
+        userId = same.id;
+        userEmail = same.email;
+      } else {
+        // Do not create a signed-in Calder account from an unverified provider
+        // email. The provider assertion is the only proof available at this
+        // boundary; accepting it would create an account an attacker could
+        // control with an unverified address and would make later linking
+        // ambiguous. Existing Calder accounts are handled above without an
+        // automatic link when provider verification is absent.
+        if (!profile.emailVerified) {
+          throw new Error(
+            "This provider has not verified the email address. Use a verified account."
+          );
+        }
+        assertNotDisposableEmail(profile.email);
+        userId = newId("usr");
+        await tx.insert(users).values({
+          id: userId,
+          email: profile.email,
+          name: profile.name,
+          emailVerifiedAt: new Date(),
+        });
       }
-      // Conversely: a provider-verified email proves control at link time —
-      // mark the Calder side verified too if it wasn't yet.
-      if (same[0].emailVerifiedAt == null) {
-        await db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.id, same[0].id));
-      }
-      userId = same[0].id;
-    } else {
-      assertNotDisposableEmail(profile.email);
-      userId = newId("usr");
-      await db.insert(users).values({
-        id: userId,
-        email: profile.email,
-        name: profile.name,
-        emailVerifiedAt: profile.emailVerified ? new Date() : null,
+      await tx.insert(oauthAccounts).values({
+        id: newId("oa"),
+        userId,
+        provider,
+        providerUserId: profile.providerUserId,
       });
+    } else {
+      const [canonical] = await tx
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1)
+        .for("update");
+      if (!canonical) throw new Error("OAuth account is not attached to an account.");
+      // Never use a mutable provider profile email for founder/bootstrap or
+      // invite decisions after an account is linked. The Calder row is the
+      // canonical tenant/auth identity.
+      userEmail = canonical.email;
     }
-    await db.insert(oauthAccounts).values({
-      id: newId("oa"),
-      userId,
-      provider,
-      providerUserId: profile.providerUserId,
-    });
-  }
 
-  await ensureFounderAccess(db, userId, profile.email);
-  await acceptPendingInvites(db, userId, profile.email);
+    const sessionId = await rotateSessionInTransaction(tx, userId, previousSessionId, meta);
+    return { userId, userEmail, sessionId };
+  });
 
-  return createSession(userId, meta);
+  await ensureFounderAccess(db, result.userId, result.userEmail);
+  await acceptPendingInvites(db, result.userId, result.userEmail);
+
+  return result.sessionId;
+}
+
+/**
+ * Disconnect a login provider without deleting the account's last usable
+ * authentication method. Removing an OAuth identity is security-sensitive, so
+ * all existing sessions are revoked after the identity row is deleted.
+ */
+export async function disconnectOAuthAccount(
+  userId: string,
+  provider: OAuthProvider
+): Promise<{ ok: true }> {
+  const db = getDb();
+  await db.transaction(async (tx) => {
+    // Serialize disconnect with OAuth linking, password changes, and session
+    // creation. The last-auth-method check must use the locked, current rows.
+    const [user] = await tx
+      .select({ passwordHash: users.passwordHash })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+      .for("update");
+    if (!user) throw new Error("Account not found.");
+    const accounts = await tx
+      .select({ id: oauthAccounts.id, provider: oauthAccounts.provider })
+      .from(oauthAccounts)
+      .where(eq(oauthAccounts.userId, userId));
+    const target = accounts.find((account) => account.provider === provider);
+    if (!target) throw new Error("OAuth account not found.");
+    if (!user.passwordHash && accounts.length <= 1) {
+      throw new Error(
+        "Add a password or another sign-in method before disconnecting this account."
+      );
+    }
+    await tx
+      .delete(oauthAccounts)
+      .where(and(eq(oauthAccounts.id, target.id), eq(oauthAccounts.userId, userId)));
+    await tx
+      .update(sessions)
+      .set({ revokedAt: new Date() })
+      .where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)));
+  });
+  return { ok: true };
 }
 
 /**

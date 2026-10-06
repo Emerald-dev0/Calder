@@ -19,7 +19,7 @@ export {
   type GmailConnectStart,
   type GmailConnectTokens,
 } from "./gmail-connect.js";
-export { ensureFounderAccess, acceptPendingInvites } from "./oauth.js";
+export { ensureFounderAccess, acceptPendingInvites, disconnectOAuthAccount } from "./oauth.js";
 export {
   startOAuth,
   completeOAuth,
@@ -31,6 +31,8 @@ export {
   createSession,
   getSessionUser,
   revokeSession,
+  rotateSession,
+  rotateAllSessions,
   sealSessionCookie,
   sessionCookieHeader,
   clearSessionCookieHeader,
@@ -44,6 +46,7 @@ export {
   type SessionMeta,
 } from "./session.js";
 export { signUnsubscribeToken, verifyUnsubscribeToken } from "./unsubscribe.js";
+export { recordSecurityEvent, type SecurityEventAction } from "./security-events.js";
 export {
   requestMagicLink,
   consumeMagicLink,
@@ -81,6 +84,7 @@ export {
   LoginLockedError,
   verifySignupCode,
   resetPasswordWithCode,
+  changePassword,
   MIN_PASSWORD_LEN,
   MAX_PASSWORD_LEN,
   type SignupWithPasswordResult,

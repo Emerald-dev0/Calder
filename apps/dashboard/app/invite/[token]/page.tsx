@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { getInvitePreview } from "../../(app)/settings/actions";
 
-export default async function InvitePage({ params }: { params: { token: string } }) {
-  const preview = await getInvitePreview(params.token);
+export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  const preview = await getInvitePreview(token);
 
   return (
     <div style={{ maxWidth: 480, margin: "12vh auto", padding: 24, textAlign: "center" }}>

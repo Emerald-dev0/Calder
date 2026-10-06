@@ -114,12 +114,24 @@ health.get("/ready", async (c) => {
     checks.database = { state: "ok", detail: redactConnectionUrl(config.DATABASE_URL) };
     required.push("database");
   } catch (err) {
-    checks.database = {
-      state: "degraded",
-      detail: redactText(err instanceof Error ? err.message : "query failed"),
-    };
-    ready = false;
-    required.push("database");
+    if (!hosted) {
+      // Local development/test deliberately support the in-memory scaffold.
+      // Keep the database in the required-check inventory so the response is
+      // honest about what a hosted launch needs, but do not turn a missing
+      // local Postgres into a false-negative readiness result.
+      checks.database = {
+        state: "skipped",
+        detail: "DATABASE_URL unavailable: local scaffold mode",
+      };
+      required.push("database");
+    } else {
+      checks.database = {
+        state: "degraded",
+        detail: redactText(err instanceof Error ? err.message : "query failed"),
+      };
+      ready = false;
+      required.push("database");
+    }
   }
 
   // ── Queue / Redis ─────────────────────────────────────────────
@@ -164,13 +176,17 @@ health.get("/ready", async (c) => {
       };
 
   // ── Informational: rate limiter posture ───────────────────────
-  // ADR-041 deliberately degrades to per-instance limits when Redis is down
-  // (availability over exactness). That is fine — silently is not. This makes
-  // "enforcement is currently approximate" visible without gating readiness.
+  // Hosted authentication limits fail closed when Redis is down; development
+  // and test retain the explicit in-process limiter. The state is still
+  // visible to operators and never presented as exact while degraded.
   try {
     const { getRateLimiter } = await import("@calder/rate-limit");
     const limiter = getRateLimiter() as unknown as {
-      degradedState?: () => { fallbacks: number; lastFallbackAt: string | null };
+      degradedState?: () => {
+        fallbacks: number;
+        lastFallbackAt: string | null;
+        failClosed?: boolean;
+      };
     };
     const state = limiter.degradedState?.();
     checks.rate_limiter = state
@@ -179,7 +195,9 @@ health.get("/ready", async (c) => {
           detail:
             state.fallbacks === 0
               ? "exact (redis or memory only)"
-              : `${state.fallbacks} fallback(s), last at ${state.lastFallbackAt} (approximate)`,
+              : state.failClosed
+                ? `${state.fallbacks} Redis failure(s), requests rejected until recovery`
+                : `${state.fallbacks} fallback(s), last at ${state.lastFallbackAt} (development/test only)`,
         }
       : { state: "ok", detail: "in-process limiter (development/test)" };
   } catch (err) {

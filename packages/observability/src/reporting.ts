@@ -109,6 +109,7 @@ export function errorReportingStatus(): ErrorReportingStatus {
 export function captureError(err: unknown, context: ErrorContext): ErrorClassification {
   const classification = classifyError(err);
   const message = err instanceof Error ? err.message : String(err);
+  const safeMessage = redactText(message, 500);
   const base = {
     service: context.service,
     class: classification.class,
@@ -127,9 +128,10 @@ export function captureError(err: unknown, context: ErrorContext): ErrorClassifi
     ...base,
     err: redactValue(err instanceof Error ? { message: err.message, name: err.name } : err),
   };
-  if (classification.severity === "info") logger.info(logPayload, `handled: ${message}`);
-  else if (classification.severity === "warning") logger.warn(logPayload, `failure: ${message}`);
-  else logger.error(logPayload, `failure: ${message}`);
+  if (classification.severity === "info") logger.info(logPayload, `handled: ${safeMessage}`);
+  else if (classification.severity === "warning")
+    logger.warn(logPayload, `failure: ${safeMessage}`);
+  else logger.error(logPayload, `failure: ${safeMessage}`);
 
   const client = sentry;
   if (classification.reportable && client) {
@@ -173,9 +175,10 @@ export function captureMessage(
     severity,
     ...(redactValue(context) as Record<string, unknown>),
   };
-  if (severity === "info") logger.info(payload, message);
-  else if (severity === "warning") logger.warn(payload, message);
-  else logger.error(payload, message);
+  const safeMessage = redactText(message, 500);
+  if (severity === "info") logger.info(payload, safeMessage);
+  else if (severity === "warning") logger.warn(payload, safeMessage);
+  else logger.error(payload, safeMessage);
 
   const client = sentry;
   if (client) {

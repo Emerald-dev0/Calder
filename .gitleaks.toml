@@ -1,0 +1,26 @@
+title = "Calder secret scanning"
+
+[extend]
+useDefault = true
+
+# These are deterministic, non-production values used only by redaction and
+# provider tests. They are allowlisted by exact value, not by directory, so a
+# real credential accidentally committed to a test file still fails the scan.
+[[allowlists]]
+description = "Documented non-production fixtures"
+regexTarget = "match"
+regexes = [
+  '''AKIAIOSFODNN7EXAMPLE''',
+  '''whsec_dev_secret_change_me''',
+  '''whsec_abc123''',
+  '''whsec_0123456789abcdef0123456789abcdef0123456789abcdef''',
+  '''whsec_deadbeef0{40}''',
+  '''calder_test_abcdef1234567890''',
+  '''calder_sk_test_py''',
+  '''test-client-secret''',
+  '''test-cron-secret''',
+  '''supersecret''',
+  '''hunter2''',
+  '''calder-development-auth-placeholder-not-for-production''',
+  '''calder-development-webhook-placeholder-not-for-production''',
+]

@@ -1,4 +1,5 @@
 import { createQueue, type QueueJob } from "@calder/queue";
+import { isProduction } from "@calder/config";
 import { isTransientError, getRetryDelay } from "@calder/queue";
 import { pickDefaultTransport, GMAIL_FREE_DAILY_CAP } from "@calder/email";
 import {
@@ -14,6 +15,7 @@ import {
   exhaustedJobs,
   logger,
   providerFailures,
+  safeDeliveryReason,
   type Logger,
 } from "@calder/observability";
 import { recordJobOutcome, recordJobThrow, recordRedisError } from "./worker-stats.js";
@@ -25,6 +27,10 @@ interface TransportCandidate {
   transport: string;
   /** project_transports.id when this leg is a registry entry (needed for revocation/abuse state). */
   transportId?: string;
+}
+
+function safeDeliveryError(err: unknown): string {
+  return safeDeliveryReason(err);
 }
 
 function isCapError(err: unknown): boolean {
@@ -51,7 +57,7 @@ async function resolveServiceChain(
   const chain: TransportCandidate[] = [];
   try {
     const { getDb, projectTransports, senderIdentities } = await import("@calder/db");
-    const { eq } = await import("drizzle-orm");
+    const { and, eq } = await import("drizzle-orm");
     const db = getDb();
     const rows = await db
       .select()
@@ -77,7 +83,9 @@ async function resolveServiceChain(
       const [sender] = await db
         .select()
         .from(senderIdentities)
-        .where(eq(senderIdentities.id, senderIdentityId))
+        .where(
+          and(eq(senderIdentities.id, senderIdentityId), eq(senderIdentities.projectId, projectId))
+        )
         .limit(1);
       if (sender && sender.projectId === projectId) {
         if (sender.status !== "verified" && sender.status !== "connected") {
@@ -115,7 +123,17 @@ async function resolveServiceChain(
     ) {
       throw err;
     }
-    jobLogger.warn({ err }, "Transport resolution failed, using default provider");
+    if (isProduction()) {
+      // A hosted worker must not turn a transport-registry/database outage
+      // into an unscoped default-provider send. Retrying the durable job is
+      // safer than crossing the project/resource trust boundary.
+      throw Object.assign(new Error("Transport resolution unavailable."), {
+        code: "transport_resolution_failed",
+        transient: true,
+        statusCode: 503,
+      });
+    }
+    jobLogger.warn("Transport resolution unavailable; using development fallback provider");
   }
   chain.push(fallback);
   return chain;
@@ -173,7 +191,7 @@ async function buildGmailService(
   }
   const refreshToken = getGmailRefreshToken(chosen.encryptedCredentials);
   const gmail = new GmailTransport({ refreshToken, senderEmail: chosen.label }, chosen.dailyCap);
-  jobLogger.info({ transport: "gmail", sender: chosen.label }, "Routing via Gmail transport");
+  jobLogger.info({ transport: "gmail", transportId: chosen.id }, "Routing via Gmail transport");
   return { service: createEmailService(gmail), transport: "gmail", transportId: chosen.id };
 }
 
@@ -212,7 +230,8 @@ async function assertOrganizationMayDeliver(projectId: string, env: string): Pro
 }
 
 /** Terminal outcomes of processing one job. A throw signals "retry with backoff". */
-export type ProcessOutcome = "sent" | "failed" | "suppressed" | "exhausted" | "missing_record";
+export type ProcessOutcome =
+  "sent" | "failed" | "suppressed" | "exhausted" | "missing_record" | "already_claimed";
 
 export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<ProcessOutcome> {
   {
@@ -283,9 +302,7 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
         jobLogger.error({ err: dbErr }, "DB lookup failed");
         throw Object.assign(
           new Error(
-            `Storage unavailable while loading email record (503): ${
-              dbErr instanceof Error ? dbErr.message : String(dbErr)
-            }`
+            `Storage unavailable while loading email record (503): ${safeDeliveryError(dbErr)}`
           ),
           { status: 503 }
         );
@@ -301,6 +318,33 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
           "Email record not found; dropping job without sending"
         );
         return "missing_record";
+      }
+
+      // A queue job is not a delivery lease. Claim the durable row with a
+      // compare-and-set before reading suppression/transport state so a
+      // duplicate job, a drain race, or a second worker cannot send the same
+      // email twice. Retries below release this claim back to `queued`.
+      {
+        const { getDb, emails } = await import("@calder/db");
+        const { and, eq } = await import("drizzle-orm");
+        const [claimed] = await getDb()
+          .update(emails)
+          .set({ status: "sending", updatedAt: new Date() })
+          .where(
+            and(
+              eq(emails.id, emailId),
+              eq(emails.projectId, projectId),
+              eq(emails.status, "queued")
+            )
+          )
+          .returning({ id: emails.id });
+        if (!claimed) {
+          jobLogger.info(
+            { status: email.status },
+            "Email job lost durable delivery claim; skipping"
+          );
+          return "already_claimed";
+        }
       }
 
       // ── Suppression check, before any provider call ────────
@@ -323,7 +367,7 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
             await db
               .update(emails)
               .set({ status: "suppressed", lastError: sup[0]!.reason, updatedAt: now })
-              .where(eq(emails.id, emailId));
+              .where(and(eq(emails.id, emailId), eq(emails.projectId, projectId)));
             await db.insert(emailEvents).values({
               id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
               emailId,
@@ -437,7 +481,7 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
       // ── Persist success event + update email status ─────────
       try {
         const { getDb, emails, emailEvents, recordSendUsage } = await import("@calder/db");
-        const { eq } = await import("drizzle-orm");
+        const { and, eq } = await import("drizzle-orm");
         const db = getDb();
         await db
           .update(emails)
@@ -448,7 +492,7 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
             provider: result.provider,
             updatedAt: new Date(),
           })
-          .where(eq(emails.id, emailId));
+          .where(and(eq(emails.id, emailId), eq(emails.projectId, projectId)));
         // Meter at provider-accept; exactly-once via deterministic ledger id
         // (ADR-036): retries can never double-count.
         await recordSendUsage(db, { emailId, projectId, env: email.env });
@@ -489,26 +533,45 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
       });
       logger.error({ emailId, transient, attempt }, `Email job failed (transient=${transient})`);
 
+      if (transient) {
+        try {
+          const { getDb, emails } = await import("@calder/db");
+          const { and, eq } = await import("drizzle-orm");
+          await getDb()
+            .update(emails)
+            .set({ status: "queued", lastError: safeDeliveryError(err), updatedAt: new Date() })
+            .where(
+              and(
+                eq(emails.id, emailId),
+                eq(emails.projectId, projectId),
+                eq(emails.status, "sending")
+              )
+            );
+        } catch (releaseErr) {
+          logger.error({ err: releaseErr, emailId }, "Failed to release transient delivery claim");
+        }
+      }
+
       if (!transient) {
         // Permanent failure, mark as failed, emit webhook, don't retry indefinitely
         try {
           const { getDb, emails, emailEvents } = await import("@calder/db");
-          const { eq } = await import("drizzle-orm");
+          const { and, eq } = await import("drizzle-orm");
           const db = getDb();
           await db
             .update(emails)
-            .set({ status: "failed", lastError: (err as Error).message, updatedAt: new Date() })
-            .where(eq(emails.id, emailId));
+            .set({ status: "failed", lastError: safeDeliveryError(err), updatedAt: new Date() })
+            .where(and(eq(emails.id, emailId), eq(emails.projectId, projectId)));
           await db.insert(emailEvents).values({
             id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
             emailId,
             projectId,
             type: "failed",
-            data: { error: (err as Error).message, transient: false },
+            data: { error: safeDeliveryError(err), transient: false },
           });
           await enqueueWebhookDelivery(projectId, emailId, "email.failed", {
             emailId,
-            error: (err as Error).message,
+            error: safeDeliveryError(err),
           });
         } catch (persistErr) {
           logger.error({ err: persistErr }, "Failed to persist failed event");
@@ -535,21 +598,21 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
       );
       try {
         const { getDb, emails, emailEvents } = await import("@calder/db");
-        const { eq } = await import("drizzle-orm");
+        const { and, eq } = await import("drizzle-orm");
         const db = getDb();
         await db
           .update(emails)
           .set({
             status: "failed",
-            lastError: `Exhausted after ${job.maxAttempts} attempts: ${(err as Error).message}`,
+            lastError: `Exhausted after ${job.maxAttempts} attempts: ${safeDeliveryError(err)}`,
           })
-          .where(eq(emails.id, emailId));
+          .where(and(eq(emails.id, emailId), eq(emails.projectId, projectId)));
         await db.insert(emailEvents).values({
           id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
           emailId,
           projectId,
           type: "failed",
-          data: { error: (err as Error).message, exhausted: true },
+          data: { error: safeDeliveryError(err), exhausted: true },
         });
       } catch (persistErr) {
         logger.error({ err: persistErr }, "Failed to persist dead-letter");

@@ -10,7 +10,7 @@ import {
 } from "@calder/db";
 import { generateApiKey } from "@calder/auth";
 import { getConfig } from "@calder/config";
-import { assertProjectAccess } from "../onboarding/actions";
+import { assertProjectManager } from "../onboarding/actions";
 
 const ALIAS_RE = /^[a-z0-9][a-z0-9-]{0,99}$/;
 
@@ -22,7 +22,7 @@ export async function createTemplate(
   projectId: string,
   input: { name: string; alias: string; subject: string; html: string; text: string }
 ) {
-  await assertProjectAccess(projectId);
+  await assertProjectManager(projectId);
   const name = input.name.trim();
   const alias = input.alias.trim().toLowerCase();
   if (!name) throw new Error("Name the template.");
@@ -56,7 +56,7 @@ export async function addTemplateVersion(
   templateId: string,
   input: { subject: string; html: string; text: string }
 ) {
-  await assertProjectAccess(projectId);
+  await assertProjectManager(projectId);
   const db = getDb();
   const [tpl] = await db
     .select()
@@ -69,7 +69,8 @@ export async function addTemplateVersion(
   const [latest] = await db
     .select({ version: templateVersions.version })
     .from(templateVersions)
-    .where(eq(templateVersions.templateId, templateId))
+    .innerJoin(templates, eq(templateVersions.templateId, templates.id))
+    .where(and(eq(templateVersions.templateId, templateId), eq(templates.projectId, projectId)))
     .orderBy(desc(templateVersions.createdAt))
     .limit(1);
   const n = Number((latest?.version ?? "v0").slice(1)) + 1;
@@ -85,7 +86,7 @@ export async function addTemplateVersion(
 }
 
 export async function deleteTemplate(projectId: string, templateId: string) {
-  await assertProjectAccess(projectId);
+  await assertProjectManager(projectId);
   const db = getDb();
   const deleted = await db
     .delete(templates)
@@ -106,7 +107,7 @@ export async function testSendTemplate(
   to: string,
   variables: Record<string, string>
 ) {
-  await assertProjectAccess(projectId);
+  await assertProjectManager(projectId);
   if (!to.includes("@")) throw new Error("Enter a valid test recipient.");
   const db = getDb();
   const [tpl] = await db
@@ -153,7 +154,7 @@ export async function testSendTemplate(
     // One-time key revoked immediately after use.
     await db
       .delete(apiKeys)
-      .where(eq(apiKeys.id, keyId))
+      .where(and(eq(apiKeys.id, keyId), eq(apiKeys.projectId, projectId)))
       .catch(() => {});
   }
 }

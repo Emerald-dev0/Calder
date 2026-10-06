@@ -205,7 +205,13 @@ export async function enforceGmailVelocity(
   const suspended = await db
     .update(projectTransports)
     .set({ status: "suspended", updatedAt: new Date() })
-    .where(and(eq(projectTransports.id, transport.id), eq(projectTransports.status, "active")))
+    .where(
+      and(
+        eq(projectTransports.id, transport.id),
+        eq(projectTransports.projectId, projectId),
+        eq(projectTransports.status, "active")
+      )
+    )
     .returning({ id: projectTransports.id });
   if (suspended.length > 0) {
     await auditOnce(db, {
@@ -242,7 +248,13 @@ export async function markGmailRevoked(
   const updated = await db
     .update(projectTransports)
     .set({ status: "revoked", updatedAt: new Date() })
-    .where(and(eq(projectTransports.id, transportId), eq(projectTransports.status, "active")))
+    .where(
+      and(
+        eq(projectTransports.id, transportId),
+        eq(projectTransports.projectId, projectId),
+        eq(projectTransports.status, "active")
+      )
+    )
     .returning({ id: projectTransports.id });
   if (updated.length === 0) return false;
   await auditOnce(db, {

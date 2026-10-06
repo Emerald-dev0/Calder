@@ -18,10 +18,11 @@ export const metadata = { title: "Calder — Senders" };
 export default async function SendersPage({
   searchParams,
 }: {
-  searchParams: { project?: string };
+  searchParams: Promise<{ project?: string }>;
 }) {
+  const query = await searchParams;
   const ctx = await getTenantContext();
-  const scope = resolveProject(ctx, searchParams.project);
+  const scope = resolveProject(ctx, query.project);
   if (!scope) {
     return (
       <div>
@@ -57,8 +58,8 @@ export default async function SendersPage({
       and(
         eq(projectTransports.projectId, scope.project.id),
         eq(projectTransports.type, "gmail"),
-        eq(projectTransports.status, "active"),
-      ),
+        eq(projectTransports.status, "active")
+      )
     );
 
   const { gmailNeedsGraduation } = await import("@calder/db");
@@ -66,11 +67,11 @@ export default async function SendersPage({
     gmailTransports.map(async (t) => ({
       ...t,
       signal: await gmailNeedsGraduation(db, scope.project.id, t.dailyCap),
-    })),
+    }))
   );
   const graduates = graduations.filter((g) => g.signal.needed);
   const verifiedCount = senders.filter(
-    (s) => s.status === "verified" || s.status === "connected",
+    (s) => s.status === "verified" || s.status === "connected"
   ).length;
 
   return (
@@ -82,9 +83,7 @@ export default async function SendersPage({
           <StatusPill
             status={verifiedCount > 0 ? "verified" : "pending"}
             label={
-              senders.length === 0
-                ? "0 senders"
-                : `${verifiedCount} of ${senders.length} ready`
+              senders.length === 0 ? "0 senders" : `${verifiedCount} of ${senders.length} ready`
             }
           />
         }
@@ -112,7 +111,9 @@ export default async function SendersPage({
                 <b>
                   {Math.max(...graduates.map((g) => Math.round(g.signal.dailyAvg7d)))} sends/day
                 </b>{" "}
-                through a personal Gmail account (cap {graduates[0]!.signal.cap}/day). Verify a custom domain to move onto production SES infrastructure automatically with zero code changes.
+                through a personal Gmail account (cap {graduates[0]!.signal.cap}/day). Verify a
+                custom domain to move onto production SES infrastructure automatically with zero
+                code changes.
               </span>
             }
             action={

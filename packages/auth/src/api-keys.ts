@@ -38,6 +38,9 @@ export function generateApiKey(env: KeyEnv = "test"): GeneratedApiKey {
  */
 export function hashApiKey(secret: string): string {
   const pepper = process.env.API_KEY_PEPPER ?? "";
+  if (process.env.NODE_ENV === "production" && pepper.length < 32) {
+    throw new Error("API_KEY_PEPPER must be configured with at least 32 characters in production.");
+  }
   return createHash("sha256").update(`${pepper}${secret}`).digest("hex");
 }
 

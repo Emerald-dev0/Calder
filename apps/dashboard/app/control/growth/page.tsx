@@ -37,14 +37,11 @@ import {
 import { FounderTopbar } from "@/control/_components/founder-topbar";
 
 const TrendChart = nextDynamic(() => import("@/components/charts").then((m) => m.TrendChart), {
-  ssr: false,
   loading: () => <div style={{ height: 340 }} />,
 });
 const ActivityHeatmap = nextDynamic(
   () => import("@/components/charts").then((m) => m.ActivityHeatmap),
-  {
-    ssr: false,
-  }
+  {}
 );
 
 export const dynamic = "force-dynamic";
@@ -70,10 +67,11 @@ const CTA_LABELS: Record<string, string> = {
 export default async function GrowthOverviewPage({
   searchParams,
 }: {
-  searchParams: { range?: string; from?: string; to?: string };
+  searchParams: Promise<{ range?: string; from?: string; to?: string }>;
 }) {
+  const query = await searchParams;
   await requireSection("growth");
-  const window = parseRange(searchParams.range, searchParams.from, searchParams.to);
+  const window = parseRange(query.range, query.from, query.to);
   const prev = compareWindow(window);
 
   const safe = async <T,>(p: Promise<T>, fallback: T): Promise<T> => {
@@ -280,8 +278,8 @@ export default async function GrowthOverviewPage({
         title="Growth"
         context="Understand how people discover, interact, and convert"
         rangeKey={window.key}
-        customFrom={searchParams.from}
-        customTo={searchParams.to}
+        customFrom={query.from}
+        customTo={query.to}
       />
       <main className="cp-content">
         <PageHeader

@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { timingSafeEqual } from "node:crypto";
 import { completeGmailConnect, saveGmailTransport } from "@calder/auth";
+import { getConfig } from "@calder/config";
 import { getDb } from "@calder/db";
+import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { getTenantContext } from "../../../../../lib/auth";
+import { clientIp } from "../../../../../lib/client-ip";
 import { recordMilestone } from "../../../../(app)/onboarding/actions";
 
 function statesEqual(a: string, b: string): boolean {
@@ -25,14 +28,24 @@ function clearCookie(name: string): string {
  */
 export async function GET(req: Request): Promise<Response> {
   const url = new URL(req.url);
-  const store = cookies();
+  const redirectOrigin =
+    getConfig().NODE_ENV === "production" ? new URL(getConfig().DASHBOARD_URL).origin : url.origin;
+  const store = await cookies();
   const done = (notice: string) => {
-    const res = NextResponse.redirect(new URL(`/onboarding?notice=${notice}`, url.origin));
+    const res = NextResponse.redirect(new URL(`/onboarding?notice=${notice}`, redirectOrigin));
+    res.headers.set("Referrer-Policy", "no-referrer");
+    res.headers.set("Cache-Control", "no-store");
     for (const n of ["calder_gmail_state", "calder_gmail_verifier", "calder_gmail_project"]) {
       res.headers.append("Set-Cookie", clearCookie(n));
     }
     return res;
   };
+
+  const gate = await getRateLimiter().check(`gmail-connect:callback:${clientIp(req)}`, {
+    ...rateLimitPresets.auth,
+    keyPrefix: "gmail:callback",
+  });
+  if (!gate.allowed) return done("gmail-throttled");
 
   const code = url.searchParams.get("code") ?? "";
   const state = url.searchParams.get("state") ?? "";

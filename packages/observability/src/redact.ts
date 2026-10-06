@@ -16,9 +16,6 @@ export const REDACTED = "[redacted]";
 const SENSITIVE_KEY_PATTERN =
   /(^|[_-])(pass(word|wd)?|secret|token|authorization|cookie|credential|dsn|signature|otp|salt|pepper)$|api[_-]?key|apikey|private[_-]?key|access[_-]?key|secret[_-]?key|keyhash|refreshtoken|clientsecret|webhooksecret|signingsecret|session[_-]?secret|encryption[_-]?key/i;
 
-/** Keys that are only sensitive in a code/OTP sense (never the `error.code` field). */
-const OTP_KEY_PATTERN = /(verification|email|reset|one[_-]?time|auth)[_-]?code|^code$/i;
-
 /** A bare `code` is an API error code, not a secret, unless it looks numeric (OTP). */
 function isOtpKey(key: string): boolean {
   if (/^(verification|email|reset|one[_-]?time|auth)[_-]?code$/i.test(key)) return true;
@@ -42,6 +39,8 @@ const VALUE_PATTERNS: RegExp[] = [
   /([?&](?:token|key|secret|password|signature|code)=)[^&\s]+/gi,
   // Long hex/base64 blobs that appear in headers, e.g. v1=<64 hex>
   /(\bv1=)[0-9a-f]{32,}/gi,
+  // Recipient/customer addresses in provider and application error text.
+  /(^|[\s<(])([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\b/gi,
 ];
 
 export function isSensitiveKey(key: string): boolean {

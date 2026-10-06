@@ -8,7 +8,8 @@
  * explicit allowlist below — the exact strings `@calder/auth` throws
  * deliberately for users — ever reach the client. Everything else
  * (PostgresError, TypeErrors, unknown failures) maps to a generic fallback
- * while the route logs the full error server-side.
+ * while the route records only a sanitized failure classification server-side;
+ * sensitive provider/driver text must not enter browser responses or logs.
  *
  * When adding a new user-facing auth error in @calder/auth, add its exact
  * string here. Never add anything containing schema, SQL, or driver detail.
@@ -23,6 +24,11 @@ const USER_SAFE_ERRORS = new Set([
   "Invalid email or password.",
   "This link is invalid or expired.",
   "This email address isn't supported. Use a different email address.",
+  "Current password is incorrect.",
+  "New password must be different from the current password.",
+  "Add a password or another sign-in method before disconnecting this account.",
+  "Account not found.",
+  "OAuth account not found.",
 ]);
 
 export function safeAuthError(err: unknown, fallback: string): string {

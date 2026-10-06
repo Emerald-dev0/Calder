@@ -9,11 +9,12 @@ export const dynamic = "force-dynamic";
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: { q?: string; page?: string };
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
+  const query = await searchParams;
   await requireSection("customers");
-  const page = Math.max(1, Number.parseInt(searchParams.page ?? "1", 10) || 1);
-  const [totals, table] = await Promise.all([customerTotals(), userRows(searchParams.q, page)]);
+  const page = Math.max(1, Number.parseInt(query.page ?? "1", 10) || 1);
+  const [totals, table] = await Promise.all([customerTotals(), userRows(query.q, page)]);
 
   return (
     <>
@@ -45,13 +46,13 @@ export default async function CustomersPage({
             type="search"
             name="q"
             placeholder="Search name or email…"
-            defaultValue={searchParams.q ?? ""}
+            defaultValue={query.q ?? ""}
             style={{ minWidth: 240 }}
           />
           <button className="cp-btn primary" type="submit">
             Search
           </button>
-          {searchParams.q ? (
+          {query.q ? (
             <Link className="cp-btn" href="/control/customers">
               Clear
             </Link>
@@ -109,7 +110,7 @@ export default async function CustomersPage({
           pages={table.pages}
           total={table.total}
           basePath="/control/customers"
-          query={{ q: searchParams.q }}
+          query={{ q: query.q }}
         />
       </Panel>
     </>

@@ -6,6 +6,7 @@ import { handleSendEmail } from "../services/email-service.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { rateLimitMiddleware } from "../middleware/rate-limit.js";
 import { kickDrain, executionCtxOf } from "../lib/kick-drain.js";
+import { decodeApiCursor, encodeApiCursor } from "../lib/pagination.js";
 
 const emails = new Hono<Env>();
 
@@ -94,7 +95,12 @@ emails.get("/:id", authMiddleware, async (c) => {
           status: senderIdentities.status,
         })
         .from(senderIdentities)
-        .where(eq(senderIdentities.id, email.senderIdentityId))
+        .where(
+          and(
+            eq(senderIdentities.id, email.senderIdentityId),
+            eq(senderIdentities.projectId, auth.projectId)
+          )
+        )
         .limit(1);
       sender = (s as Record<string, unknown> | undefined) ?? null;
     }
@@ -113,9 +119,11 @@ emails.get("/", authMiddleware, async (c) => {
   const status = c.req.query("status") ?? undefined;
   const since = c.req.query("since") ?? undefined;
   const cursor = c.req.query("cursor") ?? undefined;
-  const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "20", 10) || 20, 100);
-  const page = Number.parseInt(c.req.query("page") ?? "1", 10);
-  const perPage = Math.min(Number.parseInt(c.req.query("per_page") ?? "20", 10), 100);
+  const limit = Math.min(Math.max(Number.parseInt(c.req.query("limit") ?? "20", 10) || 20, 1), 100);
+  const parsedPage = Number.parseInt(c.req.query("page") ?? "1", 10);
+  const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+  const parsedPerPage = Number.parseInt(c.req.query("per_page") ?? "20", 10);
+  const perPage = Math.min(Math.max(parsedPerPage || 20, 1), 100);
 
   try {
     const { getDb, emails: emailsTable } = await import("@calder/db");
@@ -134,22 +142,14 @@ emails.get("/", authMiddleware, async (c) => {
       const ts = new Date(since);
       if (!Number.isNaN(ts.getTime())) conds.push(gte(emailsTable.createdAt, ts));
     }
-    if (cursor) {
-      // cursor = base64url(createdAtISO + "|" + id)
-      try {
-        const [ts, lastId] = Buffer.from(cursor, "base64url").toString("utf8").split("|");
-        const at = new Date(ts ?? "");
-        if (!Number.isNaN(at.getTime()) && lastId) {
-          conds.push(
-            or(
-              lt(emailsTable.createdAt, at),
-              and(eq(emailsTable.createdAt, at), lt(emailsTable.id, lastId))
-            )!
-          );
-        }
-      } catch {
-        // malformed cursor: ignore, first page
-      }
+    const position = decodeApiCursor(cursor);
+    if (position) {
+      conds.push(
+        or(
+          lt(emailsTable.createdAt, position.createdAt),
+          and(eq(emailsTable.createdAt, position.createdAt), lt(emailsTable.id, position.id))
+        )!
+      );
     }
     const useCursor = cursor !== undefined;
     const rows = await db
@@ -165,18 +165,13 @@ emails.get("/", authMiddleware, async (c) => {
       const page_rows = hasMore ? rows.slice(0, limit) : rows;
       const last = page_rows[page_rows.length - 1];
       const nextCursor =
-        hasMore && last
-          ? Buffer.from(`${new Date(last.createdAt).toISOString()}|${last.id}`, "utf8").toString(
-              "base64url"
-            )
-          : null;
+        hasMore && last ? encodeApiCursor(new Date(last.createdAt), last.id) : null;
       return c.json({ data: page_rows, pagination: { limit, next_cursor: nextCursor } });
     }
     return c.json({ data: rows, pagination: { page, per_page: perPage } });
   } catch (err) {
     if (err instanceof AppError) throw err;
-    // If DB unavailable (dev without postgres), return empty for scaffold
-    return c.json({ data: [], pagination: { page, per_page: perPage } });
+    throw err;
   }
 });
 

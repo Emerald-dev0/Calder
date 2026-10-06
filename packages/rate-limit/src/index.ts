@@ -126,13 +126,15 @@ interface RedisClientLike {
 export class RedisRateLimiter implements RateLimiter {
   private client: RedisClientLike;
   private fallback: RateLimiter;
+  private readonly failClosed: boolean;
   /** Rolling window for the degraded-mode counter (see `degradedSince`). */
   private lastFallbackLogAt = 0;
   private fallbacks = 0;
 
-  constructor(redis: RedisClientLike) {
+  constructor(redis: RedisClientLike, options: { failClosed?: boolean } = {}) {
     this.client = redis;
     this.fallback = new InMemoryRateLimiter();
+    this.failClosed = options.failClosed ?? false;
   }
 
   /**
@@ -141,9 +143,10 @@ export class RedisRateLimiter implements RateLimiter {
    * currently approximate" instead of degrading invisibly (ADR-041 chose
    * availability over exactness — that choice stays, but it must be legible).
    */
-  degradedState(): { fallbacks: number; lastFallbackAt: string | null } {
+  degradedState(): { fallbacks: number; lastFallbackAt: string | null; failClosed: boolean } {
     return {
       fallbacks: this.fallbacks,
+      failClosed: this.failClosed,
       lastFallbackAt: this.lastFallbackLogAt
         ? new Date(this.lastFallbackLogAt).toISOString()
         : null,
@@ -154,14 +157,15 @@ export class RedisRateLimiter implements RateLimiter {
     const fullKey = `rate:${opts.keyPrefix ?? "limit"}:${key}`;
     try {
       const windowMs = opts.windowMs;
-      const results = await this.client.multi().incr(fullKey).pExpire(fullKey, windowMs).exec();
+      const results = await this.client.multi().incr(fullKey).exec();
       const first = results?.[0]?.[1];
       const count = typeof first === "number" ? first : 1;
+      // Set the TTL only for the first increment. Extending it on every
+      // request turns a fixed window into an accidental permanent lockout for
+      // an account under sustained traffic.
+      if (count === 1) await this.client.multi().pExpire(fullKey, windowMs).exec();
       const allowed = count <= opts.max;
       const remaining = Math.max(0, opts.max - count);
-      // pExpire only extends at first write would be nicer but PEXPIRE every
-      // op also fine: windows roll forward by windowMs each touching op; use
-      // EXPIRE-style "set only when no TTL" is over-engineering for auth.
       const resetAt = new Date(Date.now() + windowMs);
       return {
         allowed,
@@ -170,20 +174,29 @@ export class RedisRateLimiter implements RateLimiter {
         resetAt,
         retryAfterMs: allowed ? undefined : windowMs,
       };
-    } catch (err) {
-      // Redis down: degrade to per-instance memory rather than 500-ing every
-      // request. Availability over exactness for the limiter itself (the
-      // endpoints have their own caps) — but never silently: the fallback is
-      // counted and logged once a minute, so "limits became approximate" is
-      // visible in logs and in /ready's limiter check.
+    } catch {
+      // Hosted authentication controls fail closed when Redis is unavailable.
+      // A request that cannot be globally counted must not receive a local
+      // per-instance allowance. Development/test retains the explicit memory
+      // fallback for local work.
       this.fallbacks += 1;
       const now = Date.now();
       if (now - this.lastFallbackLogAt > 60_000) {
         this.lastFallbackLogAt = now;
         console.warn(
-          `[rate-limit] Redis unavailable (${err instanceof Error ? err.message : "unknown error"}): ` +
-            "falling back to per-instance limits. Requests are still served; enforcement is approximate."
+          this.failClosed
+            ? "[rate-limit] Redis unavailable: rejecting rate-limited requests until it recovers."
+            : "[rate-limit] Redis unavailable: using per-instance limits in development/test."
         );
+      }
+      if (this.failClosed) {
+        return {
+          allowed: false,
+          limit: opts.max,
+          remaining: 0,
+          resetAt: new Date(now + opts.windowMs),
+          retryAfterMs: opts.windowMs,
+        };
       }
       return this.fallback.check(key, opts);
     }
@@ -195,28 +208,29 @@ export class RedisRateLimiter implements RateLimiter {
 }
 
 /**
- * Boot-time wiring: production with REDIS_URL gets the exact limiter,
- * everything else keeps the in-memory one (dev, tests). Call once per app.
+ * Boot-time wiring: hosted deployments require Redis for authentication-rate
+ * limits. A missing URL is a configuration error, and a runtime Redis outage
+ * rejects checks instead of silently downgrading to per-instance memory.
  */
 export async function configureRateLimiterFromEnv(): Promise<"redis" | "memory"> {
-  const url = process.env.REDIS_URL;
-  const isProd = process.env.NODE_ENV === "production";
+  const url = process.env.REDIS_URL?.trim();
+  const hosted =
+    process.env.NODE_ENV === "production" ||
+    process.env.CALDER_ENV === "staging" ||
+    process.env.CALDER_ENV === "production";
   if (url) {
     const { default: IORedis } = await import("ioredis");
     // Structural cast: the limiter only needs a MULTI-able surface.
     setRateLimiter(
       new RedisRateLimiter(
-        new IORedis(url, { maxRetriesPerRequest: 2 }) as unknown as RedisClientLike
+        new IORedis(url, { maxRetriesPerRequest: 2 }) as unknown as RedisClientLike,
+        { failClosed: hosted }
       )
     );
     return "redis";
   }
-  if (isProd) {
-    // M2 decision: production WITHOUT Redis runs the degraded limiter loudly
-    // — operators must hear that per-instance approximation is in effect.
-    console.warn(
-      "[rate-limit] REDIS_URL unset in production: limits are per-instance approximations. Set REDIS_URL for exact enforcement."
-    );
+  if (hosted) {
+    throw new Error("REDIS_URL is required for hosted authentication rate limits.");
   }
   return "memory";
 }

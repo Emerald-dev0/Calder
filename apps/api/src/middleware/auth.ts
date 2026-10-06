@@ -4,11 +4,14 @@ import { authenticationError, authorizationError } from "../errors/index.js";
 
 /**
  * API key authentication middleware.
- * Validates Authorization: Bearer <key> header, hashes and looks up.
- * For scaffold, supports in-memory fallback and DB lookup.
+ * Validates Authorization: Bearer <key>, hashes and looks up the credential,
+ * then re-reads its project and organization on every request. There is no
+ * authorization cache here: revocation, expiry, and organization suspension
+ * are database trust-boundary checks, not UI or cache hints.
  */
 
-// In-memory store for dev/test without DB (fallback)
+// In-memory store for dev/test without DB. It is never used by the hosted DB
+// path and its optional lifecycle fields are checked on every request too.
 const devKeys = new Map<
   string,
   {
@@ -17,12 +20,22 @@ const devKeys = new Map<
     organizationId: string;
     env: "test" | "live";
     scope?: string;
+    expiresAt?: Date | null;
+    revokedAt?: Date | null;
   }
 >();
 
 export function registerDevKey(
   secret: string,
-  ctx: { apiKeyId: string; projectId: string; organizationId: string; env: "test" | "live" }
+  ctx: {
+    apiKeyId: string;
+    projectId: string;
+    organizationId: string;
+    env: "test" | "live";
+    scope?: string;
+    expiresAt?: Date | null;
+    revokedAt?: Date | null;
+  }
 ): void {
   const hash = hashApiKey(secret);
   devKeys.set(hash, ctx);
@@ -38,9 +51,14 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
 
   const hash = hashApiKey(secret);
 
-  // Try dev in-memory first
+  // Dev/test keys are intentionally explicit and never accepted by a hosted
+  // production process. This fallback keeps unit/integration scaffolding
+  // useful without weakening the persisted credential path.
   const devCtx = devKeys.get(hash);
-  if (devCtx) {
+  if (devCtx && process.env.NODE_ENV !== "production") {
+    if (devCtx.revokedAt || (devCtx.expiresAt && devCtx.expiresAt <= new Date())) {
+      throw authenticationError("Invalid or expired API key");
+    }
     c.set("auth" as never, {
       type: "api_key",
       ...devCtx,
@@ -51,26 +69,56 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
     return;
   }
 
-  // Try DB lookup, lazy import to avoid circular deps
+  // Persisted key lookup is deliberately uncached: a revoke or organization
+  // suspension is effective on the next request, including requests arriving
+  // on another API instance.
   try {
-    const { getDb } = await import("@calder/db");
-    const { apiKeys } = await import("@calder/db");
-    const { eq } = await import("drizzle-orm");
+    const { getDb, apiKeys, organizations, projects } = await import("@calder/db");
+    const { and, eq, gt, isNull, or } = await import("drizzle-orm");
     const db = getDb();
     const rows = await db.select().from(apiKeys).where(eq(apiKeys.keyHash, hash)).limit(1);
     const row = rows[0];
-    if (!row || row.revokedAt) {
-      throw authenticationError("Invalid or revoked API key");
+    const now = new Date();
+    if (!row || row.revokedAt || (row.expiresAt && row.expiresAt <= now)) {
+      throw authenticationError("Invalid, revoked, or expired API key");
     }
-    // Need project -> org lookup for tenant scope
-    const { projects } = await import("@calder/db");
-    const projRows = await db
-      .select()
+
+    // Project → organization is part of the same query boundary. A key whose
+    // project was deleted, moved, or whose organization is suspended cannot
+    // authenticate through a stale project-only context.
+    const [project] = await db
+      .select({
+        projectId: projects.id,
+        organizationId: projects.organizationId,
+        sendingStatus: organizations.sendingStatus,
+      })
       .from(projects)
+      .innerJoin(organizations, eq(projects.organizationId, organizations.id))
       .where(eq(projects.id, row.projectId))
       .limit(1);
-    const project = projRows[0];
     if (!project) throw authenticationError("Project not found for API key");
+    if (project.sendingStatus !== "active") {
+      throw authenticationError("Organization is unavailable");
+    }
+
+    // Touch usage only after all lifecycle checks pass. The conditional WHERE
+    // prevents a concurrent revoke/expiry from being made to look active.
+    const touched = await db
+      .update(apiKeys)
+      .set({ lastUsedAt: now })
+      .where(
+        and(
+          eq(apiKeys.id, row.id),
+          isNull(apiKeys.revokedAt),
+          or(isNull(apiKeys.expiresAt), gt(apiKeys.expiresAt, now))
+        )
+      )
+      .returning({ id: apiKeys.id });
+    if (touched.length === 0) {
+      // A revoke or expiry won the race after the initial lookup. Do not let
+      // the request continue with a stale authentication decision.
+      throw authenticationError("Invalid, revoked, or expired API key");
+    }
 
     c.set("auth" as never, {
       type: "api_key",
@@ -85,7 +133,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
     return;
   } catch (err) {
     if (err instanceof Error && err.name === "AppError") throw err;
-    // If DB unavailable and no dev key matched, fail closed
+    // If DB unavailable and no dev key matched, fail closed.
     throw authenticationError("Invalid API key");
   }
 };
@@ -118,9 +166,7 @@ export function requireScope(auth: AuthContext, need: "manage" | "send" | "read"
   );
 }
 
-/**
- * Optional auth, does not throw if missing (for preview routes).
- */
+/** Optional auth, does not throw if missing (for preview routes). */
 export const optionalAuthMiddleware: MiddlewareHandler = async (c, next) => {
   const auth = c.req.header("authorization");
   if (!auth) {

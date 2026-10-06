@@ -11,10 +11,11 @@ import { MessageExplorer } from "../../../components/message-explorer";
 export default async function EmailsPage({
   searchParams,
 }: {
-  searchParams: { project?: string; sender?: string };
+  searchParams: Promise<{ project?: string; sender?: string }>;
 }) {
+  const query = await searchParams;
   const ctx = await getTenantContext();
-  const scope = resolveProject(ctx, searchParams.project);
+  const scope = resolveProject(ctx, query.project);
   if (!scope) {
     return (
       <div>
@@ -42,7 +43,7 @@ export default async function EmailsPage({
     })
     .from(senderIdentities)
     .where(eq(senderIdentities.projectId, scope.project.id));
-  const senderFilter = searchParams.sender ?? "";
+  const senderFilter = query.sender ?? "";
   const senderKnown = senderFilter === "" || senders.some((s) => s.id === senderFilter);
   const emailConds = [eq(emails.projectId, scope.project.id)];
   if (senderKnown && senderFilter !== "")
@@ -137,7 +138,7 @@ export default async function EmailsPage({
                   {p.slug}
                 </Link>
               );
-            }),
+            })
           )}
         </div>
 

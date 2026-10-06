@@ -9,6 +9,7 @@ import type { Env } from "../app.js";
 import { AppError, validationError } from "../errors/index.js";
 import { rateLimitMiddleware } from "../middleware/rate-limit.js";
 import { kickDrain, executionCtxOf } from "../lib/kick-drain.js";
+import { logger } from "@calder/observability";
 
 const waitlist = new Hono<Env>();
 
@@ -225,7 +226,7 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
       const winner = await buildTicket(db, email);
       if (winner) return c.json({ data: { ...winner, joined: false } }, 200);
     }
-    console.error(`[waitlist-insert] ${err instanceof Error ? err.message : String(err)}`, err);
+    logger.error({ err }, "Waitlist insert failed");
     throw new AppError("internal_error", "Could not join the waitlist. Please retry.", 500);
   }
 
@@ -291,7 +292,7 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
     });
   } catch (err) {
     const { logger } = await import("@calder/observability");
-    logger.error({ err, email }, "Waitlist confirmation failed to enqueue (signup kept)");
+    logger.error({ err }, "Waitlist confirmation failed to enqueue (signup kept)");
   }
 
   // The confirmation was just enqueued; let it leave now.

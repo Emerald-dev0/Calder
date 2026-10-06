@@ -17,7 +17,7 @@ export async function sendOtpEmail(opts: {
     // finish signup, and the silent-mock failure mode is indistinguishable
     // from a deliverability problem without this line.
     logger.warn(
-      { driver: status.driver, reason: status.reason, to: opts.to },
+      { driver: status.driver, reason: status.reason },
       "Auth email is NOT deliverable: no real provider configured"
     );
   }
@@ -56,9 +56,11 @@ export async function sendOtpEmail(opts: {
       text,
     });
     if (!result.accepted) {
-      logger.warn({ to: opts.to, purpose: opts.purpose }, "Provider refused auth OTP send");
+      logger.warn({ purpose: opts.purpose }, "Provider refused auth OTP send");
     }
-  } catch (err) {
-    logger.warn({ err, to: opts.to, purpose: opts.purpose }, "Failed to send auth OTP email");
+  } catch {
+    // Do not serialize provider exception text; it can contain recipient or
+    // transport details. The challenge remains short-lived and rate-limited.
+    logger.warn({ purpose: opts.purpose }, "Failed to send auth OTP email");
   }
 }

@@ -11,6 +11,7 @@ import {
   PAGE_SIZE,
 } from "../../../lib/pagination";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { Send, Search, ScrollText, ArrowRight } from "lucide-react";
 import { DsPageHeader, StatusPill, StatCard } from "../../../components/design-system";
 import { MessageExplorer } from "../../../components/message-explorer";
@@ -32,13 +33,14 @@ const STATUSES = new Set([
 export default async function DeliveriesPage({
   searchParams,
 }: {
-  searchParams: { q?: string; status?: string; cursor?: string; project?: string };
+  searchParams: Promise<{ q?: string; status?: string; cursor?: string; project?: string }>;
 }) {
+  const query = await searchParams;
   const ctx = await getTenantContext();
   const projects = ctx.memberships.flatMap((m) =>
     m.projects.map((p) => ({ id: p.id, slug: p.slug }))
   );
-  const scope = resolveProject(ctx, searchParams.project);
+  const scope = resolveProject(ctx, query.project);
   const current = scope?.project ?? null;
   const projectIds = current
     ? [current.id]
@@ -60,10 +62,15 @@ export default async function DeliveriesPage({
       </div>
     );
   }
-  const q = stringParam(searchParams.q);
-  const statusParam = stringParam(searchParams.status);
+  const q = stringParam(query.q);
+  const statusParam = stringParam(query.status);
   const statusFilter = statusParam && STATUSES.has(statusParam) ? statusParam : undefined;
-  const cursor = decodeCursor(searchParams.cursor);
+  let cursor: ReturnType<typeof decodeCursor>;
+  try {
+    cursor = decodeCursor(query.cursor);
+  } catch {
+    notFound();
+  }
 
   const db = getDb();
   const conds = [inArray(emails.projectId, projectIds)];
@@ -127,50 +134,50 @@ export default async function DeliveriesPage({
       >
         {current ? <input type="hidden" name="project" value={current.id} /> : null}
         <div style={{ position: "relative", flex: 1, minWidth: 240 }}>
-        <Search
-          size={14}
-          style={{
-            position: "absolute",
-            left: 11,
-            top: 11,
-            color: "var(--color-muted)",
-          }}
-        />
-        <input
-          type="search"
-          name="q"
-          defaultValue={q ?? ""}
-          placeholder="Search recipient address or subject line…"
-          className="ds-input"
-          style={{ paddingLeft: 32 }}
-        />
-      </div>
-      <select
-        name="status"
-        defaultValue={statusFilter ?? ""}
-        className="ds-select"
-        style={{ width: "auto", minWidth: 160 }}
-      >
-        <option value="">All statuses</option>
-        {[...STATUSES].map((st) => (
-          <option key={st} value={st}>
-            {st}
-          </option>
-        ))}
-      </select>
-      <button type="submit" className="ds-btn ds-btn-secondary">
-        Apply filter
-      </button>
-      {(q || statusFilter) && (
-        <Link
-          href={`/deliveries${current ? `?project=${encodeURIComponent(current.id)}` : ""}`}
-          className="ds-btn ds-btn-ghost ds-btn-sm"
-          style={{ textDecoration: "none" }}
+          <Search
+            size={14}
+            style={{
+              position: "absolute",
+              left: 11,
+              top: 11,
+              color: "var(--color-muted)",
+            }}
+          />
+          <input
+            type="search"
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="Search recipient address or subject line…"
+            className="ds-input"
+            style={{ paddingLeft: 32 }}
+          />
+        </div>
+        <select
+          name="status"
+          defaultValue={statusFilter ?? ""}
+          className="ds-select"
+          style={{ width: "auto", minWidth: 160 }}
         >
-          Clear
-        </Link>
-      )}
-    </form>
+          <option value="">All statuses</option>
+          {[...STATUSES].map((st) => (
+            <option key={st} value={st}>
+              {st}
+            </option>
+          ))}
+        </select>
+        <button type="submit" className="ds-btn ds-btn-secondary">
+          Apply filter
+        </button>
+        {(q || statusFilter) && (
+          <Link
+            href={`/deliveries${current ? `?project=${encodeURIComponent(current.id)}` : ""}`}
+            className="ds-btn ds-btn-ghost ds-btn-sm"
+            style={{ textDecoration: "none" }}
+          >
+            Clear
+          </Link>
+        )}
+      </form>
     </>
   );
 
@@ -214,7 +221,11 @@ export default async function DeliveriesPage({
       />
 
       <div className="ds-grid-4" style={{ marginBottom: 16 }}>
-        <StatCard label="Total Dispatched" value={total.toLocaleString()} sub="All lifecycle states" />
+        <StatCard
+          label="Total Dispatched"
+          value={total.toLocaleString()}
+          sub="All lifecycle states"
+        />
         <StatCard
           label="Delivered"
           value={s("delivered").toLocaleString()}

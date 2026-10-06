@@ -155,6 +155,8 @@ export async function sendComposerEmail(
   await db
     .update(senderIdentities)
     .set({ lastUsedAt: new Date(), updatedAt: new Date() })
-    .where(eq(senderIdentities.id, sender.id));
+    .where(
+      and(eq(senderIdentities.id, sender.id), eq(senderIdentities.projectId, input.projectId))
+    );
   return { ok: true, emailId };
 }

@@ -1,8 +1,15 @@
+import { lookup } from "node:dns/promises";
 import { createQueue, type QueueJob } from "@calder/queue";
+import { isPublicIpAddress, isPublicWebhookUrl } from "@calder/validation";
 import { decryptSecret } from "@calder/auth";
 import { logger } from "@calder/observability";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { request as httpsRequest } from "node:https";
 import { WEBHOOK_SECRET_CONTEXT, WEBHOOK_MAX_ATTEMPTS, nextRetryDelayMs } from "@calder/db";
+
+// Preserve the worker test/export contract while sharing the registry's
+// write-time SSRF rule with API and dashboard callers.
+export { isPublicWebhookUrl } from "@calder/validation";
 
 /** User-facing delivery budget per attempt. */
 export const DELIVERY_TIMEOUT_MS = 10_000;
@@ -15,37 +22,70 @@ export function buildSignatureHeader(secret: string, timestampSec: number, body:
 
 /**
  * Defense-in-depth endpoint validation (the registry guards at write, the
- * consumer re-checks at send): https-only, no loopback/link-local/private
- * literals. Hostname resolution is NOT pinned — the registry contract is
- * that operators point at their own endpoints, and literal-IP blocks stop
- * the ambient-abuse cases; DNS rebinding is the customer hurting themselves.
+ * consumer re-checks at send): the shared https/public-host rule is applied
+ * before a fresh DNS resolution, which rejects private answers immediately
+ * before delivery.
  */
-export function isPublicWebhookUrl(url: string): boolean {
-  let parsed: URL;
+function privateAddress(address: string): boolean {
+  return !isPublicIpAddress(address);
+}
+
+/**
+ * Resolve the hostname once immediately before delivery. The selected address
+ * is passed to the HTTPS client's lookup hook below, so the connection cannot
+ * perform a second DNS lookup and be redirected by a rebinding response.
+ */
+export async function resolvePublicWebhookAddress(
+  url: string
+): Promise<{ address: string; family: 4 | 6 } | null> {
+  if (!isPublicWebhookUrl(url)) return null;
   try {
-    parsed = new URL(url);
+    const host = new URL(url).hostname;
+    const addresses = await lookup(host, { all: true, verbatim: true });
+    if (addresses.length === 0 || addresses.some((entry) => privateAddress(entry.address))) {
+      return null;
+    }
+    const selected = addresses[0];
+    return selected && (selected.family === 4 || selected.family === 6)
+      ? { address: selected.address, family: selected.family }
+      : null;
   } catch {
-    return false;
+    return null;
   }
-  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
-  const host = parsed.hostname.toLowerCase();
-  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal"))
-    return false;
-  // IPv6 in brackets; IPv4 dotted quads; hostname keywords.
-  const bare = host.replace(/^\[|\]$/g, "");
-  if (bare === "::1" || bare.startsWith("fe80:") || bare.startsWith("fc") || bare.startsWith("fd"))
-    return false;
-  const m = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(bare);
-  if (m) {
-    const [a, b] = [Number(m[1]), Number(m[2])];
-    if (a === 0 || a === 10 || a === 127) return false;
-    if (a === 169 && b === 254) return false;
-    if (a === 172 && b >= 16 && b <= 31) return false;
-    if (a === 192 && b === 168) return false;
-    if (a >= 224) return false;
-  }
-  if (bare === "metadata.google.internal" || bare === "169.254.169.254") return false;
-  return true;
+}
+
+export async function isPublicWebhookUrlResolved(url: string): Promise<boolean> {
+  return (await resolvePublicWebhookAddress(url)) !== null;
+}
+
+async function postPinnedHttps(
+  url: string,
+  address: { address: string; family: 4 | 6 },
+  headers: Record<string, string>,
+  body: string
+): Promise<{ ok: boolean; status: number }> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const req = httpsRequest(
+      parsed,
+      {
+        method: "POST",
+        headers,
+        // Preserve the original URL/SNI while pinning the socket lookup to
+        // the address already checked by resolvePublicWebhookAddress.
+        lookup: (_hostname, _options, callback) => callback(null, address.address, address.family),
+      },
+      (res) => {
+        const status = res.statusCode ?? 0;
+        res.resume();
+        res.once("end", () => resolve({ ok: status >= 200 && status < 300, status }));
+      }
+    );
+    const timer = setTimeout(() => req.destroy(new Error("delivery_timeout")), DELIVERY_TIMEOUT_MS);
+    req.once("error", reject);
+    req.once("close", () => clearTimeout(timer));
+    req.end(body);
+  });
 }
 
 /** Exported for the vector test: the contract consumers verify against. */
@@ -74,7 +114,7 @@ interface DeliverJob {
 async function processDelivery(job: QueueJob<DeliverJob>): Promise<void> {
   const { deliveryId } = job.data;
   const { getDb, webhooks, webhookDeliveries } = await import("@calder/db");
-  const { eq } = await import("drizzle-orm");
+  const { and, eq } = await import("drizzle-orm");
   const db = getDb();
 
   const [delivery] = await db
@@ -97,7 +137,7 @@ async function processDelivery(job: QueueJob<DeliverJob>): Promise<void> {
       enabled: webhooks.enabled,
     })
     .from(webhooks)
-    .where(eq(webhooks.id, delivery.webhookId))
+    .where(and(eq(webhooks.id, delivery.webhookId), eq(webhooks.projectId, delivery.projectId)))
     .limit(1);
 
   const attempt = job.attempts + 1;
@@ -113,14 +153,22 @@ async function processDelivery(job: QueueJob<DeliverJob>): Promise<void> {
         nextAttemptAt: exhausted ? null : new Date(Date.now() + retryDelay!),
         ...extra,
       })
-      .where(eq(webhookDeliveries.id, deliveryId));
+      .where(
+        and(
+          eq(webhookDeliveries.id, deliveryId),
+          eq(webhookDeliveries.projectId, delivery.projectId)
+        )
+      );
     if (!exhausted) throw new Error(message); // queue retries per its own backoff
     logger.error({ deliveryId, attempt }, `webhook delivery failed permanently: ${message}`);
   };
 
   if (!hook) return fail("webhook was deleted before delivery", true);
   if (!hook.enabled) return fail("webhook was disabled before delivery", true);
-  if (!isPublicWebhookUrl(hook.url)) return fail("endpoint URL refused by SSRF guard", true);
+  const resolvedAddress = await resolvePublicWebhookAddress(hook.url);
+  if (!resolvedAddress) {
+    return fail("endpoint URL refused by SSRF guard", true);
+  }
 
   let secret: string;
   try {
@@ -133,24 +181,17 @@ async function processDelivery(job: QueueJob<DeliverJob>): Promise<void> {
   const ts = Math.floor(Date.now() / 1000);
   const started = Date.now();
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), DELIVERY_TIMEOUT_MS);
-    let res: Response;
-    try {
-      res = await fetch(hook.url, {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "content-type": "application/json",
-          "user-agent": "Calder-Webhooks/1.0",
-          "webhook-id": deliveryId,
-          "webhook-signature": buildSignatureHeader(secret, ts, body),
-        },
-        body,
-      });
-    } finally {
-      clearTimeout(timer);
-    }
+    const res = await postPinnedHttps(
+      hook.url,
+      resolvedAddress,
+      {
+        "content-type": "application/json",
+        "user-agent": "Calder-Webhooks/1.0",
+        "webhook-id": deliveryId,
+        "webhook-signature": buildSignatureHeader(secret, ts, body),
+      },
+      body
+    );
     const latencyMs = Date.now() - started;
     if (res.ok) {
       await db
@@ -164,7 +205,12 @@ async function processDelivery(job: QueueJob<DeliverJob>): Promise<void> {
           nextAttemptAt: null,
           deliveredAt: new Date(),
         })
-        .where(eq(webhookDeliveries.id, deliveryId));
+        .where(
+          and(
+            eq(webhookDeliveries.id, deliveryId),
+            eq(webhookDeliveries.projectId, delivery.projectId)
+          )
+        );
       logger.info({ deliveryId, latencyMs, status: res.status }, "webhook delivered");
       return;
     }
@@ -173,10 +219,13 @@ async function processDelivery(job: QueueJob<DeliverJob>): Promise<void> {
       responseStatus: res.status,
     });
   } catch (err) {
-    const msg =
-      err instanceof Error && err.name === "AbortError"
-        ? `endpoint timed out after ${DELIVERY_TIMEOUT_MS}ms`
-        : `endpoint unreachable: ${err instanceof Error ? err.message : String(err)}`;
+    // Do not persist arbitrary TLS/socket/provider exception text in delivery
+    // records. It can contain host details or credentials from an upstream
+    // stack; callers only need a stable retry classification.
+    const timedOut = err instanceof Error && err.message === "delivery_timeout";
+    const msg = timedOut
+      ? `endpoint timed out after ${DELIVERY_TIMEOUT_MS}ms`
+      : "endpoint unreachable";
     await fail(msg, false, { latencyMs: Date.now() - started });
   }
 }
