@@ -133,13 +133,19 @@ export function AddSender({
             }}
           >
             {gmailTransports.length === 0 ? (
-              <p style={{ fontSize: 13, color: "var(--color-muted)", margin: 0 }}>
-                No Gmail account connected to this project yet. Connect it during onboarding or in{" "}
-                <a href="/integrations" style={{ color: "var(--color-accent)", fontWeight: 600 }}>
-                  Integrations
-                </a>{" "}
-                first.
-              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-start" }}>
+                <p style={{ fontSize: 13, color: "var(--color-muted)", margin: 0 }}>
+                  No Gmail account connected to this project yet. Authorize your Gmail account to send transactional emails immediately without DNS records.
+                </p>
+                <a
+                  href={`/api/auth/gmail/connect?project=${projectId}`}
+                  className="ds-btn ds-btn-primary ds-btn-sm"
+                  style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
+                >
+                  <Mail size={14} />
+                  <span>Authorize Gmail Account →</span>
+                </a>
+              </div>
             ) : (
               <div style={{ maxWidth: 480, display: "flex", flexDirection: "column", gap: 12 }}>
                 <div>
