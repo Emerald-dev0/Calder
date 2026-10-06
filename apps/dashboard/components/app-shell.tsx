@@ -33,7 +33,6 @@ import {
   BookOpen,
   LogOut,
   Keyboard,
-  CheckCircle2,
   FlaskConical,
   Radio,
   Palette,
@@ -47,7 +46,6 @@ import {
   CommandPalette,
   ShortcutsDialog,
   ProUpgradeModal,
-  StatusPill,
 } from "./design-system";
 
 export interface ShellProps {
@@ -103,12 +101,10 @@ export function AppShell({
   });
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
   const [notifOpen, setNotifOpen] = React.useState(false);
-  const [statusOpen, setStatusOpen] = React.useState(false);
   const [envMode, setEnvMode] = React.useState<"live" | "test">("live");
 
   const userMenuRef = React.useRef<HTMLDivElement>(null);
   const notifRef = React.useRef<HTMLDivElement>(null);
-  const statusRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     try {
@@ -132,9 +128,6 @@ export function AppShell({
       }
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
         setNotifOpen(false);
-      }
-      if (statusRef.current && !statusRef.current.contains(e.target as Node)) {
-        setStatusOpen(false);
       }
     };
     window.addEventListener("mousedown", onClickOutside);
@@ -216,130 +209,46 @@ export function AppShell({
   const navGroups: NavGroup[] = React.useMemo(() => {
     const groups: NavGroup[] = [
       {
-        heading: "WORKSPACE",
+        heading: "",
         items: [
-          {
-            label: "Overview",
-            href: "/",
-            icon: <LayoutDashboard size={16} />,
-          },
-        ],
-      },
-      {
-        heading: "MESSAGING",
-        items: [
-          {
-            label: "Emails",
-            href: "/emails",
-            icon: <Mail size={16} />,
-          },
-          {
-            label: "Deliveries",
-            href: "/deliveries",
-            icon: <Send size={16} />,
-          },
-          {
-            label: "Templates",
-            href: "/templates",
-            icon: <FileCode2 size={16} />,
-          },
-          {
-            label: "Senders",
-            href: "/senders",
-            icon: <UserCheck size={16} />,
-          },
-        ],
-      },
-      {
-        heading: "DELIVERABILITY",
-        items: [
+          { label: "Overview", href: "/", icon: <LayoutDashboard size={16} /> },
+          { label: "Emails", href: "/emails", icon: <Mail size={16} /> },
+          { label: "Templates", href: "/templates", icon: <FileCode2 size={16} /> },
           {
             label: "Domains",
             href: "/domains",
             icon: <Globe size={16} />,
-            badge:
-              usageSummary.verifiedDomains === 0 && memberships.length > 0
-                ? "Setup"
-                : undefined,
             badgeWarn: usageSummary.verifiedDomains === 0 && memberships.length > 0,
           },
-          {
-            label: "Suppressions",
-            href: "/suppressions",
-            icon: <ShieldBan size={16} />,
-          },
-          {
-            label: "Analytics",
-            href: "/analytics",
-            icon: <BarChart3 size={16} />,
-            tier: "PRO",
-          },
+          { label: "Analytics", href: "/analytics", icon: <BarChart3 size={16} />, tier: "PRO" },
+          { label: "Logs", href: "/logs", icon: <ScrollText size={16} /> },
         ],
       },
       {
-        heading: "INBOUND & EVENTS",
+        heading: "Developers",
         items: [
-          {
-            label: "Inbox",
-            href: "/inbox",
-            icon: <Inbox size={16} />,
-            tier: "PRO",
-          },
-          {
-            label: "Webhooks",
-            href: "/webhooks",
-            icon: <Webhook size={16} />,
-          },
-          {
-            label: "Logs",
-            href: "/logs",
-            icon: <ScrollText size={16} />,
-          },
+          { label: "API keys", href: "/keys", icon: <KeyRound size={16} /> },
+          { label: "Webhooks", href: "/webhooks", icon: <Webhook size={16} /> },
+          { label: "SMTP", href: "/smtp", icon: <Server size={16} /> },
+          { label: "SDKs", href: "/sdks", icon: <Code2 size={16} /> },
+          { label: "Integrations", href: "/integrations", icon: <Puzzle size={16} /> },
         ],
       },
       {
-        heading: "DEVELOPER",
+        heading: "Deliverability",
         items: [
-          {
-            label: "API Keys",
-            href: "/keys",
-            icon: <KeyRound size={16} />,
-          },
-          {
-            label: "SMTP",
-            href: "/smtp",
-            icon: <Server size={16} />,
-          },
-          {
-            label: "SDKs",
-            href: "/sdks",
-            icon: <Code2 size={16} />,
-          },
-          {
-            label: "Integrations",
-            href: "/integrations",
-            icon: <Puzzle size={16} />,
-          },
+          { label: "Deliveries", href: "/deliveries", icon: <Send size={16} /> },
+          { label: "Senders", href: "/senders", icon: <UserCheck size={16} /> },
+          { label: "Suppressions", href: "/suppressions", icon: <ShieldBan size={16} /> },
+          { label: "Inbox", href: "/inbox", icon: <Inbox size={16} />, tier: "PRO" },
         ],
       },
       {
-        heading: "ORGANIZATION",
+        heading: "Organization",
         items: [
-          {
-            label: "Usage",
-            href: "/usage",
-            icon: <Gauge size={16} />,
-          },
-          {
-            label: "Audit Logs",
-            href: "/audit-logs",
-            icon: <History size={16} />,
-          },
-          {
-            label: "Settings",
-            href: "/settings",
-            icon: <Settings size={16} />,
-          },
+          { label: "Usage", href: "/usage", icon: <Gauge size={16} /> },
+          { label: "Audit logs", href: "/audit-logs", icon: <History size={16} /> },
+          { label: "Settings", href: "/settings", icon: <Settings size={16} /> },
           ...(showAdmin
             ? [
                 {
@@ -427,7 +336,9 @@ export function AppShell({
                 overflow: "hidden",
               }}
             >
-              <CalderLockup size={20} />
+              <span className="shell-brand">
+                <CalderLockup size={20} />
+              </span>
             </Link>
             <button
               type="button"
@@ -447,7 +358,9 @@ export function AppShell({
         <nav aria-label="Dashboard" className="shell-nav-scroll">
           {navGroups.map((group) => (
             <div key={group.heading} className="shell-nav-group">
-              <div className="shell-nav-heading">{group.heading}</div>
+              {group.heading && !collapsed && (
+                <div className="shell-nav-heading">{group.heading}</div>
+              )}
               {group.items.map((item) => {
                 const active = isItemActive(item.href);
                 return (
@@ -470,48 +383,16 @@ export function AppShell({
                         >
                           {item.label}
                         </span>
-                        {item.badge && (
+                        {item.badgeWarn && (
                           <span
-                            className="mono"
-                            style={{
-                              fontSize: 9.5,
-                              fontWeight: 700,
-                              padding: "1px 6px",
-                              borderRadius: 99,
-                              background: item.badgeWarn
-                                ? "var(--color-warning-bg)"
-                                : "var(--color-surface-elevated)",
-                              color: item.badgeWarn
-                                ? "var(--color-warning)"
-                                : "var(--color-muted)",
-                              border: `1px solid ${
-                                item.badgeWarn
-                                  ? "var(--color-warning-border)"
-                                  : "var(--color-border)"
-                              }`,
-                            }}
-                          >
-                            {item.badge}
-                          </span>
+                            className="shell-nav-dot"
+                            title="Needs setup"
+                            aria-label="Needs setup"
+                          />
                         )}
                         {item.tier && (
-                          <span
-                            className="mono"
-                            onClick={(e) => {
-                              // Allow Shift/Cmd click or normal navigation, but badge click opens preview if desired
-                              e.stopPropagation();
-                            }}
-                            style={{
-                              fontSize: 9.5,
-                              fontWeight: 700,
-                              letterSpacing: "0.06em",
-                              padding: "1px 6px",
-                              borderRadius: 4,
-                              background: "var(--color-accent-muted)",
-                              color: "var(--color-accent)",
-                            }}
-                          >
-                            {item.tier}
+                          <span className="shell-nav-tier">
+                            {item.tier === "PRO" ? "Pro" : item.tier}
                           </span>
                         )}
                       </>
@@ -881,6 +762,7 @@ export function AppShell({
             >
               <Link
                 href={withProject("/")}
+                className="shell-crumb-org"
                 style={{
                   color: "var(--color-muted)",
                   textDecoration: "none",
@@ -891,21 +773,7 @@ export function AppShell({
               >
                 {currentOrgName}
               </Link>
-              <span aria-hidden="true" style={{ opacity: 0.45 }}>
-                /
-              </span>
-              <span
-                className="mono"
-                style={{
-                  fontSize: 11,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {activeEntry.group}
-              </span>
-              <span aria-hidden="true" style={{ opacity: 0.45 }}>
+              <span className="shell-crumb-sep" aria-hidden="true" style={{ opacity: 0.45 }}>
                 /
               </span>
               <span
@@ -978,100 +846,6 @@ export function AppShell({
                 </>
               )}
             </button>
-
-            {/* System Status Dot & Popover */}
-            <div ref={statusRef} style={{ position: "relative" }}>
-              <button
-                type="button"
-                onClick={() => setStatusOpen((v) => !v)}
-                className="ds-btn ds-btn-ghost ds-btn-sm"
-                title="Platform operational status"
-                style={{ gap: 6, padding: "0 8px" }}
-              >
-                <span
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: 99,
-                    background: "var(--color-success)",
-                    boxShadow: "0 0 0 3px var(--color-success-bg)",
-                  }}
-                />
-                <span
-                  className="mono"
-                  style={{
-                    fontSize: 11,
-                    color: "var(--color-muted)",
-                  }}
-                >
-                  99.99%
-                </span>
-              </button>
-
-              {statusOpen && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "calc(100% + 8px)",
-                    right: 0,
-                    width: 280,
-                    background: "var(--color-surface)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "var(--radius-lg)",
-                    boxShadow: "var(--shadow-lg)",
-                    padding: 12,
-                    zIndex: 80,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: 10,
-                    }}
-                  >
-                    <span style={{ fontSize: 12.5, fontWeight: 700 }}>
-                      Calder System Status
-                    </span>
-                    <StatusPill status="active" label="Operational" />
-                  </div>
-                  {[
-                    { name: "REST Ingestion API", region: "Global Edge" },
-                    { name: "SMTP TLS Relay", region: "Port 587 / 2587" },
-                    { name: "SES Delivery Pipeline", region: "eu-west-1" },
-                    { name: "Webhook Dispatcher", region: "Workers" },
-                  ].map((s) => (
-                    <div
-                      key={s.name}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "6px 0",
-                        borderTop: "1px solid var(--color-border)",
-                        fontSize: 12,
-                      }}
-                    >
-                      <span>{s.name}</span>
-                      <span
-                        className="mono"
-                        style={{
-                          fontSize: 11,
-                          color: "var(--color-success)",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        <CheckCircle2 size={11} />
-                        {s.region}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
             {/* Notifications Bell */}
             <div ref={notifRef} style={{ position: "relative" }}>
