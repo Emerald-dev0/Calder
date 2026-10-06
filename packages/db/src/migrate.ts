@@ -1,18 +1,12 @@
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
-import postgres from "postgres";
-
-const url = process.env.DATABASE_URL ?? "postgresql://calder:calder@localhost:5432/calder";
+import { getDb, closeDb } from "./client.js";
 
 async function main() {
   console.log("Running migrations...");
-  const client = postgres(url, { max: 1 });
-  const db = drizzle(client);
+  const db = getDb();
   await migrate(db, { migrationsFolder: "./drizzle" });
   console.log("Migrations complete.");
-  await client.end();
+  await closeDb();
 }
 
 main().catch((err) => {
