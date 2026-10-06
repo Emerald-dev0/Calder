@@ -360,7 +360,8 @@ export function OnboardingWizard({
     Boolean(projectId) &&
     (sendingMode === "shared" ||
       sendingMode === "gmail" ||
-      (sendingMode === "domain" && Boolean(domainId)));
+      sendingMode === "domain" ||
+      sendingMode === "later");
 
   const isStep5SendValid =
     Boolean(projectId) &&
@@ -1100,11 +1101,11 @@ export function OnboardingWizard({
                   variants={itemVariants}
                   className="onb-headline"
                 >
-                  Choose how to send.
+                  How will you use Calder?
                 </motion.h1>
                 <motion.p variants={itemVariants} className="onb-subline">
-                  Start on the shared sender in seconds, or connect your own identity. You can
-                  graduate or switch transports anytime.
+                  Pick the path that fits your project. You can change this any time; the first test
+                  send still uses Calder's shared sender so you can verify the pipeline.
                 </motion.p>
 
                 <motion.div
@@ -1408,8 +1409,8 @@ export function OnboardingWizard({
                   Send your first email.
                 </motion.h1>
                 <motion.p variants={itemVariants} className="onb-subline">
-                  Pre-filled with your address and a ready payload. Click send to watch live
-                  delivery across the pipeline.
+                  Pre-filled with your address and a ready payload. This test send uses the shared
+                  sender; switch to Gmail or a domain from your project once it arrives.
                 </motion.p>
 
                 <motion.div variants={itemVariants} className="onb-fields">
@@ -1649,7 +1650,9 @@ export function OnboardingWizard({
                           ? domainInput || "Custom domain"
                           : sendingMode === "gmail"
                             ? "Gmail OAuth"
-                            : "Shared test sender"}
+                            : sendingMode === "later"
+                              ? "Set this up later"
+                              : "Shared test sender"}
                       </dd>
                     </div>
                     <div className="onb-done-ledger-row">

@@ -927,14 +927,36 @@ body {
 }
 
 .onb-root {
+  --color-ink: #0b0c0e;
+  --color-paper: #f5f4ef;
+  --color-bg: #f5f4ef;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #faf9f5;
+  --color-surface-sunken: #f0efe9;
+  --color-surface-hover: #f0efe9;
+  --color-muted: #686b73;
+  --color-subtle: #8c9099;
+  --color-border: #e5e5e5;
+  --color-border-strong: #d4d4d4;
+  --color-accent: #1e3a8a;
+  --color-accent-muted: #dbeafe;
+  --color-accent-bright: #3b82f6;
+  --color-signal: #3d5afe;
+  --color-code-bg: #0b0c0e;
+  --color-code-fg: #e8e9ea;
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--color-paper);
-  color: var(--color-ink);
+  background: #f5f4ef;
+  color: #0b0c0e;
   position: relative;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
+}
+
+body:has(.onb-root) {
+  background: #f5f4ef;
+  color: #0b0c0e;
 }
 
 .onb-ambient {

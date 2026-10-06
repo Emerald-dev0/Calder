@@ -101,7 +101,7 @@ describe("onboarding phases & steps", () => {
 
   it("exposes the 7 profile roles and 3 sending setup modes", () => {
     expect(PROFILE_ROLES).toHaveLength(7);
-    expect(SENDING_MODE_OPTIONS.map((m) => m.id)).toEqual(["shared", "gmail", "domain"]);
+    expect(SENDING_MODE_OPTIONS.map((m) => m.id)).toEqual(["shared", "gmail", "domain", "later"]);
   });
 
   it("resumes at the exact persisted step and guards missing prerequisites", () => {
