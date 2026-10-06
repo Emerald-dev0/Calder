@@ -13,7 +13,7 @@ export default function IntegrationsPage() {
       statusLabel: "Available",
       icon: <Mail size={18} />,
       description:
-        "Connect a Gmail account via OAuth 2.0 to dispatch prototype and low-volume emails without configuring custom DNS records. Strictly isolated from Google Sign-In.",
+        "Connect a Gmail account via OAuth 2.0 to dispatch quickstart and low-volume transactional emails without configuring custom DNS records (~300 sends/day limit). Strictly isolated from Google Sign-In.",
       href: "/senders",
       cta: "Connect Gmail",
     },

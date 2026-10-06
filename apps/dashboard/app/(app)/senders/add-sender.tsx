@@ -115,10 +115,10 @@ export function AddSender({
                 <Mail size={16} style={{ color: "var(--color-muted)" }} />
                 <span>Connect Gmail On-Ramp</span>
               </span>
-              <StatusPill status="test" label="Prototype" />
+              <StatusPill status="test" label="Quickstart" />
             </div>
             <span style={{ display: "block", fontSize: 12.5, color: "var(--color-muted)" }}>
-              Use an existing personal Gmail account for early testing. No DNS records needed.
+              Send via connected Gmail account with automated rate protection (~300 sends/day).
             </span>
           </button>
         </div>
