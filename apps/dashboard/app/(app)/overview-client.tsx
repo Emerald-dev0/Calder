@@ -3,6 +3,15 @@
 import * as React from "react";
 import Link from "next/link";
 import { Check, ArrowRight, ChevronDown, X } from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 import { CodeBlock } from "../../components/design-system";
 import type { SeriesPoint } from "../../lib/overview-series";
 
@@ -26,7 +35,7 @@ export function OverviewSetupChecklist({ steps }: { steps: SetupStep[] }) {
     try {
       if (window.localStorage.getItem(DISMISS_KEY) === "1") setDismissed(true);
     } catch {
-      // ignore storage errors
+      // ignore
     }
   }, []);
 
@@ -136,27 +145,64 @@ const RANGE_LABEL: Record<Range, string> = {
   "30d": "Last 30 days",
 };
 
-function niceMax(v: number): number {
-  if (v <= 4) return 4;
-  const pow = 10 ** Math.floor(Math.log10(v));
-  const n = v / pow;
-  const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
-  return step * pow;
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; color: string }>;
+  label?: string;
+}
+
+function CustomRechartsTooltip({ active, payload, label }: CustomTooltipProps) {
+  if (!active || !payload || !payload.length) return null;
+  return (
+    <div
+      style={{
+        background: "#0d0f12",
+        border: "1px solid #1f242c",
+        borderRadius: 8,
+        padding: "8px 12px",
+        boxShadow: "0 10px 25px rgba(0, 0, 0, 0.5)",
+      }}
+    >
+      <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 600, color: "#8a94a6" }}>
+        {label}
+      </p>
+      {payload.map((entry) => (
+        <div
+          key={entry.name}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: 12,
+            color: "#e1e7f0",
+          }}
+        >
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: entry.color,
+            }}
+          />
+          <span style={{ textTransform: "capitalize" }}>{entry.name}:</span>
+          <strong style={{ fontWeight: 600 }}>{entry.value.toLocaleString()}</strong>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function OverviewVolumeChart({ series }: { series: Record<Range, SeriesPoint[]> }) {
   const [range, setRange] = React.useState<Range>("7d");
-  const [hover, setHover] = React.useState<number | null>(null);
   const points = series[range];
 
   const totals = points.reduce(
     (acc, p) => ({ delivered: acc.delivered + p.delivered, failed: acc.failed + p.failed }),
     { delivered: 0, failed: 0 }
   );
-  const max = niceMax(Math.max(0, ...points.map((p) => p.delivered + p.failed)));
+
   const empty = totals.delivered + totals.failed === 0;
-  const labelEvery = points.length > 14 ? 5 : points.length > 7 ? 4 : 1;
-  const hovered = hover !== null ? points[hover] : null;
 
   return (
     <section className="ov-panel ov-chart" aria-label="Sending volume">
@@ -181,10 +227,7 @@ export function OverviewVolumeChart({ series }: { series: Record<Range, SeriesPo
               type="button"
               role="tab"
               aria-selected={range === r}
-              onClick={() => {
-                setRange(r);
-                setHover(null);
-              }}
+              onClick={() => setRange(r)}
               className={`ds-tab ${range === r ? "is-active" : ""}`}
             >
               {r}
@@ -193,64 +236,66 @@ export function OverviewVolumeChart({ series }: { series: Record<Range, SeriesPo
         </div>
       </div>
 
-      <div className="ov-chart-body">
-        <div className="ov-chart-axis" aria-hidden="true">
-          <span className="tabular-nums">{max.toLocaleString()}</span>
-          <span className="tabular-nums">{(max / 2).toLocaleString()}</span>
-          <span className="tabular-nums">0</span>
-        </div>
-        <div className="ov-chart-plot">
-          <div className="ov-chart-grid" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </div>
+      <div className="ov-chart-body" style={{ height: 260, position: "relative" }}>
+        {empty ? (
           <div
-            className="ov-chart-bars"
-            style={{ gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))` }}
-            onMouseLeave={() => setHover(null)}
+            style={{
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#8a94a6",
+              fontSize: 13,
+            }}
           >
-            {points.map((p, i) => {
-              const dPct = (p.delivered / max) * 100;
-              const fPct = (p.failed / max) * 100;
-              return (
-                <div
-                  key={p.key}
-                  className={`ov-bar-col ${hover === i ? "is-hover" : ""}`}
-                  onMouseEnter={() => setHover(i)}
-                  title={`${p.label}: ${p.delivered} delivered, ${p.failed} bounced/failed`}
-                >
-                  <div className="ov-bar-stack">
-                    {p.failed > 0 && (
-                      <div className="ov-bar is-failed" style={{ height: `${fPct}%` }} />
-                    )}
-                    {p.delivered > 0 && (
-                      <div className="ov-bar is-delivered" style={{ height: `${dPct}%` }} />
-                    )}
-                  </div>
-                  <span className="ov-bar-label tabular-nums">
-                    {i % labelEvery === (points.length - 1) % labelEvery ? p.label : ""}
-                  </span>
-                </div>
-              );
-            })}
+            <span>No emails sent in the {RANGE_LABEL[range].toLowerCase()}.</span>
+            <Link href="/emails/new" className="ov-link" style={{ marginTop: 8 }}>
+              Send a test email <ArrowRight size={13} />
+            </Link>
           </div>
-          {hovered && !empty && (
-            <div className="ov-chart-tip" role="status">
-              <b>{hovered.label}</b>
-              <span className="tabular-nums">{hovered.delivered.toLocaleString()} delivered</span>
-              <span className="tabular-nums">{hovered.failed.toLocaleString()} bounced/failed</span>
-            </div>
-          )}
-          {empty && (
-            <div className="ov-chart-empty">
-              <span>No emails in the {RANGE_LABEL[range].toLowerCase()}.</span>
-              <Link href="/emails/new" className="ov-link">
-                Send a test email <ArrowRight size={13} />
-              </Link>
-            </div>
-          )}
-        </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={points} margin={{ top: 12, right: 12, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorDelivered" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="colorFailed" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1f242c" vertical={false} />
+              <XAxis
+                dataKey="label"
+                stroke="#6b7280"
+                fontSize={11}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis stroke="#6b7280" fontSize={11} tickLine={false} axisLine={false} />
+              <Tooltip content={<CustomRechartsTooltip />} />
+              <Area
+                type="monotone"
+                dataKey="delivered"
+                stroke="#10b981"
+                strokeWidth={2}
+                fillOpacity={1}
+                fill="url(#colorDelivered)"
+              />
+              <Area
+                type="monotone"
+                dataKey="failed"
+                stroke="#ef4444"
+                strokeWidth={2}
+                fillOpacity={1}
+                fill="url(#colorFailed)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </div>
       <div className="ov-chart-foot">{RANGE_LABEL[range]} · UTC</div>
     </section>
