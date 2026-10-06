@@ -43,7 +43,9 @@ const envSchema = z.object({
   REDIS_ENQUEUE_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
 
   // Auth
-  AUTH_SECRET: z.string().min(16).default("dev-secret-change-me-32-chars-min"),
+  AUTH_SECRET: z.string().min(16).default("calder-development-auth-placeholder-not-for-production"),
+  /** Production API-key hashing pepper; changing it requires a key re-issue plan. */
+  API_KEY_PEPPER: z.string().min(32).optional(),
   AUTH_URL: z.string().url().default("http://localhost:3001"),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
@@ -92,7 +94,10 @@ const envSchema = z.object({
   ALLOWED_ORIGINS: z.string().optional(),
 
   // Webhooks
-  WEBHOOK_SIGNING_SECRET: z.string().min(8).default("whsec_dev_secret_change_me"),
+  WEBHOOK_SIGNING_SECRET: z
+    .string()
+    .min(8)
+    .default("calder-development-webhook-placeholder-not-for-production"),
 
   // Port overrides
   API_PORT: z.coerce.number().int().positive().default(3002),

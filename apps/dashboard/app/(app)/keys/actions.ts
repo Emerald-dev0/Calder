@@ -5,6 +5,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { getDb, apiKeys, insertApiKeyForActiveOrganization } from "@calder/db";
 import { generateApiKey } from "@calder/auth";
 import { getTenantContext } from "../../../lib/auth";
+import { assertProjectManager } from "../onboarding/actions";
 
 function rid(prefix: string): string {
   return `${prefix}_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
@@ -46,7 +47,7 @@ export async function createKey(
   env: "test" | "live",
   scope: "full" | "send" | "read" = "full"
 ) {
-  await assertProject(projectId);
+  await assertProjectManager(projectId);
   const clean = name.trim().slice(0, 100) || `${env} key`;
   const validScope = scope === "send" || scope === "read" ? scope : "full";
   const generated = generateApiKey(env);
@@ -66,7 +67,7 @@ export async function createKey(
 }
 
 export async function revokeKey(projectId: string, keyId: string) {
-  await assertProject(projectId);
+  await assertProjectManager(projectId);
   const db = getDb();
   await db
     .update(apiKeys)

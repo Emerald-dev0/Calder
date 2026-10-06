@@ -23,14 +23,15 @@ const ASSIGNABLE = [
 export default async function AdministratorsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; promote?: string };
+  searchParams: Promise<{ q?: string; promote?: string }>;
 }) {
+  const query = await searchParams;
   const ctx = await requireSection("administration");
   const isFounder = ctx.role === "founder";
   const { admins, activeSessions } = await adminAccounts();
 
   const db = getDb();
-  const q = searchParams.q;
+  const q = query.q;
   const candidates = q
     ? await db
         .select({

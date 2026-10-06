@@ -1,4 +1,4 @@
-import { and, eq, lt, ne } from "drizzle-orm";
+import { and, eq, lt, ne, sql } from "drizzle-orm";
 import { domains } from "./schema/domains.js";
 import type { getDb } from "./client.js";
 import {
@@ -84,48 +84,55 @@ export async function createChallenge(
   | { kind: "cross_tenant" }
 > {
   const domain = input.domain.trim().toLowerCase();
-  // Another tenant already proved this domain — first proof wins.
-  const [foreignVerified] = await db
-    .select({ id: domains.id })
-    .from(domains)
-    .where(
-      and(
-        eq(domains.domain, domain),
-        ne(domains.projectId, input.projectId),
-        eq(domains.status, "verified")
-      )
-    )
-    .limit(1);
-  if (foreignVerified) return { kind: "cross_tenant" };
+  return db.transaction(async (tx) => {
+    // Serialize all claims for a normalized domain. Without this lock, two
+    // projects could both observe "no verified owner" and race to register
+    // the same domain, violating the first-proof-wins contract.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`domain|${domain}`}))`);
 
-  const [existing] = await db
-    .select()
-    .from(domains)
-    .where(and(eq(domains.projectId, input.projectId), eq(domains.domain, domain)))
-    .limit(1);
-  if (existing) {
-    // Idempotent create: same project + domain returns the live challenge
-    // (regeneration is a separate, deliberate POST /:id/token).
-    return {
-      kind: "existing",
-      id: existing.id,
-      token: existing.status === "expired" ? null : existing.verificationToken,
-      status: existing.status,
-      expiresAt: existing.verificationExpiresAt,
-    };
-  }
-  const token = newVerificationToken();
-  const expiresAt = new Date(Date.now() + CHALLENGE_TTL_MS);
-  await db.insert(domains).values({
-    id: input.id,
-    projectId: input.projectId,
-    domain,
-    status: "pending",
-    verificationMethod: "dns",
-    verificationToken: token,
-    verificationExpiresAt: expiresAt,
+    // Another tenant already proved this domain — first proof wins.
+    const [foreignVerified] = await tx
+      .select({ id: domains.id })
+      .from(domains)
+      .where(
+        and(
+          eq(domains.domain, domain),
+          ne(domains.projectId, input.projectId),
+          eq(domains.status, "verified")
+        )
+      )
+      .limit(1);
+    if (foreignVerified) return { kind: "cross_tenant" as const };
+
+    const [existing] = await tx
+      .select()
+      .from(domains)
+      .where(and(eq(domains.projectId, input.projectId), eq(domains.domain, domain)))
+      .limit(1);
+    if (existing) {
+      // Idempotent create: same project + domain returns the live challenge
+      // (regeneration is a separate, deliberate POST /:id/token).
+      return {
+        kind: "existing" as const,
+        id: existing.id,
+        token: existing.status === "expired" ? null : existing.verificationToken,
+        status: existing.status,
+        expiresAt: existing.verificationExpiresAt,
+      };
+    }
+    const token = newVerificationToken();
+    const expiresAt = new Date(Date.now() + CHALLENGE_TTL_MS);
+    await tx.insert(domains).values({
+      id: input.id,
+      projectId: input.projectId,
+      domain,
+      status: "pending",
+      verificationMethod: "dns",
+      verificationToken: token,
+      verificationExpiresAt: expiresAt,
+    });
+    return { kind: "created" as const, id: input.id, token, expiresAt };
   });
-  return { kind: "created", id: input.id, token, expiresAt };
 }
 
 /** Mint a fresh challenge for an expired row (or roll a compromised token). */
@@ -186,7 +193,13 @@ export async function attemptVerification(
     await db
       .update(domains)
       .set({ status: "expired", updatedAt: now })
-      .where(and(eq(domains.id, row.id), ne(domains.status, "verified")));
+      .where(
+        and(
+          eq(domains.id, row.id),
+          eq(domains.projectId, projectId),
+          ne(domains.status, "verified")
+        )
+      );
     return { kind: "expired", retryAfterSec: null };
   }
   if (!row.verificationToken) return { kind: "expired", retryAfterSec: null };

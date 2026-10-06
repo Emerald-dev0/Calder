@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSessionUser, SESSION_COOKIE, startGmailConnect } from "@calder/auth";
+import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { assertProjectAccess } from "../../../../(app)/onboarding/actions";
+import { clientIp } from "../../../../../lib/client-ip";
+import { logger } from "@calder/observability";
 
 function cookie(name: string, value: string): string {
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
@@ -18,8 +21,14 @@ function cookie(name: string, value: string): string {
 export async function GET(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const projectId = url.searchParams.get("project") ?? "";
-  const user = await getSessionUser(cookies().get(SESSION_COOKIE)?.value);
+  const user = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
   if (!user) return NextResponse.redirect(new URL("/login", url.origin));
+  const gate = await getRateLimiter().check(`gmail-connect:start:${user.userId}:${clientIp(req)}`, {
+    ...rateLimitPresets.auth,
+    keyPrefix: "gmail:connect",
+  });
+  if (!gate.allowed)
+    return NextResponse.redirect(new URL("/onboarding?notice=gmail-throttled", url.origin));
   try {
     await assertProjectAccess(projectId);
     const { url: authUrl, state, codeVerifier } = startGmailConnect();
@@ -28,10 +37,8 @@ export async function GET(req: Request): Promise<Response> {
     res.headers.append("Set-Cookie", cookie("calder_gmail_verifier", codeVerifier));
     res.headers.append("Set-Cookie", cookie("calder_gmail_project", projectId));
     return res;
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Could not start Gmail connect.";
-    return NextResponse.redirect(
-      new URL(`/onboarding?notice=${encodeURIComponent(`gmail-start:${msg}`)}`, url.origin)
-    );
+  } catch {
+    logger.warn("Could not start Gmail connect");
+    return NextResponse.redirect(new URL("/onboarding?notice=gmail-start-failed", url.origin));
   }
 }

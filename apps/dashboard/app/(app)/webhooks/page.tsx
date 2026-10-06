@@ -3,21 +3,18 @@ import { ProjectPicker } from "../project-picker";
 import { WebhookCreator, ToggleButton, RotateButton, ReplayButton } from "./manager";
 import { listWebhooks, listWebhookDeliveries } from "./actions";
 import { Webhook, ShieldCheck } from "lucide-react";
-import {
-  DsPageHeader,
-  StatusPill,
-  CodeBlock,
-} from "../../../components/design-system";
+import { DsPageHeader, StatusPill, CodeBlock } from "../../../components/design-system";
 import { EmptyState } from "../../../components/empty-state";
 
 export default async function WebhooksPage({
   searchParams,
 }: {
-  searchParams: { project?: string };
+  searchParams: Promise<{ project?: string }>;
 }) {
+  const query = await searchParams;
   const ctx = await getTenantContext();
   const projects = ctx.memberships.flatMap((m) => m.projects);
-  const scope = resolveProject(ctx, searchParams.project);
+  const scope = resolveProject(ctx, query.project);
   if (!scope) {
     return (
       <div>
@@ -38,10 +35,8 @@ export default async function WebhooksPage({
   const hooks = await listWebhooks(scope.project.id);
   const deliveryMap = new Map(
     await Promise.all(
-      hooks.map(
-        async (w) => [w.id, await listWebhookDeliveries(scope.project.id, w.id)] as const,
-      ),
-    ),
+      hooks.map(async (w) => [w.id, await listWebhookDeliveries(scope.project.id, w.id)] as const)
+    )
   );
 
   return (
@@ -80,7 +75,9 @@ export default async function WebhooksPage({
               <div key={w.id} className="ds-card">
                 <div className="ds-card-header">
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}
+                    >
                       <b className="mono" style={{ fontSize: 13.5 }}>
                         {w.url}
                       </b>
@@ -113,7 +110,8 @@ export default async function WebhooksPage({
                         color: "var(--color-ink-secondary)",
                       }}
                     >
-                      Recent Deliveries ({deliveries.length}) — signed POSTs, retried up to 8×, 10s timeout
+                      Recent Deliveries ({deliveries.length}) — signed POSTs, retried up to 8×, 10s
+                      timeout
                     </summary>
                     {deliveries.length === 0 ? (
                       <p
@@ -123,7 +121,8 @@ export default async function WebhooksPage({
                           margin: "10px 0 0",
                         }}
                       >
-                        Nothing delivered yet. Send an email matching the subscribed events and its delivery log will appear here.
+                        Nothing delivered yet. Send an email matching the subscribed events and its
+                        delivery log will appear here.
                       </p>
                     ) : (
                       <div className="ds-table-scroll" style={{ marginTop: 10 }}>
@@ -148,7 +147,11 @@ export default async function WebhooksPage({
                                   {d.status === "pending" && d.nextAttemptAt && (
                                     <span
                                       className="mono"
-                                      style={{ color: "var(--color-muted)", fontSize: 11, marginLeft: 6 }}
+                                      style={{
+                                        color: "var(--color-muted)",
+                                        fontSize: 11,
+                                        marginLeft: 6,
+                                      }}
                                     >
                                       retry {new Date(d.nextAttemptAt).toLocaleTimeString("en-GB")}
                                     </span>
@@ -199,7 +202,9 @@ export default async function WebhooksPage({
             <div>
               <h2 className="ds-card-title">Verify Webhook Signatures (HMAC-SHA256)</h2>
               <p className="ds-card-subtitle">
-                Every delivery includes a <code className="mono">webhook-signature</code> header (<code className="mono">t=&lt;unix&gt;,v1=&lt;hmac&gt;</code>). Reject payloads older than 5 minutes.
+                Every delivery includes a <code className="mono">webhook-signature</code> header (
+                <code className="mono">t=&lt;unix&gt;,v1=&lt;hmac&gt;</code>). Reject payloads older
+                than 5 minutes.
               </p>
             </div>
           </div>

@@ -8,9 +8,10 @@ import { addWaitlistTag, removeWaitlistTag, setWaitlistNote, setWaitlistStatus }
 
 export const dynamic = "force-dynamic";
 
-export default async function WaitlistPersonPage({ params }: { params: { id: string } }) {
+export default async function WaitlistPersonPage({ params }: { params: Promise<{ id: string }> }) {
   await requireSection("growth");
-  const data = await waitlistPerson(params.id);
+  const { id } = await params;
+  const data = await waitlistPerson(id);
   if (!data) notFound();
   const { person, position, invites, convertedUser, referrer } = data;
 

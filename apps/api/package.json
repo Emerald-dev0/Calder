@@ -31,7 +31,7 @@
     "@hono/node-server": "^1.13.0",
     "arctic": "^3.7.0",
     "bullmq": "^6.3.4",
-    "drizzle-orm": "^0.38.0",
+    "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.5.1",
     "hono": "^4.6.0",
     "ioredis": "^6.0.0",
@@ -47,6 +47,6 @@
     "esbuild": "^0.21.5",
     "tsx": "^4.19.0",
     "typescript": "^5.6.3",
-    "vitest": "^2.1.0"
+    "vitest": "^4.1.11"
   }
 }

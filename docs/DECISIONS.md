@@ -904,3 +904,70 @@ schema change is `0024_organization_sending_safety`.
 thresholds requires production feedback and daily review; SNS delivery must be
 wired and verified operationally; appeal/review is manual. This decision does
 not build SMTP, paid billing, non-email channels, referrals, or AI scoring.
+
+## ADR-044: Phase 3 authentication and security boundary hardening
+
+**Status:** Accepted (2026-10-05, Phase 3)
+
+**Decision:** Keep Calder's existing password, email-code, magic-link, OAuth,
+Gmail, session, API-key, webhook, queue, and email-provider abstractions and
+harden them at their trust boundaries rather than adding parallel credential
+systems.
+
+1. **Sessions are database-backed opaque rows, not bearer claims.** Successful
+   password, email-verification, magic-link, OAuth, and dev-only sign-in
+   transitions rotate to a new session row and conditionally revoke the prior
+   row. Every lookup checks the sealed cookie, revocation, and absolute expiry;
+   logout and password/security-method changes revoke the relevant rows.
+   Password reset revokes all sessions, while password change creates one
+   replacement in the same transaction. Browser state-changing routes use
+   SameSite cookies plus same-origin checks.
+2. **Challenges are single-use, short-lived, purpose-bound, and race-safe.**
+   Passwords use scrypt with a dummy comparison for unknown users and
+   progressive database lockout. Verification/reset codes are six digits but
+   stored as peppered HMACs bound to purpose and email, expire after ten
+   minutes, burn failed attempts, and use conditional claims. Magic links are
+   256-bit, fifteen-minute, single-use tokens whose issuance and consumption
+   are serialized/claimed in the database. OAuth and Gmail use short-lived
+   state plus PKCE where supported; callback attempts are rate-limited and
+   redirects do not trust a production Host header.
+3. **API-key and tenant decisions are server-side.** Every API-key request
+   re-reads the key, project, and organization, enforces expiry, revocation,
+   active organization state, and a conditional last-use update before the
+   request can continue. Rotation and organization suspension serialize on the
+   organization row. Collection cursors are opaque, bounded, tenant-filtered,
+   and malformed cursors are client errors/404s rather than page-one fallbacks.
+   Worker and drain paths re-check the project/organization relationship and
+   organization sending state before provider delivery.
+4. **Customer notifications reuse the existing auth email provider.**
+   Successful sign-ins, password changes/resets, and OAuth connect/disconnect
+   events may send a security notification through the existing branded email
+   abstraction. Delivery failure never rolls back the completed security
+   operation; the audit event remains the durable record. Notifications and
+   operational logs never include codes, tokens, message bodies, or recipient
+   addresses.
+5. **MFA is deferred, not simulated.** The current schema/service has no
+   factor enrollment or secret lifecycle, recovery-code storage, trusted-device
+   policy, or transactional step-up challenge. The exact blocker and owner
+   action are recorded in `SECURITY.md`; a UI-only flag or unchecked claim is
+   explicitly out of scope.
+
+**Why:** A single DB trust boundary closes fixation, replay, stale-cache,
+revocation/expiry, concurrent claim, cross-tenant identifier, and queued-work
+races without weakening Phase 1/2 reliability guarantees. Reusing the existing
+email abstraction avoids a second delivery path and keeps the production
+provider/Redis/queue posture unchanged.
+
+**Operational controls:** CI runs the custom `pnpm audit --json` severity gate
+and Gitleaks. High/critical dependency findings fail; lower findings require
+a named, time-bound exception. Secret findings fail regardless of severity.
+Incident response (stop release, revoke/rotate, investigate access, remove
+history where feasible, notify affected customers, document follow-up) is in
+`SECURITY.md` and `docs/OPERATIONS.md`.
+
+**Limitations:** MFA remains unavailable until the owner selects and
+threat-models the factor model; OAuth provider email verification behavior is
+provider-dependent; email-client prefetch can consume a magic link before the
+human clicks; in-memory rate limiting is development-only and hosted Redis is
+mandatory; full integration/E2E verification still needs reachable PostgreSQL,
+Redis/provider fixtures, and browser-runner ownership.

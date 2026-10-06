@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { getDb, users } from "@calder/db";
 import { getConfig } from "@calder/config";
 import {
-  createSession,
+  getSessionUser,
+  rotateSession,
   ensureFounderAccess,
   acceptPendingInvites,
   sealSessionCookie,
   sessionCookieHeader,
+  SESSION_COOKIE,
 } from "@calder/auth";
 import { postLoginRedirect } from "../../../../lib/control/post-login";
+import { sameOriginRequest } from "../../../../lib/csrf";
 
 /**
  * DEV-ONLY login bypass so the founder can preview the dashboard before
@@ -19,6 +23,9 @@ import { postLoginRedirect } from "../../../../lib/control/post-login";
  * this route creates sessions for any email address.
  */
 export async function POST(req: Request): Promise<Response> {
+  if (!sameOriginRequest(req)) {
+    return NextResponse.json({ error: "Cross-origin request denied." }, { status: 403 });
+  }
   const config = getConfig();
   if (config.NODE_ENV === "production" || process.env.ALLOW_DEV_LOGIN !== "true") {
     return NextResponse.json({ error: "Dev login is disabled." }, { status: 403 });
@@ -53,7 +60,8 @@ export async function POST(req: Request): Promise<Response> {
     req.headers.get("x-real-ip")?.trim() ||
     "127.0.0.1";
   const userAgent = req.headers.get("user-agent") || "Calder Dev Session";
-  const sessionId = await createSession(userId, { ip, userAgent });
+  const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+  const sessionId = await rotateSession(userId, previous?.sessionId, { ip, userAgent });
   const sealed = await sealSessionCookie(sessionId);
   const res = NextResponse.redirect(new URL(await postLoginRedirect(email), req.url));
   res.headers.append("Set-Cookie", sessionCookieHeader(sealed, 30 * 24 * 60 * 60));

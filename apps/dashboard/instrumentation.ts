@@ -5,6 +5,10 @@
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  const { configureRateLimiterFromEnv } = await import("@calder/rate-limit");
+  // Keep the Node-only Redis client out of the instrumentation bundle. The
+  // import is resolved by the Node runtime after the runtime guard above.
+  const { configureRateLimiterFromEnv } = await import(
+    /* webpackIgnore: true */ "@calder/rate-limit"
+  );
   await configureRateLimiterFromEnv();
 }

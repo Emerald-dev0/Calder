@@ -22,7 +22,7 @@ describe("redactValue", () => {
     expect(out.apiKey).toBe(REDACTED);
     expect(out.webhookSecret).toBe(REDACTED);
     expect((out.nested as Record<string, unknown>).refreshToken).toBe(REDACTED);
-    expect((out.nested as Record<string, unknown>).email).toBe("customer@example.com");
+    expect((out.nested as Record<string, unknown>).email).toBe(REDACTED);
     // `code` is an API error code and must survive.
     expect(out.code).toBe("validation_error");
   });

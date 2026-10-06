@@ -9,6 +9,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -59,6 +62,18 @@ jobs:
 
       - name: Install
         run: pnpm install --frozen-lockfile
+
+      - name: Dependency audit
+        run: node scripts/security-audit.mjs
+
+      # Exact fixture allowlists live in .gitleaks.toml; real credentials are
+      # never allowlisted by path or broad token shape.
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: detect --source . --redact --config .gitleaks.toml --exit-code 1
 
       - name: Format check
         run: pnpm format:check

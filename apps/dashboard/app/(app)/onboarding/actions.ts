@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
-import { eq, and } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   getDb,
   organizations,
@@ -124,7 +124,7 @@ export async function saveOnboardingStep(step: number) {
     })
     .where(eq(users.id, ctx.user.userId));
   try {
-    cookies().delete(ONBOARDING_PAUSED_COOKIE);
+    (await cookies()).delete(ONBOARDING_PAUSED_COOKIE);
   } catch {
     // ignore cookie mutation errors if called outside action context
   }
@@ -179,7 +179,7 @@ export async function saveAndExitOnboarding(input: {
   });
 
   const secure = process.env.NODE_ENV === "production";
-  cookies().set(ONBOARDING_PAUSED_COOKIE, "1", {
+  (await cookies()).set(ONBOARDING_PAUSED_COOKIE, "1", {
     path: "/",
     httpOnly: true,
     sameSite: "lax",
@@ -242,7 +242,7 @@ export async function completeOnboarding() {
     .where(eq(users.id, ctx.user.userId));
   await recordMilestone(db, { actorUserId: ctx.user.userId, action: "onboarding.completed" });
   try {
-    cookies().delete(ONBOARDING_PAUSED_COOKIE);
+    (await cookies()).delete(ONBOARDING_PAUSED_COOKIE);
   } catch {
     // ignore
   }
@@ -260,8 +260,18 @@ async function membershipOrgIds(userId: string): Promise<Set<string>> {
 
 export async function assertProjectAccess(projectId: string) {
   const ctx = await getTenantContext();
-  const projectIds = new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)));
-  if (!projectIds.has(projectId)) throw new Error("Project not found.");
+  const membership = ctx.memberships.find((m) => m.projects.some((p) => p.id === projectId));
+  if (!membership) throw new Error("Project not found.");
+  return ctx;
+}
+
+/** Project mutations require an organization owner/admin, not mere visibility. */
+export async function assertProjectManager(projectId: string) {
+  const ctx = await assertProjectAccess(projectId);
+  const membership = ctx.memberships.find((m) => m.projects.some((p) => p.id === projectId));
+  if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+    throw new Error("Only organization owners or admins can manage this project.");
+  }
   return ctx;
 }
 
@@ -312,8 +322,11 @@ export async function createProject(input: {
   volume: string;
 }) {
   const ctx = await getTenantContext();
-  const orgIds = await membershipOrgIds(ctx.user.userId);
-  if (!orgIds.has(input.orgId)) throw new Error("Organization not found.");
+  const membership = ctx.memberships.find((m) => m.organization.id === input.orgId);
+  if (!membership) throw new Error("Organization not found.");
+  if (membership.role !== "owner" && membership.role !== "admin") {
+    throw new Error("Only organization owners or admins can create projects.");
+  }
   const clean = input.name.trim().slice(0, 100);
   if (clean.length < 2) throw new Error("Give your project a name (2+ characters).");
   const metadata: ProjectMetadata = {
@@ -400,6 +413,10 @@ export async function saveOrgAndProjectStep(input: {
   }
 
   if (finalOrgId) {
+    const membership = ctx.memberships.find((m) => m.organization.id === finalOrgId);
+    if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+      throw new Error("Only organization owners or admins can update this workspace.");
+    }
     await db
       .update(organizations)
       .set({ name: cleanOrgName, slug: cleanOrgSlug, updatedAt: new Date() })
@@ -454,7 +471,7 @@ export async function saveOrgAndProjectStep(input: {
         slug: finalProjectSlug,
         updatedAt: new Date(),
       })
-      .where(eq(projects.id, finalProjectId));
+      .where(and(eq(projects.id, finalProjectId), eq(projects.organizationId, finalOrgId)));
   } else {
     for (let i = 0; i < 5; i++) {
       const candidate = i === 0 ? finalProjectSlug : `${finalProjectSlug}-${i + 1}`;
@@ -501,7 +518,7 @@ export async function saveOrgAndProjectStep(input: {
 
 /** Step 4: Save chosen sending path and advance to Step 5 (First send). */
 export async function saveSendingSetupStep(input: { projectId: string; mode: SendingSetupMode }) {
-  const ctx = await assertProjectAccess(input.projectId);
+  const ctx = await assertProjectManager(input.projectId);
   const db = getDb();
   await db
     .update(users)
@@ -516,7 +533,7 @@ export async function saveSendingSetupStep(input: { projectId: string; mode: Sen
 }
 
 export async function createTestKey(projectId: string, name: string) {
-  await assertProjectAccess(projectId);
+  await assertProjectManager(projectId);
   const clean = name.trim().slice(0, 100) || "onboarding key";
   const generated = generateApiKey("test");
   const db = getDb();
@@ -577,7 +594,7 @@ export async function sendFirstEmail(input: {
   subject?: string;
   text?: string;
 }) {
-  const ctx = await assertProjectAccess(input.projectId);
+  const ctx = await assertProjectManager(input.projectId);
   const cleanTo = input.to.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanTo)) {
     throw new Error("Enter a valid recipient email address.");
@@ -738,7 +755,7 @@ export async function getEmailStatus(input: { projectId: string; emailId: string
     const [afterDrain] = await db
       .select({ status: emails.status, provider: emails.provider, env: emails.env })
       .from(emails)
-      .where(eq(emails.id, input.emailId))
+      .where(and(eq(emails.id, input.emailId), eq(emails.projectId, input.projectId)))
       .limit(1);
 
     if (afterDrain && afterDrain.status !== "queued" && afterDrain.status !== "sending") {
@@ -763,7 +780,7 @@ export async function getEmailStatus(input: { projectId: string; emailId: string
             lastError: "Sending is currently unavailable for this organization.",
             updatedAt: failedAt,
           })
-          .where(eq(emails.id, row.id));
+          .where(and(eq(emails.id, row.id), eq(emails.projectId, input.projectId)));
         await db.insert(emailEvents).values({
           id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
           emailId: row.id,
@@ -784,7 +801,7 @@ export async function getEmailStatus(input: { projectId: string; emailId: string
           providerMessageId: msgId,
           updatedAt: done,
         })
-        .where(eq(emails.id, row.id));
+        .where(and(eq(emails.id, row.id), eq(emails.projectId, input.projectId)));
       await recordSendUsage(db, {
         emailId: row.id,
         projectId: input.projectId,
@@ -813,7 +830,7 @@ export async function getEmailStatus(input: { projectId: string; emailId: string
     await db
       .update(emails)
       .set({ status: "delivered", updatedAt: done })
-      .where(eq(emails.id, row.id));
+      .where(and(eq(emails.id, row.id), eq(emails.projectId, input.projectId)));
     await db
       .insert(emailEvents)
       .values({
@@ -838,7 +855,7 @@ export interface DnsRecord {
 }
 
 export async function addDomain(projectId: string, domain: string) {
-  await assertProjectAccess(projectId);
+  await assertProjectManager(projectId);
   const clean = domain.toLowerCase().trim();
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(clean))
     throw new Error("Enter a valid domain (e.g. acme.com).");
@@ -852,7 +869,11 @@ export async function addDomain(projectId: string, domain: string) {
   if (result.kind === "cross_tenant")
     throw new Error("This domain is already verified by another organization.");
   if (result.kind === "existing") {
-    const [existingRow] = await db.select().from(domains).where(eq(domains.id, result.id)).limit(1);
+    const [existingRow] = await db
+      .select()
+      .from(domains)
+      .where(and(eq(domains.id, result.id), eq(domains.projectId, projectId)))
+      .limit(1);
     const token = existingRow?.verificationToken ?? "";
     return {
       created: false as const,
@@ -904,7 +925,11 @@ export async function checkDomainDns(domainId: string) {
   const ctx = await getTenantContext();
   const db = getDb();
   const projectIds = new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)));
-  const rows = await db.select().from(domains).where(eq(domains.id, domainId)).limit(1);
+  const rows = await db
+    .select()
+    .from(domains)
+    .where(and(eq(domains.id, domainId), inArray(domains.projectId, [...projectIds])))
+    .limit(1);
   const row = rows[0];
   if (!row || !projectIds.has(row.projectId)) throw new Error("Domain not found.");
   const { attemptVerification } = await import("@calder/db");
@@ -943,8 +968,13 @@ export async function regenerateDomainToken(domainId: string) {
   const ctx = await getTenantContext();
   const db = getDb();
   const projectIds = new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)));
-  const [row] = await db.select().from(domains).where(eq(domains.id, domainId)).limit(1);
+  const [row] = await db
+    .select()
+    .from(domains)
+    .where(and(eq(domains.id, domainId), inArray(domains.projectId, [...projectIds])))
+    .limit(1);
   if (!row || !projectIds.has(row.projectId)) throw new Error("Domain not found.");
+  await assertProjectManager(row.projectId);
   const { regenerateChallenge, expectedTxtHost, expectedTxtValue } = await import("@calder/db");
   const r = await regenerateChallenge(db, row.projectId, domainId);
   if (r.kind === "not_found") throw new Error("Domain not found.");
@@ -961,8 +991,13 @@ export async function linkDomainToSes(domainId: string) {
   const ctx = await getTenantContext();
   const db = getDb();
   const projectIds = new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)));
-  const [row] = await db.select().from(domains).where(eq(domains.id, domainId)).limit(1);
+  const [row] = await db
+    .select()
+    .from(domains)
+    .where(and(eq(domains.id, domainId), inArray(domains.projectId, [...projectIds])))
+    .limit(1);
   if (!row || !projectIds.has(row.projectId)) throw new Error("Domain not found.");
+  await assertProjectManager(row.projectId);
   if (row.status !== "verified") throw new Error("Verify DNS ownership first.");
   const { createSesDomainIdentity } = await import("@calder/providers");
   const link = await createSesDomainIdentity(row.domain).catch((e: unknown) => {
@@ -976,7 +1011,7 @@ export async function linkDomainToSes(domainId: string) {
       dkimRecords: link.records,
       updatedAt: new Date(),
     })
-    .where(eq(domains.id, domainId));
+    .where(and(eq(domains.id, domainId), eq(domains.projectId, row.projectId)));
   return {
     records: link.records,
     dkimStatus: link.dkimStatus,
@@ -989,8 +1024,13 @@ export async function refreshDomainSesStatus(domainId: string) {
   const ctx = await getTenantContext();
   const db = getDb();
   const projectIds = new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)));
-  const [row] = await db.select().from(domains).where(eq(domains.id, domainId)).limit(1);
+  const [row] = await db
+    .select()
+    .from(domains)
+    .where(and(eq(domains.id, domainId), inArray(domains.projectId, [...projectIds])))
+    .limit(1);
   if (!row || !projectIds.has(row.projectId)) throw new Error("Domain not found.");
+  await assertProjectManager(row.projectId);
   const { getSesDomainIdentity } = await import("@calder/providers");
   const snap = await getSesDomainIdentity(row.domain).catch((e: unknown) => {
     throw new Error(`SES status poll failed: ${e instanceof Error ? e.message : "unknown"}`);
@@ -999,6 +1039,6 @@ export async function refreshDomainSesStatus(domainId: string) {
   await db
     .update(domains)
     .set({ sesIdentityStatus: identityStatus, dkimStatus: snap.dkimStatus, updatedAt: new Date() })
-    .where(eq(domains.id, domainId));
+    .where(and(eq(domains.id, domainId), eq(domains.projectId, row.projectId)));
   return { identityStatus, dkimStatus: snap.dkimStatus };
 }

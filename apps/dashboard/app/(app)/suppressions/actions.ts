@@ -2,11 +2,11 @@
 
 import { and, eq } from "drizzle-orm";
 import { getDb, suppressions } from "@calder/db";
-import { assertProjectAccess } from "../onboarding/actions";
+import { assertProjectManager } from "../onboarding/actions";
 
 /** Manual suppression: refuse a recipient before a bad send ever happens. */
 export async function addSuppression(projectId: string, email: string, reason: string) {
-  await assertProjectAccess(projectId);
+  await assertProjectManager(projectId);
   const clean = email.trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(clean)) throw new Error("Enter a valid email address.");
   const why = reason.trim() || "manual";
@@ -22,7 +22,7 @@ export async function addSuppression(projectId: string, email: string, reason: s
 
 /** Remove a suppression (e.g. recipient fixed their mailbox). */
 export async function removeSuppression(projectId: string, id: string) {
-  await assertProjectAccess(projectId);
+  await assertProjectManager(projectId);
   const db = getDb();
   const deleted = await db
     .delete(suppressions)

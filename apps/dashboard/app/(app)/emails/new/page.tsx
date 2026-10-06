@@ -12,10 +12,11 @@ export const metadata = { title: "Calder — New email" };
 export default async function NewEmailPage({
   searchParams,
 }: {
-  searchParams: { project?: string };
+  searchParams: Promise<{ project?: string }>;
 }) {
+  const query = await searchParams;
   const ctx = await getTenantContext();
-  const scope = resolveProject(ctx, searchParams.project);
+  const scope = resolveProject(ctx, query.project);
   if (!scope) {
     return (
       <div>

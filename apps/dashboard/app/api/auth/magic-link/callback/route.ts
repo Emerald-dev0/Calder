@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import {
   consumeMagicLink,
   getSessionUser,
+  recordSecurityEvent,
   sealSessionCookie,
   sessionCookieHeader,
+  SESSION_COOKIE,
 } from "@calder/auth";
 import { postLoginRedirect } from "../../../../../lib/control/post-login";
 import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
+import { sendSecurityEmail } from "../../../../../lib/send-security-email";
 
 /**
  * M6.1: the callback consumes blindly by design (GET from any mail client),
@@ -24,6 +28,12 @@ import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
  */
 export async function GET(req: Request): Promise<Response> {
   const url = new URL(req.url);
+  const redirectSafe = (target: string) => {
+    const response = NextResponse.redirect(new URL(target, url.origin));
+    response.headers.set("Referrer-Policy", "no-referrer");
+    response.headers.set("Cache-Control", "no-store");
+    return response;
+  };
   const token = url.searchParams.get("token") ?? "";
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -34,21 +44,38 @@ export async function GET(req: Request): Promise<Response> {
     keyPrefix: "magic:consume",
   });
   if (!gate.allowed) {
-    return NextResponse.redirect(new URL("/login?error=throttled", url.origin));
+    return redirectSafe("/login?error=throttled");
   }
   try {
-    const sessionId = await consumeMagicLink(token, {
-      userAgent: req.headers.get("user-agent"),
-      ip,
-    });
+    const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+    const sessionId = await consumeMagicLink(
+      token,
+      {
+        userAgent: req.headers.get("user-agent"),
+        ip,
+      },
+      previous?.sessionId
+    );
     const sealed = await sealSessionCookie(sessionId);
     const sessionUser = await getSessionUser(sealed);
     const target = sessionUser ? await postLoginRedirect(sessionUser.email) : "/";
-    const res = NextResponse.redirect(new URL(target, url.origin));
+    if (sessionUser) {
+      await recordSecurityEvent({
+        userId: sessionUser.userId,
+        action: "auth.login.succeeded",
+        metadata: { method: "magic_link" },
+      }).catch(() => {});
+      await recordSecurityEvent({
+        userId: sessionUser.userId,
+        action: "auth.magic_link.redeemed",
+      }).catch(() => {});
+      await sendSecurityEmail({ to: sessionUser.email, event: "new_login" });
+    }
+    const res = redirectSafe(target);
     res.headers.append("Set-Cookie", sessionCookieHeader(sealed, 30 * 24 * 60 * 60));
     return res;
   } catch {
-    return NextResponse.redirect(new URL("/login?error=link", url.origin));
+    return redirectSafe("/login?error=link");
   }
 }
 

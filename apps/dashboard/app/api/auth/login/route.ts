@@ -1,16 +1,22 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import {
+  getSessionUser,
   loginWithPassword,
   LoginLockedError,
   normalizeEmail,
   isPlausibleEmail,
+  recordSecurityEvent,
   sealSessionCookie,
   sessionCookieHeader,
+  SESSION_COOKIE,
 } from "@calder/auth";
 import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { logger } from "@calder/observability";
 import { clientIp } from "../../../../lib/client-ip";
 import { sendOtpEmail } from "../../../../lib/send-auth-email";
+import { sendSecurityEmail } from "../../../../lib/send-security-email";
+import { sameOriginRequest } from "../../../../lib/csrf";
 import { postLoginRedirect } from "../../../../lib/control/post-login";
 
 /**
@@ -23,6 +29,9 @@ import { postLoginRedirect } from "../../../../lib/control/post-login";
  * a client-side email comparison.
  */
 export async function POST(req: Request): Promise<Response> {
+  if (!sameOriginRequest(req)) {
+    return NextResponse.json({ error: "Cross-origin request denied." }, { status: 403 });
+  }
   const body = (await req.json().catch(() => null)) as {
     email?: string;
     password?: string;
@@ -54,10 +63,16 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   try {
-    const result = await loginWithPassword(email, password, {
-      userAgent: req.headers.get("user-agent"),
-      ip: clientIp(req),
-    });
+    const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+    const result = await loginWithPassword(
+      email,
+      password,
+      {
+        userAgent: req.headers.get("user-agent"),
+        ip: clientIp(req),
+      },
+      previous?.sessionId
+    );
 
     if (result.needsVerification) {
       if (result.code) {
@@ -67,18 +82,25 @@ export async function POST(req: Request): Promise<Response> {
           purpose: "verification",
         });
       }
-      return NextResponse.json({
-        needsVerification: true,
-        email: result.email,
-      });
+      // Keep the response identical to a failed password check. The code is
+      // sent only after the password is valid, but the endpoint never tells a
+      // caller whether an address has an account or whether its password was
+      // correct.
+      return NextResponse.json({ needsVerification: true, email });
     }
 
-    if (!result.sessionId) {
+    if (!result.sessionId || !result.user) {
       throw new Error("Invalid session state.");
     }
 
     const sealed = await sealSessionCookie(result.sessionId);
     const redirectTo = await postLoginRedirect(result.email, next);
+    await recordSecurityEvent({
+      userId: result.user.id,
+      action: "auth.login.succeeded",
+      metadata: { method: "password" },
+    }).catch(() => logger.warn("Could not record login security event"));
+    await sendSecurityEmail({ to: result.email, event: "new_login" });
     const res = NextResponse.json({ ok: true, user: result.user, redirectTo });
     res.headers.append("Set-Cookie", sessionCookieHeader(sealed, 30 * 24 * 60 * 60));
     return res;
@@ -91,7 +113,9 @@ export async function POST(req: Request): Promise<Response> {
         { status: 429, headers: { "Retry-After": String(err.retryAfterSec) } }
       );
     }
-    logger.warn({ err, email }, "Login failed");
-    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    logger.warn("Login failed");
+    // Uniform next step for an invalid password, unknown address, and an
+    // unverified account. No password-validity or account-state oracle.
+    return NextResponse.json({ needsVerification: true, email });
   }
 }

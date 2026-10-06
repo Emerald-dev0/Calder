@@ -309,20 +309,20 @@ async function checkQueueAndOps(): Promise<void> {
       : "ADMIN_API_KEY unset, /v1/admin/* disabled (including organization safety actions)"
   );
   add(
-    config.WEBHOOK_SIGNING_SECRET.startsWith("whsec_dev") ? "fail" : "pass",
+    config.WEBHOOK_SIGNING_SECRET.startsWith("calder-development-webhook-") ? "fail" : "pass",
     "webhook signing",
-    config.WEBHOOK_SIGNING_SECRET.startsWith("whsec_dev")
+    config.WEBHOOK_SIGNING_SECRET.startsWith("calder-development-webhook-")
       ? "WEBHOOK_SIGNING_SECRET is still the development default"
       : "custom signing secret set"
   );
   add(
-    config.AUTH_SECRET.startsWith("dev-secret")
+    config.AUTH_SECRET.startsWith("calder-development-auth-")
       ? config.NODE_ENV === "production"
         ? "fail"
         : "warn"
       : "pass",
     "auth secret",
-    config.AUTH_SECRET.startsWith("dev-secret")
+    config.AUTH_SECRET.startsWith("calder-development-auth-")
       ? "AUTH_SECRET is still the development default"
       : "custom AUTH_SECRET set"
   );

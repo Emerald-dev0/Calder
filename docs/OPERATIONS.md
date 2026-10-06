@@ -297,6 +297,16 @@ customer.
 - **Escalation**: owner decides on the restore point; a restore can lose up to the RPO window.
 - **Post-incident**: postmortem; if the cause was a migration, re-read `AGENTS.md`'s migration rules.
 
+### 8.10 Dependency or secret-scanning finding
+
+- **Symptoms**: dependency audit reports a high/critical advisory, Gitleaks reports a credential, or a provider reports suspicious credential use.
+- **Immediate checks**: stop the release; identify the advisory path or secret issuer and the first commit containing it. Do not copy secret values into logs, tickets, or chat.
+- **Containment**: for a secret, revoke/rotate it at the issuer before removing repository copies. For a vulnerable dependency, disable the affected feature or isolate the affected deployment only when the security owner approves the mitigation.
+- **Recovery**: upgrade to a patched dependency and regenerate the lockfile, or record a time-bound advisory-ID exception with owner, exposure, mitigation, and deadline. Remove leaked material from repository history where feasible.
+- **Verification**: rerun `node scripts/security-audit.mjs`, the Gitleaks CI scan, relevant tests, and `pnpm launch-check`; review audit logs for use of the exposed credential and validate replacement credentials in a safe environment.
+- **Escalation**: security owner and founder/on-call immediately for any production secret or high/critical advisory; assess customer notification and provider disclosure obligations.
+- **Post-incident**: record root cause, rotation/revocation timestamps, affected access window, customer/provider notifications, and a prevention test or CI rule.
+
 ## 9. Deployment verification and rollback
 
 - Pre-deploy: `pnpm launch-check` (blocking); migrations before code

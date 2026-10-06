@@ -66,7 +66,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
     // Try DB first, fallback to memory
     const existing = await lookupIdempotency(projectId, idempotencyKey);
     if (existing) {
-      logger.info({ projectId, idempotencyKey, requestId }, "Idempotent replay");
+      logger.info({ projectId, requestId }, "Idempotent replay");
       return {
         response: existing.responseBody as { id: string; status: string; message: string },
         idempotentReplay: true,
@@ -96,7 +96,18 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
     senderName = resolved.displayName;
   } catch (err) {
     if (err instanceof AppError) throw err;
-    logger.warn({ err, projectId }, "Sender resolution unavailable, legacy path");
+    // Sender authorization is a trust-boundary check. A hosted API must not
+    // turn a database outage into an unscoped bare-address send; only the
+    // local development scaffold may retain the legacy fallback.
+    if (isProduction()) {
+      logger.error({ projectId }, "Sender resolution unavailable; refusing send");
+      throw new AppError(
+        "internal_error",
+        "Sender authorization is unavailable; the send was not accepted.",
+        500
+      );
+    }
+    logger.warn({ projectId }, "Sender resolution unavailable, legacy path (development only)");
   }
   // Template send-by-alias: latest version wins; missing variables are a
   // 400 naming every gap (silent defaults send the wrong email to someone).
@@ -358,7 +369,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       // stored response is visible by now.
       const stored = await lookupIdempotency(projectId, idempotencyKey!);
       if (stored) {
-        logger.info({ projectId, idempotencyKey, requestId }, "Idempotent replay (concurrent)");
+        logger.info({ projectId, requestId }, "Idempotent replay (concurrent)");
         return {
           response: stored.responseBody as { id: string; status: string; message: string },
           idempotentReplay: true,

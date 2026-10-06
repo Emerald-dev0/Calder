@@ -7,6 +7,7 @@ import {
   parseSesMessage,
   parseSnsEnvelope,
   verifySnsSignature,
+  isAllowedSnsUrl,
   SesEventError,
 } from "../lib/ses-events.js";
 
@@ -57,7 +58,10 @@ sesEvents.post("/events", async (c) => {
         200
       );
     }
-    const res = await fetch(env.SubscribeURL!, { signal: AbortSignal.timeout(10_000) });
+    if (!env.SubscribeURL || !isAllowedSnsUrl(env.SubscribeURL)) {
+      throw new SesEventError("SNS subscription URL is not an official SNS endpoint.");
+    }
+    const res = await fetch(env.SubscribeURL, { signal: AbortSignal.timeout(10_000) });
     if (!res.ok) {
       logger.error({ status: res.status, topicArn: env.TopicArn }, "SNS subscribe call failed");
       throw new SesEventError("SNS subscribe call failed.", 500);

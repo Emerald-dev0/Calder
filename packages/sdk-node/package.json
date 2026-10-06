@@ -1,7 +1,7 @@
 {
   "name": "calder",
   "version": "0.1.0",
-  "description": "Official Calder Node.js SDK — transactional email with durable delivery, idempotent sends, and honest delivery outcomes.",
+  "description": "Official Calder Node.js SDK \u2014 transactional email with durable delivery, idempotent sends, and honest delivery outcomes.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -37,7 +37,7 @@
   "devDependencies": {
     "@types/node": "^20.11.0",
     "typescript": "5.6.3",
-    "vitest": "^2.1.0"
+    "vitest": "^4.1.11"
   },
   "publishConfig": {
     "access": "public"

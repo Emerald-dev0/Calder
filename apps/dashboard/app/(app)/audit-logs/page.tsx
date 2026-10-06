@@ -10,20 +10,18 @@ import {
   PAGE_SIZE,
 } from "../../../lib/pagination";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { History, Search, ArrowRight } from "lucide-react";
-import {
-  DsPageHeader,
-  StatusPill,
-  RelativeTime,
-} from "../../../components/design-system";
+import { DsPageHeader, StatusPill, RelativeTime } from "../../../components/design-system";
 
 export const metadata = { title: "Calder — Audit Logs" };
 
 export default async function AuditLogsPage({
   searchParams,
 }: {
-  searchParams: { action?: string; cursor?: string };
+  searchParams: Promise<{ action?: string; cursor?: string }>;
 }) {
+  const query = await searchParams;
   const ctx = await getTenantContext();
   const projectIds = ctx.memberships.flatMap((m) => m.projects.map((p) => p.id));
   if (projectIds.length === 0) {
@@ -44,8 +42,13 @@ export default async function AuditLogsPage({
     );
   }
 
-  const actionFilter = stringParam(searchParams.action);
-  const cursor = decodeCursor(searchParams.cursor);
+  const actionFilter = stringParam(query.action);
+  let cursor: ReturnType<typeof decodeCursor>;
+  try {
+    cursor = decodeCursor(query.cursor);
+  } catch {
+    notFound();
+  }
   const db = getDb();
 
   const conds = [inArray(auditLogs.projectId, projectIds)];
@@ -166,7 +169,10 @@ export default async function AuditLogsPage({
                         {r.action}
                       </span>
                     </td>
-                    <td className="mono" style={{ fontSize: 12, color: "var(--color-ink-secondary)" }}>
+                    <td
+                      className="mono"
+                      style={{ fontSize: 12, color: "var(--color-ink-secondary)" }}
+                    >
                       {r.targetType ?? "—"} {r.targetId ? `(${r.targetId.slice(0, 14)})` : ""}
                     </td>
                     <td>

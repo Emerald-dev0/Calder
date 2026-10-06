@@ -8,9 +8,10 @@ import { Badge, Empty, KV, PageHeader, Panel } from "@/control/_components/ui";
 
 export const dynamic = "force-dynamic";
 
-export default async function UserDetailPage({ params }: { params: { id: string } }) {
+export default async function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requireSection("customers");
-  const data = await userDetail(params.id);
+  const { id } = await params;
+  const data = await userDetail(id);
   if (!data) notFound();
   const { user, memberships } = data;
 

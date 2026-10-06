@@ -30,7 +30,6 @@ import { Dot, Empty, InsightList, KV, Panel, SectionLabel, Stat } from "./_compo
 import { FounderTopbar } from "./_components/founder-topbar";
 
 const TrendChart = nextDynamic(() => import("@/components/charts").then((m) => m.TrendChart), {
-  ssr: false,
   loading: () => <div style={{ height: 320 }} />,
 });
 
@@ -52,10 +51,11 @@ function sparkRows(dense: Array<{ day: string; count: number }>): number[] {
 export default async function CommandCenter({
   searchParams,
 }: {
-  searchParams: { range?: string; from?: string; to?: string };
+  searchParams: Promise<{ range?: string; from?: string; to?: string }>;
 }) {
+  const query = await searchParams;
   await requireSection("overview");
-  const window = parseRange(searchParams.range, searchParams.from, searchParams.to);
+  const window = parseRange(query.range, query.from, query.to);
 
   // Every dataset loads independently so one failure degrades one section
   // (REQ-094), not the page.
@@ -200,8 +200,8 @@ export default async function CommandCenter({
         title="Command Center"
         context="Calder platform overview"
         rangeKey={window.key}
-        customFrom={searchParams.from}
-        customTo={searchParams.to}
+        customFrom={query.from}
+        customTo={query.to}
       />
       <main className="cp-content">
         <header className="cp-head">

@@ -30,7 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .limit(1);
   const onboardingComplete =
     Boolean(me?.onboardingCompletedAt) || me?.onboardingState === "completed";
-  const onboardingPaused = cookies().get("calder_onboarding_paused")?.value === "1";
+  const onboardingPaused = (await cookies()).get("calder_onboarding_paused")?.value === "1";
   if (!onboardingComplete && !onboardingPaused) {
     redirect("/onboarding");
   }
