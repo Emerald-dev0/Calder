@@ -575,11 +575,22 @@ export function CopyField({
           onClick={() => void handleCopy()}
           className="ds-btn ds-btn-secondary ds-btn-sm"
           style={{ height: 26, padding: "0 8px", fontSize: 11 }}
-          aria-label={label ? `Copy ${label}` : "Copy value"}
+          aria-label={
+            copied
+              ? label
+                ? `Copied ${label}`
+                : "Copied value"
+              : label
+                ? `Copy ${label}`
+                : "Copy value"
+          }
         >
           {copied ? <Check size={12} /> : <Copy size={12} />}
           <span>{copied ? "Copied" : "Copy"}</span>
         </button>
+        <span className="sr-only" aria-live="polite">
+          {copied ? (label ? `Copied ${label} to clipboard` : "Copied to clipboard") : ""}
+        </span>
       </div>
     </div>
   );
