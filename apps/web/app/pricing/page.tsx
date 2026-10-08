@@ -12,7 +12,7 @@ import { PLANS, PRICING_FAQS } from "../../lib/plans";
 export const metadata: Metadata = pageMeta({
   title: "Pricing",
   description:
-    "Beginner is free: 5,000 emails, 3 projects, 2 domains. Pro is $15 or ₦25,000 for 50,000 emails and production environments. Premium is $49 or ₦75,000 for 250,000. Naira and dollar prices are separate decisions, not conversions.",
+    "Free today: 5,000 emails a month, 3 projects, 2 sending domains, no card required. Pro, Premium, and Scale plans are coming soon.",
   path: "/pricing",
 });
 
@@ -46,13 +46,12 @@ export default function PricingPage() {
           title="Infrastructure that starts free."
           lede={
             <>
-              Build, ship, and grow without paying before you need to. Every Calder plan includes
-              the core infrastructure for sending, tracking, and understanding application
-              communication.
+              Build and ship on the Free plan today. Paid plans are coming soon, and nothing on
+              this page can be purchased yet.
               <br />
               <br />
-              <strong>5,000 emails every month at ₦0.</strong> No credit card. No trial clock. No
-              surprise overages.
+              <strong>5,000 emails every month at no cost.</strong> No credit card. No trial
+              clock. No surprise overages.
             </>
           }
         />

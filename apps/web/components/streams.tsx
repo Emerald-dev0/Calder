@@ -109,6 +109,7 @@ export function Streams() {
             <div className="lane lane-live">
               <div className="lane-head">
                 <h3>Marketing</h3>
+                {MARKETING_SUITE === "dev" && <span className="plan-tag">in development</span>}
               </div>
               <p className="lane-caption">
                 The messages you send when you have something to say. Audiences, consent,

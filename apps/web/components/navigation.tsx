@@ -57,7 +57,10 @@ export function Navigation() {
           ))}
         </nav>
         <div className="nav-cta">
-          <a className="btn btn-primary btn-sm" href="/waitlist">
+          <a className="nav-login" href={LOGIN_URL}>
+            Log in
+          </a>
+          <a className="btn btn-primary btn-sm" href={SIGNUP_URL}>
             Start free{" "}
             <span className="arrow" aria-hidden="true">
               &rarr;

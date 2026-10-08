@@ -12,8 +12,10 @@
  *   that is selling something it cannot deliver.
  */
 
+import { SIGNUP_URL, SUPPORT_EMAIL } from "./site";
+
 export type Currency = "NGN" | "USD";
-export type PlanId = "beginner" | "pro" | "premium" | "scale";
+export type PlanId = "free" | "pro" | "premium" | "scale";
 
 /** Honest status for anything that is not simply available today. */
 export type Status = "today" | "dev";
@@ -40,12 +42,18 @@ export interface Plan {
   cta: string;
   ctaHref: string;
   popular?: boolean;
+  /**
+   * True only for plans a customer can actually be on today. Paid checkout
+   * does not exist yet, so everything except Free is "coming soon" and the
+   * site must not present a price as something purchasable.
+   */
+  available: boolean;
 }
 
 export const PLANS: Plan[] = [
   {
-    id: "beginner",
-    name: "Beginner",
+    id: "free",
+    name: "Free",
     promise: "Build without worrying about the bill.",
     audience:
       "For personal projects, prototypes, early products, and developers getting their first application communication into production.",
@@ -75,7 +83,8 @@ export const PLANS: Plan[] = [
       "1 team member",
     ],
     cta: "Start free",
-    ctaHref: "/waitlist",
+    ctaHref: SIGNUP_URL,
+    available: true,
   },
   {
     id: "pro",
@@ -92,7 +101,7 @@ export const PLANS: Plan[] = [
     logs: "30 days",
     support: "Email",
     highlights: [
-      "Everything in Beginner",
+      "Everything in Free",
       "Staging and production environments",
       "10 projects",
       "10 sending domains",
@@ -109,9 +118,9 @@ export const PLANS: Plan[] = [
       "Roles and permissions",
       "Email support",
     ],
-    cta: "Choose Pro",
-    ctaHref: "/waitlist",
-    popular: true,
+    cta: "Coming soon",
+    ctaHref: "",
+    available: false,
   },
   {
     id: "premium",
@@ -146,8 +155,9 @@ export const PLANS: Plan[] = [
       "15 team members",
       "Priority support",
     ],
-    cta: "Choose Premium",
-    ctaHref: "/waitlist",
+    cta: "Coming soon",
+    ctaHref: "",
+    available: false,
   },
   {
     id: "scale",
@@ -182,13 +192,14 @@ export const PLANS: Plan[] = [
       "Custom contracts and billing",
     ],
     cta: "Talk to Calder",
-    ctaHref: "mailto:hello@calder.click?subject=Calder%20Scale",
+    ctaHref: `mailto:${SUPPORT_EMAIL}?subject=Calder%20Scale`,
+    available: false,
   },
 ];
 
 /** One-line progression shown under the cards. See docs/PRICING.md § narrative. */
 export const PROGRESSION = [
-  { plan: "Beginner", line: "Build and experiment." },
+  { plan: "Free", line: "Build and experiment." },
   { plan: "Pro", line: "Ship and grow." },
   { plan: "Premium", line: "Operate at scale." },
   { plan: "Scale", line: "Make communication infrastructure." },
@@ -352,12 +363,12 @@ export const PRICING_FAQS: Array<{ q: string; a: string }> = [
     a: "Sending pauses. The API returns a clear error showing the limit, your current usage, and when the quota resets. There are no automatic overage charges.",
   },
   {
-    q: "Are the naira and dollar prices converted?",
-    a: "No. ₦25,000 and $15 are intentionally separate prices for the same plan. They aren't tied to a daily exchange-rate calculation.",
+    q: "Can I pay for Pro or Premium today?",
+    a: "Not yet. Free is the only plan available right now, and paid plans are coming soon. Their limits and prices are planned, not final, and nothing is charged until you choose a plan.",
   },
   {
-    q: "Can I change plans?",
-    a: "Yes. Upgrade or downgrade from your dashboard. Your projects, API keys, logs, and sending history stay with you.",
+    q: "Will my work carry over when paid plans launch?",
+    a: "That is the plan. Your projects, API keys, logs, and sending history belong to your account, and Free stays free while you build.",
   },
   {
     q: "Do I need a domain to start?",

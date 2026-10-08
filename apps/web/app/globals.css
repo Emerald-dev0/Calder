@@ -242,7 +242,35 @@ a {
   .nav-links.open {
     display: flex;
   }
-  .nav-toggle {
+.nav-login {
+  font-size: 0.9rem;
+  color: inherit;
+  opacity: 0.8;
+  padding: 0.4rem 0.6rem;
+}
+
+.nav-login:hover {
+  opacity: 1;
+}
+
+.price-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.price-flag {
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  opacity: 0.7;
+}
+
+.nav-toggle {
     display: inline-flex;
     background: none;
     border: 1px solid var(--border);
@@ -1603,7 +1631,7 @@ a {
   overflow: hidden;
 }
 
-/* ── Margin note ──────────────────────────────────────────────── */
+/* ── Margin note ─────────────────────────────��────────────────── */
 
 .margin-note {
   font-family: var(--mono);

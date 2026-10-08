@@ -1,5 +1,7 @@
 import Image from "next/image";
-import { configuredProviders } from "@calder/auth";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { configuredProviders, getSessionUser, SESSION_COOKIE } from "@calder/auth";
 import { SignupForm } from "./signup-form";
 import { CalderLockup } from "@calder/ui";
 
@@ -7,7 +9,9 @@ export const metadata = {
   title: "Create your Calder account",
 };
 
-export default function SignupPage() {
+export default async function SignupPage() {
+  const cookieStore = await cookies();
+  if (await getSessionUser(cookieStore.get(SESSION_COOKIE)?.value)) redirect("/");
   const providers = configuredProviders();
 
   return (

@@ -118,7 +118,7 @@ export function articleJsonLd(input: {
  * it carries no price and no fake number.
  */
 export function pricingJsonLd(plans: Plan[]): Record<string, unknown> {
-  const offers = plans.flatMap((plan) => {
+  const offers = plans.filter((plan) => plan.available).flatMap((plan) => {
     const entries: { currency: string; price: string }[] = [
       { currency: "USD", price: plan.price.USD },
       { currency: "NGN", price: plan.price.NGN },

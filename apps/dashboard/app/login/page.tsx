@@ -1,5 +1,7 @@
 import Image from "next/image";
-import { configuredProviders } from "@calder/auth";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { configuredProviders, getSessionUser, SESSION_COOKIE } from "@calder/auth";
 import { LoginForm } from "./login-form";
 import { CalderLockup } from "@calder/ui";
 
@@ -12,6 +14,8 @@ export default async function LoginPage({
 }: {
   searchParams?: Promise<{ error?: string }>;
 }) {
+  const cookieStore = await cookies();
+  if (await getSessionUser(cookieStore.get(SESSION_COOKIE)?.value)) redirect("/");
   const query = await searchParams;
   const providers = configuredProviders();
   const devLogin = process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_LOGIN === "true";

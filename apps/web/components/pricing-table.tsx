@@ -54,8 +54,7 @@ function PlanHead() {
           <th scope="col" key={p.id}>
             <span className="cmp-plan">{p.name}</span>
             <span className="cmp-price mono">
-              {p.price.USD}
-              {p.volumeRaw !== null ? " / mo" : ""}
+              {p.available ? `${p.price.USD} / mo` : p.id === "scale" ? "Custom" : "Coming soon"}
             </span>
           </th>
         ))}

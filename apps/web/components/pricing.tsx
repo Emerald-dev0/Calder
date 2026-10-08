@@ -1,16 +1,11 @@
-"use client";
-
-import * as React from "react";
 import { Reveal } from "./reveal";
-import { PLANS, PROGRESSION, type Currency } from "../lib/plans";
+import { PLANS, PROGRESSION } from "../lib/plans";
 
 /**
- * Plan cards. Four plans, two real currencies, no asterisks: every figure
- * shown is the price someone actually pays (see lib/plans.ts).
+ * Plan cards. Free is live today. Paid plans are announced but not purchasable
+ * yet, so they never show a price as if checkout existed (see lib/plans.ts).
  */
 export function Pricing() {
-  const [currency, setCurrency] = React.useState<Currency>("NGN");
-
   return (
     <section className="section" id="pricing" style={{ paddingTop: 0 }}>
       <div className="wrap">
@@ -20,45 +15,31 @@ export function Pricing() {
             Start free. <em>Grow when you need to.</em>
           </h2>
           <p className="lede" style={{ marginTop: "1.2rem" }}>
-            Five thousand emails every month. No card. No sales call. No artificial &ldquo;try
-            it&rdquo; experience. Build, ship, and grow without paying before you need to.
+            Five thousand emails every month. No card. No sales call. Paid plans are on the way,
+            and Free stays free while you build.
           </p>
-        </Reveal>
-
-        <Reveal delay={80}>
-          <div style={{ marginTop: "1.8rem" }} role="group" aria-label="Display currency">
-            <div className="currency-toggle">
-              {(["NGN", "USD"] as const).map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  aria-pressed={currency === c}
-                  onClick={() => setCurrency(c)}
-                >
-                  {c === "NGN" ? "₦ Naira" : "$ Dollars"}
-                </button>
-              ))}
-            </div>
-            <p className="caption" style={{ marginTop: "0.6rem" }}>
-              Two real prices per plan. Changing the display never changes what you pay.
-            </p>
-          </div>
         </Reveal>
 
         <div className="pricing-grid">
           {PLANS.map((plan, i) => (
-            <Reveal
-              key={plan.id}
-              delay={i * 80}
-              className={`price-card${plan.popular ? "featured" : ""}`}
-            >
+            <Reveal key={plan.id} delay={i * 80} className="price-card">
               <div className="price-head">
                 <div className="price-tier">{plan.name}</div>
-                {plan.popular && <span className="price-flag">Most teams start here</span>}
+                {!plan.available && plan.id !== "scale" && (
+                  <span className="price-flag">Coming soon</span>
+                )}
               </div>
               <div className="price-amount">
-                {plan.price[currency]}
-                {plan.volumeRaw !== null && <small>/ month</small>}
+                {plan.available ? (
+                  <>
+                    {plan.price.USD}
+                    <small>/ month</small>
+                  </>
+                ) : plan.id === "scale" ? (
+                  "Custom"
+                ) : (
+                  "Soon"
+                )}
               </div>
               <p className="price-promise">{plan.promise}</p>
               <p className="price-quota">{plan.volume}</p>
@@ -67,12 +48,18 @@ export function Pricing() {
                   <li key={f}>{f}</li>
                 ))}
               </ul>
-              <a
-                className={`btn ${plan.popular ? "btn-paper" : "btn-secondary"}`}
-                href={plan.ctaHref}
-              >
-                {plan.cta}
-              </a>
+              {plan.ctaHref ? (
+                <a
+                  className={`btn ${plan.available ? "btn-primary" : "btn-secondary"}`}
+                  href={plan.ctaHref}
+                >
+                  {plan.cta}
+                </a>
+              ) : (
+                <button className="btn btn-secondary" type="button" disabled>
+                  {plan.cta}
+                </button>
+              )}
             </Reveal>
           ))}
         </div>
@@ -93,6 +80,7 @@ export function Pricing() {
             <p className="caption">
               Limits are hard limits. When you reach one, sending pauses with an error that names
               it, your usage, and when it resets. Nothing is charged without you choosing it.
+              Paid plan limits shown here are planned and may change before launch.
             </p>
             <a className="btn btn-secondary btn-sm" href="/pricing">
               Compare every plan{" "}

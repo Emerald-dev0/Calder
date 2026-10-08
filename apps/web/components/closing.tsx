@@ -50,7 +50,7 @@ export function FinalCta() {
               <strong> Send</strong>.
             </p>
             <div className="final-ctas">
-              <a className="btn btn-paper" href="/waitlist">
+              <a className="btn btn-paper" href={SIGNUP_URL}>
                 Create your account{" "}
                 <span className="arrow" aria-hidden="true">
                   →

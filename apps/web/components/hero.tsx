@@ -116,7 +116,7 @@ export function Hero() {
               5,000 emails free every month. No card required.
             </p>
             <div className="hero-ctas">
-              <a className="btn btn-primary" href="/waitlist">
+              <a className="btn btn-primary" href={SIGNUP_URL}>
                 Start free{" "}
                 <span className="arrow" aria-hidden="true">
                   &rarr;
