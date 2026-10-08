@@ -336,7 +336,7 @@ body {
   }
 }
 
-/* ── First-delivery arrival ─────────────────────────────────── */
+/* ── First-delivery arrival ────────────────────���────────────── */
 
 .arrival {
   position: relative;
@@ -549,12 +549,18 @@ body {
   margin-top: 1.6rem;
 }
 
-.login-form-wrap {
+  .login-form-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--color-paper);
+  color: var(--color-ink);
   padding: clamp(2rem, 5vw, 4rem) clamp(1.5rem, 4vw, 3rem);
-}
+  }
+
+  .login-form-wrap * {
+  color-scheme: light;
+  }
 
 .login-form {
   width: 100%;
@@ -4748,6 +4754,59 @@ body:has(.onb-root) {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
+}
+
+/* Launch polish: make status and auth surfaces readable in both themes. */
+.ov-status-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ov-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #3f8f67;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #3f8f67 15%, transparent);
+}
+
+.ov-status-separator {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--color-border-strong);
+}
+
+@media (max-width: 700px) {
+  .ov-status-line { margin-top: 9px; }
+}
+
+.login-form-wrap {
+  background: var(--color-paper) !important;
+  color: var(--color-ink) !important;
+}
+
+.login-form-wrap input,
+.login-form-wrap button,
+.login-form-wrap label,
+.login-form-wrap p,
+.login-form-wrap h1,
+.login-form-wrap a {
+  color-scheme: light;
+}
+
+.login-form-wrap input {
+  background: #fff;
+  color: var(--color-ink);
+}
+
+.login-form-wrap input::placeholder {
+  color: var(--color-muted);
 }
 
 .onb-preview-card {

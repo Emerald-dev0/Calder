@@ -75,7 +75,7 @@ export const PLANS: Plan[] = [
       "1 team member",
     ],
     cta: "Start free",
-    ctaHref: "/waitlist",
+    ctaHref: "/signup",
   },
   {
     id: "pro",
@@ -110,7 +110,7 @@ export const PLANS: Plan[] = [
       "Email support",
     ],
     cta: "Choose Pro",
-    ctaHref: "/waitlist",
+    ctaHref: "/signup",
     popular: true,
   },
   {
@@ -147,7 +147,7 @@ export const PLANS: Plan[] = [
       "Priority support",
     ],
     cta: "Choose Premium",
-    ctaHref: "/waitlist",
+    ctaHref: "/signup",
   },
   {
     id: "scale",
