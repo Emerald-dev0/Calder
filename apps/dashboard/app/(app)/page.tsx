@@ -260,6 +260,12 @@ export default async function OverviewPage() {
           <h1 className="ov-title">
             {salutation}, {firstName}
           </h1>
+          <div className="ov-status-line" aria-label="Workspace status">
+            <span className="ov-status-dot" aria-hidden="true" />
+            <span>Live workspace</span>
+            <span className="ov-status-separator" aria-hidden="true" />
+            <span>{planName} plan</span>
+          </div>
           <p className="ov-sub">
             {ctx.memberships.length === 0
               ? "You don't belong to an organization yet. Create one to start sending."
