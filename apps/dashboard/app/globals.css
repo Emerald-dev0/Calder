@@ -3209,7 +3209,7 @@ body:has(.onb-root) {
   flex-wrap: wrap;
 }
 
-/* ── Stat / Metric Cards & Responsive Grids ──────────────────── */
+/* ── Stat / Metric Cards & Responsive Grids ──────────��───────── */
 .ds-stat-grid,
 .ds-grid-4 {
   display: grid;
@@ -3380,7 +3380,7 @@ body:has(.onb-root) {
   border-color: var(--color-danger-border);
 }
 
-/* ── CopyField & CodeBlock ───────────────────────────────────── */
+/* ── CopyField & CodeBlock ──────────────────────────��────────── */
 .ds-copy-field {
   display: flex;
   align-items: center;
@@ -4836,6 +4836,34 @@ body:has(.onb-root) {
   background: var(--color-ink);
   border-color: var(--color-ink);
   color: var(--color-paper);
+}
+
+/* Dashboard finish: clearer hierarchy and calmer interaction states. */
+.ov-header {
+  padding: 22px 24px 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-elevated) 100%);
+  box-shadow: var(--shadow-xs);
+}
+
+.ov-header-text { min-width: min(100%, 420px); }
+.ov-metrics { box-shadow: var(--shadow-xs); }
+.ov-metric { transition: background var(--duration-fast) var(--ease-out); }
+.ov-metric:hover { background: var(--color-surface-elevated); }
+.ov-panel,
+.ov-setup {
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out);
+}
+.ov-panel:hover { border-color: var(--color-border-strong); box-shadow: var(--shadow-sm); }
+.ov-row,
+.ov-kv { transition: background var(--duration-fast) var(--ease-out); }
+.ov-row:hover,
+.ov-kv:hover { background: var(--color-surface-elevated); }
+
+@media (max-width: 560px) {
+  .ov-header { padding: 18px 16px; }
 }
 
 .onb-preview-title {
