@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import {
   getSessionUser,
   loginWithPassword,
@@ -11,6 +10,7 @@ import {
   sessionCookieHeader,
   SESSION_COOKIE,
 } from "@calder/auth";
+import { getReqCookie } from "../../../../lib/req-cookie";
 import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { logger } from "@calder/observability";
 import { clientIp } from "../../../../lib/client-ip";
@@ -63,7 +63,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   try {
-    const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+    const previous = await getSessionUser(await getReqCookie(req, SESSION_COOKIE));
     const result = await loginWithPassword(
       email,
       password,

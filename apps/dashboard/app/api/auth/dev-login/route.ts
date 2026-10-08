@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { getDb, users } from "@calder/db";
@@ -13,6 +12,7 @@ import {
   sessionCookieHeader,
   SESSION_COOKIE,
 } from "@calder/auth";
+import { getReqCookie } from "../../../../lib/req-cookie";
 import { postLoginRedirect } from "../../../../lib/control/post-login";
 import { sameOriginRequest } from "../../../../lib/csrf";
 
@@ -60,7 +60,7 @@ export async function POST(req: Request): Promise<Response> {
     req.headers.get("x-real-ip")?.trim() ||
     "127.0.0.1";
   const userAgent = req.headers.get("user-agent") || "Calder Dev Session";
-  const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+  const previous = await getSessionUser(await getReqCookie(req, SESSION_COOKIE));
   const sessionId = await rotateSession(userId, previous?.sessionId, { ip, userAgent });
   const sealed = await sealSessionCookie(sessionId);
   const res = NextResponse.redirect(new URL(await postLoginRedirect(email), req.url));
