@@ -1,9 +1,8 @@
-import Image from "next/image";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { configuredProviders, getSessionUser, SESSION_COOKIE } from "@calder/auth";
 import { SignupForm } from "./signup-form";
-import { CalderLockup } from "@calder/ui";
+import { AuthShell } from "../../components/auth-shell";
 
 export const metadata = {
   title: "Create your Calder account",
@@ -15,41 +14,8 @@ export default async function SignupPage() {
   const providers = configuredProviders();
 
   return (
-    <div className="login-split">
-      <div className="login-art" aria-hidden="true">
-        <div className="login-art-brand">
-          <CalderLockup tone="paper" size={20} />
-        </div>
-        <h2 className="login-art-headline">Reliable delivery, made legible.</h2>
-        <p className="login-art-sub">
-          One unified infrastructure for modern developers. Everything on the record: queued, sent,
-          delivered, with zero mystery.
-        </p>
-        <div className="login-art-stage">
-          <Image
-            src="/illustrations/hero-courier-cutout.webp"
-            alt=""
-            width={1536}
-            height={1024}
-            priority
-            className="login-courier"
-          />
-          <Image
-            src="/illustrations/onboarding-arrival-letter.webp"
-            alt=""
-            width={462}
-            height={133}
-            className="login-envelope"
-          />
-        </div>
-        <p className="login-art-caption">Carried, not wished.</p>
-      </div>
-
-      <div className="login-form-wrap">
-        <div className="login-form">
-          <SignupForm providers={providers} />
-        </div>
-      </div>
-    </div>
+    <AuthShell switchHref="/login" switchLabel="Sign in">
+      <SignupForm providers={providers} />
+    </AuthShell>
   );
 }
