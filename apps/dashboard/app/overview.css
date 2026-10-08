@@ -1,0 +1,659 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   OVERVIEW — dashboard home
+   ══════════════════════════════════════════════════════════════════════════ */
+.ov {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────── */
+.ov-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.ov-header-text {
+  min-width: 0;
+}
+.ov-title {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.15;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  color: var(--color-ink);
+  text-wrap: balance;
+}
+.ov-sub {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  color: var(--color-muted);
+}
+.ov-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Shared panel ────────────────────────────────────────────────────── */
+.ov-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+.ov-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+.ov-panel-title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--color-ink);
+}
+.ov-panel-body {
+  padding: 20px;
+}
+.ov-chip {
+  padding: 2px 9px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+html[data-theme="dark"] .ov-chip {
+  color: var(--color-accent);
+}
+.ov-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-accent-bright);
+  text-decoration: none;
+}
+.ov-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ov-link.is-muted {
+  color: var(--color-muted);
+  font-weight: 500;
+}
+.ov-link.is-muted:hover {
+  color: var(--color-ink);
+}
+
+/* ── Setup checklist ─────────────────────────────────────────────────── */
+.ov-setup {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+.ov-setup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+.ov-setup-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.ov-setup-count {
+  font-size: 12px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+.ov-setup-track {
+  display: inline-flex;
+  gap: 4px;
+}
+.ov-setup-seg {
+  width: 28px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-border-strong);
+}
+.ov-setup-seg.is-done {
+  background: var(--color-accent-bright);
+}
+.ov-setup-tools {
+  display: flex;
+  gap: 2px;
+}
+.ov-steps {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+}
+.ov-step {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 14px;
+  border-radius: var(--radius-lg);
+}
+.ov-step.is-next {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  padding: 14px;
+  margin: 4px 0;
+}
+.ov-step-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-border-strong);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+.ov-step.is-next .ov-step-mark {
+  border-color: var(--color-accent-bright);
+  color: var(--color-accent-bright);
+}
+.ov-step.is-done .ov-step-mark {
+  border-color: var(--color-success);
+  background: var(--color-success);
+  color: var(--color-surface);
+}
+.ov-step-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ov-step-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--color-ink);
+}
+.ov-step.is-done .ov-step-title {
+  color: var(--color-muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--color-border-strong);
+}
+.ov-step.is-next .ov-step-title {
+  font-weight: 600;
+}
+.ov-step-opt {
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--color-subtle);
+}
+.ov-step-desc {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--color-muted);
+}
+.ov-step-state {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-success);
+}
+
+/* ── KPI strip ───────────────────────────────────────────────────────── */
+.ov-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+.ov-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 22px 20px;
+  border-left: 1px solid var(--color-border);
+}
+.ov-metric:first-child {
+  border-left: 0;
+}
+.ov-metric-label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+.ov-metric-value {
+  font-size: 32px;
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--color-ink);
+}
+.ov-metric-sub {
+  font-size: 12px;
+  color: var(--color-subtle);
+}
+.ov-metric-sub.is-danger {
+  color: var(--color-danger);
+  font-weight: 500;
+}
+
+/* ── Volume chart ────────────────────────────────────────────────────── */
+.ov-chart-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+.ov-legend {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.ov-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+.ov-legend-item b {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.ov-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+.ov-swatch.is-delivered,
+.ov-bar.is-delivered {
+  background: var(--color-accent-bright);
+}
+.ov-swatch.is-failed,
+.ov-bar.is-failed {
+  background: var(--color-danger);
+}
+.ov-chart-body {
+  display: flex;
+  gap: 12px;
+  padding: 22px 20px 6px;
+}
+.ov-chart-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 200px;
+  font-size: 11px;
+  color: var(--color-subtle);
+  text-align: right;
+  min-width: 28px;
+}
+.ov-chart-plot {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.ov-chart-grid {
+  position: absolute;
+  inset: 0 0 22px 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.ov-chart-grid span {
+  height: 1px;
+  background: var(--color-border);
+}
+.ov-chart-grid span:last-child {
+  background: var(--color-border-strong);
+}
+.ov-chart-bars {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  height: 222px;
+}
+.ov-bar-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: var(--radius-sm);
+}
+.ov-bar-col.is-hover {
+  background: var(--color-surface-sunken);
+}
+.ov-bar-stack {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 1px;
+  min-height: 0;
+}
+.ov-bar {
+  width: min(100%, 28px);
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+.ov-bar-col.is-hover .ov-bar {
+  opacity: 0.85;
+}
+.ov-bar-label {
+  height: 22px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  font-size: 10.5px;
+  color: var(--color-subtle);
+  white-space: nowrap;
+}
+.ov-chart-tip {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-elevated);
+  box-shadow: var(--shadow-md);
+  font-size: 12px;
+  color: var(--color-muted);
+  pointer-events: none;
+}
+.ov-chart-tip b {
+  color: var(--color-ink);
+}
+.ov-chart-empty {
+  position: absolute;
+  inset: 0 0 22px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-muted);
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+}
+.ov-chart-foot {
+  padding: 0 20px 14px 60px;
+  font-size: 11px;
+  color: var(--color-subtle);
+}
+
+/* ── Split layout ────────────────────────────────────────────────────── */
+.ov-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.ov-side {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Lists ───────────────────────────────────────────────────────────── */
+.ov-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ov-rows > li + li {
+  border-top: 1px solid var(--color-border);
+}
+.ov-row,
+.ov-kv {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 20px;
+  color: inherit;
+  text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+.ov-row:hover,
+.ov-kv:hover {
+  background: var(--color-surface-hover);
+}
+.ov-row .ov-status {
+  width: 98px;
+  flex-shrink: 0;
+}
+.ov-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ov-row-subject {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-row-to {
+  font-size: 12px;
+  color: var(--color-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-row-time {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--color-subtle);
+}
+.ov-kv {
+  justify-content: space-between;
+}
+.ov-kv-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--color-ink);
+}
+.ov-kv-icon {
+  display: inline-flex;
+  color: var(--color-subtle);
+}
+
+/* ── Status pills ────────────────────────────────────────────────────── */
+.ov-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.ov-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-subtle);
+  flex-shrink: 0;
+}
+.ov-tone-success {
+  color: var(--color-success);
+}
+.ov-tone-success .ov-dot {
+  background: var(--color-success);
+}
+.ov-tone-warning,
+.ov-tone-pending {
+  color: var(--color-warning);
+}
+.ov-tone-warning .ov-dot,
+.ov-tone-pending .ov-dot {
+  background: var(--color-warning);
+}
+.ov-tone-danger {
+  color: var(--color-danger);
+}
+.ov-tone-danger .ov-dot {
+  background: var(--color-danger);
+}
+.ov-tone-info {
+  color: var(--color-info);
+}
+.ov-tone-info .ov-dot {
+  background: var(--color-info);
+}
+.ov-tone-neutral {
+  color: var(--color-muted);
+}
+
+/* ── Usage ───────────────────────────────────────────────────────────── */
+.ov-usage-figure {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--color-ink);
+}
+.ov-usage-figure span {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--color-subtle);
+}
+.ov-meter {
+  height: 6px;
+  margin: 14px 0 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  overflow: hidden;
+}
+.ov-meter-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent-bright);
+}
+.ov-meter-fill.is-warning {
+  background: var(--color-warning);
+}
+.ov-meter-fill.is-danger {
+  background: var(--color-danger);
+}
+.ov-usage-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+.ov-usage-links {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────── */
+.ov-empty {
+  padding: 36px 24px 28px;
+  text-align: center;
+}
+.ov-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.ov-empty-text {
+  max-width: 360px;
+  margin: 6px auto 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--color-muted);
+}
+.ov-empty-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .ov-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 860px) {
+  .ov-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ov-metric:nth-child(3) {
+    border-left: 0;
+  }
+  .ov-metric:nth-child(n + 3) {
+    border-top: 1px solid var(--color-border);
+  }
+}
+@media (max-width: 560px) {
+  .ov-title {
+    font-size: 24px;
+  }
+  .ov-metric {
+    padding: 14px 16px;
+  }
+  .ov-metric-value {
+    font-size: 26px;
+  }
+  .ov-row .ov-status {
+    width: auto;
+  }
+  .ov-row {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+  }
+  .ov-row-main {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .ov-row-time {
+    margin-left: auto;
+  }
+  .ov-step {
+    flex-wrap: wrap;
+  }
+  .ov-setup-track {
+    display: none;
+  }
+}

@@ -34,7 +34,6 @@ import {
   LogOut,
   Keyboard,
   FlaskConical,
-  Radio,
   Palette,
   ChevronUp,
 } from "lucide-react";
@@ -304,40 +303,23 @@ export function AppShell({
 
   return (
     <div className="shell-root">
-      {/* Mobile overlay backdrop */}
       {mobileOpen && (
         <div
+          className="shell-backdrop"
           onClick={() => setMobileOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(11, 12, 14, 0.55)",
-            backdropFilter: "blur(3px)",
-            zIndex: 45,
-          }}
+          aria-hidden="true"
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={`shell-sidebar ${collapsed ? "is-collapsed" : ""} ${mobileOpen ? "is-mobile-open" : ""}`}
-        aria-label="Primary Sidebar"
+        aria-label="Primary sidebar"
       >
         <div className="shell-sidebar-header">
           <div className="shell-brand-row">
-            <Link
-              href={withProject("/")}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                textDecoration: "none",
-                color: "var(--color-ink)",
-                overflow: "hidden",
-              }}
-            >
+            <Link href={withProject("/")} className="shell-brand-link" aria-label="Calder home">
               <span className="shell-brand">
-                <CalderLockup size={20} />
+                <CalderLockup size={collapsed ? 18 : 20} />
               </span>
             </Link>
             <button
@@ -354,10 +336,9 @@ export function AppShell({
           <ContextSwitcher memberships={memberships} collapsed={collapsed} />
         </div>
 
-        {/* Scrollable Navigation */}
         <nav aria-label="Dashboard" className="shell-nav-scroll">
-          {navGroups.map((group) => (
-            <div key={group.heading} className="shell-nav-group">
+          {navGroups.map((group, gi) => (
+            <div key={group.heading || `group-${gi}`} className="shell-nav-group">
               {group.heading && !collapsed && (
                 <div className="shell-nav-heading">{group.heading}</div>
               )}
@@ -367,22 +348,14 @@ export function AppShell({
                   <Link
                     key={item.label}
                     href={withProject(item.href)}
-                    className={`shell-nav-link ${active ? "is-active" : ""}`}
+                    className={`shell-nav-link ${active ? "is-active" : ""} ${item.founder ? "is-founder" : ""}`}
                     title={collapsed ? item.label : undefined}
+                    aria-current={active ? "page" : undefined}
                   >
                     <span className="shell-nav-icon">{item.icon}</span>
                     {!collapsed && (
                       <>
-                        <span
-                          style={{
-                            flex: 1,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {item.label}
-                        </span>
+                        <span className="shell-nav-label">{item.label}</span>
                         {item.badgeWarn && (
                           <span
                             className="shell-nav-dot"
@@ -404,52 +377,27 @@ export function AppShell({
           ))}
         </nav>
 
-        {/* Sticky Sidebar Footer: Plan Usage + User Profile */}
         <div className="shell-sidebar-footer" ref={userMenuRef}>
           {!collapsed && (
             <div className="shell-usage-box">
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  fontSize: 11.5,
-                }}
-              >
-                <span style={{ fontWeight: 600, color: "var(--color-ink)" }}>
-                  {usageSummary.planName} Plan
-                </span>
-                <Link
-                  href="/usage"
-                  style={{
-                    fontSize: 11,
-                    color: "var(--color-accent)",
-                    textDecoration: "none",
-                    fontWeight: 600,
-                  }}
-                >
-                  Manage →
-                </Link>
+              <div className="shell-usage-top">
+                <span>{usageSummary.planName} plan</span>
+                <Link href="/usage">Manage</Link>
               </div>
-              <div className="shell-usage-bar">
+              <div
+                className="shell-usage-bar"
+                role="progressbar"
+                aria-valuenow={usagePct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Monthly email usage"
+              >
                 <div
-                  className="shell-usage-fill"
-                  style={{
-                    width: `${Math.max(2, usagePct)}%`,
-                    background:
-                      usagePct >= 90 ? "var(--color-danger)" : "var(--color-accent)",
-                  }}
+                  className={`shell-usage-fill ${usagePct >= 90 ? "is-danger" : ""}`}
+                  style={{ width: `${Math.max(2, usagePct)}%` }}
                 />
               </div>
-              <div
-                className="mono tabular-nums"
-                style={{
-                  fontSize: 11,
-                  color: "var(--color-muted)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                }}
-              >
+              <div className="shell-usage-meta tabular-nums">
                 <span>
                   {usageSummary.sentThisMonth.toLocaleString()} /{" "}
                   {usageSummary.monthlyQuota.toLocaleString()} emails
@@ -459,45 +407,22 @@ export function AppShell({
             </div>
           )}
 
-          {/* User Profile Popover Menu */}
-          <div style={{ position: "relative" }}>
+          <div className="shell-pop-anchor">
             <button
               type="button"
               onClick={() => setUserMenuOpen((v) => !v)}
               className="shell-user-btn"
               title={`${displayName} (${user.email})`}
               aria-expanded={userMenuOpen}
+              aria-haspopup="menu"
               aria-label="Open account menu"
             >
               <Avatar name={displayName} email={user.email} size={30} />
               {!collapsed && (
                 <>
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span
-                      style={{
-                        display: "block",
-                        fontSize: 12.5,
-                        fontWeight: 600,
-                        color: "var(--color-ink)",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {displayName}
-                    </span>
-                    <span
-                      className="mono"
-                      title={user.email}
-                      style={{
-                        display: "block",
-                        fontSize: 11,
-                        color: "var(--color-muted)",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
+                  <span className="shell-user-info">
+                    <span className="shell-user-name">{displayName}</span>
+                    <span className="shell-user-email mono" title={user.email}>
                       {user.email}
                     </span>
                   </span>
@@ -515,226 +440,98 @@ export function AppShell({
             </button>
 
             {userMenuOpen && (
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: "calc(100% + 8px)",
-                  left: 0,
-                  width: 256,
-                  background: "var(--color-surface)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "var(--radius-lg)",
-                  boxShadow: "var(--shadow-lg)",
-                  padding: 8,
-                  zIndex: 80,
-                }}
-              >
-                <div
-                  style={{
-                    padding: "6px 8px 10px",
-                    borderBottom: "1px solid var(--color-border)",
-                    marginBottom: 6,
-                  }}
-                >
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-ink)" }}>
-                    {displayName}
-                  </div>
-                  <div
-                    className="mono"
-                    style={{
-                      fontSize: 11.5,
-                      color: "var(--color-muted)",
-                      wordBreak: "break-all",
-                      marginTop: 2,
-                    }}
-                  >
-                    {user.email}
-                  </div>
+              <div className="shell-pop is-up" role="menu">
+                <div className="shell-pop-head">
+                  <div className="shell-pop-title">{displayName}</div>
+                  <div className="shell-pop-sub mono">{user.email}</div>
                 </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "6px 8px",
-                    fontSize: 12,
-                    color: "var(--color-muted)",
-                  }}
-                >
+                <div className="shell-pop-row">
                   <span>Theme</span>
                   <ThemeToggle compact />
                 </div>
-
                 <Link
                   href="/settings"
                   onClick={() => setUserMenuOpen(false)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "7px 8px",
-                    borderRadius: "var(--radius-md)",
-                    textDecoration: "none",
-                    fontSize: 12.5,
-                    color: "var(--color-ink)",
-                  }}
+                  className="shell-menu-item"
+                  role="menuitem"
                 >
-                  <Settings size={14} style={{ color: "var(--color-muted)" }} />
-                  <span>Account & Workspace</span>
+                  <span>
+                    <Settings size={14} />
+                    Account &amp; workspace
+                  </span>
                 </Link>
-
                 <button
                   type="button"
+                  className="shell-menu-item"
+                  role="menuitem"
                   onClick={() => {
                     setUserMenuOpen(false);
                     setShortcutsOpen(true);
                   }}
-                  style={{
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
-                    padding: "7px 8px",
-                    borderRadius: "var(--radius-md)",
-                    border: "none",
-                    background: "transparent",
-                    fontSize: 12.5,
-                    color: "var(--color-ink)",
-                    cursor: "pointer",
-                    textAlign: "left",
-                  }}
                 >
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                    <Keyboard size={14} style={{ color: "var(--color-muted)" }} />
-                    <span>Keyboard Shortcuts</span>
+                  <span>
+                    <Keyboard size={14} />
+                    Keyboard shortcuts
                   </span>
                   <Kbd>?</Kbd>
                 </button>
-
-                <Link
-                  href="/dev/design-system"
-                  onClick={() => setUserMenuOpen(false)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "7px 8px",
-                    borderRadius: "var(--radius-md)",
-                    textDecoration: "none",
-                    fontSize: 12.5,
-                    color: "var(--color-ink)",
-                  }}
-                >
-                  <Palette size={14} style={{ color: "var(--color-muted)" }} />
-                  <span>Design System</span>
-                </Link>
-
                 <Link
                   href="/sdks"
                   onClick={() => setUserMenuOpen(false)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "7px 8px",
-                    borderRadius: "var(--radius-md)",
-                    textDecoration: "none",
-                    fontSize: 12.5,
-                    color: "var(--color-ink)",
-                  }}
+                  className="shell-menu-item"
+                  role="menuitem"
                 >
-                  <BookOpen size={14} style={{ color: "var(--color-muted)" }} />
-                  <span>API Docs & SDKs</span>
+                  <span>
+                    <BookOpen size={14} />
+                    API docs &amp; SDKs
+                  </span>
                 </Link>
-
-                <div
-                  style={{
-                    borderTop: "1px solid var(--color-border)",
-                    marginTop: 6,
-                    paddingTop: 6,
-                  }}
+                <Link
+                  href="/dev/design-system"
+                  onClick={() => setUserMenuOpen(false)}
+                  className="shell-menu-item"
+                  role="menuitem"
                 >
-                  <form action="/api/auth/logout" method="POST" style={{ margin: 0 }}>
-                    <button
-                      type="submit"
-                      className="dash-signout"
-                      style={{
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        padding: "7px 8px",
-                        borderRadius: "var(--radius-md)",
-                        border: "none",
-                        background: "transparent",
-                        color: "var(--color-danger)",
-                        fontSize: 12.5,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        textAlign: "left",
-                      }}
-                    >
+                  <span>
+                    <Palette size={14} />
+                    Design system
+                  </span>
+                </Link>
+                <div className="shell-menu-sep" />
+                <form action="/api/auth/logout" method="POST" style={{ margin: 0 }}>
+                  <button
+                    type="submit"
+                    className="shell-menu-item is-danger dash-signout"
+                    role="menuitem"
+                  >
+                    <span>
                       <LogOut size={14} />
-                      <span>Sign out</span>
-                    </button>
-                  </form>
-                </div>
+                      Sign out
+                    </span>
+                  </button>
+                </form>
               </div>
             )}
           </div>
         </div>
       </aside>
 
-      {/* Main Column */}
       <div className="shell-main-col">
-        {/* Unmistakable Test Mode Top Strip */}
         {envMode === "test" && (
-          <div
-            role="status"
-            style={{
-              background: "var(--color-warning-bg)",
-              borderBottom: "1px solid var(--color-warning-border)",
-              color: "var(--color-warning)",
-              padding: "6px 20px",
-              fontSize: 12,
-              fontWeight: 600,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-              flexWrap: "wrap",
-            }}
-          >
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <div role="status" className="shell-test-banner">
+            <span>
               <FlaskConical size={14} />
               <span>
-                <b>SANDBOX TEST MODE ACTIVE</b> — Emails and webhook payloads are simulated in-memory and will not be delivered to external recipients.
+                <b>Test mode.</b> Emails and webhook payloads are simulated and never delivered to
+                real recipients.
               </span>
             </span>
-            <button
-              type="button"
-              onClick={toggleEnvMode}
-              className="mono"
-              style={{
-                appearance: "none",
-                background: "var(--color-surface)",
-                color: "var(--color-ink)",
-                border: "1px solid var(--color-warning-border)",
-                borderRadius: 6,
-                padding: "2px 8px",
-                fontSize: 11,
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
-              Switch to Live Mode →
+            <button type="button" onClick={toggleEnvMode}>
+              Switch to live
             </button>
           </div>
         )}
 
-        {/* Sticky Topbar */}
         <header className="shell-topbar">
           <div className="shell-topbar-left">
             <button
@@ -742,56 +539,24 @@ export function AppShell({
               onClick={() => setMobileOpen((v) => !v)}
               className="ds-btn ds-btn-ghost ds-btn-icon ds-btn-sm shell-mobile-trigger"
               aria-label="Toggle navigation drawer"
-              style={{ display: "none" }}
             >
               {mobileOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
 
-            {/* Breadcrumbs */}
-            <nav
-              aria-label="Breadcrumb"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 12.5,
-                color: "var(--color-muted)",
-                minWidth: 0,
-                overflow: "hidden",
-              }}
-            >
-              <Link
-                href={withProject("/")}
-                className="shell-crumb-org"
-                style={{
-                  color: "var(--color-muted)",
-                  textDecoration: "none",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
+            <nav aria-label="Breadcrumb" className="shell-crumbs">
+              <Link href={withProject("/")} className="shell-crumb-org">
                 {currentOrgName}
               </Link>
-              <span className="shell-crumb-sep" aria-hidden="true" style={{ opacity: 0.45 }}>
+              <span className="shell-crumb-sep" aria-hidden="true">
                 /
               </span>
-              <span
-                style={{
-                  color: "var(--color-ink)",
-                  fontWeight: 600,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
+              <span className="shell-crumb-current" aria-current="page">
                 {activeEntry.item.label}
               </span>
             </nav>
           </div>
 
           <div className="shell-topbar-right">
-            {/* Global Command Palette Trigger */}
             <button
               type="button"
               onClick={() => setCmdOpen(true)}
@@ -799,126 +564,65 @@ export function AppShell({
               aria-label="Search or run command (Cmd+K)"
             >
               <Search size={14} />
-              <span style={{ flex: 1, textAlign: "left" }}>Search or jump to…</span>
+              <span className="shell-cmd-trigger-label">Search or jump to…</span>
               <Kbd>⌘K</Kbd>
             </button>
 
-            {/* Environment Mode Switch (Live / Test) */}
             <button
               type="button"
               onClick={toggleEnvMode}
-              title="Toggle between Live production mode and Sandbox Test mode"
-              style={{
-                appearance: "none",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                height: 32,
-                padding: "0 10px",
-                borderRadius: "var(--radius-md)",
-                border: `1px solid ${
-                  envMode === "test"
-                    ? "var(--color-warning-border)"
-                    : "var(--color-border)"
-                }`,
-                background:
-                  envMode === "test"
-                    ? "var(--color-warning-bg)"
-                    : "var(--color-surface-elevated)",
-                color:
-                  envMode === "test"
-                    ? "var(--color-warning)"
-                    : "var(--color-ink-secondary)",
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
+              className={`shell-env-btn ${envMode === "test" ? "is-test" : ""}`}
+              title="Switch between live and test mode"
+              aria-label={`Environment: ${envMode}. Click to switch.`}
             >
               {envMode === "test" ? (
-                <>
-                  <FlaskConical size={13} />
-                  <span>Test mode</span>
-                </>
+                <FlaskConical size={13} />
               ) : (
-                <>
-                  <Radio size={13} style={{ color: "var(--color-success)" }} />
-                  <span>Live</span>
-                </>
+                <span className="shell-env-live" aria-hidden="true" />
               )}
+              <span className="shell-env-btn-label">{envMode === "test" ? "Test" : "Live"}</span>
             </button>
 
-            {/* Notifications Bell */}
-            <div ref={notifRef} style={{ position: "relative" }}>
+            <div ref={notifRef} className="shell-pop-anchor">
               <button
                 type="button"
                 onClick={() => setNotifOpen((v) => !v)}
                 className="ds-btn ds-btn-ghost ds-btn-icon ds-btn-sm"
                 aria-label="Notifications"
-                title="System notifications"
+                aria-expanded={notifOpen}
               >
                 <Bell size={15} />
               </button>
               {notifOpen && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "calc(100% + 8px)",
-                    right: 0,
-                    width: 310,
-                    background: "var(--color-surface)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "var(--radius-lg)",
-                    boxShadow: "var(--shadow-lg)",
-                    padding: 12,
-                    zIndex: 80,
-                  }}
-                >
+                <div className="shell-pop is-down">
                   <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: 8,
-                    }}
+                    className="shell-pop-head"
+                    style={{ display: "flex", justifyContent: "space-between" }}
                   >
-                    <span style={{ fontSize: 12.5, fontWeight: 700 }}>Notifications</span>
-                    <span className="mono" style={{ fontSize: 11, color: "var(--color-muted)" }}>
-                      All caught up
-                    </span>
+                    <span className="shell-pop-title">Notifications</span>
+                    <span className="shell-pop-sub">All caught up</span>
                   </div>
-                  <div
-                    style={{
-                      padding: "14px 10px",
-                      borderRadius: "var(--radius-md)",
-                      background: "var(--color-surface-elevated)",
-                      fontSize: 12,
-                      color: "var(--color-muted)",
-                      textAlign: "center",
-                    }}
-                  >
-                    No bounce spikes, webhook failures, or DNS alerts in the last 24 hours.
+                  <div className="shell-pop-empty">
+                    No bounce spikes, webhook failures or DNS alerts in the last 24 hours.
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Quick Docs Link */}
             <Link
               href="/sdks"
               className="ds-btn ds-btn-ghost ds-btn-icon ds-btn-sm"
-              title="SDKs & API Documentation"
-              aria-label="SDKs & API Documentation"
+              title="SDKs and API documentation"
+              aria-label="SDKs and API documentation"
             >
               <BookOpen size={15} />
             </Link>
           </div>
         </header>
 
-        {/* Page Main Container */}
         <main className="shell-page-container">{children}</main>
       </div>
 
-      {/* Overlays */}
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
       <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <ProUpgradeModal
@@ -926,21 +630,6 @@ export function AppShell({
         onClose={() => setProModal({ open: false })}
         featureTitle={proModal.title}
       />
-
-      <style>{`
-        @media (max-width: 1023px) {
-          .shell-mobile-trigger {
-            display: inline-flex !important;
-          }
-          .shell-cmd-trigger {
-            min-width: auto !important;
-            padding: 0 10px !important;
-          }
-          .shell-cmd-trigger span {
-            display: none;
-          }
-        }
-      `}</style>
     </div>
   );
 }

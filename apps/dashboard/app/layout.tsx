@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./shell.css";
+import "./overview.css";
 import {
   ThemeProvider,
   THEME_INIT_SCRIPT,

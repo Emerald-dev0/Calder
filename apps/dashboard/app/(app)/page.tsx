@@ -1,21 +1,13 @@
-import Link from "next/link";
 import { desc, inArray, count, isNull, and, eq, gte, sql } from "drizzle-orm";
 import { getDb, emails, domains, apiKeys, webhooks, orgUsageSnapshot } from "@calder/db";
 import { PLAN_LIMITS, planEmailsLimit, type PlanTier } from "@calder/config";
 import { getTenantContext } from "../../lib/auth";
-import { ArrowRight, ArrowUpRight, Globe, KeyRound, Send, Webhook, ShieldBan } from "lucide-react";
-import { RelativeTime } from "../../components/design-system";
-import {
-  OverviewSetupChecklist,
-  OverviewVolumeChart,
-  OverviewQuickstartCurl,
-  type SetupStep,
-} from "./overview-client";
+import { Globe, KeyRound, Webhook, ShieldBan } from "lucide-react";
+import type { SetupStep } from "./overview-client";
+import { OverviewView } from "./overview-view";
 import {
   buildDailySeries,
   buildHourlySeries,
-  formatRate,
-  statusTone,
   summarize,
   type BucketCountRow,
   type StatusCountRow,
@@ -23,18 +15,6 @@ import {
 import { pricingUrl } from "../../lib/pricing";
 
 const DAY_MS = 86_400_000;
-
-const STATUS_LABEL: Record<string, string> = {
-  created: "Created",
-  queued: "Queued",
-  sending: "Sending",
-  sent: "Sent",
-  delivered: "Delivered",
-  bounced: "Bounced",
-  complained: "Complained",
-  failed: "Failed",
-  suppressed: "Suppressed",
-};
 
 export default async function OverviewPage() {
   const ctx = await getTenantContext();
@@ -250,175 +230,33 @@ export default async function OverviewPage() {
     },
   ] as const;
 
-  const failureHigh = (month.failureRate ?? 0) > 2;
   const projectCount = projectIds.length;
 
   return (
-    <div className="ov">
-      <header className="ov-header">
-        <div className="ov-header-text">
-          <h1 className="ov-title">
-            {salutation}, {firstName}
-          </h1>
-          <p className="ov-sub">
-            {ctx.memberships.length === 0
-              ? "You don't belong to an organization yet. Create one to start sending."
-              : `${firstOrg?.name ?? "Workspace"} · ${projectCount} project${projectCount === 1 ? "" : "s"}`}
-          </p>
-        </div>
-        <div className="ov-actions">
-          <Link href={secondaryAction.href} className="ds-btn ds-btn-secondary">
-            {secondaryAction.icon}
-            <span>{secondaryAction.label}</span>
-          </Link>
-          <Link href="/emails/new" className="ds-btn ds-btn-primary">
-            <Send size={14} />
-            <span>Send email</span>
-          </Link>
-        </div>
-      </header>
-
-      <OverviewSetupChecklist steps={setupSteps} />
-
-      <section className="ov-metrics" aria-label="Last 30 days">
-        <div className="ov-metric">
-          <span className="ov-metric-label">Emails sent</span>
-          <span className="ov-metric-value tabular-nums">{month.total.toLocaleString()}</span>
-          <span className="ov-metric-sub">Last 30 days</span>
-        </div>
-        <div className="ov-metric">
-          <span className="ov-metric-label">Delivery rate</span>
-          <span className="ov-metric-value tabular-nums">{formatRate(month.deliveryRate)}</span>
-          <span className="ov-metric-sub">{month.delivered.toLocaleString()} delivered</span>
-        </div>
-        <div className="ov-metric">
-          <span className="ov-metric-label">Bounce &amp; failure rate</span>
-          <span className="ov-metric-value tabular-nums">{formatRate(month.failureRate)}</span>
-          <span className={`ov-metric-sub ${failureHigh ? "is-danger" : ""}`}>
-            {failureHigh
-              ? "Above the 2% threshold"
-              : `${month.failed.toLocaleString()} bounced or failed`}
-          </span>
-        </div>
-        <div className="ov-metric">
-          <span className="ov-metric-label">In queue</span>
-          <span className="ov-metric-value tabular-nums">{lifetime.pending.toLocaleString()}</span>
-          <span className="ov-metric-sub">Queued or sending now</span>
-        </div>
-      </section>
-
-      <OverviewVolumeChart series={series} />
-
-      <div className="ov-split">
-        <section className="ov-panel">
-          <div className="ov-panel-head">
-            <h2 className="ov-panel-title">Recent emails</h2>
-            {recent.length > 0 && (
-              <Link href="/emails" className="ov-link">
-                View all <ArrowRight size={13} />
-              </Link>
-            )}
-          </div>
-          {recent.length === 0 ? (
-            <div className="ov-empty">
-              <div className="ov-empty-title">No emails yet</div>
-              <p className="ov-empty-text">
-                Send one from the composer, or call the API with the snippet below.
-              </p>
-              <div className="ov-empty-actions">
-                <Link href="/emails/new" className="ds-btn ds-btn-primary ds-btn-sm">
-                  <Send size={13} />
-                  <span>Send test email</span>
-                </Link>
-                <Link href="/sdks" className="ds-btn ds-btn-secondary ds-btn-sm">
-                  <span>Explore SDKs</span>
-                </Link>
-              </div>
-              <OverviewQuickstartCurl />
-            </div>
-          ) : (
-            <ul className="ov-rows">
-              {recent.map((e) => (
-                <li key={e.id}>
-                  <Link href={`/emails?inspect=${encodeURIComponent(e.id)}`} className="ov-row">
-                    <span className={`ov-status ov-tone-${statusTone(e.status)}`}>
-                      <span className="ov-dot" aria-hidden="true" />
-                      <span className="ov-status-label">{STATUS_LABEL[e.status] ?? e.status}</span>
-                    </span>
-                    <span className="ov-row-main">
-                      <span className="ov-row-subject">{e.subject}</span>
-                      <span className="ov-row-to">{e.to}</span>
-                    </span>
-                    <span className="ov-row-time">
-                      <RelativeTime value={e.createdAt} />
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <div className="ov-side">
-          <section className="ov-panel">
-            <div className="ov-panel-head">
-              <h2 className="ov-panel-title">Usage</h2>
-              <span className="ov-chip">{planName}</span>
-            </div>
-            <div className="ov-panel-body">
-              <div className="ov-usage-figure tabular-nums">
-                {usedThisPeriod.toLocaleString()}
-                <span> / {quota === null ? "Unlimited" : quota.toLocaleString()}</span>
-              </div>
-              <div className="ov-meter" aria-hidden="true">
-                <div
-                  className={`ov-meter-fill ${usagePct > 95 ? "is-danger" : usagePct > 80 ? "is-warning" : ""}`}
-                  style={{ width: `${Math.max(1.5, usagePct)}%` }}
-                />
-              </div>
-              <p className="ov-usage-note">
-                {periodEnd
-                  ? `Emails this billing period · resets ${periodEnd.toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      timeZone: "UTC",
-                    })}`
-                  : "Emails this billing period"}
-              </p>
-              <div className="ov-usage-links">
-                <Link href="/usage" className="ov-link">
-                  Usage details <ArrowRight size={13} />
-                </Link>
-                <a href={pricingUrl()} className="ov-link is-muted">
-                  Compare plans <ArrowUpRight size={13} />
-                </a>
-              </div>
-            </div>
-          </section>
-
-          <section className="ov-panel">
-            <div className="ov-panel-head">
-              <h2 className="ov-panel-title">Sending setup</h2>
-            </div>
-            <ul className="ov-rows">
-              {setupRows.map((row) => (
-                <li key={row.label}>
-                  <Link href={row.href} className="ov-kv">
-                    <span className="ov-kv-label">
-                      <span className="ov-kv-icon">{row.icon}</span>
-                      {row.label}
-                    </span>
-                    <span className={`ov-status ov-tone-${row.tone}`}>
-                      <span className="ov-dot" aria-hidden="true" />
-                      <span>{row.value}</span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </div>
-      </div>
-    </div>
+    <OverviewView
+      greeting={`${salutation}, ${firstName}`}
+      subtitle={
+        ctx.memberships.length === 0
+          ? "You don't belong to an organization yet. Create one to start sending."
+          : `${firstOrg?.name ?? "Workspace"} · ${projectCount} project${projectCount === 1 ? "" : "s"}`
+      }
+      secondaryAction={secondaryAction}
+      setupSteps={setupSteps}
+      month={month}
+      pending={lifetime.pending}
+      series={series}
+      recent={recent}
+      usage={{
+        planName,
+        used: usedThisPeriod,
+        quota,
+        percent: usagePct,
+        resetsOn: periodEnd
+          ? periodEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
+          : null,
+      }}
+      setupRows={setupRows}
+      pricingHref={pricingUrl()}
+    />
   );
 }
