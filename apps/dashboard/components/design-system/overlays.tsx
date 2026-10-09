@@ -94,6 +94,7 @@ export function ConfirmDialog({
   busy?: boolean;
 }) {
   const [typed, setTyped] = React.useState("");
+  const inputId = React.useId();
   React.useEffect(() => {
     if (!open) setTyped("");
   }, [open]);
@@ -145,10 +146,14 @@ export function ConfirmDialog({
           </p>
           {confirmPhrase && (
             <div style={{ marginTop: 14 }}>
-              <label style={{ display: "block", fontSize: 12, color: "var(--color-muted)", marginBottom: 6 }}>
+              <label
+                htmlFor={inputId}
+                style={{ display: "block", fontSize: 12, color: "var(--color-muted)", marginBottom: 6 }}
+              >
                 Type <b className="mono" style={{ color: "var(--color-ink)" }}>{confirmPhrase}</b> to confirm:
               </label>
               <input
+                id={inputId}
                 value={typed}
                 onChange={(e) => setTyped(e.target.value)}
                 placeholder={confirmPhrase}
