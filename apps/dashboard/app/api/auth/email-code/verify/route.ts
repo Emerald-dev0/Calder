@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import {
   checkEmailCode,
   getSessionUser,
@@ -14,6 +13,7 @@ import {
 } from "@calder/auth";
 import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { clientIp } from "../../../../../lib/client-ip";
+import { getCookieValue } from "../../../../../lib/cookies";
 import { safeAuthError } from "../../../../../lib/auth-error";
 import { sendSecurityEmail } from "../../../../../lib/send-security-email";
 import { postLoginRedirect } from "../../../../../lib/control/post-login";
@@ -65,7 +65,8 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     if (purpose === "verification") {
-      const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+      const previousToken = await getCookieValue(SESSION_COOKIE);
+      const previous = await getSessionUser(previousToken);
       const result = await verifySignupCode(
         email,
         code,

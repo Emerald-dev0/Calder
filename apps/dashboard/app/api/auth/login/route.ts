@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import {
   getSessionUser,
   loginWithPassword,
@@ -14,6 +13,7 @@ import {
 import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { logger } from "@calder/observability";
 import { clientIp } from "../../../../lib/client-ip";
+import { getCookieValue } from "../../../../lib/cookies";
 import { sendOtpEmail } from "../../../../lib/send-auth-email";
 import { sendSecurityEmail } from "../../../../lib/send-security-email";
 import { sameOriginRequest } from "../../../../lib/csrf";
@@ -63,7 +63,8 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   try {
-    const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+    const previousToken = await getCookieValue(SESSION_COOKIE);
+    const previous = await getSessionUser(previousToken);
     const result = await loginWithPassword(
       email,
       password,
@@ -114,8 +115,6 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
     logger.warn("Login failed");
-    // Uniform next step for an invalid password, unknown address, and an
-    // unverified account. No password-validity or account-state oracle.
-    return NextResponse.json({ needsVerification: true, email });
+    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
   }
 }

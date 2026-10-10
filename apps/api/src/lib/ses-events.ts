@@ -386,7 +386,7 @@ export async function applySesEvent(
 ): Promise<ApplyResult> {
   const { providerEvents, emails, emailEvents, suppressions, projects, organizations, auditLogs } =
     await import("@calder/db");
-  const { and, count, eq, gte, isNotNull, lt, sql } = await import("drizzle-orm");
+  const { and, count, eq, gte, isNotNull, lte, sql } = await import("drizzle-orm");
   const { getConfig } = await import("@calder/config");
   const { evaluateOrganizationAbusePolicy } = await import("./abuse-policy.js");
 
@@ -543,7 +543,7 @@ export async function applySesEvent(
               eq(emails.env, "live"),
               isNotNull(emails.providerMessageId),
               gte(emails.createdAt, windowStart),
-              lt(emails.createdAt, now)
+              lte(emails.createdAt, now)
             )
           );
         const [feedback] = await tx
@@ -566,7 +566,7 @@ export async function applySesEvent(
               isNotNull(emails.providerMessageId),
               eq(providerEvents.unmatched, false),
               gte(emails.createdAt, windowStart),
-              lt(emails.createdAt, now)
+              lte(emails.createdAt, now)
             )
           );
         const metrics = {

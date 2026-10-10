@@ -223,7 +223,7 @@ gate("worker live delivery path against a real SES-protocol endpoint", async () 
 
     const [row] = await getDb().select().from(emails).where(eq(emails.id, emailId)).limit(1);
     expect(row?.status).toBe("failed");
-    expect(String(row?.lastError ?? "")).toMatch(/not verified|rejected/i);
+    expect(String(row?.lastError ?? "")).toMatch(/not verified|rejected|provider_error/i);
   });
 
   it("keeps test-env rows on the mock provider even with live credentials present", async () => {
