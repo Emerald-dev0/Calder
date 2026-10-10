@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import {
   changePassword,
   getSessionUser,
@@ -13,6 +12,7 @@ import { logger } from "@calder/observability";
 import { clientIp } from "../../../../lib/client-ip";
 import { sameOriginRequest } from "../../../../lib/csrf";
 import { safeAuthError } from "../../../../lib/auth-error";
+import { getCookieValue } from "../../../../lib/cookies";
 import { sendSecurityEmail } from "../../../../lib/send-security-email";
 
 /**
@@ -26,7 +26,8 @@ export async function POST(req: Request): Promise<Response> {
     return NextResponse.json({ error: "Cross-origin request denied." }, { status: 403 });
   }
 
-  const session = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+  const token = await getCookieValue(SESSION_COOKIE);
+  const session = await getSessionUser(token);
   if (!session) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
 
   const body = (await req.json().catch(() => null)) as {

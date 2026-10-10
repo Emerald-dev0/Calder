@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import {
   consumeMagicLink,
   getSessionUser,
@@ -10,6 +9,7 @@ import {
 } from "@calder/auth";
 import { postLoginRedirect } from "../../../../../lib/control/post-login";
 import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
+import { getCookieValue } from "../../../../../lib/cookies";
 import { sendSecurityEmail } from "../../../../../lib/send-security-email";
 
 /**
@@ -47,7 +47,8 @@ export async function GET(req: Request): Promise<Response> {
     return redirectSafe("/login?error=throttled");
   }
   try {
-    const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+    const previousToken = await getCookieValue(SESSION_COOKIE);
+    const previous = await getSessionUser(previousToken);
     const sessionId = await consumeMagicLink(
       token,
       {

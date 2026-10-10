@@ -26,7 +26,12 @@ export async function GET(
   const url = new URL(req.url);
   const redirectOrigin =
     getConfig().NODE_ENV === "production" ? new URL(getConfig().DASHBOARD_URL).origin : url.origin;
-  const store = await cookies();
+  let store: Awaited<ReturnType<typeof cookies>> | null = null;
+  try {
+    store = await cookies();
+  } catch {
+    // Outside Next.js request context
+  }
   const clearOAuthCookies = (response: NextResponse) => {
     const clear = `Path=/; HttpOnly; Max-Age=0; SameSite=Lax${secureFlag()}`;
     response.headers.append("Set-Cookie", `calder_oauth_state=; ${clear}`);
@@ -52,11 +57,11 @@ export async function GET(
   }
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  const stateCookie = store.get("calder_oauth_state")?.value ?? "";
+  const stateCookie = store?.get("calder_oauth_state")?.value ?? "";
   const [boundProvider, storedStateValue] = stateCookie.split(".", 2);
   const storedState = boundProvider === provider && storedStateValue ? storedStateValue : null;
-  const codeVerifier = store.get("calder_oauth_verifier")?.value ?? null;
-  const previous = await getSessionUser(store.get(SESSION_COOKIE)?.value);
+  const codeVerifier = store?.get("calder_oauth_verifier")?.value ?? null;
+  const previous = await getSessionUser(store?.get(SESSION_COOKIE)?.value);
 
   if (!code || !state || !storedState) {
     return clearOAuthCookies(NextResponse.redirect(new URL("/login?error=denied", redirectOrigin)));

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { getSessionUser, SESSION_COOKIE, startGmailConnect } from "@calder/auth";
+import { getCookieValue } from "../../../../../lib/cookies";
 import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { assertProjectAccess } from "../../../../(app)/onboarding/actions";
 import { clientIp } from "../../../../../lib/client-ip";
@@ -21,7 +21,8 @@ function cookie(name: string, value: string): string {
 export async function GET(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const projectId = url.searchParams.get("project") ?? "";
-  const user = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+  const token = await getCookieValue(SESSION_COOKIE);
+  const user = await getSessionUser(token);
   if (!user) return NextResponse.redirect(new URL("/login", url.origin));
   const gate = await getRateLimiter().check(`gmail-connect:start:${user.userId}:${clientIp(req)}`, {
     ...rateLimitPresets.auth,

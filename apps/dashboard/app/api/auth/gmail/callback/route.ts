@@ -30,7 +30,12 @@ export async function GET(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const redirectOrigin =
     getConfig().NODE_ENV === "production" ? new URL(getConfig().DASHBOARD_URL).origin : url.origin;
-  const store = await cookies();
+  let store: Awaited<ReturnType<typeof cookies>> | null = null;
+  try {
+    store = await cookies();
+  } catch {
+    // Outside Next.js request context
+  }
   const done = (notice: string) => {
     const res = NextResponse.redirect(new URL(`/onboarding?notice=${notice}`, redirectOrigin));
     res.headers.set("Referrer-Policy", "no-referrer");
@@ -49,9 +54,9 @@ export async function GET(req: Request): Promise<Response> {
 
   const code = url.searchParams.get("code") ?? "";
   const state = url.searchParams.get("state") ?? "";
-  const storedState = store.get("calder_gmail_state")?.value ?? "";
-  const verifier = store.get("calder_gmail_verifier")?.value ?? "";
-  const projectId = store.get("calder_gmail_project")?.value ?? "";
+  const storedState = store?.get("calder_gmail_state")?.value ?? "";
+  const verifier = store?.get("calder_gmail_verifier")?.value ?? "";
+  const projectId = store?.get("calder_gmail_project")?.value ?? "";
   if (!code || !state || !statesEqual(state, storedState) || !verifier || !projectId) {
     return done("gmail-failed");
   }
