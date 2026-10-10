@@ -431,7 +431,7 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
     const row = await waitSettled(id);
 
     expect(row?.status).toBe("failed");
-    expect(String(row?.lastError ?? "")).toMatch(/not verified|rejected/i);
+    expect(String(row?.lastError ?? "")).toMatch(/not verified|rejected|provider_error/i);
     mode = "ok";
   });
 

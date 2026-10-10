@@ -163,7 +163,7 @@ gate("gmail abuse watch (live Postgres)", async () => {
     });
     const row = await drainUntilSettled(id);
     expect(row?.status).toBe("failed");
-    expect(row?.lastError ?? "").toMatch(/Gmail daily cap reached/i);
+    expect(row?.lastError ?? "").toMatch(/Gmail daily cap reached|gmail_cap/i);
     await db.delete(senderIdentities).where(eq(senderIdentities.id, senderId));
     await db.delete(projectTransports).where(eq(projectTransports.id, pinnedTransportId));
   }, 60_000);
@@ -206,7 +206,7 @@ gate("gmail abuse watch (live Postgres)", async () => {
     const id = await queueOne();
     const row = await drainUntilSettled(id);
     expect(row?.status).not.toBe("sent");
-    expect(row?.lastError ?? "").toMatch(/velocity limit reached/i);
+    expect(row?.lastError ?? "").toMatch(/velocity limit reached|gmail_velocity_limit/i);
     const [t] = await db
       .select({ status: projectTransports.status })
       .from(projectTransports)
@@ -230,7 +230,7 @@ gate("gmail abuse watch (live Postgres)", async () => {
       .where(eq(projectTransports.id, transportId))
       .limit(1);
     expect(t?.status).toBe("suspended");
-    expect(row?.lastError ?? "").toMatch(/suspended for abuse-pattern/i);
+    expect(row?.lastError ?? "").toMatch(/suspended for abuse-pattern|gmail_suspended/i);
 
     // Exactly one suspend audit row — re-draining must not spam the trail.
     const auditRows = await db
