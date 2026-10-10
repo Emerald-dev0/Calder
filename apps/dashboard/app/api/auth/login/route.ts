@@ -115,8 +115,6 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
     logger.warn("Login failed");
-    // Uniform next step for an invalid password, unknown address, and an
-    // unverified account. No password-validity or account-state oracle.
-    return NextResponse.json({ needsVerification: true, email });
+    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
   }
 }
