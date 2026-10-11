@@ -231,13 +231,16 @@ export function DsSwitch({
   description?: string;
   disabled?: boolean;
 }) {
+  const autoId = React.useId();
+  const labelId = `${autoId}-label`;
+  const descId = `${autoId}-desc`;
+
   return (
-    <label
+    <div
       style={{
         display: "inline-flex",
         alignItems: "center",
         gap: 10,
-        cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.5 : 1,
       }}
     >
@@ -245,6 +248,9 @@ export function DsSwitch({
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-labelledby={label ? labelId : undefined}
+        aria-describedby={description ? descId : undefined}
+        aria-label={!label ? "Toggle switch" : undefined}
         disabled={disabled}
         onClick={() => onChange(!checked)}
         style={{
@@ -260,6 +266,7 @@ export function DsSwitch({
           cursor: disabled ? "not-allowed" : "pointer",
           transition: "background-color 150ms ease",
           flexShrink: 0,
+          outline: "none",
         }}
       >
         <span
@@ -273,18 +280,23 @@ export function DsSwitch({
         />
       </button>
       {(label || description) && (
-        <span>
+        <span
+          onClick={() => !disabled && onChange(!checked)}
+          style={{ cursor: disabled ? "not-allowed" : "pointer", userSelect: "none" }}
+        >
           {label && (
-            <span style={{ display: "block", fontSize: 13, fontWeight: 600 }}>{label}</span>
+            <span id={labelId} style={{ display: "block", fontSize: 13, fontWeight: 600 }}>
+              {label}
+            </span>
           )}
           {description && (
-            <span style={{ display: "block", fontSize: 12, color: "var(--color-muted)" }}>
+            <span id={descId} style={{ display: "block", fontSize: 12, color: "var(--color-muted)" }}>
               {description}
             </span>
           )}
         </span>
       )}
-    </label>
+    </div>
   );
 }
 
