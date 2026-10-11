@@ -933,34 +933,9 @@ export async function checkDomainDns(domainId: string) {
   const row = rows[0];
   if (!row || !projectIds.has(row.projectId)) throw new Error("Domain not found.");
   const { attemptVerification } = await import("@calder/db");
+  const { mapVerifyOutcome } = await import("../../../lib/domain-verify-result");
   const outcome = await attemptVerification(db, row.projectId, domainId);
-  switch (outcome.kind) {
-    case "verified":
-      return { verified: true as const, detail: "TXT record matched. Domain verified." };
-    case "not_found":
-      throw new Error("Domain not found.");
-    case "expired":
-      return {
-        verified: false as const,
-        detail: "Challenge expired (72h). Mint a fresh token below.",
-      };
-    case "rate_limited":
-      throw new Error(
-        `Too many attempts — try again in ${Math.ceil(outcome.retryAfterSec / 60)}m.`
-      );
-    case "dns_error":
-      return { verified: false as const, detail: `DNS lookup failed: ${outcome.message}` };
-    case "mismatch":
-      return {
-        verified: false as const,
-        detail:
-          outcome.found.length === 0
-            ? `No TXT records yet at ${outcome.expected.host} — propagation can take minutes to hours.`
-            : `Found TXT records at ${outcome.expected.host} but none match the challenge exactly.`,
-      };
-    default:
-      throw new Error("Unexpected verification outcome");
-  }
+  return mapVerifyOutcome(outcome);
 }
 
 /** M4.1: mint a fresh challenge (expired domains, deliberate rotation). */
