@@ -4225,6 +4225,11 @@ body:has(.onb-root) {
   background: color-mix(in srgb, var(--color-danger) 48%, var(--color-surface));
 }
 
+.ov-swatch.is-sent,
+.ov-bar.is-sent {
+  background: color-mix(in srgb, var(--color-accent-bright) 55%, var(--color-surface));
+}
+
 .ov-chart .ds-tabs {
   padding: 2px;
 }

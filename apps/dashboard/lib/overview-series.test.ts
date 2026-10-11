@@ -10,25 +10,36 @@ import {
 const NOW = new Date("2026-10-06T20:30:00Z");
 
 describe("overview series", () => {
-  it("classifies statuses into delivered / failed / pending", () => {
+  it("keeps sent (provider-accepted) separate from confirmed delivered", () => {
     expect(classifyStatus("delivered")).toBe("delivered");
-    expect(classifyStatus("sent")).toBe("delivered");
+    expect(classifyStatus("sent")).toBe("sent");
     expect(classifyStatus("queued")).toBe("pending");
     expect(classifyStatus("created")).toBe("pending");
     expect(classifyStatus("bounced")).toBe("failed");
     expect(classifyStatus("suppressed")).toBe("failed");
   });
 
-  it("summarizes rates over settled messages only", () => {
+  it("summarizes rates over confirmed outcomes only; sent never inflates delivered", () => {
     const s = summarize([
       { status: "delivered", value: 90 },
+      { status: "sent", value: 8 },
       { status: "bounced", value: 10 },
       { status: "queued", value: 5 },
     ]);
-    expect(s.total).toBe(105);
+    expect(s.total).toBe(113);
+    expect(s.delivered).toBe(90);
+    expect(s.sent).toBe(8);
     expect(s.pending).toBe(5);
     expect(s.deliveryRate).toBeCloseTo(90);
     expect(s.failureRate).toBeCloseTo(10);
+  });
+
+  it("reports null confirmed rates when mail is only sent, never confirmed", () => {
+    const s = summarize([{ status: "sent", value: 2 }]);
+    expect(s.sent).toBe(2);
+    expect(s.delivered).toBe(0);
+    expect(s.deliveryRate).toBeNull();
+    expect(formatRate(s.deliveryRate)).toBe("—");
   });
 
   it("reports null rates when nothing has settled", () => {
@@ -65,7 +76,7 @@ describe("overview series", () => {
       NOW
     );
     expect(series).toHaveLength(24);
-    expect(series.at(-1)).toMatchObject({ key: "2026-10-06T20", label: "Now", delivered: 3 });
+    expect(series.at(-1)).toMatchObject({ key: "2026-10-06T20", label: "Now", delivered: 0, sent: 3 });
     expect(series[0]!.label).toBe("21:00");
   });
 });

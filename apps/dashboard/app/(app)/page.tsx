@@ -295,7 +295,7 @@ export default async function OverviewPage() {
         <div className="ov-metric">
           <span className="ov-metric-label">Delivery rate</span>
           <span className="ov-metric-value tabular-nums">{formatRate(month.deliveryRate)}</span>
-          <span className="ov-metric-sub">{month.delivered.toLocaleString()} delivered</span>
+          <span className="ov-metric-sub">{month.delivered.toLocaleString()} delivered{month.sent > 0 ? ` · ${month.sent.toLocaleString()} sent, unconfirmed` : ""}</span>
         </div>
         <div className="ov-metric">
           <span className="ov-metric-label">Bounce &amp; failure rate</span>

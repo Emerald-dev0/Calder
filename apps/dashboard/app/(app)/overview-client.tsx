@@ -150,11 +150,15 @@ export function OverviewVolumeChart({ series }: { series: Record<Range, SeriesPo
   const points = series[range];
 
   const totals = points.reduce(
-    (acc, p) => ({ delivered: acc.delivered + p.delivered, failed: acc.failed + p.failed }),
-    { delivered: 0, failed: 0 }
+    (acc, p) => ({
+      delivered: acc.delivered + p.delivered,
+      sent: acc.sent + p.sent,
+      failed: acc.failed + p.failed,
+    }),
+    { delivered: 0, sent: 0, failed: 0 }
   );
-  const max = niceMax(Math.max(0, ...points.map((p) => p.delivered + p.failed)));
-  const empty = totals.delivered + totals.failed === 0;
+  const max = niceMax(Math.max(0, ...points.map((p) => p.delivered + p.sent + p.failed)));
+  const empty = totals.delivered + totals.sent + totals.failed === 0;
   const labelEvery = points.length > 14 ? 5 : points.length > 7 ? 4 : 1;
   const hovered = hover !== null ? points[hover] : null;
 
@@ -167,6 +171,10 @@ export function OverviewVolumeChart({ series }: { series: Record<Range, SeriesPo
             <span className="ov-legend-item">
               <span className="ov-swatch is-delivered" />
               Delivered <b className="tabular-nums">{totals.delivered.toLocaleString()}</b>
+            </span>
+            <span className="ov-legend-item" title="Accepted by the provider; delivery not yet confirmed">
+              <span className="ov-swatch is-sent" />
+              Sent <b className="tabular-nums">{totals.sent.toLocaleString()}</b>
             </span>
             <span className="ov-legend-item">
               <span className="ov-swatch is-failed" />
@@ -212,17 +220,21 @@ export function OverviewVolumeChart({ series }: { series: Record<Range, SeriesPo
           >
             {points.map((p, i) => {
               const dPct = (p.delivered / max) * 100;
+              const sPct = (p.sent / max) * 100;
               const fPct = (p.failed / max) * 100;
               return (
                 <div
                   key={p.key}
                   className={`ov-bar-col ${hover === i ? "is-hover" : ""}`}
                   onMouseEnter={() => setHover(i)}
-                  title={`${p.label}: ${p.delivered} delivered, ${p.failed} bounced/failed`}
+                  title={`${p.label}: ${p.delivered} delivered, ${p.sent} sent, ${p.failed} bounced/failed`}
                 >
                   <div className="ov-bar-stack">
                     {p.failed > 0 && (
                       <div className="ov-bar is-failed" style={{ height: `${fPct}%` }} />
+                    )}
+                    {p.sent > 0 && (
+                      <div className="ov-bar is-sent" style={{ height: `${sPct}%` }} />
                     )}
                     {p.delivered > 0 && (
                       <div className="ov-bar is-delivered" style={{ height: `${dPct}%` }} />
@@ -239,6 +251,7 @@ export function OverviewVolumeChart({ series }: { series: Record<Range, SeriesPo
             <div className="ov-chart-tip" role="status">
               <b>{hovered.label}</b>
               <span className="tabular-nums">{hovered.delivered.toLocaleString()} delivered</span>
+              <span className="tabular-nums">{hovered.sent.toLocaleString()} sent, unconfirmed</span>
               <span className="tabular-nums">{hovered.failed.toLocaleString()} bounced/failed</span>
             </div>
           )}
