@@ -307,6 +307,16 @@ customer.
 - **Escalation**: security owner and founder/on-call immediately for any production secret or high/critical advisory; assess customer notification and provider disclosure obligations.
 - **Post-incident**: record root cause, rotation/revocation timestamps, affected access window, customer/provider notifications, and a prevention test or CI rule.
 
+### 8.11 Domain verification lockout ("Too many attempts")
+
+- **Symptoms**: the dashboard says `Too many attempts — try again in Xm` on Verify DNS; no 500s (expected states are returned, not thrown).
+- **Immediate checks**: the attempt budget is 10 per rolling hour per domain (`VERIFY_RATE_LIMIT`); only explicit Verify clicks spend it — background polling runs in probe mode and never consumes attempts.
+- **Containment**: nothing to disable; publishing the TXT record is still the unblock — verification cannot succeed before DNS propagates anyway.
+- **Recovery**: wait out the window, or mint a fresh challenge (regenerate resets the budget; the new TXT value must then be published).
+- **Verification**: one Verify click flips the domain to `verified`; the poller confirms within a minute.
+- **Escalation**: not customer-facing unless onboarding is blocked >1h; then verify manually from the domains page.
+- **Post-incident**: if lockouts recur, check whether a client is polling with the spending endpoint instead of the probe.
+
 ## 9. Deployment verification and rollback
 
 - Pre-deploy: `pnpm launch-check` (blocking); migrations before code

@@ -171,13 +171,20 @@ export async function regenerateChallenge(
  * Attempt verification. Rate-limited per rolling hour; the verified flip is
  * conditional (`WHERE status != 'verified'`) so concurrent attempts cannot
  * double-write the audit-worthy transition.
+ *
+ * Probe mode (`opts.probe`) is for background polling: it performs the same DNS
+ * check and still flips a genuinely verified domain, but it never consumes the
+ * hourly attempt budget and never writes failure state. Without this, an
+ * auto-poller trips the rate limit in minutes and locks the user out.
  */
 export async function attemptVerification(
   db: Db,
   projectId: string,
   domainId: string,
-  oracle: TxtOracle = defaultTxtOracle()
+  oracle: TxtOracle = defaultTxtOracle(),
+  opts: { probe?: boolean } = {}
 ): Promise<VerifyOutcome> {
+  const probe = opts.probe === true;
   const [row] = (await db
     .select()
     .from(domains)
@@ -190,27 +197,29 @@ export async function attemptVerification(
   const now = new Date();
   // Expired challenges must be re-issued, not verified against a dead token.
   if (row.verificationExpiresAt && row.verificationExpiresAt < now) {
-    await db
-      .update(domains)
-      .set({ status: "expired", updatedAt: now })
-      .where(
-        and(
-          eq(domains.id, row.id),
-          eq(domains.projectId, projectId),
-          ne(domains.status, "verified")
-        )
-      );
+    if (!probe) {
+      await db
+        .update(domains)
+        .set({ status: "expired", updatedAt: now })
+        .where(
+          and(
+            eq(domains.id, row.id),
+            eq(domains.projectId, projectId),
+            ne(domains.status, "verified")
+          )
+        );
+    }
     return { kind: "expired", retryAfterSec: null };
   }
   if (!row.verificationToken) return { kind: "expired", retryAfterSec: null };
 
-  // Rolling one-hour attempt window.
+  // Rolling one-hour attempt window. Probes never consume the budget.
   const windowStart =
     row.verifyWindowStart && now < new Date(row.verifyWindowStart.getTime() + VERIFY_WINDOW_MS)
       ? row.verifyWindowStart
       : now;
   const attempts = windowStart === now ? 0 : row.verifyAttempts;
-  if (attempts >= VERIFY_RATE_LIMIT) {
+  if (!probe && attempts >= VERIFY_RATE_LIMIT) {
     return {
       kind: "rate_limited",
       retryAfterSec: Math.ceil((windowStart.getTime() + VERIFY_WINDOW_MS - now.getTime()) / 1000),
@@ -220,7 +229,7 @@ export async function attemptVerification(
   const expected = expectedTxtValue(row.verificationToken);
   const host = expectedTxtHost(row.domain);
   const verdict = await checkOwnership(oracle, host, expected);
-  const attemptsAfter = attempts + 1;
+  const attemptsAfter = probe ? attempts : attempts + 1;
   const attemptsLeft = Math.max(0, VERIFY_RATE_LIMIT - attemptsAfter);
 
   if (verdict.kind === "verified") {
@@ -264,17 +273,20 @@ export async function attemptVerification(
     return { kind: "verified", domain: row.domain, verifiedAt };
   }
 
-  const errorNote = verdict.kind === "dns_error" ? verdict.message : `TXT mismatch at ${host}`;
-  await db
-    .update(domains)
-    .set({
-      status: "failed",
-      lastVerifyError: errorNote,
-      verifyAttempts: attemptsAfter,
-      verifyWindowStart: windowStart,
-      updatedAt: now,
-    })
-    .where(and(eq(domains.id, row.id), eq(domains.projectId, projectId)));
+  // Probes are read-only on failure: no status flip, no attempt consumed.
+  if (!probe) {
+    const errorNote = verdict.kind === "dns_error" ? verdict.message : `TXT mismatch at ${host}`;
+    await db
+      .update(domains)
+      .set({
+        status: "failed",
+        lastVerifyError: errorNote,
+        verifyAttempts: attemptsAfter,
+        verifyWindowStart: windowStart,
+        updatedAt: now,
+      })
+      .where(and(eq(domains.id, row.id), eq(domains.projectId, projectId)));
+  }
 
   if (verdict.kind === "dns_error")
     return { kind: "dns_error", status: "failed", message: verdict.message, attemptsLeft };

@@ -15,6 +15,7 @@ import {
   getEmailStatus,
   addDomain,
   checkDomainDns,
+  probeDomainDns,
   completeOnboarding,
   type DnsRecord,
 } from "../../(app)/onboarding/actions";
@@ -266,35 +267,26 @@ export function OnboardingWizard({
   }, [username]);
 
   // Live DNS verification polling when Domain path is expanded & pending on Screen 4.
-  // Polls slowly (DNS propagation takes minutes to hours) and stops on rate limit:
-  // every poll consumes one of 10 hourly verification attempts, so an aggressive
-  // poller would lock the user out and spam 500s.
-  const [dnsPollStopped, setDnsPollStopped] = React.useState(false);
+  // The poller uses probe mode: it performs the same DNS lookup but never consumes
+  // the hourly attempt budget, so it can never lock the user out. Only an explicit
+  // Verify click spends an attempt.
   React.useEffect(() => {
-    if (
-      step !== 4 ||
-      sendingMode !== "domain" ||
-      !domainId ||
-      domainStatus === "verified" ||
-      dnsPollStopped
-    ) {
+    if (step !== 4 || sendingMode !== "domain" || !domainId || domainStatus === "verified") {
       return;
     }
     const interval = setInterval(async () => {
       try {
-        const res = await checkDomainDns(domainId);
+        const res = await probeDomainDns(domainId);
         setDnsDetail(res.detail);
         if (res.verified) {
           setDomainStatus("verified");
-        } else if ("rateLimited" in res && res.rateLimited) {
-          setDnsPollStopped(true);
         }
       } catch {
         // Ignore transient background poll errors
       }
     }, 60000);
     return () => clearInterval(interval);
-  }, [step, sendingMode, domainId, domainStatus, dnsPollStopped]);
+  }, [step, sendingMode, domainId, domainStatus]);
 
   // Live delivery status polling on Screen 5 (queued → sent → delivered)
   React.useEffect(() => {
@@ -440,7 +432,6 @@ export function OnboardingWizard({
       setDnsRecords(res.records);
       setDomainStatus(res.status ?? "pending");
       setDnsDetail(null);
-      setDnsPollStopped(false);
     });
   }
 
@@ -453,8 +444,6 @@ export function OnboardingWizard({
       setDnsDetail(res.detail);
       if (res.verified) {
         setDomainStatus("verified");
-      } else if ("rateLimited" in res && res.rateLimited) {
-        setDnsPollStopped(true);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "DNS check failed.");

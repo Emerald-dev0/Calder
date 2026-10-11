@@ -938,6 +938,29 @@ export async function checkDomainDns(domainId: string) {
   return mapVerifyOutcome(outcome);
 }
 
+/**
+ * Background DNS probe for the onboarding auto-poller. Same access check and
+ * same DNS lookup as checkDomainDns, but probe mode never consumes the hourly
+ * attempt budget and never writes failure state — only an explicit Verify click
+ * spends an attempt. Returns the same shape (rateLimited never set by probes).
+ */
+export async function probeDomainDns(domainId: string) {
+  const ctx = await getTenantContext();
+  const db = getDb();
+  const projectIds = new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)));
+  const rows = await db
+    .select()
+    .from(domains)
+    .where(and(eq(domains.id, domainId), inArray(domains.projectId, [...projectIds])))
+    .limit(1);
+  const row = rows[0];
+  if (!row || !projectIds.has(row.projectId)) throw new Error("Domain not found.");
+  const { attemptVerification } = await import("@calder/db");
+  const { mapVerifyOutcome } = await import("../../../lib/domain-verify-result");
+  const outcome = await attemptVerification(db, row.projectId, domainId, undefined, { probe: true });
+  return mapVerifyOutcome(outcome);
+}
+
 /** M4.1: mint a fresh challenge (expired domains, deliberate rotation). */
 export async function regenerateDomainToken(domainId: string) {
   const ctx = await getTenantContext();
