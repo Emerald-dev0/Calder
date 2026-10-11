@@ -187,7 +187,7 @@ export function OnboardingWizard({
   );
   const [bodyText, setBodyText] = React.useState(
     initialEmail?.text ||
-      "If you're reading this, your Calder pipeline is live: validated, queued, sent, and delivered."
+      "Simulated send from Calder onboarding: validated, queued and dispatched through the test pipeline. Nothing reaches an inbox."
   );
   const [emailId, setEmailId] = React.useState<string | null>(
     initialStep >= 5 ? (initialEmail?.id ?? null) : null
@@ -1413,8 +1413,9 @@ export function OnboardingWizard({
                   Send your first email.
                 </motion.h1>
                 <motion.p variants={itemVariants} className="onb-subline">
-                  Pre-filled with your address and a ready payload. This test send uses the shared
-                  sender; switch to Gmail or a domain from your project once it arrives.
+                  Pre-filled with your address and a ready payload. This is a simulated send on a
+                  test key: it exercises validation, queueing and dispatch, but nothing reaches an
+                  inbox. Real delivery starts with a live key and a verified domain.
                 </motion.p>
 
                 <motion.div variants={itemVariants} className="onb-fields">
@@ -1497,7 +1498,10 @@ export function OnboardingWizard({
                         <ol className="onb-delivery-steps">
                           {DELIVERY_STEPS.map((ds) => {
                             const st = deliveryStepState(emailStatus, ds.key);
-                            const isFinalStep = ds.key === "delivered" && st === "complete";
+                            // Step 5 always sends on a test key: the pipeline is simulated,
+                            // so the final step must never claim inbox delivery.
+                            const simulatedFinal = ds.key === "delivered";
+                            const isFinalStep = simulatedFinal && st === "complete";
                             return (
                               <li
                                 key={ds.key}
@@ -1510,18 +1514,24 @@ export function OnboardingWizard({
                                 </div>
                                 <div className="onb-delivery-info">
                                   <div className="onb-delivery-label-row">
-                                    <span className="onb-delivery-label">{ds.label}</span>
+                                    <span className="onb-delivery-label">
+                                      {simulatedFinal ? "Simulated" : ds.label}
+                                    </span>
                                     <span className="onb-delivery-state mono">
                                       {st === "complete"
-                                        ? ds.key === "delivered"
-                                          ? "200 OK · delivered"
+                                        ? simulatedFinal
+                                          ? "200 OK · simulated"
                                           : "complete"
                                         : st === "active"
                                           ? "in progress…"
                                           : "pending"}
                                     </span>
                                   </div>
-                                  <span className="onb-delivery-detail">{ds.detail}</span>
+                                  <span className="onb-delivery-detail">
+                                    {simulatedFinal
+                                      ? "Test pipeline complete — no inbox delivery on test keys"
+                                      : ds.detail}
+                                  </span>
                                 </div>
                               </li>
                             );

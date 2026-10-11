@@ -599,10 +599,10 @@ export async function sendFirstEmail(input: {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanTo)) {
     throw new Error("Enter a valid recipient email address.");
   }
-  const cleanSubject = (input.subject ?? "Your first Calder email worked").trim();
+  const cleanSubject = (input.subject ?? "Your Calder test pipeline works").trim();
   const cleanText = (
     input.text ??
-    "If you're reading this, your pipeline is live: validated, queued, sent, delivered."
+    "Simulated send from Calder onboarding: validated, queued and dispatched through the test pipeline. Nothing reaches an inbox."
   ).trim();
   if (!cleanSubject) throw new Error("Add a subject line before sending.");
   if (!cleanText) throw new Error("Add a message body before sending.");

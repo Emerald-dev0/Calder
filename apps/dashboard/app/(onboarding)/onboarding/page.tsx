@@ -130,7 +130,7 @@ export default async function OnboardingPage({
         subject: latestEmail.subject,
         text:
           latestEmail.text ??
-          "If you're reading this, your pipeline is live: validated, queued, sent, delivered.",
+          "Simulated send from Calder onboarding: validated, queued and dispatched through the test pipeline.",
         status: latestEmail.status,
       };
     }
