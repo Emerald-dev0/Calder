@@ -22,6 +22,19 @@ export function DsDialog({
   footer?: React.ReactNode;
   maxWidth?: number;
 }) {
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const previousFocusRef = React.useRef<HTMLElement | null>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    dialogRef.current?.focus();
+
+    return () => {
+      previousFocusRef.current?.focus?.();
+    };
+  }, [open]);
+
   React.useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -41,11 +54,13 @@ export function DsDialog({
       }}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         className="ds-dialog"
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        style={{ maxWidth }}
+        style={{ maxWidth, outline: "none" }}
       >
         <div className="ds-card-header">
           <div>
@@ -177,6 +192,19 @@ export function DsDrawer({
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
+  const drawerRef = React.useRef<HTMLElement>(null);
+  const previousFocusRef = React.useRef<HTMLElement | null>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    drawerRef.current?.focus();
+
+    return () => {
+      previousFocusRef.current?.focus?.();
+    };
+  }, [open]);
+
   React.useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -195,7 +223,15 @@ export function DsDrawer({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <aside className="ds-drawer" role="dialog" aria-modal="true" aria-label={title}>
+      <aside
+        ref={drawerRef}
+        tabIndex={-1}
+        className="ds-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        style={{ outline: "none" }}
+      >
         <div className="ds-drawer-header">
           <div style={{ minWidth: 0 }}>
             <h2 className="ds-card-title" style={{ fontSize: 15 }}>

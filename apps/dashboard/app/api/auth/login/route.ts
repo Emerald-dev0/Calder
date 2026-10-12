@@ -63,7 +63,18 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   try {
-    const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+    let previousSessionId: string | null | undefined;
+    try {
+      const cookieStore = await cookies();
+      const value = cookieStore.get(SESSION_COOKIE)?.value;
+      if (value) {
+        const previous = await getSessionUser(value);
+        previousSessionId = previous?.sessionId;
+      }
+    } catch {
+      // Outside Next.js request context
+    }
+
     const result = await loginWithPassword(
       email,
       password,
@@ -71,7 +82,7 @@ export async function POST(req: Request): Promise<Response> {
         userAgent: req.headers.get("user-agent"),
         ip: clientIp(req),
       },
-      previous?.sessionId
+      previousSessionId
     );
 
     if (result.needsVerification) {
