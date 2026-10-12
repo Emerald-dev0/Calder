@@ -245,6 +245,7 @@ export function DsSwitch({
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-label={label}
         disabled={disabled}
         onClick={() => onChange(!checked)}
         style={{
