@@ -76,7 +76,12 @@ describe("overview series", () => {
       NOW
     );
     expect(series).toHaveLength(24);
-    expect(series.at(-1)).toMatchObject({ key: "2026-10-06T20", label: "Now", delivered: 0, sent: 3 });
+    expect(series.at(-1)).toMatchObject({
+      key: "2026-10-06T20",
+      label: "Now",
+      delivered: 0,
+      sent: 3,
+    });
     expect(series[0]!.label).toBe("21:00");
   });
 });

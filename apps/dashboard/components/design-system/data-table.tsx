@@ -86,6 +86,7 @@ export function CopyableMono({
         toast({ title: "Copied ID", description: value, tone: "success" });
         setTimeout(() => setCopied(false), 1400);
       }}
+      aria-label={copied ? "Copied to clipboard" : `Copy ${value} to clipboard`}
       title={`Click to copy: ${value}`}
       className="mono"
       style={{
@@ -287,15 +288,25 @@ export function DataTable<T>({
                 )}
                 {columns.map((col) => {
                   const isSorted = sortKey === col.key;
+                  const sortOrder = isSorted ? (sortDir === "asc" ? "ascending" : "descending") : "none";
                   return (
                     <th
                       key={col.key}
+                      aria-sort={col.sortable ? sortOrder : undefined}
+                      tabIndex={col.sortable ? 0 : undefined}
+                      role={col.sortable ? "columnheader" : undefined}
                       style={{
                         width: col.width,
                         textAlign: col.align ?? "left",
                         cursor: col.sortable ? "pointer" : "default",
                       }}
                       onClick={() => handleSort(col)}
+                      onKeyDown={(e) => {
+                        if (col.sortable && (e.key === "Enter" || e.key === " ")) {
+                          e.preventDefault();
+                          handleSort(col);
+                        }
+                      }}
                     >
                       <span
                         style={{

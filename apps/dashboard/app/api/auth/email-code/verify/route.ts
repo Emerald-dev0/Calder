@@ -65,7 +65,14 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     if (purpose === "verification") {
-      const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+      let previousSessionId: string | null = null;
+      try {
+        const cookieStore = await cookies();
+        const prevSession = await getSessionUser(cookieStore.get(SESSION_COOKIE)?.value);
+        previousSessionId = prevSession?.sessionId ?? null;
+      } catch {
+        // Ignore if called outside Next.js request context (e.g. e2e tests)
+      }
       const result = await verifySignupCode(
         email,
         code,
@@ -73,7 +80,7 @@ export async function POST(req: Request): Promise<Response> {
           userAgent: req.headers.get("user-agent"),
           ip: clientIp(req),
         },
-        previous?.sessionId
+        previousSessionId
       );
       const sealed = await sealSessionCookie(result.sessionId);
       const sessionUser = await getSessionUser(sealed);
