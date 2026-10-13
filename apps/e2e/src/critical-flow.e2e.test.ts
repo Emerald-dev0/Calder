@@ -129,12 +129,14 @@ gate("critical flow: key → send → queue → worker → delivery state", () =
 
     // Webhook fan-out is durable before delivery is attempted.
     const { webhookDeliveries } = await import("@calder/db");
+    const activeTenant = tenant;
     await waitFor(
       async () => {
+        if (!activeTenant) return false;
         const deliveries = await getDb()
           .select({ event: webhookDeliveries.event })
           .from(webhookDeliveries)
-          .where(eq(webhookDeliveries.projectId, tenant.projectId));
+          .where(eq(webhookDeliveries.projectId, activeTenant.projectId));
         return deliveries.some((d) => d.event === "email.sent");
       },
       { timeoutMs: 10_000, label: "webhook delivery email.sent" }
