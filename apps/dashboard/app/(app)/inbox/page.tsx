@@ -10,13 +10,14 @@ export default function InboxPage() {
       <DsPageHeader
         icon={<Inbox size={18} />}
         title="Inbound Inbox"
-        badge={<StatusPill status="pro" label="PRO Feature" />}
+        badge={<StatusPill status="pro" label="PRO Feature" hideIcon />}
         description="Receive, parse, and route incoming emails directly into your application via signed webhooks."
       />
       <PlanGate
         title="Inbound email routing is available on Pro"
         description="Accept replies, support tickets, and inbound workflows on your custom domain. Calder parses MIME headers, attachments, and reply chains into clean JSON webhooks."
         tier="PRO"
+        hideIcons
         features={[
           "Custom MX inbound domains & address wildcards",
           "HMAC-signed JSON webhook for every inbound email",

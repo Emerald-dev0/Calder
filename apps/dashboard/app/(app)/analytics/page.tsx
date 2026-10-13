@@ -10,13 +10,14 @@ export default function AnalyticsPage() {
       <DsPageHeader
         icon={<BarChart3 size={18} />}
         title="Deliverability Analytics"
-        badge={<StatusPill status="pro" label="PRO Feature" />}
+        badge={<StatusPill status="pro" label="PRO Feature" hideIcon />}
         description="Understand every part of your delivery performance across domains, senders, and ISP cohorts."
       />
       <PlanGate
         title="Advanced Analytics"
         description="Delivery trends, domain performance, sender performance, open & click analytics, custom reports across your projects, computed from your own delivery events. This page never shows sample or illustrative numbers: until your plan includes analytics and real data exists, there is nothing to display."
         tier="PRO"
+        hideIcons
         features={[
           "Delivery trends",
           "Domain & sender breakdown",

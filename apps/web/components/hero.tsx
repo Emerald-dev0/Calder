@@ -116,7 +116,7 @@ export function Hero() {
               5,000 emails free every month. No card required.
             </p>
             <div className="hero-ctas">
-              <a className="btn btn-primary" href="/signup">
+              <a className="btn btn-primary" href="https://app.calder.click">
                 Start free{" "}
                 <span className="arrow" aria-hidden="true">
                   &rarr;
