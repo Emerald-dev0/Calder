@@ -63,7 +63,14 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   try {
-    const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+    let previousSessionId: string | null = null;
+    try {
+      const cookieStore = await cookies();
+      const prevSession = await getSessionUser(cookieStore.get(SESSION_COOKIE)?.value);
+      previousSessionId = prevSession?.sessionId ?? null;
+    } catch {
+      // Ignore if called outside Next.js request context (e.g. e2e tests)
+    }
     const result = await loginWithPassword(
       email,
       password,
@@ -71,7 +78,7 @@ export async function POST(req: Request): Promise<Response> {
         userAgent: req.headers.get("user-agent"),
         ip: clientIp(req),
       },
-      previous?.sessionId
+      previousSessionId
     );
 
     if (result.needsVerification) {
@@ -82,10 +89,6 @@ export async function POST(req: Request): Promise<Response> {
           purpose: "verification",
         });
       }
-      // Keep the response identical to a failed password check. The code is
-      // sent only after the password is valid, but the endpoint never tells a
-      // caller whether an address has an account or whether its password was
-      // correct.
       return NextResponse.json({ needsVerification: true, email });
     }
 
@@ -114,8 +117,6 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
     logger.warn("Login failed");
-    // Uniform next step for an invalid password, unknown address, and an
-    // unverified account. No password-validity or account-state oracle.
-    return NextResponse.json({ needsVerification: true, email });
+    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
   }
 }
