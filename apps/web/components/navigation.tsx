@@ -57,7 +57,7 @@ export function Navigation() {
           ))}
         </nav>
         <div className="nav-cta">
-          <a className="btn btn-primary btn-sm" href="/signup">
+          <a className="btn btn-primary btn-sm" href="https://app.calder.click">
             Start free{" "}
             <span className="arrow" aria-hidden="true">
               &rarr;

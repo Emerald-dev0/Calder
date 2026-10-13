@@ -10,6 +10,7 @@ interface PlanGateProps {
   tier: Tier;
   features?: string[];
   preview?: React.ReactNode;
+  hideIcons?: boolean;
 }
 
 const tierLabel: Record<Tier, string> = {
@@ -24,7 +25,7 @@ const tierCTA: Record<Tier, string> = {
   SCALE: "Talk to Calder",
 };
 
-export function PlanGate({ title, description, tier, features, preview }: PlanGateProps) {
+export function PlanGate({ title, description, tier, features, preview, hideIcons }: PlanGateProps) {
   return (
     <div
       className="ds-card"
@@ -53,7 +54,7 @@ export function PlanGate({ title, description, tier, features, preview }: PlanGa
           marginBottom: 14,
         }}
       >
-        <Sparkles size={12} />
+        {hideIcons ? null : <Sparkles size={12} />}
         <span>{tierLabel[tier]}</span>
       </div>
 
@@ -145,7 +146,7 @@ export function PlanGate({ title, description, tier, features, preview }: PlanGa
           className="ds-btn ds-btn-primary"
           style={{ textDecoration: "none" }}
         >
-          <Sparkles size={14} />
+          {hideIcons ? null : <Sparkles size={14} />}
           <span>{tierCTA[tier]}</span>
           <ExternalLink size={13} />
         </a>
