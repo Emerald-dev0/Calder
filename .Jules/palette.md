@@ -1,0 +1,3 @@
+## 2026-10-14 - Accessible API Key Creator Controls & Contextual Revoke Actions
+**Learning:** Dense inline form controls and table action buttons often lack explicit label association (`id` + `aria-label`/`htmlFor`) or contextual target detail for screen readers, especially when icon-only or short-text buttons like "Revoke" are rendered in recurring data rows.
+**Action:** Always provide explicit `id` and descriptive `aria-label` attributes for form inputs/selects in inline creator bars, and pass row context (e.g., `keyName`) to table action buttons so screen readers announce "Revoke API key [Name]" instead of an ambiguous generic action.
