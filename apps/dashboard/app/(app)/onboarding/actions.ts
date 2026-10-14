@@ -957,9 +957,7 @@ export async function probeDomainDns(domainId: string) {
   if (!row || !projectIds.has(row.projectId)) throw new Error("Domain not found.");
   const { attemptVerification } = await import("@calder/db");
   const { mapVerifyOutcome } = await import("../../../lib/domain-verify-result");
-  const outcome = await attemptVerification(db, row.projectId, domainId, undefined, {
-    probe: true,
-  });
+  const outcome = await attemptVerification(db, row.projectId, domainId, undefined, { probe: true });
   return mapVerifyOutcome(outcome);
 }
 

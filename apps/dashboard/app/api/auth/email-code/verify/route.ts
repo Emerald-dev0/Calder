@@ -65,13 +65,7 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     if (purpose === "verification") {
-      let previousSessionCookie: string | undefined;
-      try {
-        previousSessionCookie = (await cookies()).get(SESSION_COOKIE)?.value;
-      } catch {
-        // Outside Next.js request context (e.g. direct route handler invocation in e2e tests)
-      }
-      const previous = await getSessionUser(previousSessionCookie);
+      const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
       const result = await verifySignupCode(
         email,
         code,
