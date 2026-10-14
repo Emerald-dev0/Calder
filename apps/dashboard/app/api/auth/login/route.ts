@@ -63,7 +63,13 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   try {
-    const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+    let previousSessionCookie: string | undefined;
+    try {
+      previousSessionCookie = (await cookies()).get(SESSION_COOKIE)?.value;
+    } catch {
+      // Outside Next.js request context (e.g. direct route handler invocation in e2e tests)
+    }
+    const previous = await getSessionUser(previousSessionCookie);
     const result = await loginWithPassword(
       email,
       password,
