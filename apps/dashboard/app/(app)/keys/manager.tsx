@@ -46,15 +46,19 @@ export function KeyCreator({ projectId }: { projectId: string }) {
       <div className="ds-card-body">
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <input
+            id="api-key-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Key label (e.g. production-web)"
+            aria-label="API key label"
             className="ds-input"
             style={{ flex: 1, minWidth: 200 }}
           />
           <select
+            id="api-key-env"
             value={env}
             onChange={(e) => setEnv(e.target.value as "test" | "live")}
+            aria-label="Target environment"
             className="ds-select"
             style={{ width: "auto", minWidth: 150 }}
           >
@@ -62,8 +66,10 @@ export function KeyCreator({ projectId }: { projectId: string }) {
             <option value="live">live (production)</option>
           </select>
           <select
+            id="api-key-scope"
             value={scope}
             onChange={(e) => setScope(e.target.value as "full" | "send" | "read")}
+            aria-label="Key scope"
             className="ds-select"
             style={{ width: "auto", minWidth: 150 }}
           >
@@ -76,6 +82,7 @@ export function KeyCreator({ projectId }: { projectId: string }) {
             onClick={() => void create()}
             disabled={busy}
             className="ds-btn ds-btn-primary"
+            aria-label="Create new API key"
           >
             <Plus size={14} />
             <span>{busy ? "Creating…" : "Create key"}</span>
@@ -107,7 +114,15 @@ export function KeyCreator({ projectId }: { projectId: string }) {
 }
 
 /** Per-row revoke button for the server-rendered key list. */
-export function RevokeButton({ projectId, keyId }: { projectId: string; keyId: string }) {
+export function RevokeButton({
+  projectId,
+  keyId,
+  keyName,
+}: {
+  projectId: string;
+  keyId: string;
+  keyName?: string;
+}) {
   const [done, setDone] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -119,6 +134,7 @@ export function RevokeButton({ projectId, keyId }: { projectId: string; keyId: s
         type="button"
         onClick={() => setConfirmOpen(true)}
         className="ds-btn ds-btn-danger ds-btn-sm"
+        aria-label={keyName ? `Revoke API key ${keyName}` : "Revoke API key"}
       >
         <Trash2 size={12} />
         <span>Revoke</span>

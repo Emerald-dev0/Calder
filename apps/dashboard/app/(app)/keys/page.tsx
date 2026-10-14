@@ -131,7 +131,7 @@ export default async function KeysPage({
                     </td>
                     <td style={{ textAlign: "right" }}>
                       {!k.revokedAt ? (
-                        <RevokeButton projectId={scope.project.id} keyId={k.id} />
+                        <RevokeButton projectId={scope.project.id} keyId={k.id} keyName={k.name} />
                       ) : (
                         <span
                           className="mono"
