@@ -63,12 +63,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="ds-toast-viewport" role="region" aria-label="Notifications" aria-live="polite">
+      <div className="ds-toast-viewport" role="region" aria-label="Notifications" aria-live="polite" aria-atomic="true">
         {items.map((t) => {
           const tone = t.tone ?? "info";
           const Icon = TONE_ICON[tone];
           return (
-            <div key={t.id} className="ds-toast" role="status">
+            <div key={t.id} className="ds-toast" role="status" aria-atomic="true">
               <span style={{ color: TONE_COLOR[tone], flexShrink: 0, marginTop: 1 }}>
                 <Icon size={16} />
               </span>
