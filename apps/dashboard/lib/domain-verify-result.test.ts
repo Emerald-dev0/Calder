@@ -4,7 +4,7 @@ import { mapVerifyOutcome } from "./domain-verify-result";
 describe("mapVerifyOutcome", () => {
   it("returns verified with a confirmation message", () => {
     expect(
-      mapVerifyOutcome({ kind: "verified", domain: "acme.com", verifiedAt: new Date() })
+      mapVerifyOutcome({ kind: "verified", domain: "acme.com", verifiedAt: new Date() }),
     ).toEqual({ verified: true, detail: "TXT record matched. Domain verified." });
   });
 
@@ -25,10 +25,11 @@ describe("mapVerifyOutcome", () => {
   it("distinguishes missing TXT records from token mismatch", () => {
     const expected = { host: "_calder.acme.com", value: "calder-verification=cvt_x" };
     expect(
-      mapVerifyOutcome({ kind: "mismatch", status: "failed", expected, found: [], attemptsLeft: 9 })
+      mapVerifyOutcome({ kind: "mismatch", status: "failed", expected, found: [], attemptsLeft: 9 }),
     ).toEqual({
       verified: false,
-      detail: "No TXT records yet at _calder.acme.com — propagation can take minutes to hours.",
+      detail:
+        "No TXT records yet at _calder.acme.com — propagation can take minutes to hours.",
     });
     expect(
       mapVerifyOutcome({
@@ -37,19 +38,15 @@ describe("mapVerifyOutcome", () => {
         expected,
         found: ["v=spf1 include:amazonses.com ~all"],
         attemptsLeft: 8,
-      }).detail
+      }).detail,
     ).toMatch(/none match the challenge exactly/);
   });
 
   it("returns expired and dns_error gracefully", () => {
     expect(mapVerifyOutcome({ kind: "expired", retryAfterSec: null }).verified).toBe(false);
     expect(
-      mapVerifyOutcome({
-        kind: "dns_error",
-        status: "failed",
-        message: "ENOTFOUND",
-        attemptsLeft: 9,
-      }).detail
+      mapVerifyOutcome({ kind: "dns_error", status: "failed", message: "ENOTFOUND", attemptsLeft: 9 })
+        .detail,
     ).toMatch(/DNS lookup failed/);
   });
 

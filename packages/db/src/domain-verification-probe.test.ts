@@ -64,7 +64,7 @@ describe("attemptVerification probe mode", () => {
       "proj_test",
       "dom_test",
       async () => [],
-      { probe: true }
+      { probe: true },
     );
     expect(outcome.kind).toBe("mismatch");
     if (outcome.kind === "mismatch") expect(outcome.attemptsLeft).toBe(7);
@@ -74,7 +74,10 @@ describe("attemptVerification probe mode", () => {
   it("a probe past the rate limit still checks DNS instead of refusing", async () => {
     const updates: unknown[] = [];
     const oracle = vi.fn(async () => []);
-    const db = stubDb(pendingRow({ verifyAttempts: 10, verifyWindowStart: new Date() }), updates);
+    const db = stubDb(
+      pendingRow({ verifyAttempts: 10, verifyWindowStart: new Date() }),
+      updates,
+    );
     const outcome = await attemptVerification(db as never, "proj_test", "dom_test", oracle, {
       probe: true,
     });
@@ -86,7 +89,10 @@ describe("attemptVerification probe mode", () => {
   it("a real attempt past the rate limit refuses without touching DNS", async () => {
     const updates: unknown[] = [];
     const oracle = vi.fn(async () => []);
-    const db = stubDb(pendingRow({ verifyAttempts: 10, verifyWindowStart: new Date() }), updates);
+    const db = stubDb(
+      pendingRow({ verifyAttempts: 10, verifyWindowStart: new Date() }),
+      updates,
+    );
     const outcome = await attemptVerification(db as never, "proj_test", "dom_test", oracle);
     expect(oracle).not.toHaveBeenCalled();
     expect(outcome.kind).toBe("rate_limited");
@@ -112,7 +118,7 @@ describe("attemptVerification probe mode", () => {
       "proj_test",
       "dom_test",
       async () => [value],
-      { probe: true }
+      { probe: true },
     );
     expect(outcome.kind).toBe("verified");
     expect(updates).toHaveLength(1);
