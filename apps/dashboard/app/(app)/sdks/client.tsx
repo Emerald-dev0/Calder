@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { KeyRound, Sparkles, ExternalLink } from "lucide-react";
+import { KeyRound, ExternalLink } from "lucide-react";
 import { createTestKey } from "../onboarding/actions";
 import { CodeBlock, DsBanner } from "../../../components/design-system";
 
@@ -254,7 +254,6 @@ export function SdkHub({ projectId, hasKeys }: { projectId: string; hasKeys: boo
         }}
       >
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-          <Sparkles size={14} style={{ color: "var(--color-accent)" }} />
           <span>
             Official Node & Python SDKs send idempotently by default and support automatic retry backoff.
           </span>

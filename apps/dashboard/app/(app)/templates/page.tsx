@@ -3,7 +3,7 @@ import { getDb, templates } from "@calder/db";
 import { getTenantContext } from "../../../lib/auth";
 import { EmptyState } from "../../../components/empty-state";
 import Link from "next/link";
-import { FileCode2, Plus, ArrowRight, Sparkles } from "lucide-react";
+import { FileCode2, Plus, ArrowRight } from "lucide-react";
 import {
   DsPageHeader,
   StatusPill,
@@ -78,7 +78,6 @@ export default async function TemplatesPage() {
           <div className="ds-card" style={{ marginTop: 16 }}>
             <div className="ds-card-header">
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Sparkles size={15} style={{ color: "var(--color-accent)" }} />
                 <div>
                   <h2 className="ds-card-title">Starter Blueprints</h2>
                   <p className="ds-card-subtitle">

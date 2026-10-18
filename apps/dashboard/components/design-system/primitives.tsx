@@ -466,9 +466,11 @@ const STATUS_META: Record<
 export function StatusPill({
   status,
   label,
+  hideIcon,
 }: {
   status: string;
   label?: string;
+  hideIcon?: boolean;
 }) {
   const key = status.toLowerCase();
   const meta = STATUS_META[key] ?? {
@@ -490,7 +492,7 @@ export function StatusPill({
 
   return (
     <span className={`ds-pill ${toneClass}`.trim()}>
-      <Icon size={12} />
+      {hideIcon ? null : <Icon size={12} />}
       <span>{label ?? meta.label}</span>
     </span>
   );
