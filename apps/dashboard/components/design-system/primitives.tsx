@@ -224,12 +224,14 @@ export function DsSwitch({
   label,
   description,
   disabled,
+  ariaLabel,
 }: {
   checked: boolean;
   onChange: (next: boolean) => void;
   label?: string;
   description?: string;
   disabled?: boolean;
+  ariaLabel?: string;
 }) {
   return (
     <label
@@ -245,6 +247,7 @@ export function DsSwitch({
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-label={ariaLabel ?? label}
         disabled={disabled}
         onClick={() => onChange(!checked)}
         style={{
