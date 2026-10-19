@@ -10,12 +10,36 @@ import {
   type AlertSignals,
 } from "@calder/observability";
 import { workerStatsSnapshot } from "./worker-stats.js";
+import { resolveEmailProvider } from "@calder/providers";
 
 type CheckState = "ok" | "degraded" | "skipped";
 
 interface CheckResult {
   state: CheckState;
   detail?: string;
+}
+
+export interface HealthServerOptions {
+  workerId: string;
+  queues: Queue<unknown>[];
+}
+
+async function checkSESConnectivity(): Promise<CheckResult> {
+  try {
+    const status = resolveEmailProvider();
+    if (status.deliverable) {
+      // Check if SES is in sandbox mode
+      const { getSesAccountStatus } = await import("@calder/providers");
+      const account = await getSesAccountStatus();
+      if (account.sandbox) {
+        return { state: "degraded", detail: `SES sandbox mode (quota: ${account.max24HourSend}/day)` };
+      }
+      return { state: "ok", detail: `SES production (quota: ${account.max24HourSend}/day, rate: ${account.maxSendRate}/sec)` };
+    }
+    return { state: "degraded", detail: "SES not configured, using mock provider" };
+  } catch (err) {
+    return { state: "degraded", detail: err instanceof Error ? err.message : "SES check failed" };
+  }
 }
 
 export interface HealthServerOptions {
@@ -105,6 +129,11 @@ async function readiness(opts: HealthServerOptions): Promise<{
     ready = false;
   }
 
+  // SES connectivity check
+  const sesCheck = await checkSESConnectivity();
+  checks.ses = sesCheck;
+  if (sesCheck.state === "degraded") ready = false;
+
   const stats = workerStatsSnapshot(opts.workerId);
   const heartbeatAge = stats.lastHeartbeatAt
     ? Math.round((Date.now() - Date.parse(stats.lastHeartbeatAt)) / 1000)
@@ -113,9 +142,6 @@ async function readiness(opts: HealthServerOptions): Promise<{
   if (!redisUrl) {
     checks.heartbeat = { state: "skipped", detail: "no Redis heartbeat store configured" };
   } else if (heartbeatAge === null) {
-    // A worker that has never published a heartbeat is not yet (or no longer)
-    // doing its job. Reporting ready here would hide a worker that boots and
-    // then cannot reach its own queue.
     checks.heartbeat = {
       state: "degraded",
       detail:
