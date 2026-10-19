@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "skelo/styles.css";
 import {
   ThemeProvider,
   THEME_INIT_SCRIPT,

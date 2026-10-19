@@ -3702,6 +3702,14 @@ body:has(.onb-root) {
   animation: skeleton 1.4s ease-in-out infinite;
 }
 
+/* Skelo loading skeletons reuse the design-system palette so placeholder
+   shapes match the surfaces they stand in for, in both light and dark. */
+.calder-skelo .lr-skeleton {
+  --lr-base: var(--color-border);
+  --lr-highlight: var(--color-surface-hover);
+  --lr-radius: var(--radius-md);
+}
+
 /* Empty State */
 .ds-empty-state,
 .ds-empty {

@@ -201,6 +201,9 @@ importers:
       recharts:
         specifier: ^3.10.1
         version: 3.10.1(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react-is@19.3.0)(react@18.3.1)(redux@5.0.1)
+      skelo:
+        specifier: 0.2.1
+        version: 0.2.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
     devDependencies:
       '@types/node':
         specifier: ^22.7.0
@@ -3056,6 +3059,28 @@ packages:
   siginfo@2.0.0:
     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
 
+  skelo@0.2.1:
+    resolution: {integrity: sha512-/VctOWNAjy5zyFZlFS5fihxl2rfZ3eMSGvdfHdpdgKGb6d7qLKSj0YlGjW8wbB9WelEE30DAxchSpMTR6o60HA==}
+    engines: {node: '>=20'}
+    hasBin: true
+    peerDependencies:
+      react: ^18.3.0 || ^19.0.0
+      react-dom: ^18.3.0 || ^19.0.0
+      react-native: ^0.86.0
+      svelte: ^5.20.0
+      vue: ^3.5.0
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
+      react-native:
+        optional: true
+      svelte:
+        optional: true
+      vue:
+        optional: true
+
   sonic-boom@4.2.1:
     resolution: {integrity: sha512-w6AxtubXa2wTXAUsZMMWERrsIRAdrK0Sc+FUytWvYAhBJLyuI4llrMIC1DtlNSdI99EI86KZum2MMq3EAZlF9Q==}
 
@@ -5821,6 +5846,11 @@ snapshots:
   shell-quote@1.12.0: {}
 
   siginfo@2.0.0: {}
+
+  skelo@0.2.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+    optionalDependencies:
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
 
   sonic-boom@4.2.1:
     dependencies:
