@@ -23,6 +23,10 @@ export interface EmailMessage {
   // Optional: for tracking, tags etc
   headers?: Record<string, string>;
   tags?: Array<{ name: string; value: string }>;
+  // Reputation lane: "transactional" (default) or "marketing" (broadcasts).
+  // Purely an annotation for routing/analytics; never bypasses suppression,
+  // quotas, consent, or sender verification.
+  stream?: "transactional" | "marketing";
 }
 
 export interface ProviderSendResult {

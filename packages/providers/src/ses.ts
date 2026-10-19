@@ -32,16 +32,22 @@ export class SesEmailProvider implements EmailProvider {
       });
   }
 
-  async send(message: EmailMessage): Promise<ProviderSendResult> {
+  private getConfigSetForStream(stream?: "transactional" | "marketing"): string | undefined {
+    if (stream === "marketing") {
+      return process.env.SES_CONFIGURATION_SET_BROADCAST ?? process.env.SES_CONFIGURATION_SET;
+    }
+    return process.env.SES_CONFIGURATION_SET_TRANSACTIONAL ?? process.env.SES_CONFIGURATION_SET;
+  }
+
+  async send(message: EmailMessage & { stream?: "transactional" | "marketing" }): Promise<ProviderSendResult> {
     try {
       const attachments = (message.attachments ?? []).map(toSesAttachment);
+      const configSet = this.getConfigSetForStream(message.stream);
       const cmd = new SendEmailCommand({
         FromEmailAddress: message.from,
-        // Publish delivery events through this configuration set when set.
-        // Without it, feedback exists only if the identity has a default
-        // configuration set assigned — an optional fallback, not the plan.
-        ...(process.env.SES_CONFIGURATION_SET
-          ? { ConfigurationSetName: process.env.SES_CONFIGURATION_SET }
+        // Publish delivery events through the stream-appropriate configuration set.
+        ...(configSet
+          ? { ConfigurationSetName: configSet }
           : {}),
         Destination: {
           ToAddresses: [message.to],

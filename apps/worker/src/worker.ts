@@ -260,6 +260,8 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
         senderIdentityId: string | null;
         /** Ingest environment: "test" → mock-only delivery, never metered. */
         env: string;
+        /** Reputation lane: "transactional" | "marketing" */
+        stream?: "transactional" | "marketing";
       } | null = null;
 
       try {
@@ -294,6 +296,7 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
             attachments: Array.isArray(atts)
               ? (atts as Array<{ filename: string; contentType?: string; contentBase64: string }>)
               : [],
+            stream: (row as { stream?: "transactional" | "marketing" }).stream,
           };
         }
       } catch (dbErr) {
@@ -410,6 +413,7 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
         text: email.text ?? undefined,
         headers: Object.keys(email.headers).length > 0 ? email.headers : undefined,
         attachments: email.attachments.length > 0 ? email.attachments : undefined,
+        stream: email.stream,
       };
       let result: import("@calder/email").ProviderSendResult | null = null;
       let transportName = "default";
