@@ -4822,6 +4822,30 @@ body:has(.onb-root) {
   color: var(--color-muted);
 }
 
+/* Dark mode: preserve the login split's intended visual design
+   (art = dark bg + light text, form = light bg + dark text) */
+html[data-theme="dark"] .login-art {
+  background: #0b0c0e !important;
+  color: #f5f4ef !important;
+}
+html[data-theme="dark"] .login-art-headline,
+html[data-theme="dark"] .login-art-brand {
+  color: #f5f4ef !important;
+}
+html[data-theme="dark"] .login-art-sub {
+  color: rgba(245, 244, 239, 0.66) !important;
+}
+html[data-theme="dark"] .login-art-caption {
+  color: rgba(245, 244, 239, 0.42) !important;
+}
+html[data-theme="dark"] .login-form-wrap {
+  background: #f5f4ef !important;
+  color: #0b0c0e !important;
+}
+html[data-theme="dark"] .login-form-wrap * {
+  color-scheme: light;
+}
+
 .onb-preview-card {
   border: none;
   border-radius: 0;
