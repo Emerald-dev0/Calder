@@ -25,6 +25,19 @@ vi.mock("../../dashboard/lib/send-auth-email.js", () => ({
   },
 }));
 
+vi.mock("../../dashboard/lib/send-auth-email", () => ({
+  sendOtpEmail: async (opts: { to: string; code: string; purpose: string }) => {
+    captured.push({ to: opts.to, code: opts.code, purpose: opts.purpose });
+  },
+}));
+
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: () => undefined,
+    set: () => {},
+  }),
+}));
+
 const gate = E2E_ENABLED ? describe : describe.skip;
 
 const PASSWORD = "Correct-Horse-Battery-9";
