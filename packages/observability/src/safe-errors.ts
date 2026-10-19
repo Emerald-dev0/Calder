@@ -13,7 +13,6 @@ const SAFE_DELIVERY_CODES = new Set([
   "gmail_validation",
   "gmail_velocity_limit",
   "InvalidRecipient",
-  "MessageRejected",
   "MockFailure",
   "organization_sending_unavailable",
   "provider_error",
