@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   text,
@@ -10,7 +11,10 @@ import {
 } from "drizzle-orm/pg-core";
 import { emailStatusEnum, emailEventTypeEnum, emailStreamEnum } from "./enums.js";
 import { projects } from "./projects.js";
+import { organizations } from "./organizations.js";
 import { senderIdentities } from "./senders.js";
+import { broadcasts } from "./broadcasts.js";
+import { contacts } from "./contacts.js";
 
 export const emails = pgTable(
   "emails",
@@ -27,6 +31,13 @@ export const emails = pgTable(
     senderIdentityId: text("sender_identity_id").references(() => senderIdentities.id, {
       onDelete: "set null",
     }),
+    // Marketing provenance. Set only when stream = 'marketing'; NULL for
+    // transactional mail. SET NULL: pruning a broadcast must not delete the
+    // delivery log it produced.
+    broadcastId: text("broadcast_id").references(() => broadcasts.id, { onDelete: "set null" }),
+    // Recipient contact for broadcast sends. SET NULL: the log outlives a
+    // contact that is later removed.
+    contactId: text("contact_id").references(() => contacts.id, { onDelete: "set null" }),
     fromName: varchar("from_name", { length: 255 }),
     to: varchar("to", { length: 320 }).notNull(),
     cc: varchar("cc", { length: 1024 }),
@@ -71,6 +82,8 @@ export const emails = pgTable(
     index("emails_created_at_idx").on(t.createdAt),
     // Reputation-lane reporting: per-stream volumes over time.
     index("emails_stream_created_idx").on(t.stream, t.createdAt),
+    // Broadcast progress: "what has this broadcast sent so far".
+    index("emails_broadcast_idx").on(t.broadcastId),
     uniqueIndex("emails_project_idempotency_unique").on(t.projectId, t.idempotencyKey),
   ]
 );
@@ -96,6 +109,27 @@ export const emailEvents = pgTable(
   ]
 );
 
+/**
+ * Canonical suppression reasons. The column stays `text` on purpose: the
+ * public suppression API accepts a free-form reason, and the historical
+ * `suppression_reason` pg enum is unused (it only ever had bounce, complaint,
+ * unsubscribe, manual). Application code should write one of these values;
+ * `text` keeps older rows and operator-entered reasons readable.
+ *
+ * `bounce` covers hard bounces (permanent failures) exactly as the SES
+ * feedback loop has always recorded them; `soft_bounce_repeated` is the
+ * escalation a repeated transient failure eventually produces.
+ */
+export const SUPPRESSION_REASONS = [
+  "bounce",
+  "complaint",
+  "unsubscribe",
+  "manual",
+  "soft_bounce_repeated",
+  "import",
+] as const;
+export type SuppressionReason = (typeof SUPPRESSION_REASONS)[number];
+
 export const suppressions = pgTable(
   "suppressions",
   {
@@ -103,12 +137,32 @@ export const suppressions = pgTable(
     projectId: text("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
+    // Denormalised workspace id so a bounce recorded by one project is
+    // readable workspace-wide without a join. Backfilled and NOT NULL.
+    //
+    // The `default null` exists only so inserts may omit the column: migration
+    // 0027 adds a BEFORE INSERT / UPDATE OF project_id trigger that derives it
+    // from projects.organization_id, so every existing suppression writer
+    // (SES feedback, unsubscribe route, dashboard action) keeps working
+    // unchanged. The column is still NOT NULL in the database.
+    organizationId: text("organization_id")
+      .notNull()
+      .default(sql`null`)
+      .references(() => organizations.id, { onDelete: "cascade" }),
     email: varchar("email", { length: 320 }).notNull(),
+    // Deliberately `text`: see SUPPRESSION_REASONS above.
     reason: text("reason").notNull(),
+    // Which email produced this suppression, when one did. SET NULL: the
+    // suppression outlives the delivery log it came from.
+    sourceEmailId: text("source_email_id").references(() => emails.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("suppressions_project_email_idx").on(t.projectId, t.email),
+    // Workspace-wide reads (Phase 3+). Not unique yet: the current send path
+    // still keys on (project_id, email), and duplicate rows across projects
+    // in one workspace are tolerated until they are consolidated.
+    index("suppressions_org_email_idx").on(t.organizationId, t.email),
     // One suppression per recipient per project: the SNS suppression
     // automation upserts ON CONFLICT (project_id, email) DO NOTHING.
     uniqueIndex("suppressions_project_email_unique").on(t.projectId, t.email),
