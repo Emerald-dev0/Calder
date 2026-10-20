@@ -61,7 +61,7 @@ function SamplePage() {
           >
             <div style={{ fontSize: 12, color: "var(--color-muted)" }}>{label}</div>
             <div style={{ margin: "6px 0", fontSize: 24, fontWeight: 600 }}>
-              {["42,891", "98.92%", "1.02s", "12"][i]}
+              {["42891", "98.92%", "1.02s", "12"][i]}
             </div>
             <div style={{ fontSize: 12, color: "var(--color-muted)" }}>Last 30 days</div>
           </div>

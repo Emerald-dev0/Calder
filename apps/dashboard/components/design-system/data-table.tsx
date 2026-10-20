@@ -87,6 +87,7 @@ export function CopyableMono({
         setTimeout(() => setCopied(false), 1400);
       }}
       title={`Click to copy: ${value}`}
+      aria-label={copied ? `Copied ${value}` : `Copy ${value}`}
       className="mono"
       style={{
         appearance: "none",
@@ -224,6 +225,7 @@ export function DataTable<T>({
               style={{ padding: "4px 7px" }}
               title="Comfortable rows"
               aria-label="Comfortable row density"
+              aria-pressed={density === "comfortable"}
             >
               <Rows3 size={13} />
             </button>
@@ -234,6 +236,7 @@ export function DataTable<T>({
               style={{ padding: "4px 7px" }}
               title="Compact rows"
               aria-label="Compact row density"
+              aria-pressed={density === "compact"}
             >
               <AlignJustify size={13} />
             </button>

@@ -36,4 +36,10 @@ describe("design system utilities", () => {
     expect(THEME_INIT_SCRIPT).toContain("prefers-color-scheme: dark");
     expect(THEME_INIT_SCRIPT).toContain("dataset.theme");
   });
+
+  it("data-table exports CopyableMono and DataTable components", async () => {
+    const dataTableModule = await import("../components/design-system/data-table");
+    expect(dataTableModule.CopyableMono).toBeDefined();
+    expect(dataTableModule.DataTable).toBeDefined();
+  });
 });
