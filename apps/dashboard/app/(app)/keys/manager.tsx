@@ -49,12 +49,14 @@ export function KeyCreator({ projectId }: { projectId: string }) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Key label (e.g. production-web)"
+            aria-label="Key label"
             className="ds-input"
             style={{ flex: 1, minWidth: 200 }}
           />
           <select
             value={env}
             onChange={(e) => setEnv(e.target.value as "test" | "live")}
+            aria-label="Environment"
             className="ds-select"
             style={{ width: "auto", minWidth: 150 }}
           >
@@ -64,6 +66,7 @@ export function KeyCreator({ projectId }: { projectId: string }) {
           <select
             value={scope}
             onChange={(e) => setScope(e.target.value as "full" | "send" | "read")}
+            aria-label="Scope"
             className="ds-select"
             style={{ width: "auto", minWidth: 150 }}
           >
