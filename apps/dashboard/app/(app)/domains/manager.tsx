@@ -48,6 +48,7 @@ export function DomainAdder({ projectId }: { projectId: string }) {
             value={domain}
             onChange={(e) => setDomain(e.target.value)}
             placeholder="mail.acme.com"
+            aria-label="Domain name"
             className="ds-input mono"
             style={{ flex: 1, minWidth: 240 }}
           />
