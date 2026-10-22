@@ -1001,3 +1001,42 @@ gate nothing. `plan_tier` cannot store `premium` yet; adding it is a billing-pha
 migration, listed in `docs/PRICING.md` follow-ups. The unapproved contacts
 allowance stays in config marked `approved: false` and is never rendered.
 
+
+## ADR-046: A sender is archived, not deleted, once it has sent; two independent defaults
+
+**Status:** Accepted (2026-10-22).
+
+**Decision:** Sender identities gain three properties they did not have before,
+all on columns that already existed in migration 0028:
+
+1. **Two defaults.** `is_default` keeps its meaning — the sender used when a
+   send does not name one — and `is_default_marketing` is the broadcast default.
+   Both are unique per project, both may only be held by a verified, non-archived
+   identity, and setting one never touches the other. Every existing
+   `is_default` call site (the drain's fallback, the send API's default
+   resolution, the compose picker) keeps behaving exactly as before.
+2. **Archive instead of delete.** Deleting a sender that has produced at least
+   one message would leave the email history unattributable — the FK is
+   `set null`, so the rows would silently lose the address they came from.
+   `DELETE /v1/senders/:id` therefore archives such a sender (`archived_at`,
+   defaults cleared) and genuinely deletes one with no history. Archived
+   senders are absent from every listing, picker and resolution path, keep their
+   history, and stop counting against the plan's sender-identity ceiling.
+3. **Reply-To per identity.** `reply_to` is optional; empty means "reply to the
+   From address", the behaviour that existed before.
+
+**Why:** the limit added in this phase counts sender identities per
+organization, so archiving has to free a slot or customers would have no way to
+stay within a ceiling except destroying history. Making the plan check a
+property of the *creation* path (API and dashboard, one shared function) rather
+than the UI means a script cannot exceed a ceiling the dashboard enforces.
+`api_key_senders` is populated and selectable now, but not enforced at send
+time: today no rows means unrestricted, which is what every existing key
+already is, so shipping the selector cannot lock anyone out.
+
+**Consequence:** archived senders cannot be re-created at the same address
+without restoring the archived row — the `(project_id, email)` unique index is
+deliberately not partial, so an address has exactly one owner for all time.
+Senders that are archived, disabled or otherwise unusable fail closed in both
+send paths (`sender_not_ready` from the API, a visible failure in the worker),
+never silently rerouting to another transport.

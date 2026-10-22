@@ -14,10 +14,18 @@ export function AddSender({
   projectId,
   verifiedDomains,
   gmailTransports,
+  disabled = false,
+  limit = null,
+  upgradeHref = "/usage",
 }: {
   projectId: string;
   verifiedDomains: string[];
   gmailTransports: Array<{ id: string; label: string }>;
+  /** True when the plan ceiling is reached: the form stays visible but inert. */
+  disabled?: boolean;
+  limit?: { used: number; limit: number | null; tier: string } | null;
+  /** Where "View plans" goes; the marketing pricing page in the dashboard. */
+  upgradeHref?: string;
 }) {
   const router = useRouter();
   const [choice, setChoice] = useState<"gmail" | "domain" | null>("domain");
@@ -29,6 +37,7 @@ export function AddSender({
   const [busy, setBusy] = useState(false);
 
   async function submit() {
+    if (disabled) return;
     setBusy(true);
     setMsg(null);
     try {
@@ -50,11 +59,36 @@ export function AddSender({
           <h2 className="ds-card-title">Add Sender Identity</h2>
           <p className="ds-card-subtitle">
             Register a verified From address backed by your custom domain or connected Gmail on-ramp.
+            {limit && limit.limit !== null
+              ? ` ${limit.used} of ${limit.limit} used on this plan.`
+              : ""}
           </p>
         </div>
       </div>
 
       <div className="ds-card-body">
+        {disabled && (
+          <div style={{ marginBottom: 14 }}>
+            <DsBanner
+              tone="warning"
+              title="Sender identity limit reached"
+              description={
+                limit && limit.limit !== null
+                  ? `This organization has ${limit.used} of ${limit.limit} sender identities. Archived senders do not count, so archiving one frees a slot.`
+                  : "Your plan's sender-identity limit has been reached. Archive an unused sender or upgrade to add more."
+              }
+              action={
+                <a
+                  href={upgradeHref}
+                  className="ds-btn ds-btn-primary ds-btn-sm"
+                  style={{ textDecoration: "none" }}
+                >
+                  View plans
+                </a>
+              }
+            />
+          </div>
+        )}
         <div className="ds-grid-2" style={{ marginBottom: 16 }}>
           <button
             type="button"
@@ -172,7 +206,7 @@ export function AddSender({
                 <button
                   type="button"
                   onClick={submit}
-                  disabled={busy}
+                  disabled={busy || disabled}
                   className="ds-btn ds-btn-primary"
                 >
                   <Plus size={14} />
@@ -255,7 +289,7 @@ export function AddSender({
                 <button
                   type="button"
                   onClick={submit}
-                  disabled={busy}
+                  disabled={busy || disabled}
                   className="ds-btn ds-btn-primary"
                 >
                   <Plus size={14} />

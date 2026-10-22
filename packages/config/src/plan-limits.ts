@@ -234,11 +234,11 @@ const RESOURCE_FIELD: Record<LimitedResource, keyof PlanLimit> = {
   seats: "seats",
 };
 
-const RESOURCE_NOUN: Record<LimitedResource, string> = {
-  projects: "project",
-  domains: "sending domain",
-  senders: "sender identity",
-  seats: "team seat",
+const RESOURCE_NOUN: Record<LimitedResource, { one: string; many: string }> = {
+  projects: { one: "project", many: "projects" },
+  domains: { one: "sending domain", many: "sending domains" },
+  senders: { one: "sender identity", many: "sender identities" },
+  seats: { one: "team seat", many: "team seats" },
 };
 
 /** Ceiling for one resource, or `null` when the plan has no ceiling. */
@@ -335,7 +335,7 @@ export function checkResourceLimit(
   const upgrade = upgradeTierFor(plan.tier, resource);
   const upgradeName = upgrade ? PLAN_LIMITS[upgrade].displayName : null;
   const noun = RESOURCE_NOUN[resource];
-  const plural = limit === 1 ? noun : `${noun}s`;
+  const plural = limit === 1 ? noun.one : noun.many;
 
   return {
     allowed: false,

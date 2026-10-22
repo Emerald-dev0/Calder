@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getDb, senderIdentities } from "@calder/db";
 import { getTenantContext, resolveProject } from "../../../lib/auth";
 import { EmptyState } from "../../../components/empty-state";
@@ -87,7 +87,7 @@ export default async function EmailsPage({
       email: senderIdentities.email,
     })
     .from(senderIdentities)
-    .where(eq(senderIdentities.projectId, projectId));
+    .where(and(eq(senderIdentities.projectId, projectId), isNull(senderIdentities.archivedAt)));
 
   const domains = await listSenderDomains(db, projectId);
 

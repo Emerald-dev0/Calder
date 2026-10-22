@@ -243,12 +243,18 @@ async function resolveChain(db: DbClient, projectId: string, senderIdentityId: s
         )
         .limit(1);
       if (sender && sender.projectId === projectId) {
-        if (sender.status !== "verified" && sender.status !== "connected") {
-          throw Object.assign(new Error(`Sender ${sender.email} is ${sender.status}.`), {
-            code: "sender_not_ready",
-            transient: false,
-            statusCode: 422,
-          });
+        // An archived identity is retired: a message queued before the archive
+        // must fail visibly rather than leave from an address the user has
+        // removed from every picker.
+        if (sender.archivedAt || (sender.status !== "verified" && sender.status !== "connected")) {
+          throw Object.assign(
+            new Error(
+              sender.archivedAt
+                ? `Sender ${sender.email} is archived.`
+                : `Sender ${sender.email} is ${sender.status}.`
+            ),
+            { code: "sender_not_ready", transient: false, statusCode: 422 }
+          );
         }
         const linked = sender.transportId ? byId.get(sender.transportId) : undefined;
         // Same rule for the sender's pinned leg: suspended refuses (no silent

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getDb, senderIdentities } from "@calder/db";
 import { getTenantContext, resolveProject } from "../../../../lib/auth";
 import { Composer } from "./composer";
@@ -45,7 +45,10 @@ export default async function NewEmailPage({
       isDefault: senderIdentities.isDefault,
     })
     .from(senderIdentities)
-    .where(eq(senderIdentities.projectId, scope.project.id));
+    // Archived senders are hidden from every picker.
+    .where(
+      and(eq(senderIdentities.projectId, scope.project.id), isNull(senderIdentities.archivedAt))
+    );
   const def =
     rows.find((r) => r.isDefault) ??
     rows.find((r) => r.status === "verified" || r.status === "connected") ??

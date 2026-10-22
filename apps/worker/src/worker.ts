@@ -88,9 +88,13 @@ async function resolveServiceChain(
         )
         .limit(1);
       if (sender && sender.projectId === projectId) {
-        if (sender.status !== "verified" && sender.status !== "connected") {
+        if (sender.archivedAt || (sender.status !== "verified" && sender.status !== "connected")) {
           throw Object.assign(
-            new Error(`Sender ${sender.email} is ${sender.status}. Re-enable it before sending.`),
+            new Error(
+              sender.archivedAt
+                ? `Sender ${sender.email} is archived.`
+                : `Sender ${sender.email} is ${sender.status}. Re-enable it before sending.`
+            ),
             { code: "sender_not_ready", transient: false, statusCode: 422 }
           );
         }

@@ -73,6 +73,7 @@ export async function sendTransactional(
     )
     .limit(1);
   if (!sender) throw new Error("Choose a sender from this project.");
+  if (sender.archivedAt) throw new Error(`${sender.email} is archived and cannot send.`);
   if (sender.status !== "verified" && sender.status !== "connected") {
     throw new Error(`${sender.email} isn't ready to send (status: ${sender.status}).`);
   }
