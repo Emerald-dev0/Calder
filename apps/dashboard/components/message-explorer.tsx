@@ -182,6 +182,8 @@ export function MessageExplorer({
               <button
                 type="button"
                 role="tab"
+                id="tab-inspector-timeline"
+                aria-controls="tabpanel-inspector-timeline"
                 aria-selected={drawerTab === "timeline"}
                 onClick={() => setDrawerTab("timeline")}
                 className={`ds-tab ${drawerTab === "timeline" ? "is-active" : ""}`}
@@ -192,6 +194,8 @@ export function MessageExplorer({
               <button
                 type="button"
                 role="tab"
+                id="tab-inspector-headers"
+                aria-controls="tabpanel-inspector-headers"
                 aria-selected={drawerTab === "headers"}
                 onClick={() => setDrawerTab("headers")}
                 className={`ds-tab ${drawerTab === "headers" ? "is-active" : ""}`}
@@ -202,6 +206,8 @@ export function MessageExplorer({
               <button
                 type="button"
                 role="tab"
+                id="tab-inspector-json"
+                aria-controls="tabpanel-inspector-json"
                 aria-selected={drawerTab === "json"}
                 onClick={() => setDrawerTab("json")}
                 className={`ds-tab ${drawerTab === "json" ? "is-active" : ""}`}
@@ -212,7 +218,12 @@ export function MessageExplorer({
             </div>
 
             {drawerTab === "timeline" && (
-              <>
+              <div
+                id="tabpanel-inspector-timeline"
+                role="tabpanel"
+                aria-labelledby="tab-inspector-timeline"
+                style={{ display: "flex", flexDirection: "column", gap: 18 }}
+              >
                 <KeyValueList
                   items={[
                     { label: "Message ID", value: selected.id, copyValue: selected.id },
@@ -292,38 +303,50 @@ export function MessageExplorer({
                     ))}
                   </div>
                 </div>
-              </>
+              </div>
             )}
 
             {drawerTab === "headers" && (
-              <KeyValueList
-                items={[
-                  { label: "Authentication-Results", value: "dkim=pass spf=pass dmarc=pass", mono: true },
-                  { label: "X-Calder-Message-ID", value: selected.id, mono: true },
-                  { label: "TLS-Version", value: "TLSv1.3 (TLS_AES_256_GCM_SHA384)", mono: true },
-                  { label: "Feedback-ID", value: `${selected.id}:calder-tx`, mono: true },
-                ]}
-              />
+              <div
+                id="tabpanel-inspector-headers"
+                role="tabpanel"
+                aria-labelledby="tab-inspector-headers"
+              >
+                <KeyValueList
+                  items={[
+                    { label: "Authentication-Results", value: "dkim=pass spf=pass dmarc=pass", mono: true },
+                    { label: "X-Calder-Message-ID", value: selected.id, mono: true },
+                    { label: "TLS-Version", value: "TLSv1.3 (TLS_AES_256_GCM_SHA384)", mono: true },
+                    { label: "Feedback-ID", value: `${selected.id}:calder-tx`, mono: true },
+                  ]}
+                />
+              </div>
             )}
 
             {drawerTab === "json" && (
-              <CodeBlock
-                title="message.json"
-                code={JSON.stringify(
-                  {
-                    id: selected.id,
-                    object: "email",
-                    to: [selected.to],
-                    from: selected.from ?? "verified-sender@calder.build",
-                    subject: selected.subject,
-                    status: selected.status,
-                    provider: selected.provider ?? "ses",
-                    created_at: selected.createdAt,
-                  },
-                  null,
-                  2,
-                )}
-              />
+              <div
+                id="tabpanel-inspector-json"
+                role="tabpanel"
+                aria-labelledby="tab-inspector-json"
+              >
+                <CodeBlock
+                  title="message.json"
+                  code={JSON.stringify(
+                    {
+                      id: selected.id,
+                      object: "email",
+                      to: [selected.to],
+                      from: selected.from ?? "verified-sender@calder.build",
+                      subject: selected.subject,
+                      status: selected.status,
+                      provider: selected.provider ?? "ses",
+                      created_at: selected.createdAt,
+                    },
+                    null,
+                    2,
+                  )}
+                />
+              </div>
             )}
           </div>
         )}
