@@ -1,195 +1,138 @@
-# Emails Calder sends its own users
+# Company email — what Calder sends, and what actually fires
 
-Last reviewed: 2026-10-22.
+Calder mails its own users through one package (`@calder/notify`), one table
+(`company_emails`) and one catalogue (`packages/notify/src/catalogue.ts`).
+Company mail never enters `emails`: it must not be metered as a customer send,
+must not appear in a tenant's delivery log, and must not inherit a tenant's
+suppression rules.
 
-This is the inventory behind `packages/notify`. The catalogue in code is the
-source of truth — `COMPANY_EMAILS` in `packages/notify/src/catalogue.ts` — and a
-test asserts every entry renders. This document explains the rules and marks
-what is actually wired to a trigger today.
+This page is the honest inventory. "Wired" means a code path in this repository
+sends it today. Everything under **Not wired** has copy, a preview and a
+template — and no trigger, because the feature it reports on does not exist yet.
+A template with no trigger is a promise; this page keeps us from pretending it
+is a feature.
 
-## 1. Rules the system enforces
+## Rules the system enforces
 
-1. **Company mail never touches customer tables.** It is recorded in
-   `company_emails`, not `emails`. A password reset must not consume a tenant's
-   monthly allowance, appear in their message log, or count as a send.
-2. **Category decides consent.** `updates` and `digest` are the only optional
-   categories. Everything else is mandatory: `setCategoryDisabled` refuses to
-   record an opt-out for a mandatory category, and the send path ignores one if
-   it exists anyway.
-3. **One row per attempt, claimed by unique key.** The row is written before the
-   provider call. A crash mid-send leaves evidence, and a replayed event (a
-   double-clicked invite, a retried webhook) collapses onto the first row rather
-   than sending twice.
-4. **Workspace mail goes to people who can act.** Billing, quota and
-   infrastructure notices resolve to owners and admins, one row per person,
-   keyed `<event>:<userId>`.
-5. **Nothing sensitive is persisted.** `metadata` drops any field whose name
-   matches code/token/secret/password/url/link. Provider errors are stored as
-   `provider_error:<code>`, never as the provider's message, which can name the
-   recipient or the transport.
-6. **Failure never breaks the feature.** `sendCompanyEmailQuietly` swallows
-   errors at call sites where the user action already succeeded. The row still
-   records `failed`.
+| Rule | Where |
+| --- | --- |
+| An unknown template id throws before anything is written | `send.ts` → `companyEmailDefinition` |
+| `updates` and `digest` are the only opt-out categories | `catalogue.ts` → `OPTIONAL_CATEGORIES` |
+| A mandatory category can never be opted out, even by a hand-written row | `preferences.ts` → `isCategoryDisabled` |
+| Optional mail carries `List-Unsubscribe` + RFC 8058 one-click | `send.ts` |
+| The unsubscribe link is signed per (user, category) and cannot enable anything | `tokens.ts` |
+| A GET on the unsubscribe link never changes state | `app/api/unsubscribe/company/route.ts` |
+| One row per attempt, written before the provider call | `company_emails` |
+| A repeated event collapses onto the first row (unique `idempotency_key`) | `company_emails_idempotency_unique` |
+| Provider errors are stored as a class, never the response body | `send.ts` → `scrubError` |
+| Codes, tokens and links never reach `metadata` | `send.ts` → `safeMetadata` |
+| Delivery failure never fails the operation that caused it | `sendCompanyEmailQuietly` |
+| Workspace mail goes to owners and admins, not every member | `recipients.ts` |
 
-## 2. Categories
+## Wired (24)
 
-| Category     | Optional | Why                                                                       |
-| ------------ | -------- | ------------------------------------------------------------------------- |
-| `account`    | no       | Codes and receipts of the user's own actions; without them there is no access |
-| `security`   | no       | Something about how the account is protected changed                      |
-| `billing`    | no       | Money moved or is about to; contract and tax obligation                   |
-| `legal`      | no       | A policy changed in a way that binds the user                             |
-| `usage`      | no       | The workspace is near or at a ceiling it pays for                         |
-| `operations` | no       | State of domains, keys, webhooks, deliverability                          |
-| `updates`    | **yes**  | Product news and announcements                                            |
-| `digest`     | **yes**  | Monthly workspace recap                                                   |
+| Id | Fires from | Key |
+| --- | --- | --- |
+| `account.verification_code` | signup / resend (`api/auth/email-code`) | `otp:verification:<email>:<code>` |
+| `account.password_reset_code` | reset request (`lib/send-auth-email.ts`) | `otp:reset:<email>:<code>` |
+| `account.welcome` | first verification (`api/auth/email-code/verify`) | per user |
+| `account.new_sign_in` | login, magic link, OAuth callback | per sign-in |
+| `account.password_changed` | `api/auth/password-change` | per change |
+| `account.password_reset_completed` | `api/auth/password-reset` | per reset |
+| `account.sign_in_method_added` | OAuth callback | per provider link |
+| `account.sign_in_method_removed` | `api/auth/oauth/disconnect` | per provider unlink |
+| `account.sessions_revoked` | `signOutOtherSessions()` | per event |
+| `organization.invitation` | `inviteMember()` | `invite:<invitationId>` |
+| `organization.invitation_reminder` | cron `/v1/cron/company-email` | `<invitationId>:<expiresAt>` |
+| `organization.invitation_accepted` | verification of an invited address | per invitation |
+| `organization.role_changed` | `updateMemberRole()` | `role:<membership>:<role>:<epoch>` |
+| `organization.member_removed` | `removeMember()` | `removed:<membershipId>` |
+| `operations.domain_verified` | `POST /v1/domains/:id/verify` (verified) | per verification instant |
+| `operations.domain_failed` | same route (DNS error / TXT mismatch) | one per domain per day |
+| `operations.api_key_created` | `POST /v1/keys` | per key |
+| `operations.api_key_revoked` | `DELETE /v1/keys/:id` | per key |
+| `operations.api_key_expiring` | cron `/v1/cron/company-email` | `<keyId>:<expiryDate>` |
+| `operations.webhook_failing` | worker, delivery ladder exhausted | one per endpoint per day |
+| `operations.broadcast_completed` | broadcast send finishes | `broadcast:<id>:sent` |
+| `operations.broadcast_paused` | broadcast pauses on the plan allowance | `broadcast:<id>:paused` |
+| `usage.warning_80` | ingest, inside the 80–82% band | `usage:80:<org>:<periodEnd>` |
+| `usage.exhausted_100` | ingest refuses with `plan_limit_reached` | `usage:100:<org>:<periodEnd>` |
 
-Optional mail carries `List-Unsubscribe` + `List-Unsubscribe-Post:
-List-Unsubscribe=One-Click` and a signed footer link. Mandatory mail carries
-neither, because there is nothing to unsubscribe from.
+## Not wired — and why
 
-## 3. Inventory
+These are deliberate gaps, not oversights. Each row names the missing thing.
 
-Status: **wired** = a code path sends it today. **catalogue** = the template,
-copy, category and audience exist and are tested, but the trigger ships with a
-subsystem that is not built yet (broadcasts, dunning, 2FA, exports). Nothing is
-marked wired unless there is a call site.
+### Account (feature absent)
 
-### Account
+| Id | Needs |
+| --- | --- |
+| `account.two_factor_enabled` / `_disabled` | 2FA enrolment, which does not exist |
+| `account.recovery_codes_generated` | 2FA recovery codes |
+| `account.locked_out` | login lockout (`failed_login_attempts` exists in schema `0022`, no route sets it) |
+| `account.suspicious_sign_in_blocked` | a sign-in risk decision |
+| `account.email_change_requested` / `_changed` | an email-change flow (address changes today happen outside the product) |
+| `account.deletion_scheduled` / `account.deleted` | self-serve account deletion |
+| `account.data_export_ready` / `_failed` | a data-export job |
 
-| Template                            | Trigger                                     | Status    |
-| ----------------------------------- | ------------------------------------------- | --------- |
-| `account.welcome`                   | first successful email verification         | wired     |
-| `account.verification_code`         | signup and resend                           | wired     |
-| `account.password_reset_code`       | forgotten password / email code             | wired     |
-| `account.new_sign_in`               | password, code, magic link, OAuth login     | wired     |
-| `account.password_changed`          | password change from settings               | wired     |
-| `account.password_reset_completed`  | password reset with a recovery code         | wired     |
-| `account.sign_in_method_added`      | OAuth provider connected                    | wired     |
-| `account.sign_in_method_removed`    | OAuth provider disconnected                 | wired     |
-| `account.sessions_revoked`          | sign out everywhere / reset                 | catalogue |
-| `account.two_factor_enabled`        | 2FA switched on                             | catalogue |
-| `account.two_factor_disabled`       | 2FA switched off                            | catalogue |
-| `account.recovery_codes_generated`  | recovery codes regenerated                  | catalogue |
-| `account.email_change_requested`    | change-email confirmation to the new address | catalogue |
-| `account.email_changed`             | email changed, notice to the old address    | catalogue |
-| `account.locked_out`                | login lockout after repeated failures       | catalogue |
-| `account.suspicious_sign_in_blocked`| refused sign-in                             | catalogue |
-| `account.deletion_scheduled`        | account deletion requested                  | catalogue |
-| `account.deleted`                   | account deletion completed                  | catalogue |
-| `account.data_export_ready`         | export job finished                         | catalogue |
-| `account.data_export_failed`        | export job failed                           | catalogue |
+### Billing (no payment system, by decision)
 
-### Organization (addressed to a person)
+`billing.trial_started`, `billing.trial_ending`, `billing.trial_ended`,
+`billing.payment_succeeded`, `billing.payment_failed`,
+`billing.payment_failed_final`, `billing.invoice_ready`,
+`billing.plan_upgraded`, `billing.plan_downgraded`,
+`billing.subscription_canceled`, `billing.subscription_reactivated`,
+`billing.refund_issued`, `billing.payment_method_expiring`.
 
-| Template                                | Trigger                                  | Status    |
-| --------------------------------------- | ---------------------------------------- | --------- |
-| `organization.invitation`               | team invite                              | wired     |
-| `organization.invitation_accepted`      | invitee completes signup                 | wired     |
-| `organization.invitation_reminder`      | T-3 days before expiry                   | catalogue |
-| `organization.role_changed`             | member role changed                      | catalogue |
-| `organization.member_removed`           | member removed                           | catalogue |
-| `organization.ownership_transferred`    | ownership moved                          | catalogue |
-| `organization.workspace_created`        | workspace created                        | catalogue |
+Bachs is not integrated (`MockBillingProvider` only) and checkout is out of
+scope, so there is no event to hang these on. They stay in the catalogue because
+the copy, the preview and the consent rules are already correct — wiring them is
+a matter of calling the id from the Bachs webhook handler once it exists.
 
-### Billing (addressed to the workspace)
+### Operations
 
-Trial, receipts, dunning, invoices, plan changes, cancellation, refunds and card
-expiry. All `catalogue`: the payment system (Bachs) is not built, and these
-templates exist so the integration has a destination rather than an ad-hoc
-`brandEmail` call. **No price is hardcoded** — amounts and currency arrive as
-formatted strings from the caller.
+| Id | Needs |
+| --- | --- |
+| `operations.domain_dns_lost` | periodic re-verification of verified domains (today a domain is only checked when somebody clicks verify) |
+| `operations.webhook_disabled` | an auto-disable policy after N consecutive failures; today endpoints stay enabled and the consumer mails `operations.webhook_failing` instead |
+| `operations.bounce_rate_warning` / `_complaint_rate_warning` | hooked to `evaluateOrganizationAbusePolicy` at the point it pauses an organization |
+| `operations.broadcast_completed` delivery/bounce detail | the counts are read at send time; terminal delivery lands later via SES events |
 
-`billing.payment_failed` and `billing.payment_failed_final` are the two that
-matter most at launch: the first says sending still works and the card needs
-attention, the second says exactly when the plan downgrades and what stops.
+### Organization
 
-### Usage (addressed to the workspace)
+| Id | Needs |
+| --- | --- |
+| `organization.ownership_transferred` | an in-product ownership transfer; owners are changed only by direct membership edits today |
+| `organization.workspace_created` | a first-run hook in onboarding (signup creates the workspace before an address is verified, so the mail would race the welcome email) |
 
-| Template               | Trigger                                    | Status    |
-| ---------------------- | ------------------------------------------ | --------- |
-| `usage.warning_80`     | 80% of the period allowance used           | catalogue |
-| `usage.exhausted_100`  | allowance exhausted, sends refused         | catalogue |
-| `usage.reset`          | new billing period                         | catalogue |
-| `usage.resource_limit` | project/domain/sender/seat ceiling reached | catalogue |
+### Legal and product news (operator-driven)
 
-Once-per-period semantics come free from the idempotency key: include the
-period start in it (`usage:80:<orgId>:<periodStart>`).
+`legal.policy_update`, `updates.product_update`, `updates.monthly_digest`,
+`updates.announcement`.
 
-### Operations (addressed to the workspace)
+There is no scheduler or composer that sends editorial mail to product users
+today. The control-plane communications surface addresses the waitlist, not
+customers. When it grows a composer, these four ids are the payload — the
+preference and unsubscribe plumbing already exists.
 
-| Template                        | Trigger                             | Status    |
-| ------------------------------- | ----------------------------------- | --------- |
-| `operations.domain_verified`    | DNS verification succeeded          | wired     |
-| `operations.domain_failed`      | DNS verification failed (max 1/day) | wired     |
-| `operations.api_key_created`    | key created                         | wired     |
-| `operations.api_key_revoked`    | key revoked or rotated              | wired     |
-| `operations.domain_dns_lost`    | re-check found records missing      | catalogue |
-| `operations.api_key_expiring`   | key expires within 7 days           | catalogue |
-| `operations.webhook_failing`    | delivery exhausted retries          | catalogue |
-| `operations.webhook_disabled`   | endpoint auto-disabled              | catalogue |
-| `operations.broadcast_completed`| broadcast finished                  | catalogue |
-| `operations.broadcast_paused`   | bounce/complaint threshold crossed  | catalogue |
-| `operations.bounce_rate_warning`| 7-day bounce rate over the line     | catalogue |
-| `operations.complaint_rate_warning` | 7-day complaint rate over the line | catalogue |
+## Verifying it by hand
 
-### Legal, updates, digest
+1. Sign in, then open **Settings → Notifications** (`/settings/notifications`).
+   Every catalogue entry is listed with its category, and each one renders its
+   real HTML in a sandboxed iframe.
+2. Toggle **Product news** off, then check `email_preferences.disabled_categories`
+   contains `updates`.
+3. Send yourself an optional email (control plane or a seeded send) and confirm
+   `company_emails` shows `status = skipped`, `skip_reason = opted_out`.
+4. Follow the footer unsubscribe link in a real message: the GET must render a
+   confirmation page and change nothing; the POST must apply the opt-out.
+5. Try the same for `account.password_reset_code`: there is no toggle, and a
+   forged row in `email_preferences` is ignored.
 
-`legal.policy_update` (mandatory), `updates.product_update`,
-`updates.announcement` and `updates.monthly_digest` (optional). All `catalogue`;
-sending them is an editorial act, not an automatic one.
+## Test gates
 
-## 4. Where things live
-
-| Concern                  | Path                                            |
-| ------------------------ | ----------------------------------------------- |
-| Catalogue and consent    | `packages/notify/src/catalogue.ts`              |
-| Copy for every template  | `packages/notify/src/render/templates.ts`       |
-| HTML blocks and escaping | `packages/notify/src/render/blocks.ts`          |
-| Renderer                 | `packages/notify/src/render/render.ts`          |
-| Preferences              | `packages/notify/src/preferences.ts`            |
-| Signed opt-out tokens    | `packages/notify/src/tokens.ts`                 |
-| Delivery pipeline        | `packages/notify/src/send.ts`                   |
-| Persistence port         | `packages/notify/src/store.ts`                  |
-| Workspace fan-out        | `packages/notify/src/recipients.ts`             |
-| Tables                   | `packages/db/src/schema/company-emails.ts`      |
-| Migration                | `packages/db/drizzle/0029_company_email.sql`    |
-| Opt-out endpoint         | `apps/dashboard/app/api/unsubscribe/company/`   |
-| Preferences + preview UI | `apps/dashboard/app/(app)/settings/notifications/` |
-
-## 5. Adding an email
-
-1. Add the entry to `COMPANY_EMAILS` (category, audience, description, trigger,
-   data). The type system then forces a template.
-2. Write the copy in `TEMPLATES`. Plain text only; the renderer escapes.
-3. Call `sendCompanyEmailQuietly` at the trigger with an event-shaped
-   idempotency key.
-4. Run `pnpm --filter @calder/notify test` — the suite renders every entry and
-   fails on a missing one.
-5. Add a line to this table with its status.
-
-## 6. Verification performed
-
-- `pnpm --filter @calder/notify test` — 19 unit tests (render every template,
-  escaping, `javascript:` CTA dropped, opt-out rules, idempotent replay,
-  provider failure recorded, unsubscribe headers only on optional mail).
-- `pnpm --filter @calder/api test` — 127 passing.
-- `pnpm --filter @calder/dashboard test` — 175 passing.
-- Full workspace build, including the new `/settings/notifications` route.
-- Clean-checkout build: deleting `packages/config/dist` **and**
-  `packages/notify/dist` is repaired by `scripts/ensure-workspace-built.mjs`,
-  which now includes `@calder/notify` in the dashboard's closure.
-- Migration: `drizzle-kit generate` against the built schema reports
-  **"No schema changes"**, so `0029_company_email.sql` matches the TypeScript
-  schema exactly.
-
-**Not verified in this sandbox:** the integration test
-(`packages/notify/src/send.integration.test.ts`) and the migration were not run
-against Postgres, because no database is available here. Both are gated /
-documented for a local throwaway database:
-
-```bash
-RUN_INTEGRATION_TESTS=1 pnpm --filter @calder/notify test
-```
-
-The migration has not been applied to any environment, including production.
+- `pnpm --filter @calder/notify test` — catalogue/template/render/preference
+  invariants, idempotency, opt-out skip, provider failure recorded as `failed`.
+- `pnpm --filter @calder/api test` — ingest quota refusal, sender checks and the
+  broadcast pipeline that company mail reuses for its own notifications.
+- Integration suites (`RUN_INTEGRATION_TESTS=1`) need Postgres; nothing
+  DB-backed is proven without one.
