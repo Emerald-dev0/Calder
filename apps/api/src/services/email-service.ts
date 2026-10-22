@@ -2,9 +2,9 @@ import { randomUUID } from "node:crypto";
 import type { SendEmailInput } from "@calder/validation";
 import { createQueue } from "@calder/queue";
 import { captureError, logger, queueEnqueueFailures } from "@calder/observability";
-import { getConfig, isProduction } from "@calder/config";
+import { getConfig, isProduction, planDisplayName } from "@calder/config";
 import { AppError } from "../errors/index.js";
-import type { DbClient } from "@calder/db";
+import type { DbClient, OrganizationQuotaDecision } from "@calder/db";
 
 /** postgres.js unique-violation error shape (SQLSTATE 23505). */
 function isUniqueViolation(err: unknown): boolean {
@@ -55,6 +55,60 @@ export interface HandleSendEmailParams {
   /** Set for marketing sends so the row joins back to its broadcast. */
   broadcastId?: string;
   input: SendEmailInput;
+}
+
+/**
+ * Plan-allowance notices.
+ *
+ * Both emails exist to prevent a surprise: one says "you are near the ceiling
+ * while there is still time to act", the other says "this was the ceiling" at
+ * the moment a send is refused. They are fire-and-forget: an inbox problem
+ * must never change the answer the API gives a customer.
+ *
+ * The warning is emitted only inside a narrow band (80–82% of the allowance),
+ * which every send passes through at most once per period but which almost no
+ * send lands in. The exhausted notice is keyed on the period, so a customer
+ * hammering the API at the limit gets one mail, not one per request.
+ */
+function notifyAllowance(
+  db: DbClient,
+  organizationId: string,
+  quota: OrganizationQuotaDecision | undefined,
+  kind: "warning" | "exhausted"
+): void {
+  const limit = quota?.limit;
+  if (!quota || !limit || limit <= 0) return;
+  if (kind === "warning") {
+    const ratio = quota.usage / limit;
+    if (ratio < 0.8 || ratio >= 0.82) return;
+  }
+  void (async () => {
+    try {
+      const { sendOrganizationEmail } = await import("@calder/notify");
+      await sendOrganizationEmail(db, {
+        id: kind === "warning" ? "usage.warning_80" : "usage.exhausted_100",
+        organizationId,
+        idempotencyKey:
+          kind === "warning"
+            ? `usage:80:${organizationId}:${quota.period.end.toISOString()}`
+            : `usage:100:${organizationId}:${quota.period.end.toISOString()}`,
+        data: {
+          planName: planDisplayName(quota.tier),
+          limit: limit.toLocaleString("en-US"),
+          used: quota.usage.toLocaleString("en-US"),
+          percent: Math.round((quota.usage / limit) * 100),
+          resetsOn: quota.period.end.toISOString().slice(0, 10),
+          periodEnd: quota.period.end.toISOString().slice(0, 10),
+          pricingUrl: `${getConfig().APP_URL.replace(/\/$/, "")}/usage`,
+        },
+      });
+    } catch (err) {
+      logger.warn(
+        { organizationId, kind, err: err instanceof Error ? err.message : "unknown" },
+        "Allowance notice could not be sent"
+      );
+    }
+  })();
 }
 
 export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
@@ -367,6 +421,9 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
           };
         }
       }
+      if (admission.decision.reason === "plan_quota") {
+        notifyAllowance(db, params.organizationId, admission.decision.quota, "exhausted");
+      }
       const { assertOrganizationAdmissionAllowed } = await import("../lib/organization-sending.js");
       assertOrganizationAdmissionAllowed(admission.decision);
     }
@@ -391,6 +448,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       );
     }
     persisted = true;
+    notifyAllowance(db, params.organizationId, admission.decision.quota, "warning");
   } catch (err) {
     if (err instanceof AppError) throw err;
     if (idempotencyKey && isUniqueViolation(err)) {

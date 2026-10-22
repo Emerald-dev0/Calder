@@ -392,6 +392,54 @@ export interface SendBroadcastResult {
   reason?: string;
 }
 
+/**
+ * Post-send notice for a broadcast. Best effort: the send already happened and
+ * the report page is the record, so a mail outage must not become a send error.
+ */
+async function notifyBroadcastOutcome(
+  db: DbClient,
+  input: {
+    organizationId: string;
+    broadcastId: string;
+    name: string;
+    status: "sent" | "paused";
+    reason?: string;
+  }
+): Promise<void> {
+  try {
+    const counts = await db
+      .select({ status: broadcastRecipients.status, total: count() })
+      .from(broadcastRecipients)
+      .where(eq(broadcastRecipients.broadcastId, input.broadcastId))
+      .groupBy(broadcastRecipients.status);
+    const total = (status: string) =>
+      Number(counts.find((row) => row.status === status)?.total ?? 0);
+
+    const { sendOrganizationEmail } = await import("@calder/notify");
+    await sendOrganizationEmail(db, {
+      id: input.status === "sent" ? "operations.broadcast_completed" : "operations.broadcast_paused",
+      organizationId: input.organizationId,
+      idempotencyKey: `broadcast:${input.broadcastId}:${input.status}`,
+      data: {
+        broadcastName: input.name,
+        recipients: total("sent") + total("delivered") + total("queued"),
+        delivered: total("delivered"),
+        bounced: total("bounced"),
+        unsubscribed: total("skipped"),
+        complained: total("failed"),
+        sent: total("sent") + total("delivered"),
+        reason: input.reason,
+        reportUrl: `${getConfig().APP_URL.replace(/\/$/, "")}/broadcasts/${input.broadcastId}`,
+      },
+    });
+  } catch (err) {
+    logger.warn(
+      { broadcastId: input.broadcastId, err: err instanceof Error ? err.message : "unknown" },
+      "Broadcast outcome email failed"
+    );
+  }
+}
+
 export async function sendBroadcast(
   db: DbClient,
   input: {
@@ -599,6 +647,19 @@ export async function sendBroadcast(
     .update(broadcasts)
     .set({ recipientCount: Number(countRow?.total ?? 0), updatedAt: new Date() })
     .where(eq(broadcasts.id, broadcast.id));
+
+  // A broadcast that finishes (or stops itself) while nobody is watching is
+  // the normal case: sends run in the background. Tell the workspace, with the
+  // numbers, so "did my campaign go out?" never needs a refresh.
+  if (status === "sent" || status === "paused") {
+    await notifyBroadcastOutcome(db, {
+      organizationId: input.organizationId,
+      broadcastId: broadcast.id,
+      name: broadcast.name,
+      status,
+      reason: status === "paused" ? "the plan's email allowance ran out mid-send" : undefined,
+    });
+  }
 
   return {
     status,

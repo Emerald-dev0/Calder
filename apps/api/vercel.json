@@ -1,4 +1,13 @@
 {
   "buildCommand": "pnpm --filter @calder/api... build",
-  "crons": [{ "path": "/v1/cron/drain", "schedule": "0 0 * * *" }]
+  "crons": [
+    {
+      "path": "/v1/cron/drain",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/v1/cron/company-email",
+      "schedule": "0 8 * * *"
+    }
+  ]
 }
