@@ -135,9 +135,8 @@ senders.post("/", authMiddleware, async (c) => {
 
   // Plan ceiling, checked immediately before the insert. Archived senders are
   // not counted, so retiring one frees the slot it held.
-  const { assertCanCreateResource, organizationForProject, ResourceLimitError } = await import(
-    "@calder/db"
-  );
+  const { assertCanCreateResource, organizationForProject, ResourceLimitError } =
+    await import("@calder/db");
   const organizationId = await organizationForProject(db, a.projectId);
   if (!organizationId) throw new AppError("not_found", "Project not found", 404);
   try {
@@ -308,7 +307,9 @@ senders.delete("/:id", authMiddleware, async (c) => {
   if (!existing) throw new AppError("not_found", "Sender not found", 404);
 
   if (existing.archivedAt) {
-    return c.json({ data: { id, deleted: false, archived: true, archived_at: existing.archivedAt } });
+    return c.json({
+      data: { id, deleted: false, archived: true, archived_at: existing.archivedAt },
+    });
   }
 
   const [row] = await db

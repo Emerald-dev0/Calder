@@ -1001,7 +1001,6 @@ gate nothing. `plan_tier` cannot store `premium` yet; adding it is a billing-pha
 migration, listed in `docs/PRICING.md` follow-ups. The unapproved contacts
 allowance stays in config marked `approved: false` and is never rendered.
 
-
 ## ADR-046: A sender is archived, not deleted, once it has sent; two independent defaults
 
 **Status:** Accepted (2026-10-22).
@@ -1028,7 +1027,7 @@ all on columns that already existed in migration 0028:
 **Why:** the limit added in this phase counts sender identities per
 organization, so archiving has to free a slot or customers would have no way to
 stay within a ceiling except destroying history. Making the plan check a
-property of the *creation* path (API and dashboard, one shared function) rather
+property of the _creation_ path (API and dashboard, one shared function) rather
 than the UI means a script cannot exceed a ceiling the dashboard enforces.
 `api_key_senders` is populated and selectable now, but not enforced at send
 time: today no rows means unrestricted, which is what every existing key

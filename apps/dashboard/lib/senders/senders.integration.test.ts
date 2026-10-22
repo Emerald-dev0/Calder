@@ -202,12 +202,8 @@ gate("senders (live Postgres)", async () => {
 
   it("refuses to read another tenant's sender", async () => {
     if (!(await reachable())) return;
-    await expect(svc.getSender(actorA(), senderB)).rejects.toBeInstanceOf(
-      svc.SenderNotFoundError
-    );
-    await expect(svc.getSender(actorB(), senderA)).rejects.toBeInstanceOf(
-      svc.SenderNotFoundError
-    );
+    await expect(svc.getSender(actorA(), senderB)).rejects.toBeInstanceOf(svc.SenderNotFoundError);
+    await expect(svc.getSender(actorB(), senderA)).rejects.toBeInstanceOf(svc.SenderNotFoundError);
   });
 
   it("refuses to list another tenant's project", async () => {
@@ -245,16 +241,16 @@ gate("senders (live Postgres)", async () => {
     await expect(
       svc.setSenderDefault(actorA(), senderB, "transactional", true)
     ).rejects.toBeInstanceOf(svc.SenderNotFoundError);
-    await expect(
-      svc.setSenderDefault(actorA(), senderB, "marketing", true)
-    ).rejects.toBeInstanceOf(svc.SenderNotFoundError);
+    await expect(svc.setSenderDefault(actorA(), senderB, "marketing", true)).rejects.toBeInstanceOf(
+      svc.SenderNotFoundError
+    );
   });
 
   it("refuses to rename another tenant's sender", async () => {
     if (!(await reachable())) return;
-    await expect(
-      svc.updateSenderDisplayName(actorA(), senderB, "Renamed")
-    ).rejects.toBeInstanceOf(svc.SenderNotFoundError);
+    await expect(svc.updateSenderDisplayName(actorA(), senderB, "Renamed")).rejects.toBeInstanceOf(
+      svc.SenderNotFoundError
+    );
   });
 
   it("refuses to set another tenant's Reply-To", async () => {
@@ -398,9 +394,9 @@ gate("senders (live Postgres)", async () => {
       type: "domain",
       status: "pending",
     });
-    await expect(
-      svc.setSenderDefault(actorA(), pending, "transactional", true)
-    ).rejects.toThrow(/Only a verified or connected sender/);
+    await expect(svc.setSenderDefault(actorA(), pending, "transactional", true)).rejects.toThrow(
+      /Only a verified or connected sender/
+    );
     await svc.retireSender(actorA(), pending);
   });
 
@@ -412,9 +408,7 @@ gate("senders (live Postgres)", async () => {
     expect((await svc.getSender(actorA(), senderA)).replyTo).toBe("support@example.test");
     await svc.setSenderReplyTo(actorA(), senderA, null);
     expect((await svc.getSender(actorA(), senderA)).replyTo).toBeNull();
-    await expect(svc.setSenderReplyTo(actorA(), senderA, "nope")).rejects.toThrow(
-      /valid Reply-To/
-    );
+    await expect(svc.setSenderReplyTo(actorA(), senderA, "nope")).rejects.toThrow(/valid Reply-To/);
   });
 
   /* ── Retirement ─────────────────────────────────────────────────────── */
@@ -434,9 +428,12 @@ gate("senders (live Postgres)", async () => {
 
     const deleted = await svc.retireSender(actorA(), fresh);
     expect(deleted.mode).toBe("deleted");
-    expect(await db.select().from(senderIdentities).where(
-      (await import("drizzle-orm")).eq(senderIdentities.id, fresh)
-    )).toHaveLength(0);
+    expect(
+      await db
+        .select()
+        .from(senderIdentities)
+        .where((await import("drizzle-orm")).eq(senderIdentities.id, fresh))
+    ).toHaveLength(0);
 
     // senderA has a delivered message: archive, keep history, drop defaults.
     const archived = await svc.retireSender(actorA(), senderA);
@@ -559,12 +556,7 @@ gate("senders (live Postgres)", async () => {
     const [victim] = await getDb()
       .select({ id: senderIdentities.id })
       .from(senderIdentities)
-      .where(
-        and(
-          eq(senderIdentities.projectId, projectA),
-          isNull(senderIdentities.archivedAt)
-        )
-      )
+      .where(and(eq(senderIdentities.projectId, projectA), isNull(senderIdentities.archivedAt)))
       .limit(1);
     await svc.retireSender(actorA(), victim!.id);
     const afterArchive = await svc.createDomainSender(actorA(), {

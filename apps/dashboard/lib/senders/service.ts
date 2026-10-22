@@ -217,10 +217,21 @@ export async function senderHealth(projectId: string): Promise<Map<string, Sende
     db
       .select({ senderId: emails.senderIdentityId, value: count() })
       .from(emails)
-      .where(and(eq(emails.projectId, projectId), gte(emails.createdAt, since)))
+      .where(
+        and(
+          eq(emails.projectId, projectId),
+          gte(emails.createdAt, since),
+          // Only messages with a delivery outcome: a queued row has not been
+          // accepted yet and would dilute the rate downwards.
+          inArray(emails.status, ["sent", "delivered", "bounced", "complained"])
+        )
+      )
       .groupBy(emails.senderIdentityId),
     db
-      .select({ senderId: emails.senderIdentityId, value: sql<number>`count(distinct ${emails.id})::int` })
+      .select({
+        senderId: emails.senderIdentityId,
+        value: sql<number>`count(distinct ${emails.id})::int`,
+      })
       .from(emails)
       .innerJoin(emailEvents, eq(emailEvents.emailId, emails.id))
       .where(
@@ -271,7 +282,15 @@ export async function streamStats(projectId: string): Promise<StreamStats> {
   const rows = await db
     .select({ stream: emails.stream, status: emails.status, value: count() })
     .from(emails)
-    .where(and(eq(emails.projectId, projectId), gte(emails.createdAt, since)))
+    .where(
+      and(
+        eq(emails.projectId, projectId),
+        gte(emails.createdAt, since),
+        // "Sent" means the provider accepted the message; queued and failed
+        // rows are not counted as sent volume.
+        inArray(emails.status, ["sent", "delivered", "bounced", "complained"])
+      )
+    )
     .groupBy(emails.stream, emails.status);
 
   const out: StreamStats = { transactional: emptyStream(), marketing: emptyStream() };
@@ -305,7 +324,8 @@ export async function senderStreamStats(
       and(
         eq(emails.projectId, sender.projectId),
         eq(emails.senderIdentityId, sender.id),
-        gte(emails.createdAt, since)
+        gte(emails.createdAt, since),
+        inArray(emails.status, ["sent", "delivered", "bounced", "complained"])
       )
     )
     .groupBy(emails.stream, emails.status);
@@ -323,10 +343,7 @@ export async function senderStreamStats(
 }
 
 /** Seven-day health for one sender (the map narrowed to a single id). */
-export async function senderHealthFor(
-  actor: SenderActor,
-  senderId: string
-): Promise<SenderHealth> {
+export async function senderHealthFor(actor: SenderActor, senderId: string): Promise<SenderHealth> {
   const db = getDb();
   const sender = await loadSender(db, actor, senderId);
   const map = await senderHealth(sender.projectId);
@@ -494,7 +511,9 @@ export async function setSenderDefault(
     await tx
       .update(senderIdentities)
       .set({ [column]: value, updatedAt: new Date() })
-      .where(and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId)));
+      .where(
+        and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
+      );
   });
 
   await audit(db, {
@@ -524,7 +543,9 @@ export async function updateSenderDisplayName(
   await db
     .update(senderIdentities)
     .set({ displayName: clean, updatedAt: new Date() })
-    .where(and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId)));
+    .where(
+      and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
+    );
   await audit(db, {
     projectId: sender.projectId,
     actorUserId: actor.userId,
@@ -557,7 +578,9 @@ export async function setSenderReplyTo(
   await db
     .update(senderIdentities)
     .set({ replyTo: value, updatedAt: new Date() })
-    .where(and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId)));
+    .where(
+      and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
+    );
   await audit(db, {
     projectId: sender.projectId,
     actorUserId: actor.userId,
@@ -586,7 +609,9 @@ export async function setSenderEnabled(
     await db
       .update(senderIdentities)
       .set({ status: "disabled", updatedAt: new Date() })
-      .where(and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId)));
+      .where(
+        and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
+      );
     await audit(db, {
       projectId: sender.projectId,
       actorUserId: actor.userId,
@@ -609,7 +634,9 @@ export async function setSenderEnabled(
     await db
       .update(senderIdentities)
       .set({ status: "verified", updatedAt: new Date() })
-      .where(and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId)));
+      .where(
+        and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
+      );
   } else {
     const [transport] = await db
       .select()
@@ -627,7 +654,9 @@ export async function setSenderEnabled(
     await db
       .update(senderIdentities)
       .set({ status: "connected", updatedAt: new Date() })
-      .where(and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId)));
+      .where(
+        and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
+      );
   }
   await audit(db, {
     projectId: sender.projectId,
@@ -679,7 +708,9 @@ export async function retireSender(actor: SenderActor, senderId: string): Promis
         isDefaultMarketing: false,
         updatedAt: new Date(),
       })
-      .where(and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId)));
+      .where(
+        and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
+      );
     await audit(db, {
       projectId: sender.projectId,
       actorUserId: actor.userId,
@@ -692,7 +723,9 @@ export async function retireSender(actor: SenderActor, senderId: string): Promis
 
   await db
     .delete(senderIdentities)
-    .where(and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId)));
+    .where(
+      and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
+    );
   await audit(db, {
     projectId: sender.projectId,
     actorUserId: actor.userId,
@@ -712,7 +745,9 @@ export async function unarchiveSender(actor: SenderActor, senderId: string): Pro
   await db
     .update(senderIdentities)
     .set({ archivedAt: null, updatedAt: new Date() })
-    .where(and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId)));
+    .where(
+      and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
+    );
   await audit(db, {
     projectId: sender.projectId,
     actorUserId: actor.userId,
@@ -732,10 +767,7 @@ export async function unarchiveSender(actor: SenderActor, senderId: string): Pro
  * silently lock anyone out. Enforcement at send time belongs to the API-keys
  * page; this builds the selector and the storage.
  */
-export async function senderAllowedKeyIds(
-  actor: SenderActor,
-  senderId: string
-): Promise<string[]> {
+export async function senderAllowedKeyIds(actor: SenderActor, senderId: string): Promise<string[]> {
   const db = getDb();
   const sender = await loadSender(db, actor, senderId);
   const rows = await db
@@ -855,13 +887,17 @@ export async function dispatchTestEmail(
   assertDashboardAdmissionAllowed(admission.decision);
   if (!admission.allowed) throw new Error("Sending is unavailable for this organization.");
 
-  const queue = createQueue<{ emailId: string; projectId: string }>("email:send", { maxAttempts: 5 });
+  const queue = createQueue<{ emailId: string; projectId: string }>("email:send", {
+    maxAttempts: 5,
+  });
   await queue.enqueue("send-email", { emailId, projectId: sender.projectId });
 
   await db
     .update(senderIdentities)
     .set({ lastUsedAt: new Date(), updatedAt: new Date() })
-    .where(and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId)));
+    .where(
+      and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
+    );
   await audit(db, {
     projectId: sender.projectId,
     actorUserId: actor.userId,

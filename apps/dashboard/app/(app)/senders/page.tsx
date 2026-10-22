@@ -7,12 +7,7 @@ import { pricingUrl } from "../../../lib/pricing";
 import { listSenders, senderHealth, senderCreationOptions, streamStats } from "./actions";
 import { AddSender } from "./add-sender";
 import { SenderTable } from "./sender-table";
-import {
-  DsPageHeader,
-  StatusPill,
-  DsBanner,
-  StatCard,
-} from "../../../components/design-system";
+import { DsPageHeader, StatusPill, DsBanner, StatCard } from "../../../components/design-system";
 import { EmptyState } from "../../../components/empty-state";
 
 export const metadata = { title: "Calder — Senders" };
@@ -68,11 +63,7 @@ export default async function SendersPage({
 
   // Plan usage for the sender-identity ceiling. Counts are organization-wide
   // and exclude archived senders, exactly as the enforcement does.
-  const limitDecision = await checkOrganizationResource(
-    getDb(),
-    scope.organization.id,
-    "senders"
-  );
+  const limitDecision = await checkOrganizationResource(getDb(), scope.organization.id, "senders");
   const atLimit = limitDecision.limit !== null && limitDecision.used >= limitDecision.limit;
 
   const verifiedCount = activeSenders.filter(
@@ -90,7 +81,9 @@ export default async function SendersPage({
           <StatusPill
             status={verifiedCount > 0 ? "verified" : "pending"}
             label={
-              activeSenders.length === 0 ? "0 senders" : `${verifiedCount} of ${activeSenders.length} ready`
+              activeSenders.length === 0
+                ? "0 senders"
+                : `${verifiedCount} of ${activeSenders.length} ready`
             }
           />
         }
@@ -109,7 +102,12 @@ export default async function SendersPage({
 
       {/* Tabs: Senders | Broadcasts. Broadcasts is deliberately inert: sending
           campaigns is a later phase, so it states the fact instead of querying. */}
-      <div className="ds-tabs" role="tablist" aria-label="Sender sections" style={{ marginBottom: 16 }}>
+      <div
+        className="ds-tabs"
+        role="tablist"
+        aria-label="Sender sections"
+        style={{ marginBottom: 16 }}
+      >
         <Link
           href={base}
           role="tab"
@@ -225,9 +223,9 @@ export default async function SendersPage({
                 title={`Sender identity limit reached (${limitDecision.used} of ${limitDecision.limit})`}
                 description={
                   <>
-                    The {planDisplayName(limitDecision.tier)} plan includes{" "}
-                    {limitDecision.limit} sender identities. Archived senders do not count towards
-                    the limit — archive one, or move to{" "}
+                    The {planDisplayName(limitDecision.tier)} plan includes {limitDecision.limit}{" "}
+                    sender identities. Archived senders do not count towards the limit — archive
+                    one, or move to{" "}
                     {limitDecision.upgradeTier
                       ? planDisplayName(limitDecision.upgradeTier)
                       : "a larger plan"}{" "}

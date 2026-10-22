@@ -7,7 +7,14 @@ import {
   type ResourceLimitDecision,
 } from "@calder/config";
 import type { DbExecutor } from "./client.js";
-import { apiKeys, domains, organizationMembers, orgInvitations, projects, senderIdentities } from "./schema/index.js";
+import {
+  apiKeys,
+  domains,
+  organizationMembers,
+  orgInvitations,
+  projects,
+  senderIdentities,
+} from "./schema/index.js";
 import { resolveOrgTier } from "./usage.js";
 
 /**
@@ -54,17 +61,17 @@ export async function organizationResourceUsage(
 ): Promise<ResourceUsage> {
   const [tier, projectRows] = await Promise.all([
     resolveOrgTier(db, organizationId),
-    db.select({ id: projects.id }).from(projects).where(eq(projects.organizationId, organizationId)),
+    db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(eq(projects.organizationId, organizationId)),
   ]);
   const projectIds = projectRows.map((p) => p.id);
 
   const [domainRow, senderRow, memberRow, inviteRow] = await Promise.all([
     projectIds.length === 0
       ? Promise.resolve([{ value: 0 }])
-      : db
-          .select({ value: count() })
-          .from(domains)
-          .where(inArray(domains.projectId, projectIds)),
+      : db.select({ value: count() }).from(domains).where(inArray(domains.projectId, projectIds)),
     projectIds.length === 0
       ? Promise.resolve([{ value: 0 }])
       : db

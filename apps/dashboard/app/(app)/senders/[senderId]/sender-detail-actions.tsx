@@ -85,7 +85,8 @@ export function SenderDetailActions({
   const [testErr, setTestErr] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const usable = (sender.status === "verified" || sender.status === "connected") && !sender.archived;
+  const usable =
+    (sender.status === "verified" || sender.status === "connected") && !sender.archived;
 
   const run = useCallback(
     async (fn: () => Promise<unknown>, okText: string) => {
@@ -132,8 +133,7 @@ export function SenderDetailActions({
           <div>
             <h2 className="ds-card-title">Dispatch Verification Email</h2>
             <p className="ds-card-subtitle">
-              Send one real email through this sender. The row updates as the provider reports
-              back.
+              Send one real email through this sender. The row updates as the provider reports back.
             </p>
           </div>
         </div>
@@ -209,7 +209,9 @@ export function SenderDetailActions({
                     {tracked.emailId}
                   </span>
                   <StatusPill status={tracked.status?.status ?? "queued"} />
-                  {tracked.status?.terminal && <CheckCircle2 size={14} color="var(--color-success)" />}
+                  {tracked.status?.terminal && (
+                    <CheckCircle2 size={14} color="var(--color-success)" />
+                  )}
                 </div>
                 {!tracked.status?.terminal && (
                   <span
@@ -404,15 +406,16 @@ export function SenderDetailActions({
                         disabled={busy}
                         onChange={(e) =>
                           setKeys((prev) =>
-                            e.target.checked
-                              ? [...prev, k.id]
-                              : prev.filter((id) => id !== k.id)
+                            e.target.checked ? [...prev, k.id] : prev.filter((id) => id !== k.id)
                           )
                         }
                       />
                       <KeyRound size={13} style={{ color: "var(--color-muted)" }} />
                       <span style={{ fontWeight: 600 }}>{k.name}</span>
-                      <span className="mono" style={{ fontSize: 11.5, color: "var(--color-muted)" }}>
+                      <span
+                        className="mono"
+                        style={{ fontSize: 11.5, color: "var(--color-muted)" }}
+                      >
                         {k.keyPrefix}… · {k.env}
                       </span>
                     </label>
@@ -513,11 +516,7 @@ export function SenderDetailActions({
         open={confirming}
         onClose={() => setConfirming(false)}
         busy={busy}
-        title={
-          sender.emailCount > 0
-            ? `Archive ${sender.email}?`
-            : `Delete ${sender.email}?`
-        }
+        title={sender.emailCount > 0 ? `Archive ${sender.email}?` : `Delete ${sender.email}?`}
         description={
           sender.emailCount > 0
             ? `${sender.email} will disappear from every picker and free its plan slot. ${sender.emailCount.toLocaleString()} messages keep their record and stay attributable to this address. You can restore it later.`
@@ -546,8 +545,8 @@ export function SenderDetailActions({
 
       {sender.archived && (
         <p style={{ fontSize: 12, color: "var(--color-muted)", gridColumn: "1 / -1" }}>
-          <Archive size={12} /> Archived senders are excluded from plan counts and from every
-          sender picker.
+          <Archive size={12} /> Archived senders are excluded from plan counts and from every sender
+          picker.
         </p>
       )}
     </div>

@@ -77,7 +77,9 @@ gate("POST /v1/senders enforces the plan ceiling (live Postgres)", async () => {
   beforeAll(async () => {
     if (!(await reachable())) return;
     await db.insert(users).values({ id: userId, email: `sl-${suffix}@test.test` });
-    await db.insert(organizations).values({ id: orgId, name: "Sender Limit", slug: `sl-${suffix}` });
+    await db
+      .insert(organizations)
+      .values({ id: orgId, name: "Sender Limit", slug: `sl-${suffix}` });
     await db
       .insert(organizationMembers)
       .values({ id: `orgm_sl_${suffix}`, organizationId: orgId, userId, role: "owner" });

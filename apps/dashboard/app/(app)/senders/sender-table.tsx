@@ -4,10 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Archive, CornerUpLeft, ShieldAlert } from "lucide-react";
-import {
-  StatusPill,
-  ConfirmDialog,
-} from "../../../components/design-system";
+import { StatusPill, ConfirmDialog } from "../../../components/design-system";
 import { unarchiveSender } from "./actions";
 
 export interface SenderTableRow {
@@ -169,9 +166,7 @@ export function SenderTable({
                           ) : (
                             <span style={{ fontSize: 11.5, color: "var(--color-muted)" }}>—</span>
                           )}
-                          {s.isDefaultMarketing && (
-                            <StatusPill status="active" label="Broadcast" />
-                          )}
+                          {s.isDefaultMarketing && <StatusPill status="active" label="Broadcast" />}
                           {!s.isDefault && !s.isDefaultMarketing && (
                             <span style={{ fontSize: 11.5, color: "var(--color-muted)" }}>
                               not a default

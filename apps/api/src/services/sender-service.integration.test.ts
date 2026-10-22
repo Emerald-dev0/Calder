@@ -161,9 +161,7 @@ gate("sender resolution (live Postgres)", async () => {
     // By id: archived senders are absent from the pickable set.
     await expect(resolveSender(db, projId, ids.archived)).rejects.toThrow(/Unknown sender/);
     // By address: the legacy string path must not resurrect a retired sender.
-    await expect(resolveSender(db, projId, `gone-${suffix}@test.test`)).rejects.toThrow(
-      /archived/
-    );
+    await expect(resolveSender(db, projId, `gone-${suffix}@test.test`)).rejects.toThrow(/archived/);
   });
 
   it("blocks bare addresses of disabled senders", async () => {

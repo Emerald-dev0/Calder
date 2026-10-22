@@ -108,8 +108,7 @@ export default async function SenderDetailPage({
               : sender.type === "domain"
                 ? "Domain sender"
                 : "Managed sender"}
-            {defaultLabels.length > 0 ? ` · ${defaultLabels.join(" · ")}` : ""} ·{" "}
-            {org?.name ?? ""}
+            {defaultLabels.length > 0 ? ` · ${defaultLabels.join(" · ")}` : ""} · {org?.name ?? ""}
           </span>
         }
         actions={
