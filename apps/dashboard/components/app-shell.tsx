@@ -7,6 +7,8 @@ import { CalderLockup } from "@calder/ui";
 import {
   LayoutDashboard,
   Mail,
+  Megaphone,
+  Users,
   Send,
   FileCode2,
   UserCheck,
@@ -221,6 +223,8 @@ export function AppShell({
             icon: <Globe size={16} />,
             badgeWarn: usageSummary.verifiedDomains === 0 && memberships.length > 0,
           },
+          { label: "Broadcasts", href: "/broadcasts", icon: <Megaphone size={16} /> },
+          { label: "Audiences", href: "/audiences", icon: <Users size={16} /> },
           { label: "Analytics", href: "/analytics", icon: <BarChart3 size={16} />, tier: "PRO" },
           { label: "Logs", href: "/logs", icon: <ScrollText size={16} /> },
         ],

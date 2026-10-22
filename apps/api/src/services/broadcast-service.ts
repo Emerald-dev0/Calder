@@ -17,7 +17,7 @@ import { getConfig } from "@calder/config";
 import { AppError } from "../errors/index.js";
 import { logger } from "@calder/observability";
 import { handleSendEmail } from "./email-service.js";
-import { isRoleAddress } from "./audience-service.js";
+import { isRoleAddress } from "@calder/audiences";
 
 /**
  * Broadcasts: one marketing message to one audience.

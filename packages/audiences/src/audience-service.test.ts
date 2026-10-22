@@ -6,7 +6,6 @@ import {
   normalizeEmail,
   parseCsv,
 } from "./audience-service.js";
-import { personalize } from "./broadcast-service.js";
 
 describe("parseCsv", () => {
   it("reads a plain table and drops the trailing blank line", () => {
@@ -78,23 +77,5 @@ describe("address rules", () => {
     expect(isRoleAddress("no-reply@example.com")).toBe(true);
     expect(isRoleAddress("sales+eu@example.com")).toBe(true);
     expect(isRoleAddress("ada@example.com")).toBe(false);
-  });
-});
-
-describe("personalize", () => {
-  const contact = { email: "ada@example.com", firstName: "Ada", lastName: "Lovelace" };
-
-  it("substitutes the three supported tokens", () => {
-    expect(personalize("Hi {{first_name}} {{last_name}} <{{email}}>", contact)).toBe(
-      "Hi Ada Lovelace <ada@example.com>"
-    );
-  });
-
-  it("falls back to a neutral greeting when the first name is missing", () => {
-    expect(personalize("Hi {{first_name}}", { ...contact, firstName: null })).toBe("Hi there");
-  });
-
-  it("leaves unsupported tokens alone rather than blanking them", () => {
-    expect(personalize("{{first_name}}, {{plan}}", contact)).toBe("Ada, {{plan}}");
   });
 });

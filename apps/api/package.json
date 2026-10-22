@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.600.0",
+    "@calder/audiences": "workspace:*",
     "@calder/auth": "workspace:*",
     "@calder/billing": "workspace:*",
     "@calder/config": "workspace:*",

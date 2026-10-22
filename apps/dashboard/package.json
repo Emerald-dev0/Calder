@@ -15,6 +15,7 @@
     "clean": "rm -rf .next"
   },
   "dependencies": {
+    "@calder/audiences": "workspace:*",
     "@calder/auth": "workspace:^",
     "@calder/config": "workspace:^",
     "@calder/db": "workspace:^",

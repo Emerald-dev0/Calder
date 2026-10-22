@@ -1,6 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
 import {
-  audiences,
   audienceContacts,
   contacts,
   suppressions,
@@ -253,16 +252,6 @@ export async function consentHistory(db: DbClient, projectId: string, email: str
         .where(eq(resubscribeEvents.contactId, contact.id))
     );
   return { contact, events: rows.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)) };
-}
-
-/** Look up the organization that owns a project, for token-scoped flows. */
-export async function organizationForProject(db: DbClient, projectId: string) {
-  const rows = await db
-    .select({ organizationId: audiences.organizationId })
-    .from(audiences)
-    .where(eq(audiences.projectId, projectId))
-    .limit(1);
-  return rows[0]?.organizationId ?? null;
 }
 
 export { findContact };

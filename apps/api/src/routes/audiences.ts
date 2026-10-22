@@ -15,7 +15,7 @@ import {
   searchAudienceContacts,
   audienceStats,
   type ContactInput,
-} from "../services/audience-service.js";
+} from "@calder/audiences";
 
 const audiencesRoute = new Hono<Env>();
 

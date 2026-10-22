@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import type { Env } from "../app.js";
 import { AppError, validationError } from "../errors/index.js";
 import { rateLimitMiddleware } from "../middleware/rate-limit.js";
-import { recordResubscribe, recordUnsubscribe } from "../services/consent-service.js";
+import { recordResubscribe, recordUnsubscribe } from "@calder/audiences";
 
 const unsubscribe = new Hono<Env>();
 

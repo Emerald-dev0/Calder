@@ -59,6 +59,9 @@ importers:
       '@aws-sdk/client-sesv2':
         specifier: ^3.600.0
         version: 3.1127.0
+      '@calder/audiences':
+        specifier: workspace:*
+        version: link:../../packages/audiences
       '@calder/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -150,6 +153,9 @@ importers:
 
   apps/dashboard:
     dependencies:
+      '@calder/audiences':
+        specifier: workspace:*
+        version: link:../../packages/audiences
       '@calder/auth':
         specifier: workspace:^
         version: link:../../packages/auth
@@ -370,6 +376,25 @@ importers:
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.6(@types/node@22.20.1)(tsx@4.23.13))
+
+  packages/audiences:
+    dependencies:
+      '@calder/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.3(@opentelemetry/api@1.9.1)(gel@2.2.0)(postgres@3.4.9)
+    devDependencies:
+      '@types/node':
+        specifier: ^22.7.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.6.3
+        version: 5.6.3
       vitest:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.6(@types/node@22.20.1)(tsx@4.23.13))
