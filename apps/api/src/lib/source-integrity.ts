@@ -111,3 +111,75 @@ export function fileViolates(rule: Rule, text: string): boolean {
   if (rule.file && rule.file.test(text)) return true;
   return Boolean(rule.line && text.split("\n").some((l) => rule.line!.test(l)));
 }
+
+// ── Non-source file checks ───────────────────────────────────────────────────
+//
+// The payload family targets whatever a developer's toolchain will execute
+// without asking, so the gate cannot look only at *.ts. These three checks
+// cover the other doors:
+//
+//   A. `.vscode/tasks.json` with runOn: "folderOpen" — VS Code runs the task
+//      the moment the folder is opened, so cloning and opening the repo is
+//      enough to execute it. No prompt, no review.
+//   B. A .woff/.woff2 whose first bytes are not the container signature — a
+//      font path is loaded by the browser at render time, and a font file is
+//      never inspected by a reviewer.
+//   C. Appended code after a long whitespace run in build config files
+//      (next/tailwind/postcss/eslint/vite/babel/vitest/turbo). These are
+//      executed by the toolchain itself on every build, and the padding is
+//      what pushes the tail out of a diff's visible width.
+
+/** VS Code's automatic task execution switch. Assembled to avoid self-tripping. */
+export const FOLDER_OPEN_KEY = ["run", "On"].join("");
+
+/** True when a `.vscode/tasks.json` would auto-run a task on folder open. */
+export function hasFolderOpenTask(path: string, text: string): boolean {
+  if (!/(^|\/)\.vscode\/tasks\.json$/.test(path)) return false;
+  // Both "runOn": "folderOpen" and runOn into folderOpen across JSON5-ish text.
+  const re = new RegExp(`"${FOLDER_OPEN_KEY}"\\s*:\\s*"folderOpen"`);
+  return re.test(text);
+}
+
+const FONT_EXT = /\.(woff2?|ttf|otf|eot)$/i;
+
+/**
+ * Font container signatures. A .woff that does not begin with one is either
+ * corrupt or is not a font at all; both are worth failing on, because nothing
+ * else in the pipeline reads the file's contents.
+ */
+export function fontSignatureProblem(path: string, bytes: Buffer): string | null {
+  const ext = path.toLowerCase().match(FONT_EXT)?.[1];
+  if (!ext) return null;
+  const want =
+    ext === "woff2"
+      ? "wOF2"
+      : ext === "woff"
+        ? "wOFF"
+        : ext === "ttf"
+          ? "\u0000\u0001\u0000\u0000"
+          : ext === "otf"
+            ? "OTTO"
+            : "wOFF"; // eot has no stable magic; require wOFF-adjacent text
+  const head = bytes.subarray(0, want.length).toString("latin1");
+  if (head === want) return null;
+  return `expected signature ${JSON.stringify(want)}, found ${JSON.stringify(head)}`;
+}
+
+/**
+ * Build-config files the toolchain executes on every run. Deliberately a
+ * name list rather than "any *.config.*": the risk is a tail appended where a
+ * reviewer will not scroll, and these are the files that actually run.
+ */
+const CONFIG_FILE =
+  /(^|\/)(next|tailwind|postcss|eslint|vite|vitest|babel|tsup|rollup|webpack)\.config\.(js|mjs|cjs|ts|mts|cts)$|(^|\/)\.eslintrc\.(js|cjs|json|ya?ml)$|(^|\/)turbo\.json$/;
+
+/** ≥80 spaces of padding with something after it, in an executed config file. */
+export function configTailPadding(path: string, text: string): string | null {
+  if (!CONFIG_FILE.test(path)) return null;
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    if (/[ \t]{80,}\S/.test(line)) return `line ${i + 1} has padding followed by code`;
+  }
+  return null;
+}

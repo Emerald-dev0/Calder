@@ -3,7 +3,15 @@ import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { RULES, MARKERS, fileViolates, violationsIn } from "./source-integrity.js";
+import {
+  RULES,
+  MARKERS,
+  configTailPadding,
+  fileViolates,
+  fontSignatureProblem,
+  hasFolderOpenTask,
+  violationsIn,
+} from "./source-integrity.js";
 
 /**
  * Source-integrity gate (repo-wide, CI-blocking).
@@ -184,6 +192,124 @@ describe("detectors stay quiet on ordinary code", () => {
   it("this gate's own module passes its own rules", () => {
     const modulePath = join(REPO_ROOT, "apps/api/src/lib/source-integrity.ts");
     expect(violationsIn(readFileSync(modulePath, "utf8"))).toEqual([]);
+  });
+});
+
+// ── Structural checks on non-source files ────────────────────────────────────
+// These target the files a toolchain executes without asking: a VS Code task,
+// a font the browser loads, a build config the bundler runs.
+describe("structural checks on non-source files", () => {
+  describe("A. .vscode/tasks.json auto-run", () => {
+    const path = ".vscode/tasks.json";
+
+    it("flags a task that runs on folder open", () => {
+      const text = JSON.stringify(
+        {
+          version: "2.0.0",
+          tasks: [{ label: "setup", type: "shell", command: "node x.js", runOn: "folderOpen" }],
+        },
+        null,
+        2
+      );
+      expect(hasFolderOpenTask(path, text)).toBe(true);
+    });
+
+    it("ignores tasks that only run when invoked", () => {
+      const text = JSON.stringify({ tasks: [{ label: "build", command: "pnpm build" }] }, null, 2);
+      expect(hasFolderOpenTask(path, text)).toBe(false);
+    });
+
+    it("ignores a folderOpen string outside .vscode/tasks.json", () => {
+      const text = `{ "runOn": "folderOpen" }`;
+      expect(hasFolderOpenTask("package.json", text)).toBe(false);
+      expect(hasFolderOpenTask("docs/example/tasks.json", text)).toBe(false);
+    });
+  });
+
+  describe("B. font container signature", () => {
+    const woff2 = Buffer.concat([Buffer.from("wOF2", "latin1"), Buffer.alloc(28)]);
+    const woff = Buffer.concat([Buffer.from("wOFF", "latin1"), Buffer.alloc(28)]);
+
+    it("accepts a real woff2 header", () => {
+      expect(fontSignatureProblem("public/fonts/inter.woff2", woff2)).toBeNull();
+    });
+
+    it("accepts a real woff header", () => {
+      expect(fontSignatureProblem("public/fonts/inter.woff", woff)).toBeNull();
+    });
+
+    it("rejects a woff2 whose header was replaced", () => {
+      const fake = Buffer.concat([Buffer.from("<?ph", "latin1"), Buffer.alloc(28)]);
+      expect(fontSignatureProblem("public/fonts/inter.woff2", fake)).toMatch(/expected signature/);
+    });
+
+    it("rejects a woff2 that is actually a woff", () => {
+      expect(fontSignatureProblem("public/fonts/inter.woff2", woff)).toMatch(/expected signature/);
+    });
+
+    it("rejects an empty file", () => {
+      expect(fontSignatureProblem("public/fonts/inter.woff2", Buffer.alloc(0))).toMatch(
+        /expected signature/
+      );
+    });
+
+    it("does not apply to non-font files", () => {
+      expect(fontSignatureProblem("public/logo.png", Buffer.from("not a font"))).toBeNull();
+    });
+  });
+
+  describe("C. appended code in build configs", () => {
+    const pad = " ".repeat(120);
+
+    it("flags a tail appended after padding in next.config.mjs", () => {
+      const text = `export default nextConfig;${pad}console.log("x");`;
+      expect(configTailPadding("apps/web/next.config.mjs", text)).toMatch(/line 1/);
+    });
+
+    it("flags tailwind, postcss, eslint, vite and babel configs too", () => {
+      const text = `module.exports = {};${pad}doSomething();`;
+      for (const f of [
+        "tailwind.config.ts",
+        "postcss.config.js",
+        "eslint.config.mjs",
+        ".eslintrc.cjs",
+        "vite.config.ts",
+        "babel.config.cjs",
+        "turbo.json",
+      ]) {
+        expect(configTailPadding(f, text)).not.toBeNull();
+      }
+    });
+
+    it("reports the offending line number", () => {
+      const text = `line one
+line two
+module.exports = {};${pad}x();`;
+      expect(configTailPadding("vite.config.ts", text)).toBe("line 3 has padding followed by code");
+    });
+
+    it("leaves ordinary formatted configs alone", () => {
+      const text = [
+        "const nextConfig = {",
+        "  reactStrictMode: true,",
+        "};",
+        "",
+        "export default nextConfig;",
+      ].join("\n");
+      expect(configTailPadding("apps/web/next.config.mjs", text)).toBeNull();
+    });
+
+    it("does not apply outside build config files", () => {
+      const text = `export const a = 1;${pad}export const b = 2;`;
+      expect(configTailPadding("apps/web/app/page.tsx", text)).toBeNull();
+    });
+  });
+
+  it("no tracked source file violates the folder-open or config-tail checks", () => {
+    for (const { file, text } of sources()) {
+      expect(hasFolderOpenTask(file, text)).toBe(false);
+      expect(configTailPadding(file, text)).toBeNull();
+    }
   });
 });
 
