@@ -18,6 +18,9 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/invite/") ||
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/api/cron/") ||
+    // One-click unsubscribe: the link arrives in an inbox, often in a client
+    // with no session. The signed token is the credential, never the cookie.
+    pathname.startsWith("/api/unsubscribe/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/illustrations/") ||
     pathname === "/favicon.svg" ||

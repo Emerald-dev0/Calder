@@ -19,6 +19,7 @@
     "@calder/config": "workspace:^",
     "@calder/db": "workspace:^",
     "@calder/email": "workspace:^",
+    "@calder/notify": "workspace:*",
     "@calder/observability": "workspace:^",
     "@calder/providers": "workspace:^",
     "@calder/queue": "workspace:^",

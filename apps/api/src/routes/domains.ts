@@ -118,6 +118,35 @@ domains.post("/:id/verify", authMiddleware, async (c) => {
   const id = c.req.param("id");
   const db = getDb();
   const outcome = await attemptVerification(db, auth.projectId, id);
+
+  // Domain state is workspace state: owners and admins hear about it, and the
+  // key is bucketed so a user hammering "verify" does not send a mail per click.
+  if (outcome.kind === "verified" || outcome.kind === "dns_error" || outcome.kind === "mismatch") {
+    const [domainRow] = await db
+      .select({ domain: domainsTable.domain })
+      .from(domainsTable)
+      .where(eq(domainsTable.id, id))
+      .limit(1);
+    const verified = outcome.kind === "verified";
+    const { sendOrganizationEmail } = await import("@calder/notify");
+    await sendOrganizationEmail(db, {
+      id: verified ? "operations.domain_verified" : "operations.domain_failed",
+      organizationId: auth.organizationId,
+      idempotencyKey: verified
+        ? `domain:verified:${id}:${outcome.verifiedAt.toISOString()}`
+        : `domain:failed:${id}:${new Date().toISOString().slice(0, 10)}`,
+      data: {
+        domain: domainRow?.domain,
+        reason:
+          outcome.kind === "dns_error"
+            ? "the DNS lookup failed"
+            : outcome.kind === "mismatch"
+              ? "the TXT record does not match the challenge value yet"
+              : undefined,
+      },
+    }).catch(() => {});
+  }
+
   switch (outcome.kind) {
     case "not_found":
       throw new AppError("not_found", "Domain not found", 404);

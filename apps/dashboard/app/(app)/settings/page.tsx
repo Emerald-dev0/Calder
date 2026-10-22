@@ -4,7 +4,7 @@ import { getTeam, listMySessions } from "./actions";
 import { InviteForm, MemberRow, RevokeInviteButton } from "./team";
 import { NewOrgForm, NewProjectForm } from "./workspace-forms";
 import { SessionsCard } from "./sessions";
-import { Settings, Building2, Users, Shield, CreditCard, FolderGit2 } from "lucide-react";
+import { Settings, Building2, Users, Shield, CreditCard, FolderGit2, BellRing } from "lucide-react";
 import { DsPageHeader, StatusPill } from "../../../components/design-system";
 
 export default async function SettingsPage({
@@ -105,6 +105,10 @@ export default async function SettingsPage({
             <Building2 size={13} />
             <span>Workspace & Projects</span>
           </a>
+          <Link href="/settings/notifications" className="ds-tab" style={{ textDecoration: "none" }}>
+            <BellRing size={13} />
+            <span>Emails from Calder</span>
+          </Link>
         </div>
 
         {ctx.memberships.length > 1 && (

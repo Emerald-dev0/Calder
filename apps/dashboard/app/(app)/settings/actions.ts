@@ -37,6 +37,7 @@ async function audit(
 }
 import { getTenantContext } from "../../../lib/auth";
 import { getConfig } from "@calder/config";
+import { sendCompanyEmailQuietly } from "@calder/notify";
 
 function rid(prefix: string): string {
   return `${prefix}_${randomBytes(12).toString("hex")}`;
@@ -137,23 +138,51 @@ export async function inviteMember(orgId: string, email: string, role: Role) {
   }
   const rawToken = randomBytes(32).toString("hex");
   const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+  const inviteId = rid("inv");
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   await db.insert(orgInvitations).values({
-    id: rid("inv"),
+    id: inviteId,
     organizationId: orgId,
     email: clean,
     role,
     tokenHash,
-    invitedBy: (await getTenantContext()).user.userId,
-    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    invitedBy: inviter.user.userId,
+    expiresAt,
   });
   const appUrl = getConfig().APP_URL.replace(/\/$/, "");
+  const inviteLink = `${appUrl}/invite/${rawToken}`;
+
+  const [organization] = await db
+    .select({ name: organizations.name })
+    .from(organizations)
+    .where(eq(organizations.id, orgId))
+    .limit(1);
+
+  // The invitee may have no Calder account yet, so this cannot be a preference
+  // decision: it is the only way they learn the workspace exists. A send
+  // failure still leaves the link on screen for the inviter to pass on.
+  await sendCompanyEmailQuietly(db, {
+    id: "organization.invitation",
+    to: clean,
+    organizationId: orgId,
+    idempotencyKey: `invite:${inviteId}`,
+    data: {
+      inviterName: inviter.user.name ?? inviter.user.email,
+      organizationName: organization?.name ?? "a Calder workspace",
+      role,
+      acceptUrl: inviteLink,
+      expiresInDays: 7,
+    },
+  });
+
   await audit(db, {
     organizationId: orgId,
     actorUserId: inviter.user.userId,
     action: "member.invited",
     targetType: "invitation",
+    targetId: inviteId,
   });
-  return { inviteLink: `${appUrl}/invite/${rawToken}` };
+  return { inviteLink, invited: true };
 }
 
 export async function updateMemberRole(orgId: string, membershipId: string, role: Role) {
