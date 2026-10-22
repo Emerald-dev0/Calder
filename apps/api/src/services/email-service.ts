@@ -52,6 +52,8 @@ export interface HandleSendEmailParams {
   env: "test" | "live";
   requestId: string;
   idempotencyKey?: string;
+  /** Set for marketing sends so the row joins back to its broadcast. */
+  broadcastId?: string;
   input: SendEmailInput;
 }
 
@@ -298,6 +300,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       attachments: emailRecord.attachments,
       status: "queued" as const,
       attemptCount: 0,
+      ...(params.broadcastId ? { broadcastId: params.broadcastId } : {}),
     };
     const queuedEvent = {
       id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,

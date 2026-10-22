@@ -13,6 +13,8 @@ import waitlist from "./routes/waitlist.js";
 import beacon from "./routes/beacon.js";
 import admin from "./routes/admin.js";
 import unsubscribe from "./routes/unsubscribe.js";
+import audiencesRoute from "./routes/audiences.js";
+import broadcastsRoute from "./routes/broadcasts.js";
 import senders from "./routes/senders.js";
 import keys from "./routes/keys.js";
 import templates from "./routes/templates.js";
@@ -87,6 +89,8 @@ export function createApp() {
   app.route("/v1/beacon", beacon);
   app.route("/v1/admin", admin);
   app.route("/v1/unsubscribe", unsubscribe);
+  app.route("/v1/audiences", audiencesRoute);
+  app.route("/v1/broadcasts", broadcastsRoute);
   app.route("/v1/senders", senders);
   app.route("/v1/keys", keys);
   app.route("/v1/templates", templates);
