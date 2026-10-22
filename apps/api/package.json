@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "prebuild": "node ../../scripts/ensure-workspace-built.mjs",
     "build": "tsc --project tsconfig.build.json && node scripts/bundle-serverless.mjs",
     "start": "node dist/src/index.js",
     "lint": "eslint src --ext .ts",
