@@ -35,6 +35,7 @@ async function audit(
     // Audit must never break the operation it records.
   }
 }
+import { redirect } from "next/navigation";
 import { getTenantContext } from "../../../lib/auth";
 import { getConfig } from "@calder/config";
 import { sendCompanyEmailQuietly } from "@calder/notify";
@@ -422,4 +423,149 @@ export async function signOutOtherSessions() {
     });
   }
   return { revoked: n };
+}
+
+/**
+ * Move ownership from the caller to another member.
+ *
+ * Two writes, not a swap in one statement: the target becomes an owner first
+ * so the organization is never ownerless even if the second write is the one
+ * that fails. The caller is demoted to admin rather than member — they chose
+ * this person, and stripping their access at the same moment would be a
+ * punishment nobody asked for.
+ */
+export async function transferOwnership(orgId: string, membershipId: string) {
+  const ctx = await getTenantContext();
+  const caller = await callerRole(ctx.user.userId, orgId);
+  if (caller !== "owner") throw new Error("Only an owner can transfer ownership.");
+
+  const db = getDb();
+  const [target] = await db
+    .select({
+      id: organizationMembers.id,
+      userId: organizationMembers.userId,
+      role: organizationMembers.role,
+      email: users.email,
+      name: users.name,
+    })
+    .from(organizationMembers)
+    .innerJoin(users, eq(users.id, organizationMembers.userId))
+    .where(
+      and(eq(organizationMembers.id, membershipId), eq(organizationMembers.organizationId, orgId))
+    )
+    .limit(1);
+  if (!target) throw new Error("Member not found.");
+  if (target.userId === ctx.user.userId) throw new Error("You already own this workspace.");
+  if (target.role === "owner") throw new Error("That member is already an owner.");
+
+  await db
+    .update(organizationMembers)
+    .set({ role: "owner" })
+    .where(
+      and(eq(organizationMembers.id, membershipId), eq(organizationMembers.organizationId, orgId))
+    );
+  await db
+    .update(organizationMembers)
+    .set({ role: "admin" })
+    .where(
+      and(
+        eq(organizationMembers.organizationId, orgId),
+        eq(organizationMembers.userId, ctx.user.userId)
+      )
+    );
+
+  const organizationName = await organizationLabel(db, orgId);
+  const stamp = Date.now();
+  const actor = ctx.user.name ?? ctx.user.email;
+
+  // Both sides hear the same fact from their own direction. Two keys, because
+  // the idempotency index is global and one would swallow the other.
+  await sendCompanyEmailQuietly(db, {
+    id: "organization.ownership_transferred",
+    to: target.email,
+    userId: target.userId,
+    organizationId: orgId,
+    idempotencyKey: `ownership:${orgId}:to:${target.userId}:${stamp}`,
+    data: {
+      organizationName,
+      direction: "to you",
+      otherParty: actor,
+      when: formatWhen(new Date()),
+    },
+  });
+  await sendCompanyEmailQuietly(db, {
+    id: "organization.ownership_transferred",
+    to: ctx.user.email,
+    userId: ctx.user.userId,
+    organizationId: orgId,
+    idempotencyKey: `ownership:${orgId}:from:${ctx.user.userId}:${stamp}`,
+    data: {
+      organizationName,
+      direction: "from you",
+      otherParty: target.name ?? target.email,
+      when: formatWhen(new Date()),
+    },
+  });
+
+  await audit(db, {
+    organizationId: orgId,
+    actorUserId: ctx.user.userId,
+    action: "member.ownership_transferred",
+    targetType: "membership",
+    targetId: membershipId,
+  });
+  return { ok: true as const };
+}
+
+/**
+ * Start an email-address change.
+ *
+ * The confirmation link goes to the address being replaced, never to the new
+ * one: whoever controls the current inbox must bless the move. Nothing changes
+ * until the link is followed, and the link dies in an hour.
+ */
+export async function requestEmailChange(formData: FormData) {
+  const ctx = await getTenantContext();
+  const next = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(next)) {
+    redirect("/settings?emailChange=invalid");
+  }
+  if (next === ctx.user.email.toLowerCase()) {
+    redirect("/settings?emailChange=same");
+  }
+
+  const db = getDb();
+  const [taken] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, next))
+    .limit(1);
+  if (taken) redirect("/settings?emailChange=taken");
+
+  const { signEmailChangeToken } = await import("../../../lib/email-change");
+  const { token, expiresAt } = signEmailChangeToken({
+    userId: ctx.user.userId,
+    from: ctx.user.email,
+    to: next,
+  });
+  const link = `${getConfig().APP_URL.replace(/\/$/, "")}/api/auth/email-change/confirm?token=${encodeURIComponent(token)}`;
+
+  await sendCompanyEmailQuietly(db, {
+    id: "account.email_change_requested",
+    to: ctx.user.email,
+    userId: ctx.user.userId,
+    // One request per (account, address, hour): asking twice for the same
+    // change re-uses the live link instead of producing a second email.
+    idempotencyKey: `email-change:${ctx.user.userId}:${next}:${expiresAt.getTime()}`,
+    data: {
+      newEmail: next,
+      confirmUrl: link,
+      expiresInHours: 1,
+    },
+  });
+
+  redirect("/settings?emailChange=sent");
 }

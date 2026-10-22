@@ -13,6 +13,7 @@ export type SecurityEventAction =
   | "auth.logout"
   | "auth.password.changed"
   | "auth.password.reset"
+  | "auth.email.changed"
   | "auth.magic_link.redeemed"
   | "auth.oauth.connected"
   | "auth.oauth.disconnected";

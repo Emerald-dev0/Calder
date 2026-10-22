@@ -108,6 +108,39 @@ export async function POST(req: Request): Promise<Response> {
     // Account-level progressive lockout (M6.1): distinct from the route's
     // per-IP/per-email rate limiter — same 429 status, explicit retry hint.
     if (err instanceof LoginLockedError) {
+      // Tell the owner, once per lock. Keyed on the lock instant so hammering
+      // a locked account cannot turn the mailbox into the attack surface.
+      try {
+        const { getDb, users } = await import("@calder/db");
+        const { eq } = await import("drizzle-orm");
+        const { sendCompanyEmailQuietly } = await import("@calder/notify");
+        const db = getDb();
+        const [row] = await db
+          .select({
+            id: users.id,
+            name: users.name,
+            lockedUntil: users.lockedUntil,
+            failedLoginAttempts: users.failedLoginAttempts,
+          })
+          .from(users)
+          .where(eq(users.email, normalizeEmail(email)))
+          .limit(1);
+        if (row?.lockedUntil) {
+          await sendCompanyEmailQuietly(db, {
+            id: "account.locked_out",
+            to: email,
+            userId: row.id,
+            idempotencyKey: `lock:${row.id}:${row.lockedUntil.toISOString()}`,
+            data: {
+              lockedUntil: row.lockedUntil.toISOString().replace("T", " ").slice(0, 16) + " UTC",
+              attempts: row.failedLoginAttempts,
+              ip: clientIp(req) ?? undefined,
+            },
+          });
+        }
+      } catch (mailErr) {
+        logger.warn({ err: mailErr }, "Could not send lockout notice");
+      }
       return NextResponse.json(
         { error: err.message },
         { status: 429, headers: { "Retry-After": String(err.retryAfterSec) } }

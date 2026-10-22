@@ -46,6 +46,7 @@ const NAV: Array<{
     heading: "Communications",
     items: [
       { label: "Broadcasts", href: "/control/communications" },
+      { label: "Company email", href: "/control/communications/company" },
       { label: "Audiences", href: "/control/communications/audiences" },
       { label: "Templates", href: "/control/communications/templates" },
       { label: "Delivery", href: "/control/communications/delivery" },
