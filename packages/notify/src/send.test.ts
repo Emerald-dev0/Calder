@@ -103,7 +103,7 @@ describe("deliver", () => {
     const first = await deliver(store, params);
     expect(first).toMatchObject({ status: "sent", replay: false });
     expect(sent).toHaveLength(1);
-    expect(sent[0].to).toBe("ada@example.com");
+    expect(sent[0]?.to).toBe("ada@example.com");
 
     // The verification code is never persisted.
     const row = store.rows.get("invite:inv_1")!;

@@ -43,6 +43,28 @@ function rid(prefix: string): string {
   return `${prefix}_${randomBytes(12).toString("hex")}`;
 }
 
+/** The timestamp format every "something changed" email uses. */
+function formatWhen(date: Date): string {
+  const stamped = new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC",
+  }).format(date);
+  return `${stamped} UTC`;
+}
+
+async function organizationLabel(
+  db: ReturnType<typeof getDb>,
+  organizationId: string
+): Promise<string> {
+  const [row] = await db
+    .select({ name: organizations.name })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  return row?.name ?? "your workspace";
+}
+
 type Role = "owner" | "admin" | "member";
 
 /** Caller's role in the org, or null for non-members. */
@@ -193,31 +215,64 @@ export async function updateMemberRole(orgId: string, membershipId: string, role
     throw new Error("Invalid role.");
   }
   const db = getDb();
+  // Read the target before writing: the email needs the previous role, and the
+  // old row is gone the moment the update lands.
+  const [target] = await db
+    .select({
+      userId: organizationMembers.userId,
+      role: organizationMembers.role,
+      email: users.email,
+      name: users.name,
+    })
+    .from(organizationMembers)
+    .innerJoin(users, eq(users.id, organizationMembers.userId))
+    .where(
+      and(eq(organizationMembers.id, membershipId), eq(organizationMembers.organizationId, orgId))
+    )
+    .limit(1);
+  if (!target) throw new Error("Member not found.");
+
   // Never demote/remove the last owner, an org without an owner is orphaned.
-  if (role !== "owner") {
+  if (role !== "owner" && target.role === "owner") {
     const owners = await db
-      .select({ id: organizationMembers.id, userId: organizationMembers.userId })
+      .select({ id: organizationMembers.id })
       .from(organizationMembers)
       .where(
         and(eq(organizationMembers.organizationId, orgId), eq(organizationMembers.role, "owner"))
       );
-    const target = await db
-      .select()
-      .from(organizationMembers)
-      .where(
-        and(eq(organizationMembers.id, membershipId), eq(organizationMembers.organizationId, orgId))
-      )
-      .limit(1);
-    if (target[0]?.organizationId === orgId && target[0]?.role === "owner" && owners.length <= 1) {
+    if (owners.length <= 1) {
       throw new Error("Cannot demote the last owner, transfer ownership first.");
     }
   }
+  if (target.role === role) return { ok: true as const };
+
   await db
     .update(organizationMembers)
     .set({ role })
     .where(
       and(eq(organizationMembers.id, membershipId), eq(organizationMembers.organizationId, orgId))
     );
+
+  // A role change is a permission change; the person it affects is told even
+  // when an owner did it deliberately. Silent demotions are how insider
+  // surprises happen.
+  if (target.userId !== ctx.user.userId) {
+    await sendCompanyEmailQuietly(db, {
+      id: "organization.role_changed",
+      to: target.email,
+      userId: target.userId,
+      organizationId: orgId,
+      idempotencyKey: `role:${membershipId}:${role}:${Date.now()}`,
+      data: {
+        organizationName: await organizationLabel(db, orgId),
+        oldRole: target.role,
+        newRole: role,
+        changedBy: ctx.user.name ?? ctx.user.email,
+        when: formatWhen(new Date()),
+      },
+    });
+  }
+
   await audit(db, {
     organizationId: orgId,
     actorUserId: ctx.user.userId,
@@ -258,6 +313,29 @@ export async function removeMember(orgId: string, membershipId: string) {
     .where(
       and(eq(organizationMembers.id, membershipId), eq(organizationMembers.organizationId, orgId))
     );
+
+  // Tell the person, not just the audit log: after this row is gone they can
+  // no longer open the workspace to find out why.
+  const [removed] = await db
+    .select({ email: users.email, name: users.name })
+    .from(users)
+    .where(eq(users.id, target[0].userId))
+    .limit(1);
+  if (removed) {
+    await sendCompanyEmailQuietly(db, {
+      id: "organization.member_removed",
+      to: removed.email,
+      userId: target[0].userId,
+      organizationId: orgId,
+      idempotencyKey: `removed:${membershipId}`,
+      data: {
+        organizationName: await organizationLabel(db, orgId),
+        removedBy: ctx.user.name ?? ctx.user.email,
+        when: formatWhen(new Date()),
+      },
+    });
+  }
+
   await audit(db, {
     organizationId: orgId,
     actorUserId: ctx.user.userId,
@@ -329,5 +407,19 @@ export async function signOutOtherSessions() {
   const ctx = await getTenantContext();
   const { revokeOtherSessions } = await import("@calder/auth");
   const n = await revokeOtherSessions(ctx.user.userId, ctx.user.sessionId);
+  // "Sign out everywhere" is the move people make when they think somebody
+  // else has their password. The confirmation belongs in the same inbox.
+  if (n > 0) {
+    await sendCompanyEmailQuietly(getDb(), {
+      id: "account.sessions_revoked",
+      to: ctx.user.email,
+      userId: ctx.user.userId,
+      idempotencyKey: `sessions:${ctx.user.userId}:${Date.now()}`,
+      data: {
+        when: formatWhen(new Date()),
+        reason: `requested from account settings — ${n} ${n === 1 ? "device" : "devices"} signed out`,
+      },
+    });
+  }
   return { revoked: n };
 }
