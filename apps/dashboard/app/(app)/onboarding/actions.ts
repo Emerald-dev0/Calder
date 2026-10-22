@@ -241,6 +241,27 @@ export async function completeOnboarding() {
     .set({ onboardingCompletedAt: new Date(), onboardingState: "completed", updatedAt: new Date() })
     .where(eq(users.id, ctx.user.userId));
   await recordMilestone(db, { actorUserId: ctx.user.userId, action: "onboarding.completed" });
+
+  // First-run confirmation, once per workspace, to the people who own it.
+  // Keyed on the organization so re-running onboarding (which people do) does
+  // not re-send it.
+  const primary = ctx.memberships[0];
+  if (primary) {
+    const { sendCompanyEmailQuietly } = await import("@calder/notify");
+    // The catalogue addresses this one to a person, not a workspace: it is the
+    // person who just finished setup, and the workspace may have one member.
+    await sendCompanyEmailQuietly(db, {
+      id: "organization.workspace_created",
+      to: ctx.user.email,
+      userId: ctx.user.userId,
+      organizationId: primary.organization.id,
+      idempotencyKey: `workspace-created:${primary.organization.id}:${ctx.user.userId}`,
+      data: {
+        organizationName: primary.organization.name,
+        projectName: primary.projects[0]?.name,
+      },
+    });
+  }
   try {
     (await cookies()).delete(ONBOARDING_PAUSED_COOKIE);
   } catch {

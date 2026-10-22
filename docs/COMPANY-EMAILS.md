@@ -29,7 +29,7 @@ is a feature.
 | Delivery failure never fails the operation that caused it | `sendCompanyEmailQuietly` |
 | Workspace mail goes to owners and admins, not every member | `recipients.ts` |
 
-## Wired (24)
+## Wired (25)
 
 | Id | Fires from | Key |
 | --- | --- | --- |
@@ -47,6 +47,7 @@ is a feature.
 | `organization.invitation_accepted` | verification of an invited address | per invitation |
 | `organization.role_changed` | `updateMemberRole()` | `role:<membership>:<role>:<epoch>` |
 | `organization.member_removed` | `removeMember()` | `removed:<membershipId>` |
+| `organization.workspace_created` | `completeOnboarding()` | `workspace-created:<orgId>:<userId>` |
 | `operations.domain_verified` | `POST /v1/domains/:id/verify` (verified) | per verification instant |
 | `operations.domain_failed` | same route (DNS error / TXT mismatch) | one per domain per day |
 | `operations.api_key_created` | `POST /v1/keys` | per key |
@@ -102,7 +103,6 @@ a matter of calling the id from the Bachs webhook handler once it exists.
 | Id | Needs |
 | --- | --- |
 | `organization.ownership_transferred` | an in-product ownership transfer; owners are changed only by direct membership edits today |
-| `organization.workspace_created` | a first-run hook in onboarding (signup creates the workspace before an address is verified, so the mail would race the welcome email) |
 
 ### Legal and product news (operator-driven)
 
