@@ -39,14 +39,33 @@ batch.post("/", authMiddleware, rateLimitMiddleware("sending"), async (c) => {
   if (!parsed.success)
     throw new AppError("validation_error", "Invalid batch", 400, parsed.error.flatten());
 
-  const { getDb, suppressions } = await import("@calder/db");
-  const { eq } = await import("drizzle-orm");
+  const { getDb, suppressions, blocksStream, ORG_WIDE_SUPPRESSION_REASONS } =
+    await import("@calder/db");
+  const { eq, or, and, inArray, sql } = await import("drizzle-orm");
   const db = getDb();
+  // One query, same policy as findBlockingSuppression: a row in this project
+  // (any reason), or a bounce/complaint anywhere in this organization. The
+  // stream filter then runs in JS with the shared predicate, so an
+  // `unsubscribe` does not silently drop a transactional recipient.
   const suppressedRows = await db
-    .select({ email: suppressions.email })
+    .select({ email: suppressions.email, reason: suppressions.reason })
     .from(suppressions)
-    .where(eq(suppressions.projectId, a.projectId));
-  const suppressed = new Set(suppressedRows.map((r) => r.email.toLowerCase()));
+    .where(
+      or(
+        eq(suppressions.projectId, a.projectId),
+        and(
+          inArray(suppressions.reason, [...ORG_WIDE_SUPPRESSION_REASONS]),
+          sql`${suppressions.organizationId} = (
+            select organization_id from projects where id = ${a.projectId}
+          )`
+        )
+      )
+    );
+  const suppressed = new Set(
+    suppressedRows
+      .filter((r) => blocksStream(r.reason, "transactional"))
+      .map((r) => r.email.toLowerCase())
+  );
 
   const baseKey = c.req.header("idempotency-key") ?? c.req.header("Idempotency-Key") ?? undefined;
   const results: Array<{ to: string; id?: string; status: string; reason?: string }> = [];

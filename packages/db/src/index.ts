@@ -10,6 +10,7 @@ export * as schema from "./schema/index.js";
 export * from "./schema/index.js";
 export * from "./usage.js";
 export * from "./organization-sending.js";
+export * from "./suppression-guard.js";
 export * from "./suite-cleanup.js";
 export * from "./gmail-watch.js";
 export * from "./webhook-deliveries.js";

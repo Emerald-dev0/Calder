@@ -204,20 +204,24 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
   // Worker and drain re-check before delivery, so an unsubscribe landing
   // after acceptance is still honored.
   try {
-    const { getDb, suppressions } = await import("@calder/db");
-    const { and, eq } = await import("drizzle-orm");
+    const { getDb, findBlockingSuppression, describeBlock } = await import("@calder/db");
     const db = getDb();
-    const sup = await db
-      .select({ reason: suppressions.reason })
-      .from(suppressions)
-      .where(and(eq(suppressions.projectId, projectId), eq(suppressions.email, input.to)))
-      .limit(1);
-    if (sup.length > 0) {
+    // An unsubscribe must not stop a password reset, so the ingest check has
+    // to know which stream this send belongs to. Resolved into a local so this
+    // call site stays distinct from the persistence sites below, which the
+    // stream-ordering guard in email-service.test.ts anchors on.
+    const guardStream = resolveEmailStream(input);
+    const blocked = await findBlockingSuppression(db, {
+      projectId,
+      email: input.to,
+      stream: guardStream,
+    });
+    if (blocked) {
       throw new AppError(
         "suppressed",
-        `Recipient is suppressed for this project (${sup[0]!.reason}). The email was not queued.`,
+        `${describeBlock(blocked)} The email was not queued.`,
         422,
-        undefined,
+        { reason: blocked.reason, scope: blocked.crossProject ? "organization" : "project" },
         "Remove the address from the suppression list first, or send to a different recipient."
       );
     }

@@ -6,6 +6,7 @@ import {
   emails,
   emailEvents,
   suppressions,
+  findBlockingSuppression,
   projectTransports,
   senderIdentities,
   recordSendUsage,
@@ -357,23 +358,29 @@ export async function drainPendingEmails(
       failed++;
       continue;
     }
-    // Suppression check
-    const sup = await db
-      .select()
-      .from(suppressions)
-      .where(and(eq(suppressions.projectId, row.projectId), eq(suppressions.email, row.to)))
-      .limit(1);
-    if (sup.length > 0) {
+    // Suppression check — scope and stream policy live in @calder/db so the
+    // API, worker and dashboard cannot drift apart. A hard bounce or complaint
+    // follows the address across the whole organization; an unsubscribe only
+    // blocks broadcast mail and only in this project.
+    const blocked = await findBlockingSuppression(db, {
+      projectId: row.projectId,
+      email: row.to,
+      stream: row.stream === "marketing" ? "marketing" : "transactional",
+    });
+    if (blocked) {
       await db
         .update(emails)
-        .set({ status: "suppressed", lastError: sup[0]!.reason, updatedAt: now })
+        .set({ status: "suppressed", lastError: blocked.reason, updatedAt: now })
         .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
       await recordDrainEvent(db, {
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
         projectId: row.projectId,
         type: "suppressed",
-        data: { reason: sup[0]!.reason },
+        data: {
+          reason: blocked.reason,
+          scope: blocked.crossProject ? "organization" : "project",
+        },
       });
       skipped++;
       continue;
