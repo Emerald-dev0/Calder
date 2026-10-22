@@ -1,5 +1,6 @@
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
+import { PLAN_LIMITS } from "@calder/config";
 import { getDb, organizations, projects, plans, planPrices } from "./index.js";
 
 /**
@@ -28,41 +29,36 @@ const invokedDirectly =
   process.argv[1]?.endsWith("seed.ts") === true;
 
 /**
- * Idempotent plan catalog matching PRD §11 (hypothesis pricing, NGN-led).
- * Amounts are illustrative seeds, change via dashboard/billing UI in production,
- * never by editing this file after launch. Safe to re-run.
+ * Idempotent plan catalogue. Every value comes from `@calder/config`, so the
+ * database cannot drift from the plans the application enforces.
+ *
+ * Only tiers the `plan_tier` enum can hold are seeded — `premium` exists in the
+ * catalogue but cannot be stored until billing adds it to the enum, which is a
+ * migration for that phase, not this one.
  */
-const PLAN_SEED: Array<{
-  tier: "free" | "starter" | "pro" | "scale";
+/** Exactly the values the `plan_tier` enum can hold today. */
+type SeedableTier = "free" | "starter" | "pro" | "scale";
+
+const SEEDABLE_TIERS: SeedableTier[] = ["free", "starter", "pro", "scale"];
+
+interface PlanSeed {
+  tier: SeedableTier;
   name: string;
   prices: Array<{ currency: "NGN" | "USD"; amountCents: number }>;
-}> = [
-  { tier: "free", name: "Free", prices: [{ currency: "NGN", amountCents: 0 }] },
-  {
-    tier: "starter",
-    name: "Builder",
-    prices: [
-      { currency: "NGN", amountCents: 1000000 },
-      { currency: "USD", amountCents: 700 },
-    ],
-  },
-  {
-    tier: "pro",
-    name: "Pro",
-    prices: [
-      { currency: "NGN", amountCents: 2500000 },
-      { currency: "USD", amountCents: 1600 },
-    ],
-  },
-  {
-    tier: "scale",
-    name: "Scale",
-    prices: [
-      { currency: "NGN", amountCents: 6000000 },
-      { currency: "USD", amountCents: 4000 },
-    ],
-  },
-];
+}
+
+const PLAN_SEED: PlanSeed[] = SEEDABLE_TIERS.map((tier) => {
+  const plan = PLAN_LIMITS[tier];
+  return {
+    tier,
+    name: plan.displayName,
+    prices: (["NGN", "USD"] as const).flatMap((currency) => {
+      const amountCents = plan.price[currency];
+      // Scale is quoted per contract: a zero row would read as "free".
+      return amountCents === null ? [] : [{ currency, amountCents }];
+    }),
+  };
+});
 
 export async function seedPlans(): Promise<void> {
   const db = getDb();

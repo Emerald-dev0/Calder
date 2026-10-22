@@ -5,6 +5,7 @@ import { Footer } from "../../components/closing";
 import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
 import { pageMeta } from "../../lib/seo";
+import { planPrice, planSummary } from "../../lib/plans";
 import { SIGNUP_URL } from "../../lib/site";
 
 /**
@@ -36,7 +37,7 @@ const FACTS: Array<[string, string]> = [
   ],
   [
     "Pricing",
-    "Beginner is free: 5,000 emails a month, 3 projects, 2 domains. Pro is $15 or ₦25,000 for 50,000. Premium is $49 or ₦75,000 for 250,000. Naira and dollar prices are set separately, not converted.",
+    `Beginner is free: ${planSummary("beginner")}. Pro is ${planPrice("pro", "USD")} or ${planPrice("pro", "NGN")} for 50,000. Premium is ${planPrice("premium", "USD")} or ${planPrice("premium", "NGN")} for 250,000. Naira and dollar prices are set separately, not converted.`,
   ],
   [
     "Evidence",

@@ -272,6 +272,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@calder/config':
+        specifier: workspace:^
+        version: link:../../packages/config
       '@calder/ui':
         specifier: workspace:*
         version: link:../../packages/ui

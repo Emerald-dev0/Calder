@@ -58,7 +58,8 @@ export interface ShellProps {
   showAdmin: boolean;
   usageSummary: {
     sentThisMonth: number;
-    monthlyQuota: number;
+    /** null on a contract plan: there is no ceiling to show a percentage of. */
+    monthlyQuota: number | null;
     planName: string;
     verifiedDomains: number;
     activeKeys: number;
@@ -297,10 +298,13 @@ export function AppShell({
       .replace(/\b\w/g, (c) => c.toUpperCase()) ||
     "Operator";
 
-  const usagePct = Math.min(
-    100,
-    Math.round((usageSummary.sentThisMonth / Math.max(1, usageSummary.monthlyQuota)) * 100),
-  );
+  const usagePct =
+    usageSummary.monthlyQuota === null
+      ? 0
+      : Math.min(
+          100,
+          Math.round((usageSummary.sentThisMonth / Math.max(1, usageSummary.monthlyQuota)) * 100),
+        );
 
   return (
     <div className="shell-root">
@@ -452,7 +456,9 @@ export function AppShell({
               >
                 <span>
                   {usageSummary.sentThisMonth.toLocaleString()} /{" "}
-                  {usageSummary.monthlyQuota.toLocaleString()} emails
+                  {usageSummary.monthlyQuota === null
+                    ? "Custom"
+                    : `${usageSummary.monthlyQuota.toLocaleString()} emails`}
                 </span>
                 <span>{usagePct}%</span>
               </div>

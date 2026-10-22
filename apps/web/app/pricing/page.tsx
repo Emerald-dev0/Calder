@@ -7,12 +7,16 @@ import { Streams } from "../../components/streams";
 import { FinalCta, Footer } from "../../components/closing";
 import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
-import { PLANS, PRICING_FAQS } from "../../lib/plans";
+import { PLANS, PRICING_FAQS, planPrice, planSummary } from "../../lib/plans";
 
 export const metadata: Metadata = pageMeta({
   title: "Pricing",
-  description:
-    "Beginner is free: 5,000 emails, 3 projects, 2 domains. Pro is $15 or ₦25,000 for 50,000 emails and production environments. Premium is $49 or ₦75,000 for 250,000. Naira and dollar prices are separate decisions, not conversions.",
+  description: [
+    `Beginner is free: ${planSummary("beginner")}.`,
+    `Pro is ${planPrice("pro", "USD")} or ${planPrice("pro", "NGN")} for 50,000 emails and production environments.`,
+    `Premium is ${planPrice("premium", "USD")} or ${planPrice("premium", "NGN")} for 250,000.`,
+    "Naira and dollar prices are separate decisions, not conversions.",
+  ].join(" "),
   path: "/pricing",
 });
 

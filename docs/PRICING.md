@@ -1,23 +1,48 @@
 # Calder Pricing, Architecture & Unit Economics Gate
 
-Status: **locked for public launch (2026-09-14)**. Public surfaces read from
-`apps/web/lib/plans.ts`; this document says why, and what still gates changes.
-See `docs/DECISIONS.md` ADR-024 for the decision record.
+Status: **revised 2026-10-22** (five-tier catalogue). The catalogue itself lives
+in `packages/config/src/plan-limits.ts` — limits, prices and display names — and
+every surface reads from there: the dashboard, the API's quota errors, the
+marketing site (`apps/web/lib/plans.ts` is a projection of it) and the database
+seed. See `docs/DECISIONS.md` ADR-024 for the original decision and ADR-045 for
+this revision.
 
 ## 1. The model
 
-|                |    Beginner |                        Pro |                    Premium |      Scale |
-| -------------- | ----------: | -------------------------: | -------------------------: | ---------: |
-| Price          | **$0 / ₦0** |          **$15 / ₦25,000** |          **$49 / ₦75,000** | **Custom** |
-| Emails / month |       5,000 |                     50,000 |                    250,000 |     Custom |
-| Projects       |           3 |                         10 |                         50 |     Custom |
-| Domains        |           2 |                         10 |                         50 |     Custom |
-| Team members   |           1 |                          5 |                         15 |     Custom |
-| Environments   | Development | Dev + Staging + Production | Dev + Staging + Production |     Custom |
-| Log retention  |      7 days |                    30 days |                    90 days |     Custom |
-| Support        |   Community |                      Email |                   Priority |  Dedicated |
+|                  |     Beginner |      Starter |           Pro |        Premium |      Scale |
+| ---------------- | -----------: | -----------: | ------------: | -------------: | ---------: |
+| Price            | **$0 / ₦0** | **$5 / ₦5,000** | **$18 / ₦20,000** | **$65 / ₦75,000** | **Custom** |
+| Emails / month   |        5,000 |       10,000 |        50,000 |        250,000 |     Custom |
+| Projects         |            3 |            3 |            10 |             50 |     Custom |
+| Domains          |            2 |            3 |            10 |             50 |     Custom |
+| Sender identities|            5 |           10 |            25 |            100 |     Custom |
+| Team seats       |            1 |            2 |             5 |             15 |     Custom |
+| Environments     |  Development |       TBD ‡ | Dev + Staging + Production | Dev + Staging + Production |     Custom |
+| Log retention    |       7 days |      14 days |       30 days |        90 days |     Custom |
+| Support          |    Community |        Email |         Email |       Priority |  Dedicated |
+
+‡ Starter's environment matrix is not decided yet. It is recorded as unset and
+is enforced nowhere; the pricing-page pass will settle it.
 
 Marketing allowances (contacts, not sends): 1,000 / 10,000 / 50,000 / Custom.
+**Unapproved draft** — carried in config as `contacts` with `approved: false`,
+never rendered in the Usage UI, not enforced.
+
+### What is enforced, and when
+
+Only **projects, domains, sender identities and team seats** are enforced, and
+only when a resource is created. Existing resources are grandfathered: nothing
+is deleted or disabled because a plan changed. A refusal carries
+`plan_limit_reached`, the limit, the current count and an upgrade pointer that
+skips any tier which would not actually raise that ceiling.
+
+Recorded but **not enforced yet**: log retention, Gmail sender allowance
+(2 everywhere) and Beginner's 500-email daily cap. They live in config so the
+phases that build them have one place to read.
+
+Usage warnings are computed from the allowance at 50% and 80% — 2,500 / 4,000
+on Beginner, 5,000 / 8,000 on Starter, 25,000 / 40,000 on Pro and 125,000 /
+200,000 on Premium. No per-plan threshold is ever typed by hand.
 
 **Positioning rule.** The tiers are not a volume ladder. They are a capability
 ladder, and every public surface must read that way:
@@ -126,3 +151,22 @@ are modelled separately: contacts cost storage and support, not delivery.
 - Annual billing, and VAT display treatment on the pricing page.
 - Marketing allowance enforcement once campaigns ship (contact counting and
   consent state are the same meter question, tracked in the roadmap).
+
+## Follow-ups this revision deliberately leaves open
+
+1. **`premium` in `plan_tier`.** The enum is `free | starter | pro | scale`.
+   Nothing can store a Premium subscription yet. The migration belongs to the
+   billing phase, alongside the checkout that would write it; it is additive
+   (`ALTER TYPE plan_tier ADD VALUE 'premium'`), and its rollback is "recreate
+   the type without the value", which requires no rows to use it.
+2. **Existing subscriptions.** Tier keys did not move, so a workspace on
+   `starter` now reads Starter's allowance (10,000) rather than the old
+   catalogue's 50,000, and one on `pro` reads Pro's (50,000) rather than
+   250,000. Nobody's resources are touched, but their monthly ceiling changes at
+   the next period. Remapping or grandfathered quotas is a commercial decision
+   for the billing phase; see the phase report.
+3. **Starter on the marketing page.** `apps/web` still renders four cards, so
+   Starter (₦5,000/$5) is sellable in config but absent from `/pricing`. Adding
+   it is a pricing-page change, explicitly out of scope here.
+4. **Starter's environments.** Unset above; it is enforced nowhere today.
+

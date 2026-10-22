@@ -10,7 +10,11 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./plan-limits": {
+      "types": "./dist/plan-limits.d.ts",
+      "default": "./dist/plan-limits.js"
+    }
   },
   "scripts": {
     "build": "tsc --project tsconfig.build.json",

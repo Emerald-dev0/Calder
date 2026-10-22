@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq, inArray, count, isNull, and } from "drizzle-orm";
-import { getConfig } from "@calder/config";
-import { getDb, users, emails, domains, apiKeys } from "@calder/db";
+import { PLAN_LIMITS, getConfig, planDisplayName, planEmailsLimit } from "@calder/config";
+import { getDb, users, emails, domains, apiKeys, orgUsageSnapshot } from "@calder/db";
 import { getTenantContext } from "../../lib/auth";
 import { OnboardingGate } from "../../components/onboarding-gate";
 import { AppShell } from "../../components/app-shell";
@@ -47,6 +47,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     })),
   }));
 
+  // The sidebar card's plan name and ceiling come from the catalogue, never a
+  // literal: "Free" for every workspace was wrong the moment Starter shipped.
+  let monthlyQuota: number | null = PLAN_LIMITS.free.emailsPerMonth;
+  let planName = PLAN_LIMITS.free.displayName;
+  const firstOrg = ctx.memberships[0]?.organization;
+  if (firstOrg) {
+    try {
+      const snap = await orgUsageSnapshot(db, firstOrg.id);
+      monthlyQuota = planEmailsLimit(snap.tier);
+      planName = planDisplayName(snap.tier);
+    } catch {
+      // keep the Beginner defaults
+    }
+  }
+
   const projectIds = memberships.flatMap((m) => m.projects.map((p) => p.id));
   let sentThisMonth = 0;
   let verifiedDomains = 0;
@@ -89,8 +104,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           showAdmin={showAdmin}
           usageSummary={{
             sentThisMonth,
-            monthlyQuota: 5000,
-            planName: "Free",
+            monthlyQuota,
+            planName,
             verifiedDomains,
             activeKeys,
           }}

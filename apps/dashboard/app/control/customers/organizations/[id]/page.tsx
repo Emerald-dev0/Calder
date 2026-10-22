@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { randomUUID } from "node:crypto";
 import { notFound } from "next/navigation";
+import { planDisplayName } from "@calder/config";
 import { fmtAgo, fmtDate, fmtInt, fmtMoney } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
 import { orgDetail } from "@/lib/control/queries";
@@ -68,7 +69,7 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
       <div className="cp-stats">
         <Stat
           label="Plan"
-          value={plan?.name ?? "Free"}
+          value={plan?.name ?? planDisplayName(null)}
           hint={
             activeSubscription && activeSubscription.currentPeriodEnd
               ? `renews ${fmtDate(new Date(activeSubscription.currentPeriodEnd))}`

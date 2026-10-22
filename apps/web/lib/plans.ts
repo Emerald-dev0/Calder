@@ -12,8 +12,51 @@
  *   that is selling something it cannot deliver.
  */
 
+import { PLAN_LIMITS, formatPlanPrice, type PlanTier } from "@calder/config/plan-limits";
+
 export type Currency = "NGN" | "USD";
 export type PlanId = "beginner" | "pro" | "premium" | "scale";
+
+/**
+ * Marketing plan id → catalogue tier. The database still calls the entry tier
+ * `free`; the name a customer reads is "Beginner" everywhere.
+ */
+const TIER_OF: Record<PlanId, PlanTier> = {
+  beginner: "free",
+  pro: "pro",
+  premium: "premium",
+  scale: "scale",
+};
+
+const catalogue = (id: PlanId) => PLAN_LIMITS[TIER_OF[id]];
+
+/** Limits are printed from the catalogue, never typed twice. */
+function count(n: number | null): string {
+  return n === null ? "Custom" : n.toLocaleString("en-US");
+}
+
+/** The price a customer pays, printed from the catalogue. */
+export function planPrice(id: PlanId, currency: Currency): string {
+  return formatPlanPrice(TIER_OF[id], currency);
+}
+
+const price = planPrice;
+
+/** "5,000 emails, 3 projects, 2 domains" — the phrase docs and metadata use. */
+export function planSummary(id: PlanId): string {
+  const p = catalogue(id);
+  return `${count(p.emailsPerMonth)} emails, ${count(p.projects)} projects, ${count(p.domains)} domains`;
+}
+
+function volumeText(id: PlanId): string {
+  const n = catalogue(id).emailsPerMonth;
+  return n === null ? "Custom volume" : `${count(n)} emails / month`;
+}
+
+function retentionText(id: PlanId): string {
+  const d = catalogue(id).retentionDays;
+  return d === null ? "Custom" : `${d} days`;
+}
 
 /** Honest status for anything that is not simply available today. */
 export type Status = "today" | "dev";
@@ -49,30 +92,30 @@ export const PLANS: Plan[] = [
     promise: "Build without worrying about the bill.",
     audience:
       "For personal projects, prototypes, early products, and developers getting their first application communication into production.",
-    price: { NGN: "₦0", USD: "$0" },
-    volume: "5,000 emails / month",
-    volumeRaw: 5000,
-    projects: "3",
-    domains: "2",
-    team: "1",
+    price: { NGN: price("beginner", "NGN"), USD: price("beginner", "USD") },
+    volume: volumeText("beginner"),
+    volumeRaw: catalogue("beginner").emailsPerMonth,
+    projects: count(catalogue("beginner").projects),
+    domains: count(catalogue("beginner").domains),
+    team: count(catalogue("beginner").seats),
     environments: "Development",
-    logs: "7 days",
+    logs: retentionText("beginner"),
     support: "Community",
     highlights: [
       "Transactional email",
       "REST API + SMTP relay",
       "Idempotency",
       "Signed webhooks",
-      "2 sending domains",
-      "5 sender identities",
-      "3 projects",
+      `${count(catalogue("beginner").domains)} sending domains`,
+      `${count(catalogue("beginner").senders)} sender identities`,
+      `${count(catalogue("beginner").projects)} projects`,
       "Development environment",
       "Delivery logs",
       "Basic analytics",
-      "7-day log retention",
+      `${retentionText("beginner")} log retention`,
       "Basic suppression and bounce handling",
       "Batch and scheduled sending",
-      "1 team member",
+      `${count(catalogue("beginner").seats)} team member`,
     ],
     cta: "Start free",
     ctaHref: "/signup",
@@ -82,30 +125,30 @@ export const PLANS: Plan[] = [
     name: "Pro",
     promise: "Ship with confidence.",
     audience: "For products moving beyond development and into real usage.",
-    price: { NGN: "₦25,000", USD: "$15" },
-    volume: "50,000 emails / month",
-    volumeRaw: 50000,
-    projects: "10",
-    domains: "10",
-    team: "5",
+    price: { NGN: price("pro", "NGN"), USD: price("pro", "USD") },
+    volume: volumeText("pro"),
+    volumeRaw: catalogue("pro").emailsPerMonth,
+    projects: count(catalogue("pro").projects),
+    domains: count(catalogue("pro").domains),
+    team: count(catalogue("pro").seats),
     environments: "Dev · Staging · Production",
-    logs: "30 days",
+    logs: retentionText("pro"),
     support: "Email",
     highlights: [
       "Everything in Beginner",
       "Staging and production environments",
-      "10 projects",
-      "10 sending domains",
-      "25 sender identities",
+      `${count(catalogue("pro").projects)} projects`,
+      `${count(catalogue("pro").domains)} sending domains`,
+      `${count(catalogue("pro").senders)} sender identities`,
       "Scoped API keys",
       "Webhook replay",
       "Delivery trends",
       "Advanced delivery history",
       "Suppression and unsubscribe controls",
-      "30-day log retention",
+      `${retentionText("pro")} log retention`,
       "Queue visibility",
       "Rate-limit controls",
-      "5 team members",
+      `${count(catalogue("pro").seats)} team members`,
       "Roles and permissions",
       "Email support",
     ],
@@ -119,31 +162,32 @@ export const PLANS: Plan[] = [
     promise: "Operate with control.",
     audience:
       "For teams where communication is becoming part of the product infrastructure itself.",
-    price: { NGN: "₦75,000", USD: "$49" },
-    volume: "250,000 emails / month",
-    volumeRaw: 250000,
-    projects: "50",
-    domains: "50",
-    team: "15",
+    price: { NGN: price("premium", "NGN"), USD: price("premium", "USD") },
+    volume: volumeText("premium"),
+    volumeRaw: catalogue("premium").emailsPerMonth,
+    projects: count(catalogue("premium").projects),
+    domains: count(catalogue("premium").domains),
+    team: count(catalogue("premium").seats),
     environments: "Dev · Staging · Production",
-    logs: "90 days",
+    logs: retentionText("premium"),
     support: "Priority",
     highlights: [
       "Everything in Pro",
-      "50 projects",
-      "50 sending domains",
+      `${count(catalogue("premium").projects)} projects`,
+      `${count(catalogue("premium").domains)} sending domains`,
+      `${count(catalogue("premium").senders)} sender identities`,
       "Advanced deliverability monitoring",
       "Domain reputation visibility",
       "Custom rate limits",
       "Provider routing controls",
       "Custom throughput",
       "Advanced analytics",
-      "90-day log retention",
+      `${retentionText("premium")} log retention`,
       "Advanced roles",
       "Audit logs",
       "Security events",
       "IP allowlisting",
-      "15 team members",
+      `${count(catalogue("premium").seats)} team members`,
       "Priority support",
     ],
     cta: "Choose Premium",
@@ -155,14 +199,14 @@ export const PLANS: Plan[] = [
     promise: "Make communication part of your infrastructure.",
     audience:
       "For organizations that need Calder shaped around their architecture, traffic, security, and operational requirements.",
-    price: { NGN: "Custom", USD: "Custom" },
-    volume: "Custom volume",
-    volumeRaw: null,
-    projects: "Custom",
-    domains: "Custom",
-    team: "Custom",
+    price: { NGN: price("scale", "NGN"), USD: price("scale", "USD") },
+    volume: volumeText("scale"),
+    volumeRaw: catalogue("scale").emailsPerMonth,
+    projects: count(catalogue("scale").projects),
+    domains: count(catalogue("scale").domains),
+    team: count(catalogue("scale").seats),
     environments: "Custom",
-    logs: "Custom",
+    logs: retentionText("scale"),
     support: "Dedicated",
     highlights: [
       "Custom sending volume",
@@ -212,13 +256,28 @@ export interface ComparisonGroup {
 const YES = "✓";
 const NO = "—";
 
+/** Comparison columns follow PLANS order: Beginner, Pro, Premium, Scale. */
+function rowOf(pick: (id: PlanId) => string): [string, string, string, string] {
+  return [pick("beginner"), pick("pro"), pick("premium"), "Custom"];
+}
+
+const projectsRow = () => rowOf((id) => count(catalogue(id).projects));
+const domainsRow = () => rowOf((id) => count(catalogue(id).domains));
+const sendersRow = () => rowOf((id) => count(catalogue(id).senders));
+const seatsRow = () => rowOf((id) => count(catalogue(id).seats));
+
 export const COMPARISON: ComparisonGroup[] = [
   {
     group: "Volume and sending",
     rows: [
       {
         label: "Emails per month",
-        values: ["5,000", "50,000", "250,000", "Custom"],
+        values: [
+          count(catalogue("beginner").emailsPerMonth),
+          count(catalogue("pro").emailsPerMonth),
+          count(catalogue("premium").emailsPerMonth),
+          "Custom",
+        ],
       },
       {
         label: "Transactional email",
@@ -231,9 +290,9 @@ export const COMPARISON: ComparisonGroup[] = [
         status: "dev",
         note: "Newsletters, announcements, launches, promotions, lifecycle. Ships to every plan, no separate price.",
       },
-      { label: "Projects", values: ["3", "10", "50", "Custom"] },
-      { label: "Sending domains", values: ["2", "10", "50", "Custom"] },
-      { label: "Sender identities", values: ["5", "25", "50", "Custom"] },
+      { label: "Projects", values: projectsRow() },
+      { label: "Sending domains", values: domainsRow() },
+      { label: "Sender identities", values: sendersRow() },
       {
         label: "Environments",
         values: ["Development", "Dev + Staging + Prod", "Dev + Staging + Prod", "Custom"],
@@ -291,7 +350,12 @@ export const COMPARISON: ComparisonGroup[] = [
     rows: [
       {
         label: "Log retention",
-        values: ["7 days", "30 days", "90 days", "Custom"],
+        values: [
+          retentionText("beginner"),
+          retentionText("pro"),
+          retentionText("premium"),
+          "Custom",
+        ],
       },
       { label: "Delivery, bounce and failure status", values: [YES, YES, YES, YES] },
       { label: "Basic analytics", values: [YES, YES, YES, YES] },
@@ -311,7 +375,7 @@ export const COMPARISON: ComparisonGroup[] = [
   {
     group: "Team, security and support",
     rows: [
-      { label: "Team members", values: ["1", "5", "15", "Custom"] },
+      { label: "Team members", values: seatsRow() },
       { label: "Roles and permissions", values: [NO, "Basic", "Advanced", "Custom"] },
       { label: "Organization activity", values: [NO, YES, YES, YES], status: "dev" },
       { label: "Audit logs and security events", values: [NO, NO, YES, YES], status: "dev" },
@@ -329,6 +393,8 @@ export const COMPARISON: ComparisonGroup[] = [
  * mail. See PRD §18.
  */
 export const MARKETING_ALLOWANCES: ComparisonRow[] = [
+  // Draft figures, deliberately NOT sourced from the plan catalogue: the
+  // contacts allowance is unapproved and must not gain authority by moving.
   { label: "Contacts", values: ["1,000", "10,000", "50,000", "Custom"] },
   { label: "Campaigns", values: [YES, YES, YES, YES] },
   { label: "Audiences", values: [YES, YES, YES, YES] },
@@ -353,7 +419,7 @@ export const PRICING_FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "Are the naira and dollar prices converted?",
-    a: "No. ₦25,000 and $15 are intentionally separate prices for the same plan. They aren't tied to a daily exchange-rate calculation.",
+    a: `No. ${price("pro", "NGN")} and ${price("pro", "USD")} are intentionally separate prices for the same plan. They aren't tied to a daily exchange-rate calculation.`,
   },
   {
     q: "Can I change plans?",

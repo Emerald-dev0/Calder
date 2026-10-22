@@ -971,3 +971,33 @@ provider-dependent; email-client prefetch can consume a magic link before the
 human clicks; in-memory rate limiting is development-only and hosted Redis is
 mandatory; full integration/E2E verification still needs reachable PostgreSQL,
 Redis/provider fixtures, and browser-runner ownership.
+
+## ADR-045: Plan catalogue becomes five tiers and one config file
+
+**Status:** Accepted (2026-10-22). Supersedes the prices in ADR-024.
+
+**Decision:** Calder sells five tiers — Beginner (free), Starter, Pro, Premium
+and Scale. `packages/config/src/plan-limits.ts` is the single source of truth
+for limits, prices and display names; the marketing site, the dashboard, the
+API's quota refusals and the database seed all read from it. Tier **keys** stay
+the database enum values (`free`, `starter`, `pro`, `scale`, plus a catalogue-only
+`premium`), so no data migration is involved: `free` is printed as "Beginner"
+everywhere. Prices are ₦0/$0, ₦5,000/$5, ₦20,000/$18, ₦75,000/$65 and custom;
+the superseded ₦25,000/$15 Pro and $49 Premium figures are gone.
+
+**Why:** the four-tier ladder had no paid entry between free and Pro, which
+left every small team either on a hobby plan or paying for volume it would not
+use. Five tiers give a real first purchase, and moving the catalogue into
+`@calder/config` ends the situation where three files disagreed about what a
+plan allows. Enforcing only projects, domains, senders and seats — and only at
+creation — keeps the change from touching anyone's existing resources, while
+quota enforcement continues to live in the API's single admission path.
+
+**Consequence:** limits for projects, domains, senders and seats are read
+through `checkResourceLimit()` in the Senders, Domains, team and project
+creation paths (built page by page from here). Retention, Gmail sender count and
+the Beginner daily cap are recorded in config with `UNENFORCED_PLAN_LIMITS` and
+gate nothing. `plan_tier` cannot store `premium` yet; adding it is a billing-phase
+migration, listed in `docs/PRICING.md` follow-ups. The unapproved contacts
+allowance stays in config marked `approved: false` and is never rendered.
+
