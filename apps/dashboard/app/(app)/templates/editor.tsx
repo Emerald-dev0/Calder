@@ -370,8 +370,6 @@ export function TemplateEditor({
               <button
                 type="button"
                 role="tab"
-                id="tab-viewport-desktop"
-                aria-controls="tabpanel-template-preview"
                 aria-selected={viewport === "desktop"}
                 onClick={() => setViewport("desktop")}
                 className={`ds-tab ${viewport === "desktop" ? "is-active" : ""}`}
@@ -382,8 +380,6 @@ export function TemplateEditor({
               <button
                 type="button"
                 role="tab"
-                id="tab-viewport-mobile"
-                aria-controls="tabpanel-template-preview"
                 aria-selected={viewport === "mobile"}
                 onClick={() => setViewport("mobile")}
                 className={`ds-tab ${viewport === "mobile" ? "is-active" : ""}`}
@@ -396,9 +392,6 @@ export function TemplateEditor({
 
           <div className="ds-card-body">
             <div
-              id="tabpanel-template-preview"
-              role="tabpanel"
-              aria-labelledby={viewport === "desktop" ? "tab-viewport-desktop" : "tab-viewport-mobile"}
               style={{
                 maxWidth: viewport === "mobile" ? 360 : "100%",
                 margin: "0 auto",
