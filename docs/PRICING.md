@@ -72,6 +72,24 @@ ceiling; it is sold as dedicated capacity, SLA and architecture.
   (>15%), SES price change, or a material shift in the unit-economics model
   below.
 
+## 2a. Payment processor fees (Bachs, verified 2026-10-22)
+
+Billing is not built yet. These are the verified standard fees, recorded so the
+margin model in §4 uses real numbers when the Bachs phase starts:
+
+| Rail                     | Fee                          |
+| ------------------------ | ---------------------------- |
+| NGN direct bank transfer | 1.5%, capped at ₦2,000       |
+| NGN virtual accounts     | 1.0%, capped at ₦300–₦500    |
+| NGN local cards          | 2.0%                         |
+| USD / international cards| 5.0% + $0.40                 |
+
+Two consequences worth remembering: a ₦5,000 Starter payment nets at most
+₦4,925 before provider and infra costs, and the $5 Starter payment loses 5% plus
+40¢ — 13% — before anything else. Starter is therefore a volume-and-conversion
+tier, not a margin tier, and the ₦2,000 cap makes annual/larger NGN payments
+cheaper per naira than many small ones.
+
 ## 3. Marketing allowances, and why they are separate
 
 Transactional (OTPs, resets, receipts, invoices, security alerts, order updates)
