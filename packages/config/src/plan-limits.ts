@@ -162,6 +162,24 @@ export function planDisplayName(tier: string | null | undefined): string {
 }
 
 /**
+ * Tiers that are exempt from customer limits.
+ *
+ * The quota engine already short-circuits these before it ever looks at a
+ * ceiling (`test-env` and `internal-org` in `packages/db/src/usage.ts`). A
+ * resource check must agree, or an internal workspace or a test org would be
+ * refused a fourth project while its sends are admitted without a quota.
+ *
+ * These are not catalogue plans: they have no price and never appear in a
+ * picker. They are identities the engine itself assigns.
+ */
+export const EXEMPT_TIERS = ["internal", "n/a"] as const;
+export type ExemptTier = (typeof EXEMPT_TIERS)[number];
+
+export function isExemptTier(tier: string | null | undefined): boolean {
+  return Boolean(tier) && (EXEMPT_TIERS as readonly string[]).includes(tier as string);
+}
+
+/**
  * Emails/month ceiling for a tier. Unknown tiers resolve to the free floor:
  * fail closed on generosity (a typo'd tier must never become unlimited).
  */
@@ -276,6 +294,19 @@ export function checkResourceLimit(
   resource: LimitedResource,
   used: number
 ): ResourceLimitDecision {
+  // Internal and test tiers are unlimited by definition, exactly as they are
+  // in the quota path. They must not fall through to Beginner's ceiling.
+  if (isExemptTier(tier)) {
+    return {
+      allowed: true,
+      resource,
+      limit: null,
+      used,
+      tier: tier as PlanTier,
+      displayName: planDisplayName(tier),
+    };
+  }
+
   const plan = planFor(tier);
   const limit = resourceLimit(plan.tier, resource);
 

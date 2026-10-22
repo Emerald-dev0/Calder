@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  EXEMPT_TIERS,
   LIMITED_RESOURCES,
   PLAN_LIMITS,
   PLAN_ORDER,
@@ -11,6 +12,7 @@ import {
   planEmailsLimit,
   planFor,
   planWarningThresholds,
+  isExemptTier,
   resourceLimit,
   upgradeTierFor,
 } from "./plan-limits";
@@ -163,6 +165,32 @@ describe("checkResourceLimit", () => {
 
   it("fails closed for an unknown tier", () => {
     expect(checkResourceLimit("gold", "projects", 3).allowed).toBe(false);
+  });
+
+  it("never blocks the internal or test tiers, like the quota path", () => {
+    // `packages/db/src/usage.ts` returns reason "internal-org" / "test-env"
+    // before consulting a ceiling. The resource check must agree: an internal
+    // workspace on project 40 is not "over Beginner's limit of 3".
+    for (const tier of EXEMPT_TIERS) {
+      for (const resource of LIMITED_RESOURCES) {
+        const d = checkResourceLimit(tier, resource, 10_000);
+        expect(d.allowed, `${tier}.${resource}`).toBe(true);
+        expect(d.limit, `${tier}.${resource}`).toBeNull();
+        expect(d.code).toBeUndefined();
+      }
+    }
+    expect(isExemptTier("internal")).toBe(true);
+    expect(isExemptTier("n/a")).toBe(true);
+    expect(isExemptTier("free")).toBe(false);
+    expect(isExemptTier(undefined)).toBe(false);
+    expect(isExemptTier("")).toBe(false);
+  });
+
+  it("still resolves a display name for an exempt tier without pretending it is a plan", () => {
+    // The lookup falls back to Beginner's *name* for unknown strings, but the
+    // decision above never consults a limit, so nothing is gated.
+    expect(checkResourceLimit("internal", "seats", 99).allowed).toBe(true);
+    expect(planDisplayName("internal")).toBe("Beginner");
   });
 
   it("skips tiers that do not raise this particular ceiling", () => {
