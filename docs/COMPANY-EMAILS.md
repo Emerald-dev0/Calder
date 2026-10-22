@@ -29,7 +29,7 @@ is a feature.
 | Delivery failure never fails the operation that caused it | `sendCompanyEmailQuietly` |
 | Workspace mail goes to owners and admins, not every member | `recipients.ts` |
 
-## Wired (34)
+## Wired (36)
 
 | Id | Fires from | Key |
 | --- | --- | --- |
@@ -39,6 +39,8 @@ is a feature.
 | `account.locked_out` | login lockout (`LoginLockedError`) | `lock:<userId>:<lockedUntil>` |
 | `account.email_change_requested` | `requestEmailChange()` | `email-change:<user>:<address>:<expiry>` |
 | `account.email_changed` | `/api/auth/email-change/confirm` | `email-changed:<new/old>:<user>:<address>` |
+| `account.data_export_ready` | `requestDataExport()` → signed one-hour link | `export:<user>:<minute>` |
+| `account.data_export_failed` | the export route's failure path | per attempt |
 | `account.new_sign_in` | login, magic link, OAuth callback | per sign-in |
 | `account.password_changed` | `api/auth/password-change` | per change |
 | `account.password_reset_completed` | `api/auth/password-reset` | per reset |
@@ -80,7 +82,6 @@ These are deliberate gaps, not oversights. Each row names the missing thing.
 | `account.recovery_codes_generated` | 2FA recovery codes |
 | `account.suspicious_sign_in_blocked` | a sign-in risk decision |
 | `account.deletion_scheduled` / `account.deleted` | self-serve account deletion |
-| `account.data_export_ready` / `_failed` | a data-export job |
 
 ### Billing (no payment system, by decision)
 
@@ -133,6 +134,9 @@ and consent plumbing ready.
    confirmation page and change nothing; the POST must apply the opt-out.
 5. Try the same for `account.password_reset_code`: there is no toggle, and a
    forged row in `email_preferences` is ignored.
+6. Settings → **Your data** → "Email me a download link". Open it signed in: the
+   archive streams as JSON. Open it in a private window: 401, because the
+   session must match the token.
 
 ## Test gates
 

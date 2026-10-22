@@ -569,3 +569,28 @@ export async function requestEmailChange(formData: FormData) {
 
   redirect("/settings?emailChange=sent");
 }
+
+/**
+ * Email a signed, one-hour link to everything the account belongs to.
+ *
+ * The archive is built when the link is opened, not now: it is always the
+ * current data, and there is no file to expire or leak. Keyed per minute, so a
+ * double-click sends one email.
+ */
+export async function requestDataExport() {
+  const ctx = await getTenantContext();
+  const db = getDb();
+  const { signExportToken } = await import("../../../lib/data-export");
+  const { token } = signExportToken(ctx.user.userId);
+  const link = `${getConfig().APP_URL.replace(/\/$/, "")}/api/account/export?token=${encodeURIComponent(token)}`;
+
+  await sendCompanyEmailQuietly(db, {
+    id: "account.data_export_ready",
+    to: ctx.user.email,
+    userId: ctx.user.userId,
+    idempotencyKey: `export:${ctx.user.userId}:${Math.floor(Date.now() / 60_000)}`,
+    data: { downloadUrl: link, expiresInHours: 1 },
+  });
+
+  redirect("/settings?dataExport=sent");
+}

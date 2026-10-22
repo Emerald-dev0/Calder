@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getTenantContext } from "../../../lib/auth";
-import { getTeam, listMySessions } from "./actions";
+import { getTeam, listMySessions, requestDataExport } from "./actions";
 import { InviteForm, MemberRow, RevokeInviteButton } from "./team";
 import { NewOrgForm, NewProjectForm } from "./workspace-forms";
 import { SessionsCard } from "./sessions";
@@ -12,7 +12,7 @@ import { DsPageHeader, StatusPill } from "../../../components/design-system";
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ org?: string; emailChange?: string }>;
+  searchParams: Promise<{ org?: string; emailChange?: string; dataExport?: string }>;
 }) {
   const query = await searchParams;
   const ctx = await getTenantContext();
@@ -188,6 +188,15 @@ export default async function SettingsPage({
       </div>
 
       {emailChangeNotice(query.emailChange)}
+      {query.dataExport === "sent" ? (
+        <div style={{ marginTop: 4 }}>
+          <DsBanner
+            tone="info"
+            title="Export link sent"
+            description="Open it from your inbox within the next hour; you must be signed in for the download to work."
+          />
+        </div>
+      ) : null}
 
       {/* Section: Active Sessions */}
       <div id="sessions">
@@ -208,6 +217,25 @@ export default async function SettingsPage({
           </div>
           <div className="ds-card-body">
             <EmailChangeForm currentEmail={ctx.user.email} />
+          </div>
+          <div className="ds-card-header" style={{ borderTop: "1px solid var(--color-border)" }}>
+            <div>
+              <h2 className="ds-card-title">Your data</h2>
+              <p className="ds-card-subtitle">
+                A JSON archive of your account, workspaces, projects, keys (prefixes only),
+                senders, domains, audiences, contacts and message log.
+              </p>
+            </div>
+          </div>
+          <div className="ds-card-body">
+            <form action={requestDataExport}>
+              <button type="submit" className="ds-btn ds-btn-secondary">
+                Email me a download link
+              </button>
+              <p style={{ fontSize: 12, color: "var(--color-text-muted)", margin: "8px 0 0" }}>
+                The link works for one hour and requires you to be signed in.
+              </p>
+            </form>
           </div>
         </div>
       </div>
