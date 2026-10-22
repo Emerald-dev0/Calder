@@ -103,7 +103,9 @@ function routeExists(pathname: string): boolean {
         dir = join(dir, p);
       }
     }
-    if (ok && existsSync(join(dir, "page.tsx"))) return true;
+    // A route handler (route.ts) is a real route too — that is how CSV
+    // exports under /emails/export and /suppressions/export are served.
+    if (ok && (existsSync(join(dir, "page.tsx")) || existsSync(join(dir, "route.ts")))) return true;
   }
   return false;
 }
