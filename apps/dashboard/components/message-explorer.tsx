@@ -182,6 +182,8 @@ export function MessageExplorer({
               <button
                 type="button"
                 role="tab"
+                id="tab-inspector-timeline"
+                aria-controls="tabpanel-inspector"
                 aria-selected={drawerTab === "timeline"}
                 onClick={() => setDrawerTab("timeline")}
                 className={`ds-tab ${drawerTab === "timeline" ? "is-active" : ""}`}
@@ -192,6 +194,8 @@ export function MessageExplorer({
               <button
                 type="button"
                 role="tab"
+                id="tab-inspector-headers"
+                aria-controls="tabpanel-inspector"
                 aria-selected={drawerTab === "headers"}
                 onClick={() => setDrawerTab("headers")}
                 className={`ds-tab ${drawerTab === "headers" ? "is-active" : ""}`}
@@ -202,6 +206,8 @@ export function MessageExplorer({
               <button
                 type="button"
                 role="tab"
+                id="tab-inspector-json"
+                aria-controls="tabpanel-inspector"
                 aria-selected={drawerTab === "json"}
                 onClick={() => setDrawerTab("json")}
                 className={`ds-tab ${drawerTab === "json" ? "is-active" : ""}`}
@@ -211,120 +217,126 @@ export function MessageExplorer({
               </button>
             </div>
 
-            {drawerTab === "timeline" && (
-              <>
-                <KeyValueList
-                  items={[
-                    { label: "Message ID", value: selected.id, copyValue: selected.id },
-                    { label: "Recipient (To)", value: selected.to, mono: true },
-                    ...(selected.from
-                      ? [{ label: "Sender (From)", value: selected.from, mono: true }]
-                      : []),
-                    { label: "Subject", value: selected.subject || "(no subject)" },
-                    {
-                      label: "Provider",
-                      value: selected.provider ?? "aws-ses (eu-west-1)",
-                      mono: true,
-                    },
-                    {
-                      label: "Accepted At",
-                      value: new Date(selected.createdAt).toISOString(),
-                      mono: true,
-                    },
-                  ]}
-                />
+            <div
+              id="tabpanel-inspector"
+              role="tabpanel"
+              aria-labelledby={`tab-inspector-${drawerTab}`}
+            >
+              {drawerTab === "timeline" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                  <KeyValueList
+                    items={[
+                      { label: "Message ID", value: selected.id, copyValue: selected.id },
+                      { label: "Recipient (To)", value: selected.to, mono: true },
+                      ...(selected.from
+                        ? [{ label: "Sender (From)", value: selected.from, mono: true }]
+                        : []),
+                      { label: "Subject", value: selected.subject || "(no subject)" },
+                      {
+                        label: "Provider",
+                        value: selected.provider ?? "aws-ses (eu-west-1)",
+                        mono: true,
+                      },
+                      {
+                        label: "Accepted At",
+                        value: new Date(selected.createdAt).toISOString(),
+                        mono: true,
+                      },
+                    ]}
+                  />
 
-                <div>
-                  <h3
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.06em",
-                      color: "var(--color-muted)",
-                      margin: "8px 0 12px",
-                    }}
-                  >
-                    Delivery Event Hop Log
-                  </h3>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {[
-                      {
-                        step: "API Request Validated",
-                        detail: "Idempotency key & schema verified",
-                        status: "active",
-                      },
-                      {
-                        step: "Queued for Dispatch",
-                        detail: "Assigned to outbound SES worker pool",
-                        status: "queued",
-                      },
-                      {
-                        step: `Terminal Status: ${selected.status.toUpperCase()}`,
-                        detail:
-                          selected.status === "bounced" || selected.status === "failed"
-                            ? "Remote MX rejected recipient or delivery failed"
-                            : "250 2.0.0 OK · DKIM & SPF aligned",
-                        status: selected.status,
-                      },
-                    ].map((hop) => (
-                      <div
-                        key={hop.step}
-                        style={{
-                          padding: "10px 12px",
-                          borderRadius: "var(--radius-md)",
-                          border: "1px solid var(--color-border)",
-                          background: "var(--color-surface)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 10,
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontSize: 12.5, fontWeight: 600 }}>{hop.step}</div>
-                          <div style={{ fontSize: 11.5, color: "var(--color-muted)" }}>
-                            {hop.detail}
+                  <div>
+                    <h3
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                        color: "var(--color-muted)",
+                        margin: "8px 0 12px",
+                      }}
+                    >
+                      Delivery Event Hop Log
+                    </h3>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {[
+                        {
+                          step: "API Request Validated",
+                          detail: "Idempotency key & schema verified",
+                          status: "active",
+                        },
+                        {
+                          step: "Queued for Dispatch",
+                          detail: "Assigned to outbound SES worker pool",
+                          status: "queued",
+                        },
+                        {
+                          step: `Terminal Status: ${selected.status.toUpperCase()}`,
+                          detail:
+                            selected.status === "bounced" || selected.status === "failed"
+                              ? "Remote MX rejected recipient or delivery failed"
+                              : "250 2.0.0 OK · DKIM & SPF aligned",
+                          status: selected.status,
+                        },
+                      ].map((hop) => (
+                        <div
+                          key={hop.step}
+                          style={{
+                            padding: "10px 12px",
+                            borderRadius: "var(--radius-md)",
+                            border: "1px solid var(--color-border)",
+                            background: "var(--color-surface)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 10,
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontSize: 12.5, fontWeight: 600 }}>{hop.step}</div>
+                            <div style={{ fontSize: 11.5, color: "var(--color-muted)" }}>
+                              {hop.detail}
+                            </div>
                           </div>
+                          <StatusPill status={hop.status} />
                         </div>
-                        <StatusPill status={hop.status} />
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </>
-            )}
+              )}
 
-            {drawerTab === "headers" && (
-              <KeyValueList
-                items={[
-                  { label: "Authentication-Results", value: "dkim=pass spf=pass dmarc=pass", mono: true },
-                  { label: "X-Calder-Message-ID", value: selected.id, mono: true },
-                  { label: "TLS-Version", value: "TLSv1.3 (TLS_AES_256_GCM_SHA384)", mono: true },
-                  { label: "Feedback-ID", value: `${selected.id}:calder-tx`, mono: true },
-                ]}
-              />
-            )}
+              {drawerTab === "headers" && (
+                <KeyValueList
+                  items={[
+                    { label: "Authentication-Results", value: "dkim=pass spf=pass dmarc=pass", mono: true },
+                    { label: "X-Calder-Message-ID", value: selected.id, mono: true },
+                    { label: "TLS-Version", value: "TLSv1.3 (TLS_AES_256_GCM_SHA384)", mono: true },
+                    { label: "Feedback-ID", value: `${selected.id}:calder-tx`, mono: true },
+                  ]}
+                />
+              )}
 
-            {drawerTab === "json" && (
-              <CodeBlock
-                title="message.json"
-                code={JSON.stringify(
-                  {
-                    id: selected.id,
-                    object: "email",
-                    to: [selected.to],
-                    from: selected.from ?? "verified-sender@calder.build",
-                    subject: selected.subject,
-                    status: selected.status,
-                    provider: selected.provider ?? "ses",
-                    created_at: selected.createdAt,
-                  },
-                  null,
-                  2,
-                )}
-              />
-            )}
+              {drawerTab === "json" && (
+                <CodeBlock
+                  title="message.json"
+                  code={JSON.stringify(
+                    {
+                      id: selected.id,
+                      object: "email",
+                      to: [selected.to],
+                      from: selected.from ?? "verified-sender@calder.build",
+                      subject: selected.subject,
+                      status: selected.status,
+                      provider: selected.provider ?? "ses",
+                      created_at: selected.createdAt,
+                    },
+                    null,
+                    2,
+                  )}
+                />
+              )}
+            </div>
           </div>
         )}
       </DsDrawer>

@@ -39,16 +39,16 @@ export class SesEmailProvider implements EmailProvider {
     return process.env.SES_CONFIGURATION_SET_TRANSACTIONAL ?? process.env.SES_CONFIGURATION_SET;
   }
 
-  async send(message: EmailMessage & { stream?: "transactional" | "marketing" }): Promise<ProviderSendResult> {
+  async send(
+    message: EmailMessage & { stream?: "transactional" | "marketing" }
+  ): Promise<ProviderSendResult> {
     try {
       const attachments = (message.attachments ?? []).map(toSesAttachment);
       const configSet = this.getConfigSetForStream(message.stream);
       const cmd = new SendEmailCommand({
         FromEmailAddress: message.from,
         // Publish delivery events through the stream-appropriate configuration set.
-        ...(configSet
-          ? { ConfigurationSetName: configSet }
-          : {}),
+        ...(configSet ? { ConfigurationSetName: configSet } : {}),
         Destination: {
           ToAddresses: [message.to],
           CcAddresses: message.cc ? [message.cc] : undefined,
