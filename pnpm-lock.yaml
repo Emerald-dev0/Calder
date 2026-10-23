@@ -12,6 +12,8 @@ overrides:
   esbuild: 0.28.2
   source-map-js: 1.2.2
   shell-quote: ^1.11.0
+  vite: 7.3.7
+  vitest: 4.1.12
 
 importers:
 
@@ -48,10 +50,10 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
       vite:
-        specifier: ^7.3.7
+        specifier: 7.3.7
         version: 7.3.7(@types/node@22.20.1)(tsx@4.23.13)
       vitest:
-        specifier: ^4.1.12
+        specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
 
   apps/api:
@@ -148,7 +150,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
       vitest:
-        specifier: ^4.1.12
+        specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
 
   apps/dashboard:
@@ -230,7 +232,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
       vitest:
-        specifier: ^4.1.12
+        specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
 
   apps/e2e:
@@ -279,7 +281,7 @@ importers:
         specifier: ^5.6.3
         version: 5.6.3
       vitest:
-        specifier: ^4.1.12
+        specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
 
   apps/web:
@@ -331,7 +333,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
       vitest:
-        specifier: ^4.1.12
+        specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
 
   apps/worker:
@@ -380,26 +382,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
       vitest:
-        specifier: ^4.1.12
-        version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
-
-  packages/audiences:
-    dependencies:
-      '@calder/db':
-        specifier: workspace:*
-        version: link:../db
-      drizzle-orm:
-        specifier: ^0.45.2
-        version: 0.45.3(@opentelemetry/api@1.9.1)(gel@2.2.0)(postgres@3.4.9)
-    devDependencies:
-      '@types/node':
-        specifier: ^22.7.0
-        version: 22.20.1
-      typescript:
-        specifier: ^5.6.3
-        version: 5.6.3
-      vitest:
-        specifier: ^4.1.12
+        specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
 
   packages/auth:
@@ -430,7 +413,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
       vitest:
-        specifier: ^4.1.12
+        specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
 
   packages/billing:
@@ -446,7 +429,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
       vitest:
-        specifier: ^4.1.12
+        specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
 
   packages/config:
@@ -462,7 +445,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
       vitest:
-        specifier: ^4.1.12
+        specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
 
   packages/db:
@@ -499,7 +482,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
       vitest:
-        specifier: ^4.1.12
+        specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
 
   packages/email:
@@ -515,38 +498,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
       vitest:
-        specifier: ^4.1.12
-        version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
-
-  packages/notify:
-    dependencies:
-      '@calder/config':
-        specifier: workspace:*
-        version: link:../config
-      '@calder/db':
-        specifier: workspace:*
-        version: link:../db
-      '@calder/email':
-        specifier: workspace:*
-        version: link:../email
-      '@calder/observability':
-        specifier: workspace:*
-        version: link:../observability
-      '@calder/providers':
-        specifier: workspace:*
-        version: link:../providers
-      drizzle-orm:
-        specifier: ^0.45.2
-        version: 0.45.3(@opentelemetry/api@1.9.1)(gel@2.2.0)(postgres@3.4.9)
-    devDependencies:
-      '@types/node':
-        specifier: ^22.7.0
-        version: 22.20.1
-      typescript:
-        specifier: ^5.6.3
-        version: 5.6.3
-      vitest:
-        specifier: ^4.1.12
+        specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
 
   packages/observability:
@@ -571,7 +523,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
       vitest:
-        specifier: ^4.1.12
+        specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
 
   packages/providers:
@@ -599,7 +551,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
       vitest:
-        specifier: ^4.1.12
+        specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
 
   packages/queue:
@@ -624,7 +576,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
       vitest:
-        specifier: ^4.1.12
+        specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
 
   packages/rate-limit:
@@ -643,7 +595,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
       vitest:
-        specifier: ^4.1.12
+        specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
 
   packages/sdk-node:
@@ -655,7 +607,7 @@ importers:
         specifier: 5.6.3
         version: 5.6.3
       vitest:
-        specifier: ^4.1.12
+        specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@20.19.43)(vite@7.3.7(@types/node@20.19.43)(tsx@4.23.13))
 
   packages/ui:
@@ -686,7 +638,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
       vitest:
-        specifier: ^4.1.12
+        specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
 
   packages/validation:
@@ -702,7 +654,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
       vitest:
-        specifier: ^4.1.12
+        specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@7.3.7(@types/node@22.20.1)(tsx@4.23.13))
 
 packages:
@@ -1851,7 +1803,7 @@ packages:
     resolution: {integrity: sha512-fKShNpKZzupWZuY0z7egydvL0sqW4INEZBEExMBMAa6izlENEVHwoXgdaTCaBZ5fwlr4xf2o1wXC83n9RpO+NA==}
     peerDependencies:
       msw: ^2.4.9
-      vite: ^6.0.0 || ^7.0.0 || ^8.0.0
+      vite: 7.3.7
     peerDependenciesMeta:
       msw:
         optional: true
@@ -3395,7 +3347,7 @@ packages:
       '@vitest/ui': 4.1.12
       happy-dom: '*'
       jsdom: '*'
-      vite: ^6.0.0 || ^7.0.0 || ^8.0.0
+      vite: 7.3.7
     peerDependenciesMeta:
       '@edge-runtime/vm':
         optional: true
