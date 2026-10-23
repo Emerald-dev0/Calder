@@ -401,13 +401,16 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
       // Throttling must NOT burn the message: it goes back to the queue with
       // the provider's reason attached, attempts recorded.
       const row = await waitUnclaimed(id);
-      if (row?.status === "queued" && /rate|throttl/i.test(String(row?.lastError ?? ""))) {
+      // The row keeps the allowlisted provider code, not the provider text:
+      // SESv2 reports rate limiting as TooManyRequestsException (HTTP 429).
+      const reason = String(row?.lastError ?? "");
+      if (row?.status === "queued" && /rate|throttl|TooManyRequests/i.test(reason)) {
         requeued = row;
       }
     }
     expect(requeued?.status).toBe("queued");
     expect(requeued?.attemptCount).toBeGreaterThanOrEqual(1);
-    expect(String(requeued?.lastError ?? "")).toMatch(/rate|throttl/i);
+    expect(String(requeued?.lastError ?? "")).toMatch(/rate|throttl|TooManyRequests/i);
 
     // Recovery: the rate clears, the same row delivers without a re-send.
     mode = "ok";

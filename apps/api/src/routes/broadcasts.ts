@@ -104,7 +104,9 @@ broadcastsRoute.patch("/:id", authMiddleware, async (c) => {
     ...(parsed.senderId !== undefined ? { senderId: String(parsed.senderId) } : {}),
     ...(parsed.audienceId !== undefined ? { audienceId: String(parsed.audienceId) } : {}),
     ...(parsed.scheduledAt !== undefined
-      ? { scheduledAt: typeof parsed.scheduledAt === "string" ? new Date(parsed.scheduledAt) : null }
+      ? {
+          scheduledAt: typeof parsed.scheduledAt === "string" ? new Date(parsed.scheduledAt) : null,
+        }
       : {}),
   });
   return c.json({ data: row });

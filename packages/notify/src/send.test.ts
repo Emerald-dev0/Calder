@@ -55,7 +55,11 @@ function memoryStore(initial: { disabled?: string[] } = {}): MemoryStore {
     async findByKey(key): Promise<CompanyEmailRecord | null> {
       const row = rows.get(key);
       return row
-        ? { id: row.id, status: row.status as CompanyEmailRecord["status"], skipReason: row.skipReason }
+        ? {
+            id: row.id,
+            status: row.status as CompanyEmailRecord["status"],
+            skipReason: row.skipReason,
+          }
         : null;
     },
     async finish(id, patch) {
@@ -184,7 +188,9 @@ describe("deliver", () => {
       idempotencyKey: "digest:2026-03",
     });
     const digest = sent[0] as { headers?: Record<string, string>; html: string };
-    expect(digest.headers?.["List-Unsubscribe"]).toMatch(/^<https:\/\/calder\.click\/api\/unsubscribe\/company\?token=/);
+    expect(digest.headers?.["List-Unsubscribe"]).toMatch(
+      /^<https:\/\/calder\.click\/api\/unsubscribe\/company\?token=/
+    );
     expect(digest.headers?.["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
     expect(digest.html).toContain("Unsubscribe");
 
@@ -224,7 +230,9 @@ describe("preference tokens", () => {
     const token = signPreferenceToken("user_1", "updates");
     expect(verifyPreferenceToken(`${token}x`)).toBeNull();
     const [payload, sig] = token.split(".");
-    const forged = Buffer.from(JSON.stringify({ u: "user_2", c: "updates" }), "utf8").toString("base64url");
+    const forged = Buffer.from(JSON.stringify({ u: "user_2", c: "updates" }), "utf8").toString(
+      "base64url"
+    );
     expect(verifyPreferenceToken(`${forged}.${sig}`)).toBeNull();
     expect(verifyPreferenceToken(payload!)).toBeNull();
   });

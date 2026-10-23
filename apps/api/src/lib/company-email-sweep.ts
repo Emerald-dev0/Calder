@@ -1,14 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { and, eq, gt, isNull, lt, lte } from "drizzle-orm";
 import { getConfig } from "@calder/config";
-import {
-  apiKeys,
-  organizations,
-  orgInvitations,
-  projects,
-  users,
-  type DbClient,
-} from "@calder/db";
+import { apiKeys, organizations, orgInvitations, projects, users, type DbClient } from "@calder/db";
 import { logger } from "@calder/observability";
 import { sendCompanyEmail, sendOrganizationEmail } from "@calder/notify";
 
@@ -158,13 +151,7 @@ async function warnExpiringApiKeys(
     })
     .from(apiKeys)
     .innerJoin(projects, eq(projects.id, apiKeys.projectId))
-    .where(
-      and(
-        isNull(apiKeys.revokedAt),
-        gt(apiKeys.expiresAt, now),
-        lte(apiKeys.expiresAt, soon)
-      )
-    )
+    .where(and(isNull(apiKeys.revokedAt), gt(apiKeys.expiresAt, now), lte(apiKeys.expiresAt, soon)))
     .limit(200);
 
   let warned = 0;

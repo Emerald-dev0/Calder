@@ -39,7 +39,9 @@ gate("company email delivery (live Postgres)", () => {
       { id: userId, email: `owner_${suffix}@example.com`, name: "Owner" },
       { id: otherUserId, email: `member_${suffix}@example.com`, name: "Member" },
     ]);
-    await db.insert(organizations).values({ id: orgId, name: `Ce ${suffix}`, slug: `ce-${suffix}` });
+    await db
+      .insert(organizations)
+      .values({ id: orgId, name: `Ce ${suffix}`, slug: `ce-${suffix}` });
     await db.insert(organizationMembers).values([
       { id: `mem_a_${suffix}`, organizationId: orgId, userId, role: "owner" },
       { id: `mem_b_${suffix}`, organizationId: orgId, userId: otherUserId, role: "member" },
@@ -116,7 +118,8 @@ gate("company email delivery (live Postgres)", () => {
 
   it("addresses a workspace email to owners and admins only", async () => {
     if (!(await reachable())) return;
-    const { resolveOrganizationRecipients, sendOrganizationEmail } = await import("./recipients.js");
+    const { resolveOrganizationRecipients, sendOrganizationEmail } =
+      await import("./recipients.js");
     const { getDb } = await import("@calder/db");
     const db = getDb();
 

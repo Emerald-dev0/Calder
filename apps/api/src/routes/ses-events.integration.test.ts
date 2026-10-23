@@ -153,6 +153,10 @@ gate("POST /v1/ses/events (live Postgres, real RSA signatures)", async () => {
       text: "hello",
       status: (over.status ?? "sent") as never,
       attemptCount: 0,
+      // The feedback handler only trusts an SES event for a message it knows
+      // was sent through SES (provider is the transport that moved it), so a
+      // fixture that omits this is not the message the event describes.
+      provider: "ses",
       providerMessageId: over.providerMessageId ?? `ses-${suffix}-${id}`,
     });
     emailIds.push(id);
@@ -430,6 +434,7 @@ gate("POST /v1/ses/events (live Postgres, real RSA signatures)", async () => {
         text: "test",
         status: "sent" as const,
         env: "live",
+        provider: "ses",
         providerMessageId: `ses-abuse-${suffix}-${id}`,
       }))
     );
@@ -548,6 +553,7 @@ gate("POST /v1/ses/events (live Postgres, real RSA signatures)", async () => {
           text: "test",
           status: "sent" as const,
           env: "live",
+          provider: "ses",
           providerMessageId: `ses-race-${suffix}-${id}`,
         }))
       );

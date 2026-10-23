@@ -131,7 +131,7 @@ export default async function AudiencesPage({
                   >
                     {audience.name}
                   </Link>
-                  <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
+                  <div style={{ fontSize: 12, color: "var(--color-muted)" }}>
                     {audience.subscribed.toLocaleString("en-US")} subscribed
                     {audience.unsubscribed > 0
                       ? ` · ${audience.unsubscribed.toLocaleString("en-US")} unsubscribed`

@@ -37,11 +37,7 @@ export type UnsubscribeSource =
   | "preference_center";
 
 export type ResubscribeSource =
-  | "unsubscribe_page"
-  | "preference_center"
-  | "double_opt_in_confirmation"
-  | "manual"
-  | "api";
+  "unsubscribe_page" | "preference_center" | "double_opt_in_confirmation" | "manual" | "api";
 
 export interface ConsentContext {
   projectId: string;
@@ -95,9 +91,7 @@ export async function recordUnsubscribe(
   const existing = await db
     .select({ id: suppressions.id })
     .from(suppressions)
-    .where(
-      and(eq(suppressions.projectId, ctx.projectId), eq(suppressions.email, normalized))
-    )
+    .where(and(eq(suppressions.projectId, ctx.projectId), eq(suppressions.email, normalized)))
     .limit(1);
   const already = Boolean(existing[0]);
 

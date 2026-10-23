@@ -147,7 +147,10 @@ async function main() {
         .where(and(eq(emails.status, "queued"), lt(emails.createdAt, cutoff)))
         .limit(100);
       if (stuck.length > 0) {
-        logger.warn({ count: stuck.length, oldest: stuck[stuck.length - 1]?.createdAt }, "Stuck messages detected (queued > 5 min)");
+        logger.warn(
+          { count: stuck.length, oldest: stuck[stuck.length - 1]?.createdAt },
+          "Stuck messages detected (queued > 5 min)"
+        );
         // Log to audit for visibility
         const { auditLogs } = await import("@calder/db");
         const { randomUUID } = await import("node:crypto");

@@ -66,7 +66,8 @@ export async function addContactsAction(formData: FormData): Promise<void> {
     .map((value) => value.trim())
     .filter(Boolean);
   if (emails.length === 0) throw new Error("Enter at least one email address.");
-  if (emails.length > 500) throw new Error("Add at most 500 addresses at a time, or use a CSV import.");
+  if (emails.length > 500)
+    throw new Error("Add at most 500 addresses at a time, or use a CSV import.");
 
   const { scope } = await requireProject(projectId);
   await addContacts(getDb(), {

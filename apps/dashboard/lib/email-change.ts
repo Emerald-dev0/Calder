@@ -38,11 +38,10 @@ function sign(payload: string): string {
   return createHmac("sha256", key()).update(payload).digest("base64url");
 }
 
-export function signEmailChangeToken(input: {
-  userId: string;
-  from: string;
-  to: string;
-}): { token: string; expiresAt: Date } {
+export function signEmailChangeToken(input: { userId: string; from: string; to: string }): {
+  token: string;
+  expiresAt: Date;
+} {
   const expiresAt = new Date(Date.now() + TTL_MS);
   const body: Payload = {
     u: input.userId,
@@ -72,7 +71,9 @@ export function verifyEmailChangeToken(token: string): EmailChangeResult {
   }
 
   try {
-    const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as Partial<Payload>;
+    const payload = JSON.parse(
+      Buffer.from(encoded, "base64url").toString("utf8")
+    ) as Partial<Payload>;
     if (
       typeof payload.u !== "string" ||
       typeof payload.o !== "string" ||

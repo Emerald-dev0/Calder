@@ -457,6 +457,35 @@ export async function applySesEvent(
       };
     }
 
+    // Bounce and complaint events escalate to workspace-level accounting, so
+    // they take the organization lock HERE — before the email row, the event
+    // row or any suppression is written.
+    //
+    // Taking the same lock further down (where the abuse policy is evaluated)
+    // lets two concurrent feedback events hold what the other needs: Postgres
+    // then aborts one with "deadlock detected" and that event is lost until
+    // SNS redelivers. Reproduced with ten simultaneous complaints against one
+    // workspace. Locking the workspace first means every transaction acquires
+    // its shared rows in the same order and simply queues.
+    const escalatesAbuse = msg.eventType === "bounce" || msg.eventType === "complaint";
+    const lockedFeedback = escalatesAbuse
+      ? await (async () => {
+          const [feedbackProject] = await tx
+            .select({ organizationId: projects.organizationId })
+            .from(projects)
+            .where(eq(projects.id, row.projectId))
+            .limit(1);
+          if (!feedbackProject) return null;
+          const [organization] = await tx
+            .select({ id: organizations.id, sendingStatus: organizations.sendingStatus })
+            .from(organizations)
+            .where(eq(organizations.id, feedbackProject.organizationId))
+            .limit(1)
+            .for("update");
+          return organization ? { project: feedbackProject, organization } : null;
+        })()
+      : null;
+
     const transition = classifySesEvent(row.status, msg);
     const now = new Date();
     const suppressed: string[] = [];
@@ -519,23 +548,13 @@ export async function applySesEvent(
     // unmatched events, and events outside the configured recent window are
     // excluded. Only an active org transitions automatically; an operator-set
     // suspension can never be overwritten by feedback processing.
-    if (msg.eventType === "bounce" || msg.eventType === "complaint") {
+    if (escalatesAbuse) {
       const config = getConfig();
       const windowHours = config.ORG_ABUSE_WINDOW_HOURS;
       const windowStart = new Date(now.getTime() - windowHours * 60 * 60 * 1000);
-      const [project] = await tx
-        .select({ organizationId: projects.organizationId })
-        .from(projects)
-        .where(eq(projects.id, row.projectId))
-        .limit(1);
-      const [organization] = project
-        ? await tx
-            .select({ id: organizations.id, sendingStatus: organizations.sendingStatus })
-            .from(organizations)
-            .where(eq(organizations.id, project.organizationId))
-            .limit(1)
-            .for("update")
-        : [];
+      // Already locked, in the same order, before any child row was touched.
+      const project = lockedFeedback?.project;
+      const organization = lockedFeedback?.organization;
       // Serialize threshold evaluation per org so concurrent feedback events
       // cannot each observe a sub-threshold partial count and miss the pause.
       if (project && organization?.sendingStatus === "active") {
@@ -678,14 +697,20 @@ async function notifyAbusePause(
         idempotencyKey: `abuse:${signal}:${paused.organizationId}:${day}`,
         data: {
           window: "the last 24 hours",
-          topReason: signal === "complaint_rate" ? "recipients marked it as spam" : "mailboxes rejected the address",
+          topReason:
+            signal === "complaint_rate"
+              ? "recipients marked it as spam"
+              : "mailboxes rejected the address",
           suppressionsUrl: `${getConfig().APP_URL.replace(/\/$/, "")}/suppressions`,
         },
       });
     }
   } catch (err) {
     logger.warn(
-      { organizationId: paused.organizationId, err: err instanceof Error ? err.message : "unknown" },
+      {
+        organizationId: paused.organizationId,
+        err: err instanceof Error ? err.message : "unknown",
+      },
       "Abuse pause notice could not be sent"
     );
   }

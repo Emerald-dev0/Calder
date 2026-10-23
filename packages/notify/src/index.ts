@@ -38,7 +38,11 @@ export {
   type EmailPreferencesView,
 } from "./preferences.js";
 
-export { signPreferenceToken, verifyPreferenceToken, type PreferenceTokenPayload } from "./tokens.js";
+export {
+  signPreferenceToken,
+  verifyPreferenceToken,
+  type PreferenceTokenPayload,
+} from "./tokens.js";
 
 export {
   resolveOrganizationRecipients,

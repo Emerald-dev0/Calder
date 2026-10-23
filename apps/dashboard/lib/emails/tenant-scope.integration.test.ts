@@ -35,15 +35,8 @@ async function reachable(): Promise<boolean> {
  */
 gate("emails tenant isolation (live Postgres)", async () => {
   const { randomBytes } = await import("node:crypto");
-  const {
-    getDb,
-    emails,
-    organizations,
-    organizationMembers,
-    projects,
-    users,
-    cleanupSuiteOrg,
-  } = await import("@calder/db");
+  const { getDb, emails, organizations, organizationMembers, projects, users, cleanupSuiteOrg } =
+    await import("@calder/db");
   const { EMPTY_FILTERS } = await import("./filters");
   const { findEmailDetail, listEmails, listEmailsForExport } = await import("./queries");
 

@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import {
-  getSessionUser,
   loginWithPassword,
   LoginLockedError,
   normalizeEmail,
@@ -9,7 +7,6 @@ import {
   recordSecurityEvent,
   sealSessionCookie,
   sessionCookieHeader,
-  SESSION_COOKIE,
 } from "@calder/auth";
 import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { logger } from "@calder/observability";
@@ -17,6 +14,7 @@ import { clientIp } from "../../../../lib/client-ip";
 import { sendOtpEmail } from "../../../../lib/send-auth-email";
 import { sendSecurityEmail } from "../../../../lib/send-security-email";
 import { sameOriginRequest } from "../../../../lib/csrf";
+import { readPreviousSessionId } from "../../../../lib/previous-session";
 import { postLoginRedirect } from "../../../../lib/control/post-login";
 
 /**
@@ -63,7 +61,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   try {
-    const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+    const previousSessionId = await readPreviousSessionId();
     const result = await loginWithPassword(
       email,
       password,
@@ -71,7 +69,7 @@ export async function POST(req: Request): Promise<Response> {
         userAgent: req.headers.get("user-agent"),
         ip: clientIp(req),
       },
-      previous?.sessionId
+      previousSessionId
     );
 
     if (result.needsVerification) {

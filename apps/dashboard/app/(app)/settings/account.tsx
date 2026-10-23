@@ -38,10 +38,7 @@ export function EmailChangeForm({ currentEmail }: { currentEmail: string }) {
           <span>Send confirmation</span>
         </button>
       </div>
-      <p
-        id="email-change-help"
-        style={{ fontSize: 12, color: "var(--color-text-muted)", margin: 0 }}
-      >
+      <p id="email-change-help" style={{ fontSize: 12, color: "var(--color-muted)", margin: 0 }}>
         We email a confirmation link to <b>{currentEmail}</b>, not to the new address. Nothing
         changes until that link is opened, and it expires in one hour.
       </p>

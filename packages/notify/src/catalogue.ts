@@ -60,7 +60,14 @@ function def(
   trigger: string,
   data: readonly string[] = []
 ): CompanyEmailDefinition {
-  return { category, audience, mandatory: !isOptionalCategory(category), description, trigger, data };
+  return {
+    category,
+    audience,
+    mandatory: !isOptionalCategory(category),
+    description,
+    trigger,
+    data,
+  };
 }
 
 export const COMPANY_EMAILS = {

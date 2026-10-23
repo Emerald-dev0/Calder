@@ -70,7 +70,10 @@ function buildText(
   if (content.footnote) lines.push(content.footnote, "");
   if (unsubscribeUrl) lines.push(`Unsubscribe: ${unsubscribeUrl}`, "");
   lines.push("—", "Calder · https://calder.click");
-  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  return lines
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export function renderCompanyEmail(input: RenderCompanyEmailInput): RenderedCompanyEmail {
@@ -88,11 +91,15 @@ export function renderCompanyEmail(input: RenderCompanyEmailInput): RenderedComp
     ...content.intro.map(paragraph),
     content.code ? codeBlock(content.code, content.codeCaption) : "",
     content.details?.length ? detailsTable(content.details) : "",
-    content.callout ? callout(content.callout.tone, content.callout.title, content.callout.body) : "",
+    content.callout
+      ? callout(content.callout.tone, content.callout.title, content.callout.body)
+      : "",
     content.cta ? ctaBlock(content.cta.label, content.cta.url) : "",
     ...(content.outro ?? []).map(paragraph),
     content.footnote ? divider() + muted(content.footnote) : "",
-    content.linkLine ? linkLine(content.linkLine.text, content.linkLine.label, content.linkLine.url) : "",
+    content.linkLine
+      ? linkLine(content.linkLine.text, content.linkLine.label, content.linkLine.url)
+      : "",
   ]
     .filter(Boolean)
     .join("\n");

@@ -9,7 +9,11 @@ export const metadata = { title: "Calder — Broadcasts" };
 
 function formatDate(date: Date | null): string {
   if (!date) return "—";
-  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
 }
 
 export default async function BroadcastsPage({
@@ -24,7 +28,11 @@ export default async function BroadcastsPage({
   if (!scope) {
     return (
       <div>
-        <DsPageHeader icon={<Megaphone size={18} />} title="Broadcasts" description="Create a project first." />
+        <DsPageHeader
+          icon={<Megaphone size={18} />}
+          title="Broadcasts"
+          description="Create a project first."
+        />
         <EmptyState
           title="No project found"
           description="Broadcasts belong to a project. Create one in workspace settings."
@@ -45,7 +53,11 @@ export default async function BroadcastsPage({
         title="Broadcasts"
         description="One message, one audience. Marketing mail goes out under its own sender and never shares a lane with receipts or password resets."
         actions={
-          <Link href={`/broadcasts/new?project=${projectId}`} className="ds-btn ds-btn-primary" style={{ textDecoration: "none" }}>
+          <Link
+            href={`/broadcasts/new?project=${projectId}`}
+            className="ds-btn ds-btn-primary"
+            style={{ textDecoration: "none" }}
+          >
             <Plus size={14} />
             <span>New broadcast</span>
           </Link>
@@ -92,7 +104,7 @@ export default async function BroadcastsPage({
                   >
                     {row.name}
                   </Link>
-                  <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
+                  <div style={{ fontSize: 12, color: "var(--color-muted)" }}>
                     {row.subject} · to {row.audiences ?? "an archived audience"} ·{" "}
                     {formatDate(row.completedAt ?? row.startedAt ?? row.createdAt)}
                   </div>

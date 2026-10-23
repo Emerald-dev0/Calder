@@ -155,7 +155,6 @@ async function notifyEndpointFailed(
   }
 }
 
-
 /** How many consecutive exhausted deliveries turn an endpoint off. */
 const DISABLE_AFTER_FAILURES = 5;
 
@@ -179,7 +178,9 @@ async function disableAfterSustainedFailure(
     const recent = await db
       .select({ status: webhookDeliveries.status })
       .from(webhookDeliveries)
-      .where(and(eq(webhookDeliveries.webhookId, webhookId), eq(webhookDeliveries.projectId, projectId)))
+      .where(
+        and(eq(webhookDeliveries.webhookId, webhookId), eq(webhookDeliveries.projectId, projectId))
+      )
       .orderBy(desc(webhookDeliveries.createdAt), desc(webhookDeliveries.id))
       .limit(DISABLE_AFTER_FAILURES);
 
@@ -306,7 +307,11 @@ async function processDelivery(job: QueueJob<DeliverJob>): Promise<void> {
     logger.error({ deliveryId, attempt }, `webhook delivery failed permanently: ${message}`);
     if (notifyWorkspace) {
       await notifyEndpointFailed(db, delivery.projectId, hook?.url ?? "the endpoint", message);
-      const disabled = await disableAfterSustainedFailure(db, delivery.webhookId, delivery.projectId);
+      const disabled = await disableAfterSustainedFailure(
+        db,
+        delivery.webhookId,
+        delivery.projectId
+      );
       if (disabled) {
         await notifyEndpointDisabled(db, delivery.projectId, hook?.url ?? "the endpoint");
       }

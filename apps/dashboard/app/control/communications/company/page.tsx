@@ -116,8 +116,8 @@ export default async function CompanyEmailPage({
         <div className="cp-panel" style={{ marginBottom: 16 }}>
           <div className="cp-panel-body">
             <p style={{ margin: 0, fontSize: 13.5 }}>
-              Batch finished: <b>{query.sent}</b> sent, <b>{query.skipped}</b> skipped
-              (opt-outs and duplicates), <b>{query.failed}</b> failed. Every row is in{" "}
+              Batch finished: <b>{query.sent}</b> sent, <b>{query.skipped}</b> skipped (opt-outs and
+              duplicates), <b>{query.failed}</b> failed. Every row is in{" "}
               <span className="mono">company_emails</span>.
             </p>
           </div>
@@ -140,7 +140,11 @@ export default async function CompanyEmailPage({
           value={Number(totals?.skipped ?? 0)}
           hint="opt-outs, duplicates, bad addresses"
         />
-        <Stat label="Failed · 30 days" value={Number(totals?.failed ?? 0)} hint="provider refused" />
+        <Stat
+          label="Failed · 30 days"
+          value={Number(totals?.failed ?? 0)}
+          hint="provider refused"
+        />
         <Stat
           label="People with opt-outs"
           value={Number(optOuts[0]?.total ?? 0)}
@@ -191,8 +195,8 @@ export default async function CompanyEmailPage({
               </label>
             </div>
             <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12.5 }}>
-              <input type="checkbox" name="confirm" required />
-              I have read the preview below and understand this mails every verified account.
+              <input type="checkbox" name="confirm" required />I have read the preview below and
+              understand this mails every verified account.
             </label>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button type="submit" className="cp-btn">
@@ -215,7 +219,11 @@ export default async function CompanyEmailPage({
         />
       </Panel>
 
-      <Panel title="Recent sends" caption="Newest first, including skips — a skip is an answer, not a gap." flush>
+      <Panel
+        title="Recent sends"
+        caption="Newest first, including skips — a skip is an answer, not a gap."
+        flush
+      >
         {recent.length === 0 ? (
           <Empty title="No company email yet">
             Nothing has been sent since this database was created.
@@ -239,13 +247,7 @@ export default async function CompanyEmailPage({
                   <td className="mono">{row.template}</td>
                   <td>
                     <Badge
-                      tone={
-                        row.status === "sent"
-                          ? "ok"
-                          : row.status === "failed"
-                            ? "bad"
-                            : "warn"
-                      }
+                      tone={row.status === "sent" ? "ok" : row.status === "failed" ? "bad" : "warn"}
                     >
                       {row.status === "skipped" && row.skipReason
                         ? `skipped · ${row.skipReason}`

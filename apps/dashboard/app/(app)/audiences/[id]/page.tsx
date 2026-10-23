@@ -2,7 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Users, Upload, UserPlus, ArrowLeft } from "lucide-react";
 import { getDb } from "@calder/db";
-import { audienceStats, getAudience, listAudienceContacts, searchAudienceContacts } from "@calder/audiences";
+import {
+  audienceStats,
+  getAudience,
+  listAudienceContacts,
+  searchAudienceContacts,
+} from "@calder/audiences";
 import { getTenantContext, resolveProject } from "../../../../lib/auth";
 import { DsPageHeader, StatCard, StatusPill } from "../../../../components/design-system";
 import { addContactsAction, importCsvAction } from "../actions";
@@ -27,7 +32,9 @@ export default async function AudienceDetailPage({
 
   const stats = await audienceStats(db, audience.id);
   const status =
-    query.status === "subscribed" || query.status === "unsubscribed" || query.status === "pending_confirmation"
+    query.status === "subscribed" ||
+    query.status === "unsubscribed" ||
+    query.status === "pending_confirmation"
       ? query.status
       : undefined;
   const rows = query.q
@@ -63,23 +70,45 @@ export default async function AudienceDetailPage({
           audience.description ??
           "Contacts in this list. Unsubscribes are recorded against the person, not just this list."
         }
-        badge={<StatusPill status="active" label={audience.doubleOptIn ? "Double opt-in" : "Single opt-in"} />}
+        badge={
+          <StatusPill
+            status="active"
+            label={audience.doubleOptIn ? "Double opt-in" : "Single opt-in"}
+          />
+        }
       />
 
       <div className="ds-stat-grid" style={{ marginBottom: 20 }}>
         <StatCard label="Subscribed" value={stats.subscribed} sub="mailable right now" />
-        <StatCard label="Unsubscribed" value={stats.unsubscribed} sub="kept for history, never mailed" />
-        <StatCard label="Pending" value={stats.pendingConfirmation} sub="waiting for confirmation" />
+        <StatCard
+          label="Unsubscribed"
+          value={stats.unsubscribed}
+          sub="kept for history, never mailed"
+        />
+        <StatCard
+          label="Pending"
+          value={stats.pendingConfirmation}
+          sub="waiting for confirmation"
+        />
       </div>
 
-      <div style={{ display: "grid", gap: 20, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", marginBottom: 20 }}>
+      <div
+        style={{
+          display: "grid",
+          gap: 20,
+          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+          marginBottom: 20,
+        }}
+      >
         <div className="ds-card">
           <div className="ds-card-header">
             <div>
               <h2 className="ds-card-title">
                 <UserPlus size={14} /> Add contacts
               </h2>
-              <p className="ds-card-subtitle">Paste addresses separated by commas, spaces or new lines.</p>
+              <p className="ds-card-subtitle">
+                Paste addresses separated by commas, spaces or new lines.
+              </p>
             </div>
           </div>
           <div className="ds-card-body">
@@ -130,7 +159,10 @@ export default async function AudienceDetailPage({
                 required
                 rows={8}
                 className="ds-input"
-                style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12 }}
+                style={{
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                  fontSize: 12,
+                }}
                 placeholder={"email,first name,last name\nada@example.com,Ada,Lovelace"}
                 aria-label="CSV contents"
               />
@@ -170,9 +202,7 @@ export default async function AudienceDetailPage({
         </div>
         <div className="ds-card-body">
           {contacts.length === 0 ? (
-            <p style={{ fontSize: 13, color: "var(--color-text-muted)", margin: 0 }}>
-              No contacts yet.
-            </p>
+            <p style={{ fontSize: 13, color: "var(--color-muted)", margin: 0 }}>No contacts yet.</p>
           ) : (
             <div style={{ display: "grid", gap: 0 }}>
               {contacts.map((contact) => (
@@ -190,10 +220,11 @@ export default async function AudienceDetailPage({
                 >
                   <span>
                     <strong style={{ fontWeight: 600 }}>
-                      {[contact.firstName, contact.lastName].filter(Boolean).join(" ") || contact.email}
+                      {[contact.firstName, contact.lastName].filter(Boolean).join(" ") ||
+                        contact.email}
                     </strong>
                     {contact.firstName || contact.lastName ? (
-                      <span style={{ color: "var(--color-text-muted)" }}> · {contact.email}</span>
+                      <span style={{ color: "var(--color-muted)" }}> · {contact.email}</span>
                     ) : null}
                   </span>
                   <StatusPill status={contact.status} />

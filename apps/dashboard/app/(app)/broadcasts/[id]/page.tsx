@@ -37,7 +37,11 @@ export default async function BroadcastDetailPage({
   return (
     <div>
       <div style={{ marginBottom: 12 }}>
-        <Link href={`/broadcasts?project=${projectId}`} className="ds-btn" style={{ fontSize: 12, textDecoration: "none" }}>
+        <Link
+          href={`/broadcasts?project=${projectId}`}
+          className="ds-btn"
+          style={{ fontSize: 12, textDecoration: "none" }}
+        >
           <ArrowLeft size={12} />
           <span>All broadcasts</span>
         </Link>
@@ -60,17 +64,35 @@ export default async function BroadcastDetailPage({
         <div className="ds-stat-grid" style={{ marginBottom: 20 }}>
           <StatCard label="Recipients" value={counts.total} sub="frozen when sending started" />
           <StatCard label="Queued" value={counts.queued} sub="accepted, not yet delivered" />
-          <StatCard label="Delivered" value={counts.delivered + counts.sent} sub="provider accepted" />
+          <StatCard
+            label="Delivered"
+            value={counts.delivered + counts.sent}
+            sub="provider accepted"
+          />
           <StatCard
             label="Skipped"
             value={counts.skipped}
-            sub={counts.skippedByReason.map((row) => `${row.total} ${row.reason}`).join(" · ") || "none"}
+            sub={
+              counts.skippedByReason.map((row) => `${row.total} ${row.reason}`).join(" · ") ||
+              "none"
+            }
           />
-          <StatCard label="Failed" value={counts.failed + counts.bounced} sub="bounced or rejected" />
+          <StatCard
+            label="Failed"
+            value={counts.failed + counts.bounced}
+            sub="bounced or rejected"
+          />
         </div>
       )}
 
-      <div style={{ display: "grid", gap: 20, gridTemplateColumns: "minmax(0, 2fr) minmax(260px, 1fr)", marginBottom: 20 }}>
+      <div
+        style={{
+          display: "grid",
+          gap: 20,
+          gridTemplateColumns: "minmax(0, 2fr) minmax(260px, 1fr)",
+          marginBottom: 20,
+        }}
+      >
         <form action={saveBroadcastAction} className="ds-card">
           <input type="hidden" name="projectId" value={projectId} />
           <input type="hidden" name="broadcastId" value={broadcast.id} />
@@ -87,15 +109,30 @@ export default async function BroadcastDetailPage({
           <div className="ds-card-body" style={{ display: "grid", gap: 12 }}>
             <label style={{ display: "grid", gap: 6, fontSize: 13 }}>
               <span>Internal name</span>
-              <input name="name" defaultValue={broadcast.name} disabled={!editable} className="ds-input" />
+              <input
+                name="name"
+                defaultValue={broadcast.name}
+                disabled={!editable}
+                className="ds-input"
+              />
             </label>
             <label style={{ display: "grid", gap: 6, fontSize: 13 }}>
               <span>Subject</span>
-              <input name="subject" defaultValue={broadcast.subject} disabled={!editable} className="ds-input" />
+              <input
+                name="subject"
+                defaultValue={broadcast.subject}
+                disabled={!editable}
+                className="ds-input"
+              />
             </label>
             <label style={{ display: "grid", gap: 6, fontSize: 13 }}>
               <span>Preview text</span>
-              <input name="previewText" defaultValue={broadcast.previewText ?? ""} disabled={!editable} className="ds-input" />
+              <input
+                name="previewText"
+                defaultValue={broadcast.previewText ?? ""}
+                disabled={!editable}
+                className="ds-input"
+              />
             </label>
             <label style={{ display: "grid", gap: 6, fontSize: 13 }}>
               <span>HTML body</span>
@@ -105,7 +142,10 @@ export default async function BroadcastDetailPage({
                 rows={16}
                 disabled={!editable}
                 className="ds-input"
-                style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12 }}
+                style={{
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                  fontSize: 12,
+                }}
               />
             </label>
             {editable && (
@@ -124,7 +164,7 @@ export default async function BroadcastDetailPage({
               <h2 className="ds-card-title">Send</h2>
             </div>
             <div className="ds-card-body" style={{ display: "grid", gap: 10 }}>
-              <p style={{ fontSize: 13, color: "var(--color-text-muted)", margin: 0 }}>
+              <p style={{ fontSize: 13, color: "var(--color-muted)", margin: 0 }}>
                 Recipients are frozen at this moment. Everyone already unsubscribed, bounced or
                 suppressed is skipped and counted, never silently dropped.
               </p>
@@ -148,7 +188,12 @@ export default async function BroadcastDetailPage({
               {!sentish && broadcast.status !== "cancelled" && (
                 <form
                   action={sendBroadcastAction}
-                  style={{ display: "grid", gap: 8, borderTop: "1px solid var(--color-border)", paddingTop: 12 }}
+                  style={{
+                    display: "grid",
+                    gap: 8,
+                    borderTop: "1px solid var(--color-border)",
+                    paddingTop: 12,
+                  }}
                 >
                   <input type="hidden" name="projectId" value={projectId} />
                   <input type="hidden" name="broadcastId" value={broadcast.id} />
@@ -180,20 +225,28 @@ export default async function BroadcastDetailPage({
             </div>
             <div className="ds-card-body" style={{ display: "grid", gap: 8, fontSize: 13 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--color-text-muted)" }}>Status</span>
+                <span style={{ color: "var(--color-muted)" }}>Status</span>
                 <StatusPill status={broadcast.status} />
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--color-text-muted)" }}>Click tracking</span>
+                <span style={{ color: "var(--color-muted)" }}>Click tracking</span>
                 <span>{broadcast.trackingClicks ? "On" : "Off"}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--color-text-muted)" }}>Started</span>
-                <span>{broadcast.startedAt ? broadcast.startedAt.toISOString().slice(0, 16).replace("T", " ") : "—"}</span>
+                <span style={{ color: "var(--color-muted)" }}>Started</span>
+                <span>
+                  {broadcast.startedAt
+                    ? broadcast.startedAt.toISOString().slice(0, 16).replace("T", " ")
+                    : "—"}
+                </span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--color-text-muted)" }}>Completed</span>
-                <span>{broadcast.completedAt ? broadcast.completedAt.toISOString().slice(0, 16).replace("T", " ") : "—"}</span>
+                <span style={{ color: "var(--color-muted)" }}>Completed</span>
+                <span>
+                  {broadcast.completedAt
+                    ? broadcast.completedAt.toISOString().slice(0, 16).replace("T", " ")
+                    : "—"}
+                </span>
               </div>
             </div>
           </div>

@@ -32,9 +32,15 @@ async function checkSESConnectivity(): Promise<CheckResult> {
       const { getSesAccountStatus } = await import("@calder/providers");
       const account = await getSesAccountStatus();
       if (account.sandbox) {
-        return { state: "degraded", detail: `SES sandbox mode (quota: ${account.max24HourSend}/day)` };
+        return {
+          state: "degraded",
+          detail: `SES sandbox mode (quota: ${account.max24HourSend}/day)`,
+        };
       }
-      return { state: "ok", detail: `SES production (quota: ${account.max24HourSend}/day, rate: ${account.maxSendRate}/sec)` };
+      return {
+        state: "ok",
+        detail: `SES production (quota: ${account.max24HourSend}/day, rate: ${account.maxSendRate}/sec)`,
+      };
     }
     return { state: "degraded", detail: "SES not configured, using mock provider" };
   } catch (err) {

@@ -198,9 +198,7 @@ audiencesRoute.delete("/:id/contacts/:contactId", authMiddleware, async (c) => {
 
   const [removed] = await db
     .delete(audienceContacts)
-    .where(
-      and(eq(audienceContacts.audienceId, id), eq(audienceContacts.contactId, contactId))
-    )
+    .where(and(eq(audienceContacts.audienceId, id), eq(audienceContacts.contactId, contactId)))
     .returning({ contactId: audienceContacts.contactId });
   if (!removed) throw new AppError("not_found", "Contact is not in this audience", 404);
   return c.json({ data: { removed: true } });

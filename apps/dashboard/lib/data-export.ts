@@ -26,9 +26,10 @@ function sign(payload: string): string {
 
 export function signExportToken(userId: string): { token: string; expiresAt: Date } {
   const expiresAt = new Date(Date.now() + TTL_MS);
-  const encoded = Buffer.from(JSON.stringify({ u: userId, e: expiresAt.getTime() }), "utf8").toString(
-    "base64url"
-  );
+  const encoded = Buffer.from(
+    JSON.stringify({ u: userId, e: expiresAt.getTime() }),
+    "utf8"
+  ).toString("base64url");
   return { token: `${encoded}.${sign(encoded)}`, expiresAt };
 }
 

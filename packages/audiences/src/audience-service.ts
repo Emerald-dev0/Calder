@@ -356,12 +356,20 @@ export async function addContacts(
     const email = normalizeEmail(entry.email);
     if (!isMailableEmail(email)) {
       counts.invalidRows++;
-      counts.errorReport.push({ row: counts.validRows + counts.invalidRows, email: entry.email, reason: "invalid_address" });
+      counts.errorReport.push({
+        row: counts.validRows + counts.invalidRows,
+        email: entry.email,
+        reason: "invalid_address",
+      });
       continue;
     }
     if (isRoleAddress(email)) {
       counts.roleAddressRows++;
-      counts.errorReport.push({ row: counts.validRows + counts.roleAddressRows, email, reason: "role_address" });
+      counts.errorReport.push({
+        row: counts.validRows + counts.roleAddressRows,
+        email,
+        reason: "role_address",
+      });
       continue;
     }
     if (byEmail.has(email)) {
@@ -589,6 +597,8 @@ export async function searchAudienceContacts(
     })
     .from(audienceContacts)
     .innerJoin(contacts, eq(audienceContacts.contactId, contacts.id))
-    .where(and(eq(audienceContacts.audienceId, audienceId), sql`${contacts.email} ILIKE ${pattern}`))
+    .where(
+      and(eq(audienceContacts.audienceId, audienceId), sql`${contacts.email} ILIKE ${pattern}`)
+    )
     .limit(Math.min(Math.max(limit, 1), 200));
 }

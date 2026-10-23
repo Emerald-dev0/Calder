@@ -26,7 +26,11 @@ describe("company email catalogue", () => {
   });
 
   it("keeps the mandatory categories mandatory", () => {
-    for (const id of ["billing.payment_failed", "account.password_reset_code", "legal.policy_update"] as const) {
+    for (const id of [
+      "billing.payment_failed",
+      "account.password_reset_code",
+      "legal.policy_update",
+    ] as const) {
       expect(companyEmailDefinition(id)?.mandatory).toBe(true);
     }
     for (const id of ["updates.product_update", "updates.monthly_digest"] as const) {
@@ -124,8 +128,8 @@ describe("renderCompanyEmail", () => {
   });
 
   it("refuses an id the catalogue does not know", () => {
-    expect(() =>
-      renderCompanyEmail({ id: "billing.unknown" as never, urls })
-    ).toThrow(/Unknown company email/);
+    expect(() => renderCompanyEmail({ id: "billing.unknown" as never, urls })).toThrow(
+      /Unknown company email/
+    );
   });
 });

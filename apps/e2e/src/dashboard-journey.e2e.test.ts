@@ -175,7 +175,16 @@ gate("dashboard account journey (real route handlers, real database)", () => {
     const res = await loginHandler.POST(
       jsonRequest("http://localhost/api/auth/login", { email, password: "wrong-password-123" })
     );
-    expect(res.status).toBe(401);
+    // Deliberately NOT 401. The route answers a wrong password, an unknown
+    // address and an unverified account with the same 200 +
+    // { needsVerification: true } so that a caller cannot use the status code
+    // to learn whether an account exists (no enumeration oracle). The security
+    // property being tested is that no session is issued — asserting a
+    // distinguishing status would re-introduce the oracle we removed.
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok?: boolean; needsVerification?: boolean };
+    expect(body.ok).not.toBe(true);
+    expect(body.needsVerification).toBe(true);
     expect(sessionCookie(res)).toBeNull();
   }, 30_000);
 

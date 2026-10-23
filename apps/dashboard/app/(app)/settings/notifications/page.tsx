@@ -29,7 +29,8 @@ const CATEGORY_TITLE: Record<CompanyEmailCategory, string> = {
 };
 
 const CATEGORY_NOTE: Record<string, string> = {
-  account: "Codes, receipts of your own actions, invitations. These are how you get into the product.",
+  account:
+    "Codes, receipts of your own actions, invitations. These are how you get into the product.",
   security: "Something changed about how you sign in. Always sent, never optional.",
   billing: "Money moved, or is about to. Mandatory by contract and by law.",
   legal: "A policy changed in a way that affects you.",
@@ -98,9 +99,9 @@ export default async function NotificationsPage({
     : null;
 
   const optional = OPTIONAL_CATEGORY_LIST;
-  const mandatoryCategories = (
-    Object.keys(CATEGORY_TITLE) as CompanyEmailCategory[]
-  ).filter((c) => !optional.includes(c));
+  const mandatoryCategories = (Object.keys(CATEGORY_TITLE) as CompanyEmailCategory[]).filter(
+    (c) => !optional.includes(c)
+  );
 
   return (
     <div>
@@ -115,9 +116,9 @@ export default async function NotificationsPage({
           <div>
             <h2 className="ds-card-title">Your preferences</h2>
             <p className="ds-card-subtitle">
-              Product news and the monthly recap are the only optional emails. Everything else
-              tells you something happened to your account, your money or your sending — switching
-              those off is not offered, because not knowing is worse.
+              Product news and the monthly recap are the only optional emails. Everything else tells
+              you something happened to your account, your money or your sending — switching those
+              off is not offered, because not knowing is worse.
             </p>
           </div>
         </div>
@@ -139,7 +140,7 @@ export default async function NotificationsPage({
               >
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{CATEGORY_TITLE[category]}</div>
-                  <div style={{ color: "var(--color-text-muted)", fontSize: 13 }}>
+                  <div style={{ color: "var(--color-muted)", fontSize: 13 }}>
                     {CATEGORY_NOTE[category]}
                   </div>
                 </div>
@@ -149,7 +150,11 @@ export default async function NotificationsPage({
                   <button
                     type="submit"
                     className={disabled ? "ds-btn ds-btn-primary" : "ds-btn"}
-                    aria-label={disabled ? `Turn on ${CATEGORY_TITLE[category]}` : `Turn off ${CATEGORY_TITLE[category]}`}
+                    aria-label={
+                      disabled
+                        ? `Turn on ${CATEGORY_TITLE[category]}`
+                        : `Turn off ${CATEGORY_TITLE[category]}`
+                    }
                   >
                     {disabled ? "Turn on" : "Turn off"}
                   </button>
@@ -163,7 +168,7 @@ export default async function NotificationsPage({
               gap: 10,
               alignItems: "center",
               padding: "10px 4px 0",
-              color: "var(--color-text-muted)",
+              color: "var(--color-muted)",
               fontSize: 13,
             }}
           >
@@ -206,11 +211,11 @@ export default async function NotificationsPage({
                   <h3 style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>
                     {CATEGORY_TITLE[category]}
                   </h3>
-                  <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
+                  <span style={{ fontSize: 12, color: "var(--color-muted)" }}>
                     {locked ? "always sent" : "optional"}
                   </span>
                 </div>
-                <p style={{ fontSize: 13, color: "var(--color-text-muted)", margin: "0 0 10px" }}>
+                <p style={{ fontSize: 13, color: "var(--color-muted)", margin: "0 0 10px" }}>
                   {CATEGORY_NOTE[category]}
                 </p>
                 <div style={{ display: "grid", gap: 6 }}>
@@ -230,7 +235,7 @@ export default async function NotificationsPage({
                       >
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 600 }}>{def?.description}</div>
-                          <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
+                          <div style={{ fontSize: 12, color: "var(--color-muted)" }}>
                             {def?.trigger}
                             {def?.data.length ? ` · ${def.data.join(", ")}` : ""}
                           </div>
@@ -295,7 +300,7 @@ export default async function NotificationsPage({
         </div>
         <div className="ds-card-body">
           {recent.length === 0 ? (
-            <p style={{ fontSize: 13, color: "var(--color-text-muted)", margin: 0 }}>
+            <p style={{ fontSize: 13, color: "var(--color-muted)", margin: 0 }}>
               Nothing yet. Account and security mail appears here as it is sent.
             </p>
           ) : (
@@ -314,7 +319,7 @@ export default async function NotificationsPage({
                   }}
                 >
                   <span style={{ fontWeight: 500 }}>{row.subject}</span>
-                  <span style={{ color: "var(--color-text-muted)" }}>{formatDate(row.createdAt)}</span>
+                  <span style={{ color: "var(--color-muted)" }}>{formatDate(row.createdAt)}</span>
                   <StatusPill status={row.status} />
                 </div>
               ))}

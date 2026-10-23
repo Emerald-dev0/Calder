@@ -180,7 +180,8 @@ export async function createBroadcast(db: DbClient, input: CreateBroadcastInput)
       and(eq(senderIdentities.id, input.senderId), eq(senderIdentities.projectId, input.projectId))
     )
     .limit(1);
-  if (!sender) throw new AppError("validation_error", "Sender does not belong to this project.", 400);
+  if (!sender)
+    throw new AppError("validation_error", "Sender does not belong to this project.", 400);
   if (sender.archivedAt) {
     throw new AppError("validation_error", "That sender is archived and cannot send.", 400);
   }
@@ -197,13 +198,16 @@ export async function createBroadcast(db: DbClient, input: CreateBroadcastInput)
     .from(audiences)
     .where(and(eq(audiences.id, input.audienceId), eq(audiences.projectId, input.projectId)))
     .limit(1);
-  if (!audience) throw new AppError("validation_error", "Audience does not belong to this project.", 400);
+  if (!audience)
+    throw new AppError("validation_error", "Audience does not belong to this project.", 400);
   if (audience.archivedAt) {
     throw new AppError("validation_error", "That audience is archived and cannot be mailed.", 400);
   }
 
-  if (input.subject.trim().length === 0) throw new AppError("validation_error", "Subject is required.", 400);
-  if (input.html.trim().length === 0) throw new AppError("validation_error", "Body is required.", 400);
+  if (input.subject.trim().length === 0)
+    throw new AppError("validation_error", "Subject is required.", 400);
+  if (input.html.trim().length === 0)
+    throw new AppError("validation_error", "Body is required.", 400);
 
   const [row] = await db
     .insert(broadcasts)
@@ -264,7 +268,11 @@ export async function getBroadcast(db: DbClient, projectId: string, id: string) 
 
 export async function broadcastReport(db: DbClient, broadcastId: string) {
   const counts = await db
-    .select({ status: broadcastRecipients.status, skipReason: broadcastRecipients.skipReason, total: count() })
+    .select({
+      status: broadcastRecipients.status,
+      skipReason: broadcastRecipients.skipReason,
+      total: count(),
+    })
     .from(broadcastRecipients)
     .where(eq(broadcastRecipients.broadcastId, broadcastId))
     .groupBy(broadcastRecipients.status, broadcastRecipients.skipReason);
@@ -335,20 +343,15 @@ export async function materializeRecipients(
     contactId: string;
     status: "pending" | "skipped";
     skipReason:
-      | "unsubscribed"
-      | "suppressed"
-      | "bounced"
-      | "complained"
-      | "invalid"
-      | "duplicate"
-      | null;
+      "unsubscribed" | "suppressed" | "bounced" | "complained" | "invalid" | "duplicate" | null;
   }> = [];
 
   for (const member of members) {
     const email = member.email.toLowerCase();
     let skip: (typeof rows)[number]["skipReason"] = null;
 
-    if (member.status === "unsubscribed" || member.membership === "unsubscribed") skip = "unsubscribed";
+    if (member.status === "unsubscribed" || member.membership === "unsubscribed")
+      skip = "unsubscribed";
     else if (member.status === "bounced") skip = "bounced";
     else if (member.status === "complained") skip = "complained";
     else if (member.status !== "subscribed") skip = "invalid";
@@ -417,7 +420,8 @@ async function notifyBroadcastOutcome(
 
     const { sendOrganizationEmail } = await import("@calder/notify");
     await sendOrganizationEmail(db, {
-      id: input.status === "sent" ? "operations.broadcast_completed" : "operations.broadcast_paused",
+      id:
+        input.status === "sent" ? "operations.broadcast_completed" : "operations.broadcast_paused",
       organizationId: input.organizationId,
       idempotencyKey: `broadcast:${input.broadcastId}:${input.status}`,
       data: {
@@ -477,7 +481,12 @@ export async function sendBroadcast(
 
   await db
     .update(broadcasts)
-    .set({ status: "sending", startedAt: broadcast.startedAt ?? new Date(), pausedReason: null, updatedAt: new Date() })
+    .set({
+      status: "sending",
+      startedAt: broadcast.startedAt ?? new Date(),
+      pausedReason: null,
+      updatedAt: new Date(),
+    })
     .where(eq(broadcasts.id, broadcast.id));
 
   // Register links once, before the first recipient, so every message carries
@@ -672,7 +681,11 @@ export async function sendBroadcast(
   };
 }
 
-export async function cancelBroadcast(db: DbClient, projectId: string, id: string): Promise<boolean> {
+export async function cancelBroadcast(
+  db: DbClient,
+  projectId: string,
+  id: string
+): Promise<boolean> {
   const broadcast = await getBroadcast(db, projectId, id);
   if (!broadcast) return false;
   if (broadcast.status === "sent") {
@@ -685,9 +698,7 @@ export async function cancelBroadcast(db: DbClient, projectId: string, id: strin
   await db
     .update(broadcastRecipients)
     .set({ status: "cancelled", updatedAt: new Date() })
-    .where(
-      and(eq(broadcastRecipients.broadcastId, id), eq(broadcastRecipients.status, "pending"))
-    );
+    .where(and(eq(broadcastRecipients.broadcastId, id), eq(broadcastRecipients.status, "pending")));
   return true;
 }
 
@@ -711,7 +722,11 @@ export async function updateBroadcast(
   const broadcast = await getBroadcast(db, projectId, id);
   if (!broadcast) throw new AppError("not_found", "Broadcast not found", 404);
   if (!["draft", "paused", "scheduled"].includes(broadcast.status)) {
-    throw new AppError("conflict", "Only a draft, paused or scheduled broadcast can be edited.", 409);
+    throw new AppError(
+      "conflict",
+      "Only a draft, paused or scheduled broadcast can be edited.",
+      409
+    );
   }
   if (patch.senderId || patch.audienceId) {
     // Re-validate against this project rather than trusting the caller.
@@ -766,11 +781,7 @@ export async function updateBroadcast(
 }
 
 /** Recipient rows for one broadcast, used by the report page. */
-export async function listBroadcastRecipients(
-  db: DbClient,
-  broadcastId: string,
-  limit = 100
-) {
+export async function listBroadcastRecipients(db: DbClient, broadcastId: string, limit = 100) {
   return db
     .select({
       id: broadcastRecipients.id,
@@ -830,6 +841,8 @@ export async function previewAudienceSize(db: DbClient, audienceId: string) {
   const [row] = await db
     .select({ total: count() })
     .from(audienceContacts)
-    .where(and(eq(audienceContacts.audienceId, audienceId), eq(audienceContacts.status, "subscribed")));
+    .where(
+      and(eq(audienceContacts.audienceId, audienceId), eq(audienceContacts.status, "subscribed"))
+    );
   return Number(row?.total ?? 0);
 }

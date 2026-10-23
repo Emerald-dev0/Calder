@@ -13,6 +13,14 @@ const SAFE_DELIVERY_CODES = new Set([
   "gmail_validation",
   "gmail_velocity_limit",
   "InvalidRecipient",
+  // Provider verdicts the error classifier already treats as permanent
+  // (see PERMANENT_PROVIDER_CODES). They are stable AWS exception names that
+  // carry no recipient, host or request detail, so keeping them is both safe
+  // and useful: "Exhausted: MessageRejected" tells an operator why a message
+  // will never be retried, where a bare "provider_error" tells them nothing.
+  "MailFromDomainNotVerified",
+  "MessageRejected",
+  "AccountSuspendedException",
   "MockFailure",
   "organization_sending_unavailable",
   "provider_error",

@@ -99,7 +99,8 @@ unsubscribe.post("/", rateLimitMiddleware("otp"), async (c) => {
   if (!parsed) throw new AppError("validation_error", "This unsubscribe link is invalid.", 400);
 
   const organizationId = await organizationFor(parsed.projectId);
-  if (!organizationId) throw new AppError("not_found", "This unsubscribe link is no longer active.", 404);
+  if (!organizationId)
+    throw new AppError("not_found", "This unsubscribe link is no longer active.", 404);
 
   await recordUnsubscribe(
     getDb(),

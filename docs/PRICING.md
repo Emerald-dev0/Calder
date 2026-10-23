@@ -9,17 +9,17 @@ this revision.
 
 ## 1. The model
 
-|                  |     Beginner |      Starter |           Pro |        Premium |      Scale |
-| ---------------- | -----------: | -----------: | ------------: | -------------: | ---------: |
-| Price            | **$0 / ₦0** | **$5 / ₦5,000** | **$18 / ₦20,000** | **$65 / ₦75,000** | **Custom** |
-| Emails / month   |        5,000 |       10,000 |        50,000 |        250,000 |     Custom |
-| Projects         |            3 |            3 |            10 |             50 |     Custom |
-| Domains          |            2 |            3 |            10 |             50 |     Custom |
-| Sender identities|            5 |           10 |            25 |            100 |     Custom |
-| Team seats       |            1 |            2 |             5 |             15 |     Custom |
-| Environments     |  Development |       TBD ‡ | Dev + Staging + Production | Dev + Staging + Production |     Custom |
-| Log retention    |       7 days |      14 days |       30 days |        90 days |     Custom |
-| Support          |    Community |        Email |         Email |       Priority |  Dedicated |
+|                   |    Beginner |         Starter |                        Pro |                    Premium |      Scale |
+| ----------------- | ----------: | --------------: | -------------------------: | -------------------------: | ---------: |
+| Price             | **$0 / ₦0** | **$5 / ₦5,000** |          **$18 / ₦20,000** |          **$65 / ₦75,000** | **Custom** |
+| Emails / month    |       5,000 |          10,000 |                     50,000 |                    250,000 |     Custom |
+| Projects          |           3 |               3 |                         10 |                         50 |     Custom |
+| Domains           |           2 |               3 |                         10 |                         50 |     Custom |
+| Sender identities |           5 |              10 |                         25 |                        100 |     Custom |
+| Team seats        |           1 |               2 |                          5 |                         15 |     Custom |
+| Environments      | Development |           TBD ‡ | Dev + Staging + Production | Dev + Staging + Production |     Custom |
+| Log retention     |      7 days |         14 days |                    30 days |                    90 days |     Custom |
+| Support           |   Community |           Email |                      Email |                   Priority |  Dedicated |
 
 ‡ Starter's environment matrix is not decided yet. It is recorded as unset and
 is enforced nowhere; the pricing-page pass will settle it.
@@ -77,12 +77,12 @@ ceiling; it is sold as dedicated capacity, SLA and architecture.
 Billing is not built yet. These are the verified standard fees, recorded so the
 margin model in §4 uses real numbers when the Bachs phase starts:
 
-| Rail                     | Fee                          |
-| ------------------------ | ---------------------------- |
-| NGN direct bank transfer | 1.5%, capped at ₦2,000       |
-| NGN virtual accounts     | 1.0%, capped at ₦300–₦500    |
-| NGN local cards          | 2.0%                         |
-| USD / international cards| 5.0% + $0.40                 |
+| Rail                      | Fee                       |
+| ------------------------- | ------------------------- |
+| NGN direct bank transfer  | 1.5%, capped at ₦2,000    |
+| NGN virtual accounts      | 1.0%, capped at ₦300–₦500 |
+| NGN local cards           | 2.0%                      |
+| USD / international cards | 5.0% + $0.40              |
 
 Two consequences worth remembering: a ₦5,000 Starter payment nets at most
 ₦4,925 before provider and infra costs, and the $5 Starter payment loses 5% plus
@@ -187,4 +187,3 @@ are modelled separately: contacts cost storage and support, not delivery.
    Starter (₦5,000/$5) is sellable in config but absent from `/pricing`. Adding
    it is a pricing-page change, explicitly out of scope here.
 4. **Starter's environments.** Unset above; it is enforced nowhere today.
-

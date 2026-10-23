@@ -1,10 +1,6 @@
 import { getDb } from "@calder/db";
 import { getConfig } from "@calder/config";
-import {
-  isOptionalCategory,
-  setCategoryDisabled,
-  verifyPreferenceToken,
-} from "@calder/notify";
+import { isOptionalCategory, setCategoryDisabled, verifyPreferenceToken } from "@calder/notify";
 
 /**
  * Opt-out endpoint for Calder's own optional mail.

@@ -23,7 +23,11 @@ export default async function NewBroadcastPage({
   return (
     <div>
       <div style={{ marginBottom: 12 }}>
-        <Link href={`/broadcasts?project=${scope.project.id}`} className="ds-btn" style={{ fontSize: 12, textDecoration: "none" }}>
+        <Link
+          href={`/broadcasts?project=${scope.project.id}`}
+          className="ds-btn"
+          style={{ fontSize: 12, textDecoration: "none" }}
+        >
           <ArrowLeft size={12} />
           <span>All broadcasts</span>
         </Link>
@@ -55,17 +59,29 @@ export default async function NewBroadcastPage({
           <div>
             <h2 className="ds-card-title">The message</h2>
             <p className="ds-card-subtitle">
-              Personalisation tokens: <code>{"{{first_name}}"}</code>, <code>{"{{last_name}}"}</code>,{" "}
-              <code>{"{{email}}"}</code>. Links are rewritten for click counting; the unsubscribe
-              link is never wrapped.
+              Personalisation tokens: <code>{"{{first_name}}"}</code>,{" "}
+              <code>{"{{last_name}}"}</code>, <code>{"{{email}}"}</code>. Links are rewritten for
+              click counting; the unsubscribe link is never wrapped.
             </p>
           </div>
         </div>
         <div className="ds-card-body" style={{ display: "grid", gap: 12 }}>
-          <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+          <div
+            style={{
+              display: "grid",
+              gap: 12,
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            }}
+          >
             <label style={{ display: "grid", gap: 6, fontSize: 13 }}>
               <span>Internal name</span>
-              <input name="name" required maxLength={255} className="ds-input" placeholder="October product update" />
+              <input
+                name="name"
+                required
+                maxLength={255}
+                className="ds-input"
+                placeholder="October product update"
+              />
             </label>
             <label style={{ display: "grid", gap: 6, fontSize: 13 }}>
               <span>From</span>
@@ -93,12 +109,23 @@ export default async function NewBroadcastPage({
 
           <label style={{ display: "grid", gap: 6, fontSize: 13 }}>
             <span>Subject</span>
-            <input name="subject" required maxLength={998} className="ds-input" placeholder="What shipped this month" />
+            <input
+              name="subject"
+              required
+              maxLength={998}
+              className="ds-input"
+              placeholder="What shipped this month"
+            />
           </label>
 
           <label style={{ display: "grid", gap: 6, fontSize: 13 }}>
             <span>Preview text (optional)</span>
-            <input name="previewText" maxLength={255} className="ds-input" placeholder="Shown next to the subject in most inboxes" />
+            <input
+              name="previewText"
+              maxLength={255}
+              className="ds-input"
+              placeholder="Shown next to the subject in most inboxes"
+            />
           </label>
 
           <label style={{ display: "grid", gap: 6, fontSize: 13 }}>
@@ -109,7 +136,9 @@ export default async function NewBroadcastPage({
               rows={14}
               className="ds-input"
               style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12 }}
-              placeholder={'<h1>What shipped</h1>\\n<p>Hi {{first_name}} — three things landed this month.</p>\\n<p><a href="https://calder.click/changelog">Read the changelog</a></p>'}
+              placeholder={
+                '<h1>What shipped</h1>\\n<p>Hi {{first_name}} — three things landed this month.</p>\\n<p><a href="https://calder.click/changelog">Read the changelog</a></p>'
+              }
             />
           </label>
 

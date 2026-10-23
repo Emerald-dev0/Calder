@@ -21,23 +21,24 @@ marked otherwise.
   **Install and build commands (exact).** Workspace packages export compiled
   `dist/`, and Vercel builds one app with nothing built yet, so a bare
   `next build` fails with `Module not found: Can't resolve
-  '@calder/config/plan-limits'`. Every app's `build` script therefore runs
+'@calder/config/plan-limits'`. Every app's `build` script therefore runs
   `node ../../scripts/ensure-config-built.mjs` as a `prebuild`: it compiles
   `@calder/config` when `dist/` is missing and does nothing when turbo already
   built it. Verified from a clean checkout with `packages/config/dist` deleted.
 
-  | Vercel setting    | Value |
-  | ----------------- | ----- |
-  | Root Directory    | `apps/web` (and `apps/dashboard` for the app) |
-  | Install Command   | `pnpm install --frozen-lockfile` (runs at the repo root; Vercel does this automatically when it detects `pnpm-workspace.yaml`) |
-  | Build Command     | `pnpm build` (equals `next build`; the `prebuild` hook builds `@calder/config` first) |
-  | Output Directory  | `.next` (Next.js default) |
-  | Node version      | 20.x or 22.x — `packageManager: pnpm@9.12.0` pins pnpm via Corepack |
+  | Vercel setting   | Value                                                                                                                          |
+  | ---------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+  | Root Directory   | `apps/web` (and `apps/dashboard` for the app)                                                                                  |
+  | Install Command  | `pnpm install --frozen-lockfile` (runs at the repo root; Vercel does this automatically when it detects `pnpm-workspace.yaml`) |
+  | Build Command    | `pnpm build` (equals `next build`; the `prebuild` hook builds `@calder/config` first)                                          |
+  | Output Directory | `.next` (Next.js default)                                                                                                      |
+  | Node version     | 20.x or 22.x — `packageManager: pnpm@9.12.0` pins pnpm via Corepack                                                            |
 
   Alternative for a repo-root project (no Root Directory): Build Command
   `pnpm turbo run build --filter @calder/web`, Output Directory
   `apps/web/.next`. `build` already declares `dependsOn: ["^build"]`, so turbo
   compiles `@calder/config` and `@calder/ui` before the app in both shapes.
+
 - `apps/api`, `apps/worker`, managed infra, provider TBD, must remain portable.
   (Pxxl evaluated and dropped, Vercel purchased domain + hosting keeps one
   vendor while pre-revenue.)

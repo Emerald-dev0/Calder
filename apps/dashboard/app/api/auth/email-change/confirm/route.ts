@@ -76,7 +76,10 @@ export async function GET(req: Request): Promise<Response> {
     );
   }
 
-  await db.update(users).set({ email: verified.to, updatedAt: new Date() }).where(eq(users.id, user.id));
+  await db
+    .update(users)
+    .set({ email: verified.to, updatedAt: new Date() })
+    .where(eq(users.id, user.id));
 
   const when = new Date().toISOString().replace("T", " ").slice(0, 16) + " UTC";
   const notification = {

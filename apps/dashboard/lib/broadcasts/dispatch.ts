@@ -27,10 +27,7 @@ export interface DispatchResult {
   data?: Record<string, unknown>;
 }
 
-async function withTemporaryKey<T>(
-  projectId: string,
-  fn: (key: string) => Promise<T>
-): Promise<T> {
+async function withTemporaryKey<T>(projectId: string, fn: (key: string) => Promise<T>): Promise<T> {
   const db = getDb();
   const generated = generateApiKey("live");
   const keyId = `key_${randomBytes(12).toString("hex")}`;

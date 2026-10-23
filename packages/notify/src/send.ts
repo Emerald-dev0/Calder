@@ -32,7 +32,8 @@ import { signPreferenceToken } from "./tokens.js";
  */
 
 export type CompanyEmailStatus = "queued" | "sent" | "failed" | "skipped";
-export type CompanyEmailSkipReason = "opted_out" | "duplicate" | "invalid_recipient" | "no_provider";
+export type CompanyEmailSkipReason =
+  "opted_out" | "duplicate" | "invalid_recipient" | "no_provider";
 
 export interface SendCompanyEmailParams {
   /** Catalogue id. A typo fails here, before anything is sent. */
@@ -214,7 +215,9 @@ export async function deliver(
       html: brandEmail(rendered.html, {
         preheader: rendered.subject,
         unsubscribeUrl,
-        unsubscribeReason: rendered.unsubscribable ? "You asked for Calder product news." : undefined,
+        unsubscribeReason: rendered.unsubscribable
+          ? "You asked for Calder product news."
+          : undefined,
       }),
       text: rendered.text,
       headers: Object.keys(headers).length > 0 ? headers : undefined,

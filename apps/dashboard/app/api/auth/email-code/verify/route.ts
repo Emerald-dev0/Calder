@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import { and, eq, gt } from "drizzle-orm";
 import { getDb, organizations, orgInvitations, users } from "@calder/db";
-import { cookies } from "next/headers";
 import {
   checkEmailCode,
   getSessionUser,
   normalizeEmail,
   recordSecurityEvent,
-  SESSION_COOKIE,
   verifySignupCode,
   isPlausibleEmail,
   sealSessionCookie,
@@ -20,6 +18,7 @@ import { safeAuthError } from "../../../../../lib/auth-error";
 import { sendSecurityEmail } from "../../../../../lib/send-security-email";
 import { postLoginRedirect } from "../../../../../lib/control/post-login";
 import { sameOriginRequest } from "../../../../../lib/csrf";
+import { readPreviousSessionId } from "../../../../../lib/previous-session";
 
 /**
  * POST /api/auth/email-code/verify { email, code, purpose, next? }
@@ -67,7 +66,7 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     if (purpose === "verification") {
-      const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+      const previousSessionId = await readPreviousSessionId();
       const result = await verifySignupCode(
         email,
         code,
@@ -75,7 +74,7 @@ export async function POST(req: Request): Promise<Response> {
           userAgent: req.headers.get("user-agent"),
           ip: clientIp(req),
         },
-        previous?.sessionId
+        previousSessionId
       );
       const sealed = await sealSessionCookie(result.sessionId);
       const sessionUser = await getSessionUser(sealed);

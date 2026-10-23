@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { emailPreferences, type DbClient } from "@calder/db";
-import { COMPANY_EMAIL_CATEGORIES, isOptionalCategory, type CompanyEmailCategory } from "./catalogue.js";
+import {
+  COMPANY_EMAIL_CATEGORIES,
+  isOptionalCategory,
+  type CompanyEmailCategory,
+} from "./catalogue.js";
 
 /**
  * Who gets which category.
@@ -19,8 +23,8 @@ export interface EmailPreferencesView {
   optional: CompanyEmailCategory[];
 }
 
-export const OPTIONAL_CATEGORY_LIST: CompanyEmailCategory[] = COMPANY_EMAIL_CATEGORIES.filter(
-  (c) => isOptionalCategory(c)
+export const OPTIONAL_CATEGORY_LIST: CompanyEmailCategory[] = COMPANY_EMAIL_CATEGORIES.filter((c) =>
+  isOptionalCategory(c)
 );
 
 export async function getDisabledCategories(db: DbClient, userId: string): Promise<string[]> {

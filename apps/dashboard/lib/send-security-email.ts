@@ -15,11 +15,7 @@ import { sendCompanyEmailQuietly, type CompanyEmailId } from "@calder/notify";
  */
 
 export type SecurityEmailEvent =
-  | "new_login"
-  | "password_changed"
-  | "password_reset"
-  | "oauth_connected"
-  | "oauth_disconnected";
+  "new_login" | "password_changed" | "password_reset" | "oauth_connected" | "oauth_disconnected";
 
 const TEMPLATE: Record<SecurityEmailEvent, CompanyEmailId> = {
   new_login: "account.new_sign_in",
@@ -30,11 +26,13 @@ const TEMPLATE: Record<SecurityEmailEvent, CompanyEmailId> = {
 };
 
 function formatWhen(date: Date): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "UTC",
-  }).format(date) + " UTC";
+  return (
+    new Intl.DateTimeFormat("en-GB", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "UTC",
+    }).format(date) + " UTC"
+  );
 }
 
 export async function sendSecurityEmail(opts: {

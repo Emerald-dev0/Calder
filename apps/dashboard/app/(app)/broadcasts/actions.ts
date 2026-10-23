@@ -13,7 +13,11 @@ import {
   senderIdentities,
 } from "@calder/db";
 import { getTenantContext, resolveProject } from "../../../lib/auth";
-import { cancelBroadcast, dispatchBroadcast, sendBroadcastTest } from "../../../lib/broadcasts/dispatch";
+import {
+  cancelBroadcast,
+  dispatchBroadcast,
+  sendBroadcastTest,
+} from "../../../lib/broadcasts/dispatch";
 
 async function requireProject(projectId: string) {
   const ctx = await getTenantContext();
@@ -36,10 +40,7 @@ export async function broadcastOptions(projectId: string) {
     .from(audiences)
     .leftJoin(
       audienceContacts,
-      and(
-        eq(audienceContacts.audienceId, audiences.id),
-        eq(audienceContacts.status, "subscribed")
-      )
+      and(eq(audienceContacts.audienceId, audiences.id), eq(audienceContacts.status, "subscribed"))
     )
     .where(and(eq(audiences.projectId, scope.project.id), isNull(audiences.archivedAt)))
     .groupBy(audiences.id, audiences.name);

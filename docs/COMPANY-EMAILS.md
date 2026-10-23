@@ -14,61 +14,61 @@ is a feature.
 
 ## Rules the system enforces
 
-| Rule | Where |
-| --- | --- |
-| An unknown template id throws before anything is written | `send.ts` → `companyEmailDefinition` |
-| `updates` and `digest` are the only opt-out categories | `catalogue.ts` → `OPTIONAL_CATEGORIES` |
-| A mandatory category can never be opted out, even by a hand-written row | `preferences.ts` → `isCategoryDisabled` |
-| Optional mail carries `List-Unsubscribe` + RFC 8058 one-click | `send.ts` |
-| The unsubscribe link is signed per (user, category) and cannot enable anything | `tokens.ts` |
-| A GET on the unsubscribe link never changes state | `app/api/unsubscribe/company/route.ts` |
-| One row per attempt, written before the provider call | `company_emails` |
-| A repeated event collapses onto the first row (unique `idempotency_key`) | `company_emails_idempotency_unique` |
-| Provider errors are stored as a class, never the response body | `send.ts` → `scrubError` |
-| Codes, tokens and links never reach `metadata` | `send.ts` → `safeMetadata` |
-| Delivery failure never fails the operation that caused it | `sendCompanyEmailQuietly` |
-| Workspace mail goes to owners and admins, not every member | `recipients.ts` |
+| Rule                                                                           | Where                                   |
+| ------------------------------------------------------------------------------ | --------------------------------------- |
+| An unknown template id throws before anything is written                       | `send.ts` → `companyEmailDefinition`    |
+| `updates` and `digest` are the only opt-out categories                         | `catalogue.ts` → `OPTIONAL_CATEGORIES`  |
+| A mandatory category can never be opted out, even by a hand-written row        | `preferences.ts` → `isCategoryDisabled` |
+| Optional mail carries `List-Unsubscribe` + RFC 8058 one-click                  | `send.ts`                               |
+| The unsubscribe link is signed per (user, category) and cannot enable anything | `tokens.ts`                             |
+| A GET on the unsubscribe link never changes state                              | `app/api/unsubscribe/company/route.ts`  |
+| One row per attempt, written before the provider call                          | `company_emails`                        |
+| A repeated event collapses onto the first row (unique `idempotency_key`)       | `company_emails_idempotency_unique`     |
+| Provider errors are stored as a class, never the response body                 | `send.ts` → `scrubError`                |
+| Codes, tokens and links never reach `metadata`                                 | `send.ts` → `safeMetadata`              |
+| Delivery failure never fails the operation that caused it                      | `sendCompanyEmailQuietly`               |
+| Workspace mail goes to owners and admins, not every member                     | `recipients.ts`                         |
 
 ## Wired (36)
 
-| Id | Fires from | Key |
-| --- | --- | --- |
-| `account.verification_code` | signup / resend (`api/auth/email-code`) | `otp:verification:<email>:<code>` |
-| `account.password_reset_code` | reset request (`lib/send-auth-email.ts`) | `otp:reset:<email>:<code>` |
-| `account.welcome` | first verification (`api/auth/email-code/verify`) | per user |
-| `account.locked_out` | login lockout (`LoginLockedError`) | `lock:<userId>:<lockedUntil>` |
-| `account.email_change_requested` | `requestEmailChange()` | `email-change:<user>:<address>:<expiry>` |
-| `account.email_changed` | `/api/auth/email-change/confirm` | `email-changed:<new/old>:<user>:<address>` |
-| `account.data_export_ready` | `requestDataExport()` → signed one-hour link | `export:<user>:<minute>` |
-| `account.data_export_failed` | the export route's failure path | per attempt |
-| `account.new_sign_in` | login, magic link, OAuth callback | per sign-in |
-| `account.password_changed` | `api/auth/password-change` | per change |
-| `account.password_reset_completed` | `api/auth/password-reset` | per reset |
-| `account.sign_in_method_added` | OAuth callback | per provider link |
-| `account.sign_in_method_removed` | `api/auth/oauth/disconnect` | per provider unlink |
-| `account.sessions_revoked` | `signOutOtherSessions()` | per event |
-| `organization.invitation` | `inviteMember()` | `invite:<invitationId>` |
-| `organization.invitation_reminder` | cron `/v1/cron/company-email` | `<invitationId>:<expiresAt>` |
-| `organization.invitation_accepted` | verification of an invited address | per invitation |
-| `organization.role_changed` | `updateMemberRole()` | `role:<membership>:<role>:<epoch>` |
-| `organization.member_removed` | `removeMember()` | `removed:<membershipId>` |
-| `organization.ownership_transferred` | `transferOwnership()` (both sides) | `ownership:<org>:<to/from>:<user>:<epoch>` |
-| `organization.workspace_created` | `completeOnboarding()` | `workspace-created:<orgId>:<userId>` |
-| `operations.domain_verified` | `POST /v1/domains/:id/verify` (verified) | per verification instant |
-| `operations.domain_failed` | same route (DNS error / TXT mismatch) | one per domain per day |
-| `operations.api_key_created` | `POST /v1/keys` | per key |
-| `operations.api_key_revoked` | `DELETE /v1/keys/:id` | per key |
-| `operations.api_key_expiring` | cron `/v1/cron/company-email` | `<keyId>:<expiryDate>` |
-| `operations.webhook_failing` | worker, delivery ladder exhausted | one per endpoint per day |
-| `operations.webhook_disabled` | worker, 5 consecutive exhausted deliveries | one per endpoint per day |
-| `operations.bounce_rate_warning` | SES feedback pause (`autoPaused`) | `abuse:permanent_bounce_rate:<org>:<day>` |
-| `operations.complaint_rate_warning` | SES feedback pause (`autoPaused`) | `abuse:complaint_rate:<org>:<day>` |
-| `operations.broadcast_completed` | broadcast send finishes | `broadcast:<id>:sent` |
-| `operations.broadcast_paused` | broadcast pauses on the plan allowance | `broadcast:<id>:paused` |
-| `usage.warning_80` | ingest, inside the 80–82% band | `usage:80:<org>:<periodEnd>` |
-| `usage.exhausted_100` | ingest refuses with `plan_limit_reached` | `usage:100:<org>:<periodEnd>` |
-| `updates.announcement` | control plane → Company email → Send batch | `operator:<contentHash>:<userId>` |
-| `updates.product_update` | same console | `operator:<contentHash>:<userId>` |
+| Id                                   | Fires from                                        | Key                                        |
+| ------------------------------------ | ------------------------------------------------- | ------------------------------------------ |
+| `account.verification_code`          | signup / resend (`api/auth/email-code`)           | `otp:verification:<email>:<code>`          |
+| `account.password_reset_code`        | reset request (`lib/send-auth-email.ts`)          | `otp:reset:<email>:<code>`                 |
+| `account.welcome`                    | first verification (`api/auth/email-code/verify`) | per user                                   |
+| `account.locked_out`                 | login lockout (`LoginLockedError`)                | `lock:<userId>:<lockedUntil>`              |
+| `account.email_change_requested`     | `requestEmailChange()`                            | `email-change:<user>:<address>:<expiry>`   |
+| `account.email_changed`              | `/api/auth/email-change/confirm`                  | `email-changed:<new/old>:<user>:<address>` |
+| `account.data_export_ready`          | `requestDataExport()` → signed one-hour link      | `export:<user>:<minute>`                   |
+| `account.data_export_failed`         | the export route's failure path                   | per attempt                                |
+| `account.new_sign_in`                | login, magic link, OAuth callback                 | per sign-in                                |
+| `account.password_changed`           | `api/auth/password-change`                        | per change                                 |
+| `account.password_reset_completed`   | `api/auth/password-reset`                         | per reset                                  |
+| `account.sign_in_method_added`       | OAuth callback                                    | per provider link                          |
+| `account.sign_in_method_removed`     | `api/auth/oauth/disconnect`                       | per provider unlink                        |
+| `account.sessions_revoked`           | `signOutOtherSessions()`                          | per event                                  |
+| `organization.invitation`            | `inviteMember()`                                  | `invite:<invitationId>`                    |
+| `organization.invitation_reminder`   | cron `/v1/cron/company-email`                     | `<invitationId>:<expiresAt>`               |
+| `organization.invitation_accepted`   | verification of an invited address                | per invitation                             |
+| `organization.role_changed`          | `updateMemberRole()`                              | `role:<membership>:<role>:<epoch>`         |
+| `organization.member_removed`        | `removeMember()`                                  | `removed:<membershipId>`                   |
+| `organization.ownership_transferred` | `transferOwnership()` (both sides)                | `ownership:<org>:<to/from>:<user>:<epoch>` |
+| `organization.workspace_created`     | `completeOnboarding()`                            | `workspace-created:<orgId>:<userId>`       |
+| `operations.domain_verified`         | `POST /v1/domains/:id/verify` (verified)          | per verification instant                   |
+| `operations.domain_failed`           | same route (DNS error / TXT mismatch)             | one per domain per day                     |
+| `operations.api_key_created`         | `POST /v1/keys`                                   | per key                                    |
+| `operations.api_key_revoked`         | `DELETE /v1/keys/:id`                             | per key                                    |
+| `operations.api_key_expiring`        | cron `/v1/cron/company-email`                     | `<keyId>:<expiryDate>`                     |
+| `operations.webhook_failing`         | worker, delivery ladder exhausted                 | one per endpoint per day                   |
+| `operations.webhook_disabled`        | worker, 5 consecutive exhausted deliveries        | one per endpoint per day                   |
+| `operations.bounce_rate_warning`     | SES feedback pause (`autoPaused`)                 | `abuse:permanent_bounce_rate:<org>:<day>`  |
+| `operations.complaint_rate_warning`  | SES feedback pause (`autoPaused`)                 | `abuse:complaint_rate:<org>:<day>`         |
+| `operations.broadcast_completed`     | broadcast send finishes                           | `broadcast:<id>:sent`                      |
+| `operations.broadcast_paused`        | broadcast pauses on the plan allowance            | `broadcast:<id>:paused`                    |
+| `usage.warning_80`                   | ingest, inside the 80–82% band                    | `usage:80:<org>:<periodEnd>`               |
+| `usage.exhausted_100`                | ingest refuses with `plan_limit_reached`          | `usage:100:<org>:<periodEnd>`              |
+| `updates.announcement`               | control plane → Company email → Send batch        | `operator:<contentHash>:<userId>`          |
+| `updates.product_update`             | same console                                      | `operator:<contentHash>:<userId>`          |
 
 ## Not wired — and why
 
@@ -76,12 +76,12 @@ These are deliberate gaps, not oversights. Each row names the missing thing.
 
 ### Account (feature absent)
 
-| Id | Needs |
-| --- | --- |
-| `account.two_factor_enabled` / `_disabled` | 2FA enrolment, which does not exist |
-| `account.recovery_codes_generated` | 2FA recovery codes |
-| `account.suspicious_sign_in_blocked` | a sign-in risk decision |
-| `account.deletion_scheduled` / `account.deleted` | self-serve account deletion |
+| Id                                               | Needs                               |
+| ------------------------------------------------ | ----------------------------------- |
+| `account.two_factor_enabled` / `_disabled`       | 2FA enrolment, which does not exist |
+| `account.recovery_codes_generated`               | 2FA recovery codes                  |
+| `account.suspicious_sign_in_blocked`             | a sign-in risk decision             |
+| `account.deletion_scheduled` / `account.deleted` | self-serve account deletion         |
 
 ### Billing (no payment system, by decision)
 
@@ -99,15 +99,15 @@ a matter of calling the id from the Bachs webhook handler once it exists.
 
 ### Operations
 
-| Id | Needs |
-| --- | --- |
-| `operations.domain_dns_lost` | periodic re-verification of verified domains (today a domain is only checked when somebody clicks verify) |
-| `operations.broadcast_completed` delivery/bounce detail | the counts are read at send time; terminal delivery lands later via SES events |
+| Id                                                      | Needs                                                                                                     |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `operations.domain_dns_lost`                            | periodic re-verification of verified domains (today a domain is only checked when somebody clicks verify) |
+| `operations.broadcast_completed` delivery/bounce detail | the counts are read at send time; terminal delivery lands later via SES events                            |
 
 ### Organization
 
-| Id | Needs |
-| --- | --- |
+| Id  | Needs |
+| --- | ----- |
 
 ### Legal and product news (operator-driven)
 

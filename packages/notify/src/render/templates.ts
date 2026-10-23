@@ -82,7 +82,9 @@ export const TEMPLATES: Record<CompanyEmailId, Builder> = {
     ],
     code: s(d, "code"),
     codeCaption: "Six digits, no spaces",
-    outro: ["If you did not request this, ignore this email. No account is created until the code is used."],
+    outro: [
+      "If you did not request this, ignore this email. No account is created until the code is used.",
+    ],
   }),
 
   "account.password_reset_code": (d) => ({
@@ -321,12 +323,8 @@ export const TEMPLATES: Record<CompanyEmailId, Builder> = {
     subject: "Your Calder data export is ready",
     preheader: "The download link expires.",
     heading: "Your export is ready",
-    intro: [
-      "The copy of your Calder data you requested is ready to download.",
-    ],
-    details: [
-      { label: "Valid for", value: `${s(d, "expiresInHours", "24")} hours` },
-    ],
+    intro: ["The copy of your Calder data you requested is ready to download."],
+    details: [{ label: "Valid for", value: `${s(d, "expiresInHours", "24")} hours` }],
     cta: { label: "Download the archive", url: s(d, "downloadUrl") },
   }),
 
@@ -367,7 +365,9 @@ export const TEMPLATES: Record<CompanyEmailId, Builder> = {
       `${s(d, "inviterName", "A teammate")} invited you to ${s(d, "organizationName", "their workspace")} and the invitation has not been accepted yet.`,
     ],
     cta: { label: "Accept the invitation", url: s(d, "acceptUrl", u.dashboard) },
-    outro: ["If you would rather not join, ignore this email and the invitation expires on its own."],
+    outro: [
+      "If you would rather not join, ignore this email and the invitation expires on its own.",
+    ],
   }),
 
   "organization.invitation_accepted": (d, u) => ({
@@ -449,7 +449,10 @@ export const TEMPLATES: Record<CompanyEmailId, Builder> = {
       "Without one, the workspace drops to the Beginner plan: 5,000 emails a month and fewer projects, senders and seats.",
     ],
     details: [
-      { label: "Plan after trial", value: `${s(d, "planName")} · ₦${s(d, "priceNgn", "—")} or $${s(d, "priceUsd", "—")} a month` },
+      {
+        label: "Plan after trial",
+        value: `${s(d, "planName")} · ₦${s(d, "priceNgn", "—")} or $${s(d, "priceUsd", "—")} a month`,
+      },
       { label: "Trial ends", value: s(d, "trialEndsOn") },
     ],
     cta: { label: "Add a payment method", url: `${u.dashboard}/usage` },
@@ -752,7 +755,9 @@ export const TEMPLATES: Record<CompanyEmailId, Builder> = {
       { label: "Event", value: s(d, "event", "—") },
       { label: "Last error", value: s(d, "lastError", "no response") },
     ],
-    outro: ["Check that the endpoint returns 2xx within ten seconds and that its signing secret is current."],
+    outro: [
+      "Check that the endpoint returns 2xx within ten seconds and that its signing secret is current.",
+    ],
     cta: { label: "Open webhooks", url: `${u.dashboard}/webhooks` },
   }),
 
@@ -771,7 +776,9 @@ export const TEMPLATES: Record<CompanyEmailId, Builder> = {
     subject: `${s(d, "broadcastName", "Your broadcast")} finished sending`,
     preheader: `${s(d, "recipients")} recipients.`,
     heading: "Broadcast complete",
-    intro: [`${s(d, "broadcastName", "Your broadcast")} has finished sending to ${s(d, "recipients")} recipients.`],
+    intro: [
+      `${s(d, "broadcastName", "Your broadcast")} has finished sending to ${s(d, "recipients")} recipients.`,
+    ],
     details: [
       { label: "Delivered", value: s(d, "delivered", "—") },
       { label: "Bounced", value: s(d, "bounced", "—") },
@@ -840,8 +847,13 @@ export const TEMPLATES: Record<CompanyEmailId, Builder> = {
     heading: s(d, "title", "What's new in Calder"),
     intro: [s(d, "body", "")].filter(Boolean),
     cta: s(d, "ctaUrl") ? { label: s(d, "ctaLabel", "Read more"), url: s(d, "ctaUrl") } : undefined,
-    footnote: "You receive product updates because you opted in. Account, billing and security mail is separate.",
-    linkLine: { text: "Prefer fewer emails?", label: "Manage what you receive", url: u.preferences },
+    footnote:
+      "You receive product updates because you opted in. Account, billing and security mail is separate.",
+    linkLine: {
+      text: "Prefer fewer emails?",
+      label: "Manage what you receive",
+      url: u.preferences,
+    },
   }),
 
   "updates.monthly_digest": (d, u) => ({
@@ -857,7 +869,11 @@ export const TEMPLATES: Record<CompanyEmailId, Builder> = {
     ],
     cta: { label: "Open analytics", url: `${u.dashboard}/analytics` },
     footnote: "This recap is optional. Account, billing and security mail is separate.",
-    linkLine: { text: "Prefer fewer emails?", label: "Manage what you receive", url: u.preferences },
+    linkLine: {
+      text: "Prefer fewer emails?",
+      label: "Manage what you receive",
+      url: u.preferences,
+    },
   }),
 
   "updates.announcement": (d, u) => ({
@@ -866,7 +882,12 @@ export const TEMPLATES: Record<CompanyEmailId, Builder> = {
     heading: s(d, "title", "An announcement from Calder"),
     intro: [s(d, "body", "")].filter(Boolean),
     cta: s(d, "ctaUrl") ? { label: s(d, "ctaLabel", "Read more"), url: s(d, "ctaUrl") } : undefined,
-    footnote: "You receive announcements because you opted in. Account, billing and security mail is separate.",
-    linkLine: { text: "Prefer fewer emails?", label: "Manage what you receive", url: u.preferences },
+    footnote:
+      "You receive announcements because you opted in. Account, billing and security mail is separate.",
+    linkLine: {
+      text: "Prefer fewer emails?",
+      label: "Manage what you receive",
+      url: u.preferences,
+    },
   }),
 };
