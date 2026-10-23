@@ -2,9 +2,15 @@ import Link from "next/link";
 import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { getDb, emails, senderIdentities } from "@calder/db";
 import { getTenantContext } from "../../../../lib/auth";
-import { SenderActions } from "./sender-actions";
-import { UserCheck, ArrowLeft } from "lucide-react";
-import { DsPageHeader, StatusPill, StatCard } from "../../../../components/design-system";
+import {
+  senderHealthFor,
+  senderStreamStats,
+  senderAllowedKeyIds,
+  projectApiKeys,
+} from "../actions";
+import { SenderDetailActions } from "./sender-detail-actions";
+import { UserCheck, ArrowLeft, ShieldAlert } from "lucide-react";
+import { DsPageHeader, StatusPill, StatCard, DsBanner } from "../../../../components/design-system";
 import { EmptyState } from "../../../../components/empty-state";
 
 export async function generateMetadata({ params }: { params: Promise<{ senderId: string }> }) {
@@ -24,7 +30,12 @@ export default async function SenderDetailPage({
   const [sender] = await db
     .select()
     .from(senderIdentities)
-    .where(and(eq(senderIdentities.id, senderId), inArray(senderIdentities.projectId, projectIds)))
+    .where(
+      and(
+        eq(senderIdentities.id, senderId),
+        inArray(senderIdentities.projectId, projectIds.length > 0 ? projectIds : [""])
+      )
+    )
     .limit(1);
   if (!sender || !projectIds.includes(sender.projectId)) {
     return (
@@ -41,34 +52,54 @@ export default async function SenderDetailPage({
   }
   const projectId = sender.projectId;
 
-  const totals = await db
-    .select({ status: emails.status, value: count() })
-    .from(emails)
-    .where(and(eq(emails.senderIdentityId, sender.id), eq(emails.projectId, sender.projectId)))
-    .groupBy(emails.status);
+  const [totals, recent, health, stats, keyIds, apiKeys] = await Promise.all([
+    db
+      .select({ status: emails.status, value: count() })
+      .from(emails)
+      .where(and(eq(emails.senderIdentityId, sender.id), eq(emails.projectId, projectId)))
+      .groupBy(emails.status),
+    db
+      .select({
+        id: emails.id,
+        to: emails.to,
+        subject: emails.subject,
+        status: emails.status,
+        stream: emails.stream,
+        createdAt: emails.createdAt,
+      })
+      .from(emails)
+      .where(and(eq(emails.senderIdentityId, sender.id), eq(emails.projectId, projectId)))
+      .orderBy(desc(emails.createdAt))
+      .limit(10),
+    senderHealthFor(sender.id),
+    senderStreamStats(sender.id),
+    senderAllowedKeyIds(sender.id),
+    projectApiKeys(projectId),
+  ]);
+
   const byStatus: Record<string, number> = {};
   let total = 0;
   for (const t of totals) {
     byStatus[t.status] = t.value;
     total += t.value;
   }
-  const recent = await db
-    .select({ id: emails.id, to: emails.to, subject: emails.subject, status: emails.status })
-    .from(emails)
-    .where(and(eq(emails.senderIdentityId, sender.id), eq(emails.projectId, sender.projectId)))
-    .orderBy(desc(emails.createdAt))
-    .limit(10);
 
   const org = ctx.memberships.flatMap((m) =>
     m.projects.filter((p) => p.id === projectId).map(() => m.organization)
   )[0];
+
+  const archived = Boolean(sender.archivedAt);
+  const defaultLabels = [
+    sender.isDefault ? "transactional default" : null,
+    sender.isDefaultMarketing ? "broadcast default" : null,
+  ].filter(Boolean);
 
   return (
     <div>
       <DsPageHeader
         icon={<UserCheck size={18} />}
         title={sender.displayName}
-        badge={<StatusPill status={sender.status} />}
+        badge={<StatusPill status={archived ? "disabled" : sender.status} />}
         description={
           <span>
             <span className="mono">{sender.email}</span> ·{" "}
@@ -77,7 +108,7 @@ export default async function SenderDetailPage({
               : sender.type === "domain"
                 ? "Domain sender"
                 : "Managed sender"}
-            {sender.isDefault ? " · Default Identity" : ""} · {org?.name ?? ""}
+            {defaultLabels.length > 0 ? ` · ${defaultLabels.join(" · ")}` : ""} · {org?.name ?? ""}
           </span>
         }
         actions={
@@ -92,32 +123,90 @@ export default async function SenderDetailPage({
         }
       />
 
-      <div className="ds-grid-3" style={{ marginBottom: 20 }}>
-        <StatCard label="Emails Sent" value={total.toLocaleString()} sub="Total volume" />
+      {archived && (
+        <div style={{ marginBottom: 16 }}>
+          <DsBanner
+            tone="warning"
+            title="This sender is archived"
+            description="It is hidden from every picker and does not count towards your plan's sender-identity limit. Its delivery history is preserved. Restore it below to use it again."
+          />
+        </div>
+      )}
+
+      {health.warned && (
+        <div style={{ marginBottom: 16 }}>
+          <DsBanner
+            tone="danger"
+            title={`Bounce rate above 5% (${((health.bounceRate ?? 0) * 100).toFixed(1)}%)`}
+            description={`${health.bounced7d} of ${health.sent7d} messages from this sender bounced in the last 7 days. Check that the address exists and that the domain's SPF/DKIM records are current.`}
+          />
+        </div>
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <h2 className="ds-card-title" style={{ margin: 0 }}>
+          Last 7 days
+        </h2>
+        <StatusPill
+          status={health.bounceRate === null ? "pending" : health.warned ? "warning" : "healthy"}
+          label={
+            health.bounceRate === null
+              ? "No traffic"
+              : `${(health.bounceRate * 100).toFixed(1)}% bounce${
+                  health.warned ? " · above 5% threshold" : ""
+                }`
+          }
+        />
+        {health.warned && <ShieldAlert size={14} color="var(--color-warning)" />}
+      </div>
+
+      <div className="ds-grid-4" style={{ marginBottom: 10 }}>
         <StatCard
-          label="Delivered"
-          value={(byStatus.delivered ?? 0).toLocaleString()}
-          status="delivered"
-          sub="Confirmed 250 OK"
+          label="Transactional sent"
+          value={stats.transactional.sent.toLocaleString()}
+          sub={`${stats.transactional.delivered.toLocaleString()} delivered · ${stats.transactional.bounced.toLocaleString()} bounced`}
         />
         <StatCard
-          label="Bounced + Failed"
-          value={((byStatus.bounced ?? 0) + (byStatus.failed ?? 0)).toLocaleString()}
-          status={(byStatus.bounced ?? 0) + (byStatus.failed ?? 0) > 0 ? "bounced" : "healthy"}
-          sub="Delivery rejections"
+          label="Broadcast sent"
+          value={stats.marketing.sent.toLocaleString()}
+          sub={`${stats.marketing.delivered.toLocaleString()} delivered · ${stats.marketing.bounced.toLocaleString()} bounced`}
+        />
+        <StatCard
+          label="Complaints"
+          value={(stats.transactional.complained + stats.marketing.complained).toLocaleString()}
+          status={
+            stats.transactional.complained + stats.marketing.complained > 0 ? "warning" : "healthy"
+          }
+          sub="Marked as spam, 7 days"
+        />
+        <StatCard
+          label="Lifetime volume"
+          value={total.toLocaleString()}
+          sub={`${(byStatus.delivered ?? 0).toLocaleString()} delivered all time`}
         />
       </div>
 
-      <SenderActions
+      <SenderDetailActions
         sender={{
           id: sender.id,
           projectId,
           displayName: sender.displayName,
           email: sender.email,
+          type: sender.type,
           status: sender.status,
           isDefault: sender.isDefault,
+          isDefaultMarketing: sender.isDefaultMarketing,
+          replyTo: sender.replyTo,
+          archived,
           emailCount: total,
         }}
+        apiKeys={apiKeys.map((k) => ({
+          id: k.id,
+          name: k.name,
+          env: k.env,
+          keyPrefix: k.keyPrefix,
+        }))}
+        allowedKeyIds={keyIds}
       />
 
       <div className="ds-card" style={{ marginTop: 20 }}>
@@ -149,6 +238,11 @@ export default async function SenderDetailPage({
                     <span className="mono" style={{ color: "var(--color-muted)", fontSize: 12 }}>
                       → {r.to}
                     </span>
+                    {r.stream === "marketing" && (
+                      <span style={{ marginLeft: 8 }}>
+                        <StatusPill status="test" label="Broadcast" />
+                      </span>
+                    )}
                   </span>
                   <StatusPill status={r.status} />
                 </div>

@@ -163,7 +163,10 @@ gate("gmail abuse watch (live Postgres)", async () => {
     });
     const row = await drainUntilSettled(id);
     expect(row?.status).toBe("failed");
-    expect(row?.lastError ?? "").toMatch(/Gmail daily cap reached/i);
+    // The row carries the allowlisted delivery reason (safeDeliveryReason),
+    // never provider text: the human remedy is on the thrown Error and in
+    // the logs, while the durable reason stays a stable code.
+    expect(row?.lastError).toBe("gmail_cap");
     await db.delete(senderIdentities).where(eq(senderIdentities.id, senderId));
     await db.delete(projectTransports).where(eq(projectTransports.id, pinnedTransportId));
   }, 60_000);
@@ -206,7 +209,7 @@ gate("gmail abuse watch (live Postgres)", async () => {
     const id = await queueOne();
     const row = await drainUntilSettled(id);
     expect(row?.status).not.toBe("sent");
-    expect(row?.lastError ?? "").toMatch(/velocity limit reached/i);
+    expect(row?.lastError).toBe("gmail_velocity_limit");
     const [t] = await db
       .select({ status: projectTransports.status })
       .from(projectTransports)
@@ -230,7 +233,7 @@ gate("gmail abuse watch (live Postgres)", async () => {
       .where(eq(projectTransports.id, transportId))
       .limit(1);
     expect(t?.status).toBe("suspended");
-    expect(row?.lastError ?? "").toMatch(/suspended for abuse-pattern/i);
+    expect(row?.lastError).toBe("gmail_suspended");
 
     // Exactly one suspend audit row — re-draining must not spam the trail.
     const auditRows = await db

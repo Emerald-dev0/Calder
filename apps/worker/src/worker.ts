@@ -88,9 +88,13 @@ async function resolveServiceChain(
         )
         .limit(1);
       if (sender && sender.projectId === projectId) {
-        if (sender.status !== "verified" && sender.status !== "connected") {
+        if (sender.archivedAt || (sender.status !== "verified" && sender.status !== "connected")) {
           throw Object.assign(
-            new Error(`Sender ${sender.email} is ${sender.status}. Re-enable it before sending.`),
+            new Error(
+              sender.archivedAt
+                ? `Sender ${sender.email} is archived.`
+                : `Sender ${sender.email} is ${sender.status}. Re-enable it before sending.`
+            ),
             { code: "sender_not_ready", transient: false, statusCode: 422 }
           );
         }
@@ -357,28 +361,31 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
       // in AGENTS.md.
       {
         try {
-          const { getDb, emails, emailEvents, suppressions } = await import("@calder/db");
+          const { getDb, emails, emailEvents, findBlockingSuppression } =
+            await import("@calder/db");
           const { eq, and } = await import("drizzle-orm");
           const db = getDb();
-          const sup = await db
-            .select()
-            .from(suppressions)
-            .where(and(eq(suppressions.projectId, projectId), eq(suppressions.email, email.to)))
-            .limit(1);
-          if (sup.length > 0) {
+          // Same policy as the drain and the API: bounce/complaint follow the
+          // address across the organization, unsubscribe only stops broadcast.
+          const blocked = await findBlockingSuppression(db, {
+            projectId,
+            email: email.to,
+            stream: email.stream === "marketing" ? "marketing" : "transactional",
+          });
+          if (blocked) {
             const now = new Date();
             await db
               .update(emails)
-              .set({ status: "suppressed", lastError: sup[0]!.reason, updatedAt: now })
+              .set({ status: "suppressed", lastError: blocked.reason, updatedAt: now })
               .where(and(eq(emails.id, emailId), eq(emails.projectId, projectId)));
             await db.insert(emailEvents).values({
               id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
               emailId,
               projectId,
               type: "suppressed",
-              data: { reason: sup[0]!.reason, source: "worker" },
+              data: { reason: blocked.reason, source: "worker" },
             });
-            jobLogger.info({ reason: sup[0]!.reason }, "Recipient suppressed, not sending");
+            jobLogger.info({ reason: blocked.reason }, "Recipient suppressed, not sending");
             return "suppressed";
           }
         } catch (supErr) {

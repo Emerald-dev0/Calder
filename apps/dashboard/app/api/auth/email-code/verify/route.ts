@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { and, eq, gt } from "drizzle-orm";
+import { getDb, organizations, orgInvitations, users } from "@calder/db";
 import {
   checkEmailCode,
   getSessionUser,
   normalizeEmail,
   recordSecurityEvent,
-  SESSION_COOKIE,
   verifySignupCode,
   isPlausibleEmail,
   sealSessionCookie,
@@ -18,6 +18,7 @@ import { safeAuthError } from "../../../../../lib/auth-error";
 import { sendSecurityEmail } from "../../../../../lib/send-security-email";
 import { postLoginRedirect } from "../../../../../lib/control/post-login";
 import { sameOriginRequest } from "../../../../../lib/csrf";
+import { readPreviousSessionId } from "../../../../../lib/previous-session";
 
 /**
  * POST /api/auth/email-code/verify { email, code, purpose, next? }
@@ -65,7 +66,7 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     if (purpose === "verification") {
-      const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+      const previousSessionId = await readPreviousSessionId();
       const result = await verifySignupCode(
         email,
         code,
@@ -73,7 +74,7 @@ export async function POST(req: Request): Promise<Response> {
           userAgent: req.headers.get("user-agent"),
           ip: clientIp(req),
         },
-        previous?.sessionId
+        previousSessionId
       );
       const sealed = await sealSessionCookie(result.sessionId);
       const sessionUser = await getSessionUser(sealed);
@@ -85,6 +86,19 @@ export async function POST(req: Request): Promise<Response> {
           metadata: { method: "email_code" },
         }).catch(() => {});
         await sendSecurityEmail({ to: sessionUser.email, event: "new_login" });
+
+        // Onboarding is keyed to the person, so it can only ever fire once:
+        // the first verification claims the key, later sign-ins replay it.
+        const { sendCompanyEmailQuietly } = await import("@calder/notify");
+        const db = getDb();
+        await sendCompanyEmailQuietly(db, {
+          id: "account.welcome",
+          to: sessionUser.email,
+          userId: sessionUser.userId,
+          idempotencyKey: `welcome:${sessionUser.userId}`,
+          data: { name: sessionUser.name ?? undefined },
+        });
+        await notifyInvitersOfAcceptance(db, sessionUser.email, sessionUser.name ?? null);
       }
       const res = NextResponse.json({ ok: true, redirectTo });
       res.headers.append("Set-Cookie", sessionCookieHeader(sealed, 30 * 24 * 60 * 60));
@@ -103,5 +117,58 @@ export async function POST(req: Request): Promise<Response> {
       { error: safeAuthError(err, "Verification failed.") },
       { status: 400 }
     );
+  }
+}
+
+/**
+ * Invitation acceptance, told to the inviter.
+ *
+ * The acceptance itself happens inside `verifySignupCode`; this reads the rows
+ * that just flipped to accepted and tells whoever sent them. Best-effort by
+ * design: the account is already active, and a missing courtesy mail must not
+ * fail a signup.
+ */
+async function notifyInvitersOfAcceptance(
+  db: ReturnType<typeof getDb>,
+  memberEmail: string,
+  memberName: string | null
+): Promise<void> {
+  try {
+    const since = new Date(Date.now() - 5 * 60 * 1000);
+    const rows = await db
+      .select({
+        organizationId: orgInvitations.organizationId,
+        invitedBy: orgInvitations.invitedBy,
+        organizationName: organizations.name,
+      })
+      .from(orgInvitations)
+      .innerJoin(organizations, eq(orgInvitations.organizationId, organizations.id))
+      .where(and(eq(orgInvitations.email, memberEmail), gt(orgInvitations.acceptedAt, since)));
+    if (rows.length === 0) return;
+
+    const { sendCompanyEmailQuietly } = await import("@calder/notify");
+    for (const row of rows) {
+      if (!row.invitedBy) continue;
+      const [inviter] = await db
+        .select({ email: users.email, name: users.name })
+        .from(users)
+        .where(eq(users.id, row.invitedBy))
+        .limit(1);
+      if (!inviter) continue;
+      await sendCompanyEmailQuietly(db, {
+        id: "organization.invitation_accepted",
+        to: inviter.email,
+        userId: row.invitedBy,
+        organizationId: row.organizationId,
+        idempotencyKey: `invite:accepted:${row.organizationId}:${memberEmail}`,
+        data: {
+          memberName: memberName ?? memberEmail,
+          memberEmail,
+          organizationName: row.organizationName,
+        },
+      });
+    }
+  } catch {
+    // Courtesy mail; never allowed to surface as a signup failure.
   }
 }

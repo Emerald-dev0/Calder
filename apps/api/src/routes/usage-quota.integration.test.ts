@@ -481,7 +481,9 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
     const id2 = ((await res2.json()) as { id: string }).id;
     await drainPendingEmails(getDb(), { batch: 50 }).catch(() => {});
     const after2 = await waitSettled(id2);
-    expect(after2?.lastError ?? "").toMatch(/Gmail daily cap reached/i);
+    // Durable reason is the allowlisted code; the human remedy lives on the
+    // thrown Error and in the logs.
+    expect(after2?.lastError).toBe("gmail_cap");
     await db.delete(projectTransports).where(eq(projectTransports.projectId, projC));
   }, 60_000);
 });

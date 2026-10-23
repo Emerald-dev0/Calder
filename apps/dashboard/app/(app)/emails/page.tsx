@@ -1,32 +1,62 @@
 import Link from "next/link";
-import { desc, eq, count, and } from "drizzle-orm";
-import { getDb, emails, emailEvents, senderIdentities } from "@calder/db";
+import { and, eq, isNull } from "drizzle-orm";
+import { getDb, senderIdentities } from "@calder/db";
 import { getTenantContext, resolveProject } from "../../../lib/auth";
 import { EmptyState } from "../../../components/empty-state";
-import { SenderFilter } from "./sender-filter";
-import { Mail, Send, KeyRound, ScrollText } from "lucide-react";
-import { DsPageHeader, StatusPill } from "../../../components/design-system";
-import { MessageExplorer } from "../../../components/message-explorer";
+import { ProjectPicker } from "../project-picker";
+import { Mail, Send, Download } from "lucide-react";
+import {
+  CopyableMono,
+  DsPageHeader,
+  RelativeTime,
+  StatusPill,
+} from "../../../components/design-system";
+import { decodeCursor, encodeCursor, PAGE_SIZE } from "../../../lib/pagination";
+import { notFound } from "next/navigation";
+import {
+  RANGES,
+  RANGE_LABELS,
+  STREAM_LABELS,
+  STATUSES,
+  filtersToQuery,
+  hasActiveFilters,
+  looksLikeMessageId,
+  parseFilters,
+  type StreamFilter,
+} from "../../../lib/emails/filters";
+import {
+  countEmailsByStream,
+  findEmailDetail,
+  listEmails,
+  listSenderDomains,
+} from "../../../lib/emails/queries";
+import { EmailFilterBar } from "./filter-bar";
+import { LiveToggle } from "./live-toggle";
+import { MessagePanel } from "./message-panel";
+
+export const metadata = { title: "Calder — Emails" };
+
+const STREAM_TABS: StreamFilter[] = ["all", "transactional", "marketing"];
 
 export default async function EmailsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ project?: string; sender?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const query = await searchParams;
   const ctx = await getTenantContext();
-  const scope = resolveProject(ctx, query.project);
+  const scope = resolveProject(ctx, query.project as string | undefined);
   if (!scope) {
     return (
       <div>
         <DsPageHeader
           icon={<Mail size={18} />}
-          title="Emails & Message Explorer"
-          description="No project found. Create a project in your organization settings to start sending."
+          title="Emails"
+          description="No project found. Create a project to start sending."
         />
         <EmptyState
           title="No project found"
-          description="Provision an organization and project to dispatch transactional emails."
+          description="Provision an organization and project to dispatch emails."
           actionLabel="Configure workspace"
           actionHref="/settings#workspace"
         />
@@ -34,7 +64,22 @@ export default async function EmailsPage({
     );
   }
 
+  const projectId = scope.project.id;
+  const filters = parseFilters(query);
+
+  let cursor: ReturnType<typeof decodeCursor>;
+  try {
+    cursor = decodeCursor(query.cursor as string | undefined);
+  } catch {
+    notFound();
+  }
+
   const db = getDb();
+
+  // Stream tabs need counts for the whole project, unaffected by the other
+  // filters — otherwise the tabs would show what is already filtered out.
+  const { byStream, total: totalAll } = await countEmailsByStream(db, projectId);
+
   const senders = await db
     .select({
       id: senderIdentities.id,
@@ -42,35 +87,29 @@ export default async function EmailsPage({
       email: senderIdentities.email,
     })
     .from(senderIdentities)
-    .where(eq(senderIdentities.projectId, scope.project.id));
-  const senderFilter = query.sender ?? "";
-  const senderKnown = senderFilter === "" || senders.some((s) => s.id === senderFilter);
-  const emailConds = [eq(emails.projectId, scope.project.id)];
-  if (senderKnown && senderFilter !== "")
-    emailConds.push(eq(emails.senderIdentityId, senderFilter));
-  const rows = await db
-    .select()
-    .from(emails)
-    .where(and(...emailConds))
-    .orderBy(desc(emails.createdAt))
-    .limit(50);
-  const eventRows = await db
-    .select({ emailId: emailEvents.emailId, value: count() })
-    .from(emailEvents)
-    .where(eq(emailEvents.projectId, scope.project.id))
-    .groupBy(emailEvents.emailId);
-  const eventCounts = new Map(eventRows.map((r) => [r.emailId, r.value]));
+    .where(and(eq(senderIdentities.projectId, projectId), isNull(senderIdentities.archivedAt)));
 
-  const explorerRows = rows.map((e) => ({
-    id: e.id,
-    to: e.to,
-    from: e.from,
-    subject: e.subject,
-    status: e.status,
-    provider: e.provider,
-    eventCount: eventCounts.get(e.id) ?? 0,
-    createdAt: new Date(e.createdAt).toISOString(),
-  }));
+  const domains = await listSenderDomains(db, projectId);
+
+  const rows = await listEmails(db, {
+    projectId,
+    filters,
+    cursor,
+    limit: PAGE_SIZE + 1,
+  });
+
+  const hasMore = rows.length > PAGE_SIZE;
+  const page = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
+  const nextCursor = hasMore ? encodeCursor(page[page.length - 1]!) : null;
+
+  // The open message is a URL parameter, so a shared link opens the same panel.
+  const messageParam = typeof query.message === "string" ? query.message : undefined;
+  const selected =
+    messageParam && looksLikeMessageId(messageParam)
+      ? await findEmailDetail(db, projectId, messageParam)
+      : null;
+
+  const filterQuery = filtersToQuery(filters, { project: projectId });
 
   return (
     <div>
@@ -80,89 +119,215 @@ export default async function EmailsPage({
         badge={
           <StatusPill
             status="active"
-            label={`${scope.organization.slug} / ${scope.project.slug}`}
+            label={`${totalAll.toLocaleString("en-US")} ${totalAll === 1 ? "message" : "messages"}`}
           />
         }
-        description="Every outbound send under this project—click any row to inspect its delivery timeline, SMTP headers, and raw payload."
+        description="Every outbound send under this project. Click a row to inspect its real delivery timeline, rendered content and headers."
         actions={
           <>
-            <Link
-              href={`/logs?project=${scope.project.id}`}
+            <LiveToggle projectId={projectId} />
+            <a
+              href={`/emails/export?${filterQuery}`}
               className="ds-btn ds-btn-secondary"
               style={{ textDecoration: "none" }}
             >
-              <ScrollText size={14} />
-              <span>Event stream</span>
-            </Link>
+              <Download size={14} />
+              <span>Export CSV</span>
+            </a>
             <Link
-              href={`/keys?project=${scope.project.id}`}
-              className="ds-btn ds-btn-secondary"
-              style={{ textDecoration: "none" }}
-            >
-              <KeyRound size={14} />
-              <span>API keys</span>
-            </Link>
-            <Link
-              href={`/emails/new?project=${scope.project.id}`}
+              href={`/emails/new?project=${projectId}`}
               className="ds-btn ds-btn-primary"
               style={{ textDecoration: "none" }}
             >
               <Send size={14} />
-              <span>New email</span>
+              <span>Send email</span>
             </Link>
           </>
         }
       />
 
-      {/* Project pills + Sender Filter bar */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-          flexWrap: "wrap",
-          marginBottom: 16,
-        }}
-      >
-        <div className="ds-tabs" role="navigation" aria-label="Switch project">
-          {ctx.memberships.flatMap((m) =>
-            m.projects.map((p) => {
-              const active = p.id === scope.project.id;
-              return (
-                <Link
-                  key={p.id}
-                  href={`/emails?project=${p.id}`}
-                  className={`ds-tab ${active ? "is-active" : ""}`}
-                >
-                  {p.slug}
-                </Link>
-              );
-            })
-          )}
-        </div>
+      <ProjectPicker
+        projects={ctx.memberships
+          .flatMap((m) => m.projects)
+          .map((p) => ({ id: p.id, slug: p.slug }))}
+        currentId={projectId}
+        basePath="/emails"
+      />
 
-        {senders.length > 0 && (
-          <SenderFilter
-            projectId={scope.project.id}
-            senders={senders}
-            value={senderKnown ? senderFilter : ""}
-          />
-        )}
+      {/* Stream tabs. `marketing` stays the value; "Broadcast" is the label. */}
+      <div
+        className="ds-tabs"
+        role="tablist"
+        aria-label="Filter by stream"
+        style={{ marginBottom: 14 }}
+      >
+        {STREAM_TABS.map((stream) => {
+          const active = filters.stream === stream;
+          const n = stream === "all" ? totalAll : (byStream.get(stream) ?? 0);
+          const params = filtersToQuery({ ...filters, stream }, { project: projectId });
+          return (
+            <Link
+              key={stream}
+              href={`/emails?${params}`}
+              role="tab"
+              aria-selected={active}
+              className={`ds-tab ${active ? "is-active" : ""}`}
+              style={{ textDecoration: "none" }}
+              data-testid={`stream-${stream}`}
+            >
+              <span>{STREAM_LABELS[stream]}</span>
+              <span className="tabular-nums" style={{ opacity: 0.7, fontSize: 11.5 }}>
+                {n}
+              </span>
+            </Link>
+          );
+        })}
       </div>
 
-      {explorerRows.length === 0 ? (
+      <EmailFilterBar
+        projectId={projectId}
+        filters={filters}
+        senders={senders}
+        domains={domains}
+        statuses={[...STATUSES]}
+        ranges={RANGES.map((r) => ({ value: r, label: RANGE_LABELS[r] }))}
+      />
+
+      {page.length === 0 ? (
         <EmptyState
           icon={<Mail size={22} />}
-          title={senderFilter ? "No emails from this sender yet" : "No emails sent yet"}
-          description="Dispatch a message via the interactive composer or POST /v1/emails with a scoped API key. Real-time statuses, hops, and delivery logs appear here."
-          actionLabel="Compose test email"
-          actionHref={`/emails/new?project=${scope.project.id}`}
-          secondaryLabel="View API keys"
-          secondaryHref={`/keys?project=${scope.project.id}`}
+          title={
+            hasActiveFilters(filters) ? "No messages match these filters" : "No emails sent yet"
+          }
+          description={
+            hasActiveFilters(filters)
+              ? "Try a wider date range, another stream, or clear the search."
+              : "Send a message from the composer, or POST /v1/emails with a scoped API key. Delivery status appears here in real time."
+          }
+          actionHref={
+            hasActiveFilters(filters)
+              ? `/emails?project=${projectId}`
+              : `/emails/new?project=${projectId}`
+          }
+          actionLabel={hasActiveFilters(filters) ? "Clear filters" : "Send an email"}
         />
       ) : (
-        <MessageExplorer rows={explorerRows} />
+        <>
+          <div className="ds-table-shell">
+            <div className="ds-table-scroll">
+              <table className="ds-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 128 }}>Status</th>
+                    <th>Recipient &amp; subject</th>
+                    <th style={{ width: 110 }}>Stream</th>
+                    <th style={{ width: 196 }}>Message ID</th>
+                    <th style={{ width: 120, textAlign: "right" }}>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {page.map((r) => {
+                    const href = `/emails?${filtersToQuery(filters, {
+                      project: projectId,
+                      message: r.id,
+                    })}`;
+                    return (
+                      <tr key={r.id} data-testid="email-row">
+                        <td>
+                          <StatusPill status={r.status} />
+                        </td>
+                        <td>
+                          <Link
+                            href={href}
+                            style={{ textDecoration: "none", color: "inherit", display: "block" }}
+                          >
+                            <div
+                              style={{
+                                fontWeight: 600,
+                                fontSize: 13,
+                                color: "var(--color-ink)",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                            >
+                              {r.subject || "(no subject)"}
+                            </div>
+                            <div
+                              className="mono"
+                              style={{
+                                fontSize: 11.5,
+                                color: "var(--color-muted)",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                            >
+                              → {r.to}
+                            </div>
+                          </Link>
+                        </td>
+                        <td>
+                          <StatusPill
+                            status={r.stream === "marketing" ? "live" : "sent"}
+                            label={
+                              r.stream === "marketing"
+                                ? STREAM_LABELS.marketing
+                                : STREAM_LABELS.transactional
+                            }
+                          />
+                        </td>
+                        <td>
+                          <CopyableMono value={r.id} />
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          <RelativeTime value={r.createdAt.toISOString()} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginTop: 14,
+            }}
+          >
+            <span className="tabular-nums" style={{ fontSize: 12, color: "var(--color-muted)" }}>
+              Showing {page.length} on this page
+            </span>
+            {nextCursor && (
+              <Link
+                className="ds-btn ds-btn-secondary"
+                style={{ textDecoration: "none" }}
+                href={`/emails?${filtersToQuery(filters, {
+                  project: projectId,
+                  cursor: nextCursor,
+                })}`}
+              >
+                {filters.sort === "oldest" ? "Next page" : "Older messages"}
+              </Link>
+            )}
+          </div>
+        </>
+      )}
+
+      {selected && (
+        <MessagePanel
+          projectId={projectId}
+          message={selected.message}
+          events={selected.events}
+          alreadySuppressed={selected.alreadySuppressed}
+          closeHref={`/emails?${filtersToQuery(filters, { project: projectId })}`}
+          templateName={selected.templateName}
+          apiKeyUsed={selected.apiKeyUsed}
+        />
       )}
     </div>
   );

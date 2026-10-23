@@ -23,4 +23,10 @@ regexes = [
   '''hunter2''',
   '''calder-development-auth-placeholder-not-for-production''',
   '''calder-development-webhook-placeholder-not-for-production''',
+  # Redaction fixtures: the canonical jwt.io sample token (its signature is
+  # published in the jwt.io docs) and two obviously-synthetic key shapes. They
+  # exist so the redactor can be proven to mask them; none is a credential.
+  '''eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U''',
+  '''calder_sk_live_abcdef123456''',
+  '''whsec_abcdef0123456789''',
 ]

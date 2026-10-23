@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "prebuild": "node ../../scripts/ensure-workspace-built.mjs",
     "build": "tsc --project tsconfig.build.json && node scripts/bundle-serverless.mjs",
     "start": "node dist/src/index.js",
     "lint": "eslint src --ext .ts",
@@ -18,11 +19,13 @@
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.600.0",
+    "@calder/audiences": "workspace:*",
     "@calder/auth": "workspace:*",
     "@calder/billing": "workspace:*",
     "@calder/config": "workspace:*",
     "@calder/db": "workspace:*",
     "@calder/email": "workspace:*",
+    "@calder/notify": "workspace:*",
     "@calder/observability": "workspace:*",
     "@calder/providers": "workspace:*",
     "@calder/queue": "workspace:*",
@@ -33,7 +36,7 @@
     "bullmq": "^6.3.4",
     "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.5.1",
-    "hono": "^4.6.0",
+    "hono": "^4.13.11",
     "ioredis": "^6.0.0",
     "iron-session": "^9.0.1",
     "pino": "^9.5.0",
@@ -47,6 +50,6 @@
     "esbuild": "^0.21.5",
     "tsx": "^4.19.0",
     "typescript": "^5.6.3",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   }
 }

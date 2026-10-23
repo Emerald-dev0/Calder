@@ -971,3 +971,71 @@ provider-dependent; email-client prefetch can consume a magic link before the
 human clicks; in-memory rate limiting is development-only and hosted Redis is
 mandatory; full integration/E2E verification still needs reachable PostgreSQL,
 Redis/provider fixtures, and browser-runner ownership.
+
+## ADR-045: Plan catalogue becomes five tiers and one config file
+
+**Status:** Accepted (2026-10-22). Supersedes the prices in ADR-024.
+
+**Decision:** Calder sells five tiers — Beginner (free), Starter, Pro, Premium
+and Scale. `packages/config/src/plan-limits.ts` is the single source of truth
+for limits, prices and display names; the marketing site, the dashboard, the
+API's quota refusals and the database seed all read from it. Tier **keys** stay
+the database enum values (`free`, `starter`, `pro`, `scale`, plus a catalogue-only
+`premium`), so no data migration is involved: `free` is printed as "Beginner"
+everywhere. Prices are ₦0/$0, ₦5,000/$5, ₦20,000/$18, ₦75,000/$65 and custom;
+the superseded ₦25,000/$15 Pro and $49 Premium figures are gone.
+
+**Why:** the four-tier ladder had no paid entry between free and Pro, which
+left every small team either on a hobby plan or paying for volume it would not
+use. Five tiers give a real first purchase, and moving the catalogue into
+`@calder/config` ends the situation where three files disagreed about what a
+plan allows. Enforcing only projects, domains, senders and seats — and only at
+creation — keeps the change from touching anyone's existing resources, while
+quota enforcement continues to live in the API's single admission path.
+
+**Consequence:** limits for projects, domains, senders and seats are read
+through `checkResourceLimit()` in the Senders, Domains, team and project
+creation paths (built page by page from here). Retention, Gmail sender count and
+the Beginner daily cap are recorded in config with `UNENFORCED_PLAN_LIMITS` and
+gate nothing. `plan_tier` cannot store `premium` yet; adding it is a billing-phase
+migration, listed in `docs/PRICING.md` follow-ups. The unapproved contacts
+allowance stays in config marked `approved: false` and is never rendered.
+
+## ADR-046: A sender is archived, not deleted, once it has sent; two independent defaults
+
+**Status:** Accepted (2026-10-22).
+
+**Decision:** Sender identities gain three properties they did not have before,
+all on columns that already existed in migration 0028:
+
+1. **Two defaults.** `is_default` keeps its meaning — the sender used when a
+   send does not name one — and `is_default_marketing` is the broadcast default.
+   Both are unique per project, both may only be held by a verified, non-archived
+   identity, and setting one never touches the other. Every existing
+   `is_default` call site (the drain's fallback, the send API's default
+   resolution, the compose picker) keeps behaving exactly as before.
+2. **Archive instead of delete.** Deleting a sender that has produced at least
+   one message would leave the email history unattributable — the FK is
+   `set null`, so the rows would silently lose the address they came from.
+   `DELETE /v1/senders/:id` therefore archives such a sender (`archived_at`,
+   defaults cleared) and genuinely deletes one with no history. Archived
+   senders are absent from every listing, picker and resolution path, keep their
+   history, and stop counting against the plan's sender-identity ceiling.
+3. **Reply-To per identity.** `reply_to` is optional; empty means "reply to the
+   From address", the behaviour that existed before.
+
+**Why:** the limit added in this phase counts sender identities per
+organization, so archiving has to free a slot or customers would have no way to
+stay within a ceiling except destroying history. Making the plan check a
+property of the _creation_ path (API and dashboard, one shared function) rather
+than the UI means a script cannot exceed a ceiling the dashboard enforces.
+`api_key_senders` is populated and selectable now, but not enforced at send
+time: today no rows means unrestricted, which is what every existing key
+already is, so shipping the selector cannot lock anyone out.
+
+**Consequence:** archived senders cannot be re-created at the same address
+without restoring the archived row — the `(project_id, email)` unique index is
+deliberately not partial, so an address has exactly one owner for all time.
+Senders that are archived, disabled or otherwise unusable fail closed in both
+send paths (`sender_not_ready` from the API, a visible failure in the worker),
+never silently rerouting to another transport.

@@ -23,6 +23,9 @@ function present(row: Record<string, unknown>) {
     status: row.status,
     status_reason: row.statusReason ?? null,
     is_default: row.isDefault,
+    is_default_marketing: row.isDefaultMarketing ?? false,
+    reply_to: row.replyTo ?? null,
+    archived_at: row.archivedAt ?? null,
     transport_id: row.transportId ?? null,
     last_used_at: row.lastUsedAt ?? null,
     created_at: row.createdAt,
@@ -36,9 +39,16 @@ senders.get("/", authMiddleware, async (c) => {
   const { getDb, senderIdentities } = await import("@calder/db");
   const { and, desc, eq, lt, or } = await import("drizzle-orm");
   const db = getDb();
+  const { isNull } = await import("drizzle-orm");
   const limit = Math.min(Math.max(Number.parseInt(c.req.query("limit") ?? "20", 10) || 20, 1), 100);
   const cursor = c.req.query("cursor");
-  const conditions = [eq(senderIdentities.projectId, a.projectId)];
+  const includeArchived = c.req.query("include_archived") === "true";
+  const conditions = [
+    eq(senderIdentities.projectId, a.projectId),
+    // Archived senders are hidden from pickers and listings by default; they
+    // are only returned when a caller explicitly asks for them.
+    ...(includeArchived ? [] : [isNull(senderIdentities.archivedAt)]),
+  ];
   const position = decodeApiCursor(cursor);
   if (position) {
     conditions.push(
@@ -123,6 +133,35 @@ senders.post("/", authMiddleware, async (c) => {
     transportId = t.id;
   }
 
+  // Plan ceiling, checked immediately before the insert. Archived senders are
+  // not counted, so retiring one frees the slot it held.
+  const { assertCanCreateResource, organizationForProject, ResourceLimitError } =
+    await import("@calder/db");
+  const organizationId = await organizationForProject(db, a.projectId);
+  if (!organizationId) throw new AppError("not_found", "Project not found", 404);
+  try {
+    await assertCanCreateResource(db, organizationId, "senders");
+  } catch (err) {
+    if (err instanceof ResourceLimitError) {
+      throw new AppError(
+        err.code,
+        err.message,
+        402,
+        {
+          resource: err.resource,
+          tier: err.tier,
+          limit: err.limit,
+          used: err.used,
+          upgrade_tier: err.upgradeTier,
+        },
+        err.upgradeDisplayName
+          ? `Upgrade to ${err.upgradeDisplayName} to add more sender identities.`
+          : undefined
+      );
+    }
+    throw err;
+  }
+
   const id = `sender_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
   try {
     const [created] = await db
@@ -165,7 +204,7 @@ senders.get("/:id", authMiddleware, async (c) => {
   return c.json({ data: present(row as Record<string, unknown>) });
 });
 
-// PATCH /v1/senders/:id (display_name, is_default)
+// PATCH /v1/senders/:id (display_name, is_default, is_default_marketing, reply_to)
 senders.patch("/:id", authMiddleware, async (c) => {
   const a = auth(c);
   requireScope(a, "manage");
@@ -185,41 +224,145 @@ senders.patch("/:id", authMiddleware, async (c) => {
     .where(and(eq(senderIdentities.id, id), eq(senderIdentities.projectId, a.projectId)))
     .limit(1);
   if (!existing) throw new AppError("not_found", "Sender not found", 404);
-
-  if (parsed.data.is_default) {
-    await db
-      .update(senderIdentities)
-      .set({ isDefault: false, updatedAt: new Date() })
-      .where(eq(senderIdentities.projectId, a.projectId));
+  if (existing.archivedAt) {
+    throw new AppError(
+      "sender_not_ready",
+      "This sender is archived. Unarchive it before editing.",
+      422,
+      undefined,
+      "POST /v1/senders/:id/unarchive, then retry."
+    );
   }
-  const [updated] = await db
-    .update(senderIdentities)
-    .set({
-      ...(parsed.data.display_name !== undefined
-        ? { displayName: parsed.data.display_name.trim().slice(0, 255) }
-        : {}),
-      ...(parsed.data.is_default !== undefined ? { isDefault: parsed.data.is_default } : {}),
-      updatedAt: new Date(),
-    })
-    .where(and(eq(senderIdentities.id, id), eq(senderIdentities.projectId, a.projectId)))
-    .returning();
+
+  const wantsTransactional = parsed.data.is_default === true;
+  const wantsMarketing = parsed.data.is_default_marketing === true;
+  const usable = existing.status === "verified" || existing.status === "connected";
+  if ((wantsTransactional || wantsMarketing) && !usable) {
+    throw new AppError(
+      "sender_not_ready",
+      `${existing.email} is ${existing.status}. Only a verified sender can be a default.`,
+      422,
+      undefined,
+      "Verify the sender's domain first."
+    );
+  }
+
+  const set: Record<string, unknown> = { updatedAt: new Date() };
+  if (parsed.data.display_name !== undefined) {
+    set.displayName = parsed.data.display_name.trim().slice(0, 255);
+  }
+  if (parsed.data.is_default !== undefined) set.isDefault = parsed.data.is_default;
+  if (parsed.data.is_default_marketing !== undefined) {
+    set.isDefaultMarketing = parsed.data.is_default_marketing;
+  }
+  if (parsed.data.reply_to !== undefined) {
+    const replyTo = (parsed.data.reply_to ?? "").trim().toLowerCase();
+    set.replyTo = replyTo || null;
+  }
+
+  const updated = await db.transaction(async (tx) => {
+    // One default per project per stream: clear the current holder before
+    // promoting a new one, inside the same transaction so a reader never sees
+    // two marketing defaults (the partial unique index would refuse anyway).
+    if (wantsTransactional) {
+      await tx
+        .update(senderIdentities)
+        .set({ isDefault: false, updatedAt: new Date() })
+        .where(eq(senderIdentities.projectId, a.projectId));
+    }
+    if (wantsMarketing) {
+      await tx
+        .update(senderIdentities)
+        .set({ isDefaultMarketing: false, updatedAt: new Date() })
+        .where(eq(senderIdentities.projectId, a.projectId));
+    }
+    const [row] = await tx
+      .update(senderIdentities)
+      .set(set)
+      .where(and(eq(senderIdentities.id, id), eq(senderIdentities.projectId, a.projectId)))
+      .returning();
+    return row;
+  });
   return c.json({ data: present(updated as Record<string, unknown>) });
 });
 
-// DELETE /v1/senders/:id (deliveries keep records, FK set null)
+// DELETE /v1/senders/:id
+//
+// A sender that has ever produced a message is archived rather than deleted:
+// the email history is the record of who sent what, and the FK is `set null`,
+// so a hard delete would silently strip that attribution. A sender with no
+// history is genuinely deleted.
 senders.delete("/:id", authMiddleware, async (c) => {
+  const a = auth(c);
+  requireScope(a, "manage");
+  const id = c.req.param("id");
+  const { getDb, senderIdentities, emails } = await import("@calder/db");
+  const { eq, and, count } = await import("drizzle-orm");
+  const db = getDb();
+  const [existing] = await db
+    .select()
+    .from(senderIdentities)
+    .where(and(eq(senderIdentities.id, id), eq(senderIdentities.projectId, a.projectId)))
+    .limit(1);
+  if (!existing) throw new AppError("not_found", "Sender not found", 404);
+
+  if (existing.archivedAt) {
+    return c.json({
+      data: { id, deleted: false, archived: true, archived_at: existing.archivedAt },
+    });
+  }
+
+  const [row] = await db
+    .select({ value: count() })
+    .from(emails)
+    .where(and(eq(emails.senderIdentityId, id), eq(emails.projectId, a.projectId)));
+  const emailCount = Number(row?.value ?? 0);
+
+  if (emailCount > 0) {
+    const [archived] = await db
+      .update(senderIdentities)
+      .set({
+        archivedAt: new Date(),
+        // An archived sender cannot remain a default: the send path would
+        // otherwise resolve an address nobody can select any more.
+        isDefault: false,
+        isDefaultMarketing: false,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(senderIdentities.id, id), eq(senderIdentities.projectId, a.projectId)))
+      .returning();
+    return c.json({
+      data: {
+        id,
+        deleted: false,
+        archived: true,
+        archived_at: archived?.archivedAt ?? null,
+        email_count: emailCount,
+      },
+    });
+  }
+
+  await db
+    .delete(senderIdentities)
+    .where(and(eq(senderIdentities.id, id), eq(senderIdentities.projectId, a.projectId)));
+  return c.json({ data: { id, deleted: true, archived: false } });
+});
+
+// POST /v1/senders/:id/unarchive — make an archived sender selectable again.
+senders.post("/:id/unarchive", authMiddleware, async (c) => {
   const a = auth(c);
   requireScope(a, "manage");
   const id = c.req.param("id");
   const { getDb, senderIdentities } = await import("@calder/db");
   const { eq, and } = await import("drizzle-orm");
   const db = getDb();
-  const deleted = await db
-    .delete(senderIdentities)
+  const [updated] = await db
+    .update(senderIdentities)
+    .set({ archivedAt: null, updatedAt: new Date() })
     .where(and(eq(senderIdentities.id, id), eq(senderIdentities.projectId, a.projectId)))
-    .returning({ id: senderIdentities.id });
-  if (deleted.length === 0) throw new AppError("not_found", "Sender not found", 404);
-  return c.json({ data: { id, deleted: true } });
+    .returning();
+  if (!updated) throw new AppError("not_found", "Sender not found", 404);
+  return c.json({ data: present(updated as Record<string, unknown>) });
 });
 
 // POST /v1/senders/:id/default
@@ -236,6 +379,24 @@ senders.post("/:id/default", authMiddleware, async (c) => {
     .where(and(eq(senderIdentities.id, id), eq(senderIdentities.projectId, a.projectId)))
     .limit(1);
   if (!existing) throw new AppError("not_found", "Sender not found", 404);
+  if (existing.archivedAt) {
+    throw new AppError(
+      "sender_not_ready",
+      "An archived sender cannot be a default.",
+      422,
+      undefined,
+      "Unarchive it first."
+    );
+  }
+  if (existing.status !== "verified" && existing.status !== "connected") {
+    throw new AppError(
+      "sender_not_ready",
+      `${existing.email} is ${existing.status}. Only a verified sender can be a default.`,
+      422,
+      undefined,
+      "Verify the sender's domain first."
+    );
+  }
   await db
     .update(senderIdentities)
     .set({ isDefault: false, updatedAt: new Date() })

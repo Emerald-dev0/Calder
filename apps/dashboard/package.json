@@ -6,6 +6,7 @@
   "scripts": {
     "predev": "rm -rf .next",
     "dev": "next dev --port 3001",
+    "prebuild": "node ../../scripts/ensure-workspace-built.mjs",
     "build": "next build",
     "start": "next start --port 3001",
     "lint": "eslint app --ext .ts,.tsx",
@@ -14,10 +15,12 @@
     "clean": "rm -rf .next"
   },
   "dependencies": {
+    "@calder/audiences": "workspace:*",
     "@calder/auth": "workspace:^",
     "@calder/config": "workspace:^",
     "@calder/db": "workspace:^",
     "@calder/email": "workspace:^",
+    "@calder/notify": "workspace:*",
     "@calder/observability": "workspace:^",
     "@calder/providers": "workspace:^",
     "@calder/queue": "workspace:^",
@@ -28,7 +31,7 @@
     "framer-motion": "^11.11.17",
     "ioredis": "^5.4.1",
     "lucide-react": "^1.50.0",
-    "next": "^15.5.24",
+    "next": "^15.5.28",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^3.10.1",
@@ -39,6 +42,6 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "typescript": "^5.6.3",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   }
 }

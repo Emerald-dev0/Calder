@@ -23,20 +23,28 @@ function ChipInput({
   values,
   onChange,
   placeholder,
+  max = Number.POSITIVE_INFINITY,
+  hint,
 }: {
   label: string;
   values: string[];
   onChange: (v: string[]) => void;
   placeholder: string;
+  /** Hard cap on entries — the send contract takes one address per field. */
+  max?: number;
+  hint?: string;
 }) {
   const [draft, setDraft] = useState("");
+  const full = values.length >= max;
   function commit() {
+    if (full) return;
     const parts = draft
       .split(/[,;\s]+/)
       .map((s) => s.trim().toLowerCase())
       .filter(Boolean);
     if (parts.length === 0) return;
-    onChange([...new Set([...values, ...parts])]);
+    const merged = [...new Set([...values, ...parts])].slice(0, max);
+    onChange(merged);
     setDraft("");
   }
   return (
@@ -99,6 +107,7 @@ function ChipInput({
             </span>
           );
         })}
+        {full ? null : (
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -124,7 +133,11 @@ function ChipInput({
             background: "transparent",
           }}
         />
+        )}
       </div>
+      {hint && (
+        <p style={{ margin: "5px 0 0", fontSize: 11.5, color: "var(--color-muted)" }}>{hint}</p>
+      )}
     </div>
   );
 }
@@ -343,7 +356,9 @@ export function Composer({
             label="To"
             values={to}
             onChange={setTo}
+            max={1}
             placeholder="recipient@example.com (press Enter or comma)"
+            hint="One recipient per message: each recipient counts as one email against your plan."
           />
 
           <div style={{ marginBottom: 14 }}>
@@ -392,8 +407,20 @@ export function Composer({
                 marginBottom: 14,
               }}
             >
-              <ChipInput label="Cc" values={cc} onChange={setCc} placeholder="cc@example.com" />
-              <ChipInput label="Bcc" values={bcc} onChange={setBcc} placeholder="bcc@example.com" />
+              <ChipInput
+                label="Cc"
+                values={cc}
+                onChange={setCc}
+                max={1}
+                placeholder="cc@example.com"
+              />
+              <ChipInput
+                label="Bcc"
+                values={bcc}
+                onChange={setBcc}
+                max={1}
+                placeholder="bcc@example.com"
+              />
               <div style={{ marginBottom: 14 }}>
                 <label className="ds-label" style={{ display: "block", marginBottom: 6 }}>
                   Reply-to
@@ -490,7 +517,7 @@ export function Composer({
                 {sender?.email}
               </p>
               <p style={{ fontSize: 12.5, color: "var(--color-muted)", margin: "0 0 14px" }}>
-                To {to.length} recipient{to.length > 1 ? "s" : ""}
+                To {to.length} recipient{to.length === 1 ? "" : "s"}
                 {scheduledAt ? ` · scheduled ${scheduledAt}` : ""}
                 {files.length > 0
                   ? ` · ${files.length} attachment${files.length > 1 ? "s" : ""}`

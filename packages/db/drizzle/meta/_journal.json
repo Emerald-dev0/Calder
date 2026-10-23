@@ -176,6 +176,41 @@
       "when": 1791030195205,
       "tag": "0024_organization_sending_safety",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792496329495,
+      "tag": "0025_audiences_contacts_segments",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792496337526,
+      "tag": "0026_broadcasts",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792496353699,
+      "tag": "0027_unsubscribe_resubscribe_suppressions",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1792496370415,
+      "tag": "0028_address_sender_emails_apikey_senders",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1792684833959,
+      "tag": "0029_company_email",
+      "breakpoints": true
     }
   ]
 }

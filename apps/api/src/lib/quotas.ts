@@ -8,7 +8,7 @@
  */
 
 import { AppError } from "../errors/index.js";
-import { PLAN_LIMITS, type UsagePeriod } from "@calder/config";
+import { planDisplayName, type UsagePeriod } from "@calder/config";
 import {
   checkOrganizationQuota,
   INTERNAL_ORGANIZATION_ID,
@@ -36,7 +36,8 @@ export function checkSendQuota(
 export function assertQuotaAllowed(decision: QuotaDecision, incoming = 1): void {
   if (decision.allowed) return;
   const { limit, usage, tier, period } = decision;
-  const display = Object.values(PLAN_LIMITS).find((p) => p.tier === tier)?.displayName ?? tier;
+  // Display names come from the catalogue, never from the raw database value.
+  const display = planDisplayName(tier);
   throw new AppError(
     "plan_limit_reached",
     `The ${display} plan allows ${limit!.toLocaleString("en-US")} emails per billing period; ` +

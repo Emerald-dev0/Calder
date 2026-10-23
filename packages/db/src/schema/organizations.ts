@@ -12,6 +12,16 @@ export const organizations = pgTable("organizations", {
   sendingStatusReason: text("sending_status_reason"),
   sendingStatusAt: timestamp("sending_status_at", { withTimezone: true }),
   sendingStatusActorUserId: text("sending_status_actor_user_id"),
+  // Company postal address. Nullable here on purpose: the API validates and
+  // requires it before a broadcast may be sent (sender identification laws),
+  // but existing workspaces and transactional-only sends must keep working.
+  legalName: varchar("legal_name", { length: 255 }),
+  addressLine1: varchar("address_line1", { length: 255 }),
+  addressLine2: varchar("address_line2", { length: 255 }),
+  city: varchar("city", { length: 100 }),
+  region: varchar("region", { length: 100 }),
+  postalCode: varchar("postal_code", { length: 32 }),
+  country: varchar("country", { length: 2 }), // ISO 3166-1 alpha-2
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

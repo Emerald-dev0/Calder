@@ -164,14 +164,30 @@ export const createSenderSchema = z.object({
 
 export type CreateSenderInput = z.infer<typeof createSenderSchema>;
 
+/**
+ * `is_default` is the transactional default and predates the marketing one, so
+ * it keeps its name and its meaning. `is_default_marketing` is the broadcast
+ * default: both are unique per project and only settable on a verified sender.
+ */
 export const patchSenderSchema = z
   .object({
     display_name: z.string().min(2).max(255).optional(),
     is_default: z.boolean().optional(),
+    is_default_marketing: z.boolean().optional(),
+    /** Empty string clears it, which means "reply to the From address". */
+    reply_to: z.union([z.string().email().max(320), z.literal(""), z.null()]).optional(),
   })
-  .refine((d) => d.display_name !== undefined || d.is_default !== undefined, {
-    message: "Nothing to update: send display_name and/or is_default",
-  });
+  .refine(
+    (d) =>
+      d.display_name !== undefined ||
+      d.is_default !== undefined ||
+      d.is_default_marketing !== undefined ||
+      d.reply_to !== undefined,
+    {
+      message:
+        "Nothing to update: send display_name, is_default, is_default_marketing and/or reply_to",
+    }
+  );
 
 // ── API keys ─────────────────────────────────────────────────
 

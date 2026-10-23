@@ -1,24 +1,28 @@
 import Link from "next/link";
-import { eq, and } from "drizzle-orm";
-import { getDb, domains, projectTransports } from "@calder/db";
+import { UserCheck, Globe, ArrowRight, Radio, MailCheck } from "lucide-react";
+import { checkOrganizationResource, getDb } from "@calder/db";
+import { planDisplayName } from "@calder/config";
 import { getTenantContext, resolveProject } from "../../../lib/auth";
-import { listSenders } from "./actions";
+import { pricingUrl } from "../../../lib/pricing";
+import { listSenders, senderHealth, senderCreationOptions, streamStats } from "./actions";
 import { AddSender } from "./add-sender";
-import { UserCheck, Globe, ArrowRight } from "lucide-react";
-import {
-  DsPageHeader,
-  StatusPill,
-  DsBanner,
-  RelativeTime,
-} from "../../../components/design-system";
+import { SenderTable } from "./sender-table";
+import { DsPageHeader, StatusPill, DsBanner, StatCard } from "../../../components/design-system";
 import { EmptyState } from "../../../components/empty-state";
 
 export const metadata = { title: "Calder — Senders" };
 
+const STREAMS = ["transactional", "marketing"] as const;
+type Stream = (typeof STREAMS)[number];
+const STREAM_LABELS: Record<Stream, string> = {
+  transactional: "Transactional",
+  marketing: "Broadcast",
+};
+
 export default async function SendersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ project?: string }>;
+  searchParams: Promise<{ project?: string; tab?: string; stream?: string; archived?: string }>;
 }) {
   const query = await searchParams;
   const ctx = await getTenantContext();
@@ -41,38 +45,32 @@ export default async function SendersPage({
     );
   }
 
-  const db = getDb();
-  const senders = await listSenders(scope.project.id);
-  const verifiedDomains = await db
-    .select({ domain: domains.domain })
-    .from(domains)
-    .where(and(eq(domains.projectId, scope.project.id), eq(domains.status, "verified")));
-  const gmailTransports = await db
-    .select({
-      id: projectTransports.id,
-      label: projectTransports.label,
-      dailyCap: projectTransports.dailyCap,
-    })
-    .from(projectTransports)
-    .where(
-      and(
-        eq(projectTransports.projectId, scope.project.id),
-        eq(projectTransports.type, "gmail"),
-        eq(projectTransports.status, "active")
-      )
-    );
+  const projectId = scope.project.id;
+  const tab = query.tab === "broadcasts" ? "broadcasts" : "senders";
+  const stream: Stream = query.stream === "marketing" ? "marketing" : "transactional";
+  const showArchived = query.archived === "1";
 
-  const { gmailNeedsGraduation } = await import("@calder/db");
-  const graduations = await Promise.all(
-    gmailTransports.map(async (t) => ({
-      ...t,
-      signal: await gmailNeedsGraduation(db, scope.project.id, t.dailyCap),
-    }))
-  );
-  const graduates = graduations.filter((g) => g.signal.needed);
-  const verifiedCount = senders.filter(
+  const [allSenders, health, options] = await Promise.all([
+    listSenders(projectId, { includeArchived: true }),
+    senderHealth(projectId),
+    senderCreationOptions(projectId),
+  ]);
+  const activeSenders = allSenders.filter((s) => !s.archivedAt);
+  const archivedSenders = allSenders.filter((s) => s.archivedAt);
+
+  const stats = await streamStats(projectId);
+  const seg = stats[stream];
+
+  // Plan usage for the sender-identity ceiling. Counts are organization-wide
+  // and exclude archived senders, exactly as the enforcement does.
+  const limitDecision = await checkOrganizationResource(getDb(), scope.organization.id, "senders");
+  const atLimit = limitDecision.limit !== null && limitDecision.used >= limitDecision.limit;
+
+  const verifiedCount = activeSenders.filter(
     (s) => s.status === "verified" || s.status === "connected"
   ).length;
+  const warnCount = Object.values(health).filter((h) => h.warned).length;
+  const base = `/senders?project=${projectId}`;
 
   return (
     <div>
@@ -83,14 +81,16 @@ export default async function SendersPage({
           <StatusPill
             status={verifiedCount > 0 ? "verified" : "pending"}
             label={
-              senders.length === 0 ? "0 senders" : `${verifiedCount} of ${senders.length} ready`
+              activeSenders.length === 0
+                ? "0 senders"
+                : `${verifiedCount} of ${activeSenders.length} ready`
             }
           />
         }
-        description={`${scope.organization.name} → ${scope.project.name} · Manage verified From addresses and default project identities.`}
+        description={`${scope.organization.name} → ${scope.project.name} · Manage verified From addresses, defaults, and deliverability.`}
         actions={
           <Link
-            href={`/domains?project=${scope.project.id}`}
+            href={`/domains?project=${projectId}`}
             className="ds-btn ds-btn-secondary"
             style={{ textDecoration: "none" }}
           >
@@ -100,106 +100,165 @@ export default async function SendersPage({
         }
       />
 
-      {graduates.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <DsBanner
-            tone="warning"
-            title={`You've outgrown Gmail (${graduates.map((g) => g.label).join(", ")})`}
-            description={
-              <span>
-                This project is averaging{" "}
-                <b>
-                  {Math.max(...graduates.map((g) => Math.round(g.signal.dailyAvg7d)))} sends/day
-                </b>{" "}
-                through a personal Gmail account (cap {graduates[0]!.signal.cap}/day). Verify a
-                custom domain to move onto production SES infrastructure automatically with zero
-                code changes.
-              </span>
-            }
-            action={
-              <Link
-                href="/domains"
-                className="ds-btn ds-btn-secondary ds-btn-sm"
-                style={{ textDecoration: "none" }}
-              >
-                <span>Verify domain →</span>
-              </Link>
-            }
-          />
-        </div>
-      )}
+      {/* Tabs: Senders | Broadcasts. Broadcasts is deliberately inert: sending
+          campaigns is a later phase, so it states the fact instead of querying. */}
+      <div
+        className="ds-tabs"
+        role="tablist"
+        aria-label="Sender sections"
+        style={{ marginBottom: 16 }}
+      >
+        <Link
+          href={base}
+          role="tab"
+          aria-selected={tab === "senders"}
+          className={`ds-tab ${tab === "senders" ? "is-active" : ""}`}
+          style={{ textDecoration: "none" }}
+          data-testid="tab-senders"
+        >
+          <UserCheck size={13} />
+          <span>Senders</span>
+        </Link>
+        <Link
+          href={`${base}&tab=broadcasts`}
+          role="tab"
+          aria-selected={tab === "broadcasts"}
+          className={`ds-tab ${tab === "broadcasts" ? "is-active" : ""}`}
+          style={{ textDecoration: "none" }}
+          data-testid="tab-broadcasts"
+        >
+          <Radio size={13} />
+          <span>Broadcasts</span>
+        </Link>
+      </div>
 
-      {senders.length === 0 ? (
+      {tab === "broadcasts" ? (
         <EmptyState
-          icon={<UserCheck size={22} />}
-          title="No sender identities yet"
-          description="Your application needs an authorized From address before Calder can deliver email. Verify your own domain or connect a Gmail account below."
-          actionLabel="Verify a domain"
-          actionHref={`/domains?project=${scope.project.id}`}
+          icon={<Radio size={22} />}
+          title="No broadcasts yet"
+          description="Broadcasts are sent to an audience. Audience management and campaign sending arrive in a later release — nothing has been sent, and nothing is queued."
+          actionLabel="Manage senders"
+          actionHref={base}
         />
       ) : (
-        <div className="ds-table-shell" style={{ marginBottom: 20 }}>
-          <div className="ds-table-scroll">
-            <table className="ds-table">
-              <thead>
-                <tr>
-                  <th>Display Name & Address</th>
-                  <th style={{ width: 140 }}>Status</th>
-                  <th style={{ width: 140 }}>Last Used</th>
-                  <th style={{ width: 110, textAlign: "right" }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {senders.map((s) => (
-                  <tr key={s.id}>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <Link
-                          href={`/senders/${s.id}?project=${scope.project.id}`}
-                          style={{
-                            fontWeight: 600,
-                            fontSize: 13.5,
-                            color: "var(--color-ink)",
-                            textDecoration: "none",
-                          }}
-                        >
-                          {s.displayName}
-                        </Link>
-                        {s.isDefault && <StatusPill status="active" label="Default" />}
-                      </div>
-                      <div className="mono" style={{ fontSize: 12, color: "var(--color-muted)" }}>
-                        {s.email}
-                      </div>
-                    </td>
-                    <td>
-                      <StatusPill status={s.status} />
-                    </td>
-                    <td>
-                      <RelativeTime value={s.lastUsedAt} />
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <Link
-                        href={`/senders/${s.id}?project=${scope.project.id}`}
-                        className="ds-btn ds-btn-secondary ds-btn-sm"
-                        style={{ textDecoration: "none" }}
-                      >
-                        <span>Manage</span>
-                        <ArrowRight size={12} />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+        <>
+          {warnCount > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <DsBanner
+                tone="warning"
+                title={`${warnCount} sender${warnCount === 1 ? "" : "s"} above 5% bounce rate`}
+                description="Bounce rate is measured over the last 7 days of real delivery events. A high rate usually means the address is stale or the domain's DKIM/SPF records are wrong."
+                action={
+                  <Link
+                    href={`${base}&archived=0#senders`}
+                    className="ds-btn ds-btn-secondary ds-btn-sm"
+                    style={{ textDecoration: "none" }}
+                  >
+                    <span>Review senders</span>
+                  </Link>
+                }
+              />
+            </div>
+          )}
 
-      <AddSender
-        projectId={scope.project.id}
-        verifiedDomains={verifiedDomains.map((d) => d.domain)}
-        gmailTransports={gmailTransports}
-      />
+          {/* Stream-segmented stats. The segment lives in the URL, so the choice
+              survives a refresh and can be shared. */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <div className="ds-tabs" role="tablist" aria-label="Delivery stream">
+              {STREAMS.map((s) => (
+                <Link
+                  key={s}
+                  href={`${base}&stream=${s}`}
+                  role="tab"
+                  aria-selected={stream === s}
+                  className={`ds-tab ${stream === s ? "is-active" : ""}`}
+                  style={{ textDecoration: "none" }}
+                >
+                  {STREAM_LABELS[s]}
+                </Link>
+              ))}
+            </div>
+            <span style={{ fontSize: 12, color: "var(--color-muted)" }}>
+              Last 7 days · {STREAM_LABELS[stream].toLowerCase()} stream only
+            </span>
+          </div>
+
+          <div className="ds-grid-4" style={{ marginBottom: 20 }}>
+            <StatCard label="Sent" value={seg.sent.toLocaleString()} sub="Accepted for delivery" />
+            <StatCard
+              label="Delivered"
+              value={seg.delivered.toLocaleString()}
+              status="delivered"
+              sub="Confirmed by provider"
+            />
+            <StatCard
+              label="Bounced"
+              value={seg.bounced.toLocaleString()}
+              status={seg.bounced > 0 ? "bounced" : "healthy"}
+              sub="Hard and soft rejections"
+            />
+            <StatCard
+              label="Complaints"
+              value={seg.complained.toLocaleString()}
+              status={seg.complained > 0 ? "warning" : "healthy"}
+              sub="Marked as spam"
+            />
+          </div>
+
+          <div id="senders">
+            <SenderTable
+              projectId={projectId}
+              senders={showArchived ? allSenders : activeSenders}
+              health={health}
+              archivedCount={archivedSenders.length}
+              showArchived={showArchived}
+              basePath={base}
+            />
+          </div>
+
+          {atLimit && (
+            <div style={{ marginTop: 16 }}>
+              <DsBanner
+                tone={limitDecision.allowed ? "info" : "warning"}
+                title={`Sender identity limit reached (${limitDecision.used} of ${limitDecision.limit})`}
+                description={
+                  <>
+                    The {planDisplayName(limitDecision.tier)} plan includes {limitDecision.limit}{" "}
+                    sender identities. Archived senders do not count towards the limit — archive
+                    one, or move to{" "}
+                    {limitDecision.upgradeTier
+                      ? planDisplayName(limitDecision.upgradeTier)
+                      : "a larger plan"}{" "}
+                    to add more.
+                  </>
+                }
+                action={
+                  <Link
+                    href={pricingUrl()}
+                    className="ds-btn ds-btn-primary ds-btn-sm"
+                    style={{ textDecoration: "none" }}
+                  >
+                    <span>View plans</span>
+                    <ArrowRight size={12} />
+                  </Link>
+                }
+              />
+            </div>
+          )}
+
+          <AddSender
+            projectId={projectId}
+            verifiedDomains={options.verifiedDomains}
+            gmailTransports={options.gmailTransports}
+            disabled={!limitDecision.allowed}
+            limit={
+              limitDecision
+                ? { used: limitDecision.used, limit: limitDecision.limit, tier: limitDecision.tier }
+                : null
+            }
+          />
+        </>
+      )}
     </div>
   );
 }

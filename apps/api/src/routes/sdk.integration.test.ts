@@ -200,11 +200,13 @@ gate("Node SDK against the live API (documented integration path)", async () => 
 
   it("enforces suppression and reports it as a code, not a generic failure", async () => {
     const db = getDb();
+    // A hard bounce is a fact about the mailbox: it blocks every stream, in
+    // every project of the organization.
     await db.insert(suppressions).values({
       id: `sup_sdk_${suffix}`,
       projectId: projId,
       email: "blocked@test.test",
-      reason: "unsubscribe",
+      reason: "bounce",
     });
 
     try {
@@ -220,6 +222,42 @@ gate("Node SDK against the live API (documented integration path)", async () => 
       const apiError = err as CalderRequestError;
       expect(apiError.status).toBe(422);
       expect(apiError.code).toBe("suppressed");
+    }
+  });
+
+  it("scopes an unsubscribe to broadcast mail: transactional still lands", async () => {
+    const db = getDb();
+    // The recipient asked for fewer broadcasts, not for their receipts and
+    // password resets to stop. The suppression must therefore block the
+    // marketing stream only.
+    await db.insert(suppressions).values({
+      id: `sup_sdk_mkt_${suffix}`,
+      projectId: projId,
+      email: "unsubscribed@test.test",
+      reason: "unsubscribe",
+    });
+
+    const transactional = await sdk.emails.send({
+      from,
+      to: "unsubscribed@test.test",
+      subject: "Your receipt",
+      text: "Still delivered.",
+      stream: "transactional",
+    });
+    expect(transactional.id).toBeTruthy();
+
+    try {
+      await sdk.emails.send({
+        from,
+        to: "unsubscribed@test.test",
+        subject: "A broadcast",
+        text: "Must not send.",
+        stream: "marketing",
+      });
+      throw new Error("expected the API to refuse a broadcast to an unsubscribed recipient");
+    } catch (err) {
+      expect(err).toBeInstanceOf(CalderRequestError);
+      expect((err as CalderRequestError).code).toBe("suppressed");
     }
   });
 });

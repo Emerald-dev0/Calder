@@ -117,4 +117,97 @@ export const waitlistStatusEnum = pgEnum("waitlist_status", [
   "removed",
 ]);
 
+// ── Broadcasts, audiences, consent ───────────────────────────
+
+/**
+ * Contact lifecycle at the workspace-project level. `pending_confirmation`
+ * only exists for double opt-in audiences; the provider feedback loop can move
+ * a contact to `bounced` or `complained`, and only an explicit resubscribe
+ * moves it back to `subscribed`.
+ */
+export const contactStatusEnum = pgEnum("contact_status", [
+  "subscribed",
+  "unsubscribed",
+  "bounced",
+  "complained",
+  "pending_confirmation",
+]);
+/** How the contact's consent was obtained. Provenance is never inferred later. */
+export const contactConsentSourceEnum = pgEnum("contact_consent_source", [
+  "import",
+  "api",
+  "form",
+  "manual",
+  "double_opt_in",
+]);
+/** Membership state of a contact inside one audience. Narrower than contact_status. */
+export const audienceContactStatusEnum = pgEnum("audience_contact_status", [
+  "subscribed",
+  "unsubscribed",
+  "pending_confirmation",
+]);
+export const contactImportStatusEnum = pgEnum("contact_import_status", [
+  "pending",
+  "processing",
+  "completed",
+  "failed",
+]);
+export const broadcastStatusEnum = pgEnum("broadcast_status", [
+  "draft",
+  "scheduled",
+  "queued",
+  "sending",
+  "paused",
+  "sent",
+  "cancelled",
+  "failed",
+]);
+export const broadcastRecipientStatusEnum = pgEnum("broadcast_recipient_status", [
+  "pending",
+  "queued",
+  "sent",
+  "delivered",
+  "bounced",
+  "failed",
+  "skipped",
+  "cancelled",
+]);
+/** Why a recipient never became a send. Never inferred; set at skip time. */
+export const broadcastSkipReasonEnum = pgEnum("broadcast_skip_reason", [
+  "unsubscribed",
+  "bounced",
+  "complained",
+  "suppressed",
+  "invalid",
+  "duplicate",
+]);
+export const unsubscribeSourceEnum = pgEnum("unsubscribe_source", [
+  "link_click",
+  "one_click_header",
+  "mailto",
+  "complaint",
+  "manual",
+  "api",
+  "preference_center",
+]);
+/** `audience` = left this list only; `workspace` = no marketing mail from this project. */
+export const unsubscribeScopeEnum = pgEnum("unsubscribe_scope", ["audience", "workspace"]);
+export const resubscribeSourceEnum = pgEnum("resubscribe_source", [
+  "unsubscribe_page",
+  "preference_center",
+  "double_opt_in_confirmation",
+  "manual",
+  "api",
+]);
+
+export type ContactStatus = (typeof contactStatusEnum.enumValues)[number];
+export type ContactConsentSource = (typeof contactConsentSourceEnum.enumValues)[number];
+export type AudienceContactStatus = (typeof audienceContactStatusEnum.enumValues)[number];
+export type BroadcastStatus = (typeof broadcastStatusEnum.enumValues)[number];
+export type BroadcastRecipientStatus = (typeof broadcastRecipientStatusEnum.enumValues)[number];
+export type BroadcastSkipReason = (typeof broadcastSkipReasonEnum.enumValues)[number];
+export type UnsubscribeSource = (typeof unsubscribeSourceEnum.enumValues)[number];
+export type UnsubscribeScope = (typeof unsubscribeScopeEnum.enumValues)[number];
+export type ResubscribeSource = (typeof resubscribeSourceEnum.enumValues)[number];
+
 export type PlatformRole = (typeof platformRoleEnum.enumValues)[number];

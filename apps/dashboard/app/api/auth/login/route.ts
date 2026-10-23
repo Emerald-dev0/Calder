@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import {
-  getSessionUser,
   loginWithPassword,
   LoginLockedError,
   normalizeEmail,
@@ -9,7 +7,6 @@ import {
   recordSecurityEvent,
   sealSessionCookie,
   sessionCookieHeader,
-  SESSION_COOKIE,
 } from "@calder/auth";
 import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { logger } from "@calder/observability";
@@ -17,6 +14,7 @@ import { clientIp } from "../../../../lib/client-ip";
 import { sendOtpEmail } from "../../../../lib/send-auth-email";
 import { sendSecurityEmail } from "../../../../lib/send-security-email";
 import { sameOriginRequest } from "../../../../lib/csrf";
+import { readPreviousSessionId } from "../../../../lib/previous-session";
 import { postLoginRedirect } from "../../../../lib/control/post-login";
 
 /**
@@ -63,7 +61,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   try {
-    const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
+    const previousSessionId = await readPreviousSessionId();
     const result = await loginWithPassword(
       email,
       password,
@@ -71,7 +69,7 @@ export async function POST(req: Request): Promise<Response> {
         userAgent: req.headers.get("user-agent"),
         ip: clientIp(req),
       },
-      previous?.sessionId
+      previousSessionId
     );
 
     if (result.needsVerification) {
@@ -108,6 +106,39 @@ export async function POST(req: Request): Promise<Response> {
     // Account-level progressive lockout (M6.1): distinct from the route's
     // per-IP/per-email rate limiter — same 429 status, explicit retry hint.
     if (err instanceof LoginLockedError) {
+      // Tell the owner, once per lock. Keyed on the lock instant so hammering
+      // a locked account cannot turn the mailbox into the attack surface.
+      try {
+        const { getDb, users } = await import("@calder/db");
+        const { eq } = await import("drizzle-orm");
+        const { sendCompanyEmailQuietly } = await import("@calder/notify");
+        const db = getDb();
+        const [row] = await db
+          .select({
+            id: users.id,
+            name: users.name,
+            lockedUntil: users.lockedUntil,
+            failedLoginAttempts: users.failedLoginAttempts,
+          })
+          .from(users)
+          .where(eq(users.email, normalizeEmail(email)))
+          .limit(1);
+        if (row?.lockedUntil) {
+          await sendCompanyEmailQuietly(db, {
+            id: "account.locked_out",
+            to: email,
+            userId: row.id,
+            idempotencyKey: `lock:${row.id}:${row.lockedUntil.toISOString()}`,
+            data: {
+              lockedUntil: row.lockedUntil.toISOString().replace("T", " ").slice(0, 16) + " UTC",
+              attempts: row.failedLoginAttempts,
+              ip: clientIp(req) ?? undefined,
+            },
+          });
+        }
+      } catch (mailErr) {
+        logger.warn({ err: mailErr }, "Could not send lockout notice");
+      }
       return NextResponse.json(
         { error: err.message },
         { status: 429, headers: { "Retry-After": String(err.retryAfterSec) } }

@@ -104,6 +104,21 @@ keys.post("/", authMiddleware, async (c) => {
     throw err;
   }
   if (!created) throw new AppError("internal_error", "Could not create API key.", 500);
+  // Tell the people who can act on it. A key is a credential: its creation is
+  // a security event for the workspace, not a detail in a settings page.
+  const { sendOrganizationEmail } = await import("@calder/notify");
+  await sendOrganizationEmail(db, {
+    id: "operations.api_key_created",
+    organizationId: a.organizationId,
+    idempotencyKey: `api_key:created:${created.id}`,
+    data: {
+      keyName: created.name,
+      keyPrefix: created.keyPrefix,
+      env: created.env,
+      createdBy: `API key ${a.keyPrefix}…`,
+      when: new Date().toISOString(),
+    },
+  }).catch(() => {});
   await db
     .insert(auditLogs)
     .values({
@@ -232,6 +247,19 @@ keys.post("/:id/revoke", authMiddleware, async (c) => {
     .where(and(eq(apiKeys.id, id), eq(apiKeys.projectId, a.projectId)))
     .returning();
   if (!updated) throw new AppError("not_found", "API key not found", 404);
+  const { sendOrganizationEmail } = await import("@calder/notify");
+  await sendOrganizationEmail(db, {
+    id: "operations.api_key_revoked",
+    organizationId: a.organizationId,
+    idempotencyKey: `api_key:revoked:${updated.id}:${updated.revokedAt?.getTime() ?? Date.now()}`,
+    data: {
+      keyName: updated.name,
+      keyPrefix: updated.keyPrefix,
+      env: updated.env,
+      revokedBy: `API key ${a.keyPrefix}…`,
+      when: new Date().toISOString(),
+    },
+  }).catch(() => {});
   await db
     .insert(auditLogs)
     .values({

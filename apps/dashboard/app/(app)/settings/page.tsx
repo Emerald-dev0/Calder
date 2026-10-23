@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { getTenantContext } from "../../../lib/auth";
-import { getTeam, listMySessions } from "./actions";
+import { getTeam, listMySessions, requestDataExport } from "./actions";
 import { InviteForm, MemberRow, RevokeInviteButton } from "./team";
 import { NewOrgForm, NewProjectForm } from "./workspace-forms";
 import { SessionsCard } from "./sessions";
-import { Settings, Building2, Users, Shield, CreditCard, FolderGit2 } from "lucide-react";
+import { EmailChangeForm } from "./account";
+import { DsBanner } from "../../../components/design-system";
+import { Settings, Building2, Users, Shield, CreditCard, FolderGit2, BellRing } from "lucide-react";
 import { DsPageHeader, StatusPill } from "../../../components/design-system";
 
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ org?: string }>;
+  searchParams: Promise<{ org?: string; emailChange?: string; dataExport?: string }>;
 }) {
   const query = await searchParams;
   const ctx = await getTenantContext();
@@ -105,6 +107,14 @@ export default async function SettingsPage({
             <Building2 size={13} />
             <span>Workspace & Projects</span>
           </a>
+          <Link
+            href="/settings/notifications"
+            className="ds-tab"
+            style={{ textDecoration: "none" }}
+          >
+            <BellRing size={13} />
+            <span>Emails from Calder</span>
+          </Link>
         </div>
 
         {ctx.memberships.length > 1 && (
@@ -144,6 +154,7 @@ export default async function SettingsPage({
                   member={m}
                   isSelf={m.userId === team.callerUserId}
                   canAdminister={canAdminister}
+                  canTransfer={canAdminister && m.role !== "owner"}
                 />
               </div>
             ))}
@@ -180,9 +191,57 @@ export default async function SettingsPage({
         )}
       </div>
 
+      {emailChangeNotice(query.emailChange)}
+      {query.dataExport === "sent" ? (
+        <div style={{ marginTop: 4 }}>
+          <DsBanner
+            tone="info"
+            title="Export link sent"
+            description="Open it from your inbox within the next hour; you must be signed in for the download to work."
+          />
+        </div>
+      ) : null}
+
       {/* Section: Active Sessions */}
       <div id="sessions">
         <SessionsCard sessions={mySessions} />
+      </div>
+
+      {/* Section: Account email */}
+      <div id="account" style={{ marginTop: 20 }}>
+        <div className="ds-card">
+          <div className="ds-card-header">
+            <div>
+              <h2 className="ds-card-title">Account email</h2>
+              <p className="ds-card-subtitle">
+                Currently <span className="mono">{ctx.user.email}</span>. Changing it requires
+                access to the current mailbox.
+              </p>
+            </div>
+          </div>
+          <div className="ds-card-body">
+            <EmailChangeForm currentEmail={ctx.user.email} />
+          </div>
+          <div className="ds-card-header" style={{ borderTop: "1px solid var(--color-border)" }}>
+            <div>
+              <h2 className="ds-card-title">Your data</h2>
+              <p className="ds-card-subtitle">
+                A JSON archive of your account, workspaces, projects, keys (prefixes only), senders,
+                domains, audiences, contacts and message log.
+              </p>
+            </div>
+          </div>
+          <div className="ds-card-body">
+            <form action={requestDataExport}>
+              <button type="submit" className="ds-btn ds-btn-secondary">
+                Email me a download link
+              </button>
+              <p style={{ fontSize: 12, color: "var(--color-muted)", margin: "8px 0 0" }}>
+                The link works for one hour and requires you to be signed in.
+              </p>
+            </form>
+          </div>
+        </div>
       </div>
 
       {/* Section: Workspace & Projects */}
@@ -231,6 +290,46 @@ export default async function SettingsPage({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Feedback for the email-change round trip (server action and confirm route). */
+function emailChangeNotice(state: string | undefined) {
+  if (!state) return null;
+  const copy: Record<string, { tone: "success" | "danger" | "info"; title: string; body: string }> =
+    {
+      sent: {
+        tone: "info",
+        title: "Confirmation sent",
+        body: "Open the link we sent to your current address. It expires in one hour; nothing has changed yet.",
+      },
+      done: {
+        tone: "success",
+        title: "Email address updated",
+        body: "Both the old and the new address received a receipt. Use the new address to sign in from now on.",
+      },
+      invalid: {
+        tone: "danger",
+        title: "That address doesn't look right",
+        body: "Enter a complete email address, for example you@company.com.",
+      },
+      same: {
+        tone: "info",
+        title: "That is already your address",
+        body: "Enter a different address to start a change.",
+      },
+      taken: {
+        tone: "danger",
+        title: "That address is already in use",
+        body: "Another Calder account owns it. Use a different address, or sign in to that account.",
+      },
+    };
+  const entry = copy[state];
+  if (!entry) return null;
+  return (
+    <div style={{ marginTop: 4 }}>
+      <DsBanner tone={entry.tone} title={entry.title} description={entry.body} />
     </div>
   );
 }

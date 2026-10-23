@@ -6,6 +6,7 @@ import {
   emails,
   emailEvents,
   suppressions,
+  findBlockingSuppression,
   projectTransports,
   senderIdentities,
   recordSendUsage,
@@ -242,12 +243,18 @@ async function resolveChain(db: DbClient, projectId: string, senderIdentityId: s
         )
         .limit(1);
       if (sender && sender.projectId === projectId) {
-        if (sender.status !== "verified" && sender.status !== "connected") {
-          throw Object.assign(new Error(`Sender ${sender.email} is ${sender.status}.`), {
-            code: "sender_not_ready",
-            transient: false,
-            statusCode: 422,
-          });
+        // An archived identity is retired: a message queued before the archive
+        // must fail visibly rather than leave from an address the user has
+        // removed from every picker.
+        if (sender.archivedAt || (sender.status !== "verified" && sender.status !== "connected")) {
+          throw Object.assign(
+            new Error(
+              sender.archivedAt
+                ? `Sender ${sender.email} is archived.`
+                : `Sender ${sender.email} is ${sender.status}.`
+            ),
+            { code: "sender_not_ready", transient: false, statusCode: 422 }
+          );
         }
         const linked = sender.transportId ? byId.get(sender.transportId) : undefined;
         // Same rule for the sender's pinned leg: suspended refuses (no silent
@@ -357,23 +364,29 @@ export async function drainPendingEmails(
       failed++;
       continue;
     }
-    // Suppression check
-    const sup = await db
-      .select()
-      .from(suppressions)
-      .where(and(eq(suppressions.projectId, row.projectId), eq(suppressions.email, row.to)))
-      .limit(1);
-    if (sup.length > 0) {
+    // Suppression check — scope and stream policy live in @calder/db so the
+    // API, worker and dashboard cannot drift apart. A hard bounce or complaint
+    // follows the address across the whole organization; an unsubscribe only
+    // blocks broadcast mail and only in this project.
+    const blocked = await findBlockingSuppression(db, {
+      projectId: row.projectId,
+      email: row.to,
+      stream: row.stream === "marketing" ? "marketing" : "transactional",
+    });
+    if (blocked) {
       await db
         .update(emails)
-        .set({ status: "suppressed", lastError: sup[0]!.reason, updatedAt: now })
+        .set({ status: "suppressed", lastError: blocked.reason, updatedAt: now })
         .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
       await recordDrainEvent(db, {
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
         projectId: row.projectId,
         type: "suppressed",
-        data: { reason: sup[0]!.reason },
+        data: {
+          reason: blocked.reason,
+          scope: blocked.crossProject ? "organization" : "project",
+        },
       });
       skipped++;
       continue;

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { desc, inArray, count, isNull, and, eq, gte, sql } from "drizzle-orm";
 import { getDb, emails, domains, apiKeys, webhooks, orgUsageSnapshot } from "@calder/db";
-import { PLAN_LIMITS, planEmailsLimit, type PlanTier } from "@calder/config";
+import { PLAN_LIMITS, planDisplayName, planEmailsLimit } from "@calder/config";
 import { getTenantContext } from "../../lib/auth";
 import { ArrowRight, ArrowUpRight, Globe, KeyRound, Send, Webhook, ShieldBan } from "lucide-react";
 import { RelativeTime } from "../../components/design-system";
@@ -141,7 +141,7 @@ export default async function OverviewPage() {
     try {
       const snap = await orgUsageSnapshot(db, firstOrg.id);
       quota = planEmailsLimit(snap.tier);
-      planName = PLAN_LIMITS[snap.tier as PlanTier]?.displayName ?? planName;
+      planName = planDisplayName(snap.tier);
       usedThisPeriod = snap.acceptedLive;
       periodEnd = snap.period.end;
     } catch {

@@ -3,7 +3,13 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { UserPlus, Trash2 } from "lucide-react";
-import { inviteMember, updateMemberRole, removeMember, revokeInvite } from "./actions";
+import {
+  inviteMember,
+  updateMemberRole,
+  removeMember,
+  revokeInvite,
+  transferOwnership,
+} from "./actions";
 import {
   Avatar,
   CopyField,
@@ -114,15 +120,18 @@ export function MemberRow({
   member,
   isSelf,
   canAdminister,
+  canTransfer,
 }: {
   orgId: string;
   member: Member;
   isSelf: boolean;
   canAdminister: boolean;
+  canTransfer: boolean;
 }) {
   const router = useRouter();
   const [error, setError] = React.useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = React.useState(false);
+  const [confirmTransfer, setConfirmTransfer] = React.useState(false);
 
   async function act(fn: () => Promise<unknown>) {
     setError(null);
@@ -179,6 +188,15 @@ export function MemberRow({
               <option value="admin">admin</option>
               <option value="owner">owner</option>
             </select>
+            {canTransfer && (
+              <button
+                type="button"
+                onClick={() => setConfirmTransfer(true)}
+                className="ds-btn ds-btn-secondary ds-btn-sm"
+              >
+                <span>Make owner</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setConfirmRemove(true)}
@@ -205,6 +223,17 @@ export function MemberRow({
         title={`Remove ${member.email} from organization?`}
         description="They will immediately lose access to all projects, domains, and API keys in this organization."
         confirmLabel="Remove member"
+      />
+      <ConfirmDialog
+        open={confirmTransfer}
+        onClose={() => setConfirmTransfer(false)}
+        onConfirm={async () => {
+          setConfirmTransfer(false);
+          await act(() => transferOwnership(orgId, member.id));
+        }}
+        title={`Make ${member.email} an owner?`}
+        description="They gain full control of the workspace, including billing and deletion. You stay as an admin, so you keep your access but can no longer override them. Both of you get an email."
+        confirmLabel="Transfer ownership"
       />
     </div>
   );

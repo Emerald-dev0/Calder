@@ -1,317 +1,174 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
-import { and, count, eq, inArray } from "drizzle-orm";
-import {
-  getDb,
-  senderIdentities,
-  projectTransports,
-  domains,
-  emails,
-  emailEvents,
-} from "@calder/db";
-import { canManageProject } from "@calder/auth";
 import { getTenantContext } from "../../../lib/auth";
-
-const LOCAL_PART_RE = /^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$/i;
-
-/** Membership check: throws unless the caller belongs to the sender's project. */
-async function scopedSender(senderId: string) {
-  const ctx = await getTenantContext();
-  const db = getDb();
-  const projectIds = [...new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)))];
-  if (projectIds.length === 0) throw new Error("Sender not found.");
-  const [sender] = await db
-    .select()
-    .from(senderIdentities)
-    .where(and(eq(senderIdentities.id, senderId), inArray(senderIdentities.projectId, projectIds)))
-    .limit(1);
-  if (!sender) throw new Error("Sender not found.");
-  return { ctx, db, sender };
-}
-
-async function assertCanManage(userId: string, projectId: string): Promise<void> {
-  const ok = await canManageProject(userId, projectId);
-  if (!ok) throw new Error("Only organization owners or admins can manage senders.");
-}
-
-export interface SenderListItem {
-  id: string;
-  displayName: string;
-  email: string;
-  type: string;
-  status: string;
-  isDefault: boolean;
-  lastUsedAt: Date | null;
-}
-
-/** List a project's sender identities. Read-only: membership implied by page context. */
-export async function listSenders(projectId: string): Promise<SenderListItem[]> {
-  const ctx = await getTenantContext();
-  const projectIds = new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)));
-  if (!projectIds.has(projectId)) throw new Error("Project not found.");
-  const db = getDb();
-  return db
-    .select({
-      id: senderIdentities.id,
-      displayName: senderIdentities.displayName,
-      email: senderIdentities.email,
-      type: senderIdentities.type,
-      status: senderIdentities.status,
-      isDefault: senderIdentities.isDefault,
-      lastUsedAt: senderIdentities.lastUsedAt,
-    })
-    .from(senderIdentities)
-    .where(eq(senderIdentities.projectId, projectId));
-}
+import {
+  createDomainSender as createDomainSenderSvc,
+  createGmailSender as createGmailSenderSvc,
+  dispatchStatus as dispatchStatusSvc,
+  dispatchTestEmail as dispatchTestEmailSvc,
+  getSender as getSenderSvc,
+  listSenders as listSendersSvc,
+  projectApiKeys as projectApiKeysSvc,
+  retireSender as retireSenderSvc,
+  senderAllowedKeyIds as senderAllowedKeyIdsSvc,
+  senderCreationOptions as senderCreationOptionsSvc,
+  senderHealth as senderHealthSvc,
+  senderHealthFor as senderHealthForSvc,
+  senderStreamStats as senderStreamStatsSvc,
+  setSenderAllowedKeys as setSenderAllowedKeysSvc,
+  setSenderDefault as setSenderDefaultSvc,
+  setSenderEnabled as setSenderEnabledSvc,
+  setSenderReplyTo as setSenderReplyToSvc,
+  streamStats as streamStatsSvc,
+  unarchiveSender as unarchiveSenderSvc,
+  updateSenderDisplayName as updateSenderDisplayNameSvc,
+  type DefaultKind,
+  type DispatchStatus,
+  type RetireResult,
+  type SenderActor,
+  type SenderHealth,
+  type SenderRow,
+  type StreamStats,
+} from "../../../lib/senders/service";
 
 /**
- * Create a domain sender. The domain must already be verified for this
- * project; the backend enforces it, never the UI alone.
+ * Server actions for the Senders pages.
+ *
+ * Each one resolves the actor from the session and hands straight to the
+ * service in `lib/senders/service.ts`, which owns the tenant checks and the
+ * rules. Nothing here re-implements a rule, so a rule cannot drift between the
+ * page and the action that backs it.
  */
+
+/** Actor, plus a membership assertion for the project-scoped read actions. */
+async function actorForProject(projectId: string): Promise<SenderActor> {
+  const a = await actor();
+  if (!a.projectIds.includes(projectId)) throw new Error("Project not found.");
+  return a;
+}
+
+async function actor(): Promise<SenderActor> {
+  const ctx = await getTenantContext();
+  const projectIds = [...new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)))];
+  return { userId: ctx.user.userId, projectIds };
+}
+
+export async function listSenders(
+  projectId: string,
+  opts: { includeArchived?: boolean } = {}
+): Promise<SenderRow[]> {
+  return listSendersSvc(await actor(), projectId, opts);
+}
+
+export async function getSender(senderId: string): Promise<SenderRow> {
+  return getSenderSvc(await actor(), senderId);
+}
+
+export async function senderHealth(projectId: string): Promise<Record<string, SenderHealth>> {
+  await actorForProject(projectId);
+  const map = await senderHealthSvc(projectId);
+  return Object.fromEntries(map);
+}
+
+export async function streamStats(projectId: string): Promise<StreamStats> {
+  await actorForProject(projectId);
+  return streamStatsSvc(projectId);
+}
+
+export async function senderHealthFor(senderId: string): Promise<SenderHealth> {
+  return senderHealthForSvc(await actor(), senderId);
+}
+
+export async function senderStreamStats(senderId: string): Promise<StreamStats> {
+  return senderStreamStatsSvc(await actor(), senderId);
+}
+
 export async function createDomainSender(input: {
   projectId: string;
   displayName: string;
   localPart: string;
   domain: string;
 }): Promise<{ id: string }> {
-  const ctx = await getTenantContext();
-  await assertCanManage(ctx.user.userId, input.projectId);
-  const db = getDb();
-  const [domain] = await db
-    .select()
-    .from(domains)
-    .where(and(eq(domains.projectId, input.projectId), eq(domains.domain, input.domain)))
-    .limit(1);
-  if (!domain || domain.status !== "verified") {
-    throw new Error(`Verify ${input.domain} before creating senders on it.`);
-  }
-  const local = input.localPart.trim().toLowerCase();
-  if (!LOCAL_PART_RE.test(local)) throw new Error("Local part: letters, numbers, . _ - (max 64).");
-  const displayName = input.displayName.trim().slice(0, 255);
-  if (displayName.length < 2) throw new Error("Give the sender a display name.");
-  const id = `sender_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
-  try {
-    await db.insert(senderIdentities).values({
-      id,
-      projectId: input.projectId,
-      displayName,
-      email: `${local}@${input.domain}`,
-      type: "domain",
-      status: "verified",
-    });
-  } catch {
-    throw new Error("That address is already a sender on this project.");
-  }
-  return { id };
+  return createDomainSenderSvc(await actor(), input);
 }
 
-/** Create a sender identity from an already-connected Gmail transport. */
 export async function createGmailSender(input: {
   projectId: string;
   transportId: string;
   displayName: string;
 }): Promise<{ id: string }> {
-  const ctx = await getTenantContext();
-  await assertCanManage(ctx.user.userId, input.projectId);
-  const db = getDb();
-  const [transport] = await db
-    .select()
-    .from(projectTransports)
-    .where(
-      and(
-        eq(projectTransports.id, input.transportId),
-        eq(projectTransports.projectId, input.projectId)
-      )
-    )
-    .limit(1);
-  if (!transport || transport.type !== "gmail" || transport.status !== "active") {
-    throw new Error("That Gmail connection is no longer active. Reconnect it first.");
-  }
-  const displayName = input.displayName.trim().slice(0, 255);
-  if (displayName.length < 2) throw new Error("Give the sender a display name.");
-  const id = `sender_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
-  try {
-    await db.insert(senderIdentities).values({
-      id,
-      projectId: input.projectId,
-      displayName,
-      email: transport.label,
-      type: "gmail",
-      transportId: transport.id,
-      status: "connected",
-    });
-  } catch {
-    throw new Error("That address is already a sender on this project.");
-  }
-  return { id };
+  return createGmailSenderSvc(await actor(), input);
 }
 
-/** Set the project default. Explicit sends always win over the default. */
+export async function setSenderDefault(
+  senderId: string,
+  kind: DefaultKind,
+  value: boolean
+): Promise<{ ok: true }> {
+  return setSenderDefaultSvc(await actor(), senderId, kind, value);
+}
+
+/** Kept for existing callers: sets the transactional default. */
 export async function setDefaultSender(senderId: string): Promise<{ ok: true }> {
-  const { ctx, db, sender } = await scopedSender(senderId);
-  await assertCanManage(ctx.user.userId, sender.projectId);
-  await db
-    .update(senderIdentities)
-    .set({ isDefault: false, updatedAt: new Date() })
-    .where(eq(senderIdentities.projectId, sender.projectId));
-  await db
-    .update(senderIdentities)
-    .set({ isDefault: true, updatedAt: new Date() })
-    .where(
-      and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
-    );
-  return { ok: true };
+  return setSenderDefaultSvc(await actor(), senderId, "transactional", true);
 }
 
 export async function updateSenderDisplayName(
   senderId: string,
   displayName: string
 ): Promise<{ ok: true }> {
-  const { ctx, db, sender } = await scopedSender(senderId);
-  await assertCanManage(ctx.user.userId, sender.projectId);
-  const clean = displayName.trim().slice(0, 255);
-  if (clean.length < 2) throw new Error("Give the sender a display name.");
-  await db
-    .update(senderIdentities)
-    .set({ displayName: clean, updatedAt: new Date() })
-    .where(
-      and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
-    );
-  return { ok: true };
+  return updateSenderDisplayNameSvc(await actor(), senderId, displayName);
 }
 
-/**
- * Disable or re-enable. Re-enabling re-verifies against ground truth
- * (domain still verified / transport still active) instead of assuming.
- */
+export async function setSenderReplyTo(
+  senderId: string,
+  replyTo: string | null
+): Promise<{ ok: true; replyTo: string | null }> {
+  return setSenderReplyToSvc(await actor(), senderId, replyTo);
+}
+
 export async function setSenderEnabled(senderId: string, enabled: boolean): Promise<{ ok: true }> {
-  const { ctx, db, sender } = await scopedSender(senderId);
-  await assertCanManage(ctx.user.userId, sender.projectId);
-  if (!enabled) {
-    await db
-      .update(senderIdentities)
-      .set({ status: "disabled", updatedAt: new Date() })
-      .where(
-        and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
-      );
-    return { ok: true };
-  }
-  if (sender.type === "domain") {
-    const domain = sender.email.split("@")[1] ?? "";
-    const [row] = await db
-      .select()
-      .from(domains)
-      .where(and(eq(domains.projectId, sender.projectId), eq(domains.domain, domain)))
-      .limit(1);
-    if (!row || row.status !== "verified") {
-      throw new Error(`Re-verify ${domain} before re-enabling this sender.`);
-    }
-    await db
-      .update(senderIdentities)
-      .set({ status: "verified", updatedAt: new Date() })
-      .where(
-        and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
-      );
-    return { ok: true };
-  }
-  const [transport] = await db
-    .select()
-    .from(projectTransports)
-    .where(
-      and(
-        eq(projectTransports.id, sender.transportId ?? ""),
-        eq(projectTransports.projectId, sender.projectId)
-      )
-    )
-    .limit(1);
-  if (!transport || transport.status !== "active") {
-    throw new Error("Reconnect the Gmail account before re-enabling this sender.");
-  }
-  await db
-    .update(senderIdentities)
-    .set({ status: "connected", updatedAt: new Date() })
-    .where(
-      and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
-    );
-  return { ok: true };
+  return setSenderEnabledSvc(await actor(), senderId, enabled);
 }
 
-/**
- * Delete a sender. Deliveries keep their records (FK set null); the count
- * is returned so the UI states the consequence before confirming.
- */
-export async function deleteSender(senderId: string): Promise<{ ok: true; emailCount: number }> {
-  const { ctx, db, sender } = await scopedSender(senderId);
-  await assertCanManage(ctx.user.userId, sender.projectId);
-  const [row] = await db
-    .select({ value: count() })
-    .from(emails)
-    .where(and(eq(emails.senderIdentityId, senderId), eq(emails.projectId, sender.projectId)));
-  await db
-    .delete(senderIdentities)
-    .where(
-      and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
-    );
-  return { ok: true, emailCount: row?.value ?? 0 };
+export async function deleteSender(senderId: string): Promise<RetireResult> {
+  return retireSenderSvc(await actor(), senderId);
 }
 
-/**
- * Test send through a sender: validates usability, persists the email, and
- * enqueues on the same contract the API uses, so the worker delivers it
- * identically. Reports acceptance only, never claims delivery.
- */
+export async function unarchiveSender(senderId: string): Promise<{ ok: true }> {
+  return unarchiveSenderSvc(await actor(), senderId);
+}
+
+export async function senderAllowedKeyIds(senderId: string): Promise<string[]> {
+  return senderAllowedKeyIdsSvc(await actor(), senderId);
+}
+
+export async function projectApiKeys(projectId: string) {
+  return projectApiKeysSvc(await actor(), projectId);
+}
+
+export async function setSenderAllowedKeys(
+  senderId: string,
+  keyIds: string[]
+): Promise<{ ok: true; restricted: boolean }> {
+  return setSenderAllowedKeysSvc(await actor(), senderId, keyIds);
+}
+
 export async function testSend(
   senderId: string,
   to: string
 ): Promise<{ ok: true; emailId: string }> {
-  const { db, sender } = await scopedSender(senderId);
-  const address = to.trim().toLowerCase();
-  if (!/^[^\s@]{1,200}@[^\s@]{1,200}\.[^\s@]{2,}$/.test(address)) {
-    throw new Error("Enter a valid recipient address.");
-  }
-  const usable = sender.status === "verified" || sender.status === "connected";
-  if (!usable) throw new Error(`${sender.email} isn't ready. Check its status first.`);
-  const emailId = `em_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
-  const { withProjectSendingEligibility } = await import("@calder/db");
-  const admission = await withProjectSendingEligibility(
-    db,
-    { projectId: sender.projectId, env: "live" },
-    async (tx) => {
-      await tx.insert(emails).values({
-        id: emailId,
-        projectId: sender.projectId,
-        from: sender.email,
-        senderIdentityId: sender.id,
-        fromName: sender.displayName,
-        to: address,
-        subject: `Test send from ${sender.displayName}`,
-        text: `This is a test send from ${sender.displayName} <${sender.email}> via Calder. If you're reading this, the sender works end to end.`,
-        status: "queued",
-        env: "live",
-      });
-      await tx.insert(emailEvents).values({
-        id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
-        emailId,
-        projectId: sender.projectId,
-        type: "queued",
-        data: { via: "dashboard-test-send" },
-      });
-      return true;
-    }
-  );
-  const { assertDashboardAdmissionAllowed } = await import("../../../lib/sending-eligibility");
-  assertDashboardAdmissionAllowed(admission.decision);
-  const { createQueue } = await import("@calder/queue");
-  const queue = createQueue<{ emailId: string; projectId: string }>("email:send", {
-    maxAttempts: 5,
-  });
-  await queue.enqueue("send-email", { emailId, projectId: sender.projectId });
-  await db
-    .update(senderIdentities)
-    .set({ lastUsedAt: new Date(), updatedAt: new Date() })
-    .where(
-      and(eq(senderIdentities.id, senderId), eq(senderIdentities.projectId, sender.projectId))
-    );
-  return { ok: true, emailId };
+  const result = await dispatchTestEmailSvc(await actor(), senderId, to);
+  return { ok: true, emailId: result.emailId };
+}
+
+export async function testSendStatus(
+  projectId: string,
+  emailId: string
+): Promise<DispatchStatus | null> {
+  return dispatchStatusSvc(await actor(), projectId, emailId);
+}
+
+export async function senderCreationOptions(projectId: string) {
+  return senderCreationOptionsSvc(await actor(), projectId);
 }

@@ -5,7 +5,12 @@ import { decryptSecret } from "@calder/auth";
 import { logger } from "@calder/observability";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { request as httpsRequest } from "node:https";
-import { WEBHOOK_SECRET_CONTEXT, WEBHOOK_MAX_ATTEMPTS, nextRetryDelayMs } from "@calder/db";
+import {
+  WEBHOOK_SECRET_CONTEXT,
+  WEBHOOK_MAX_ATTEMPTS,
+  nextRetryDelayMs,
+  type DbClient,
+} from "@calder/db";
 
 // Preserve the worker test/export contract while sharing the registry's
 // write-time SSRF rule with API and dashboard callers.
@@ -107,6 +112,139 @@ export function verifySignature(
   return given.length === want.length && timingSafeEqual(given, want);
 }
 
+/**
+ * Tell the workspace its endpoint is dead.
+ *
+ * A failed delivery is invisible from the dashboard unless somebody goes
+ * looking, and a webhook nobody notices is worse than no webhook: the customer
+ * believes events are arriving. The mail is fire-and-forget — the delivery row
+ * is already the source of truth and must not be rolled back by an inbox.
+ */
+async function notifyEndpointFailed(
+  db: DbClient,
+  projectId: string,
+  endpointUrl: string,
+  lastError: string
+): Promise<void> {
+  try {
+    const { projects } = await import("@calder/db");
+    const { eq } = await import("drizzle-orm");
+    const [project] = await db
+      .select({ organizationId: projects.organizationId })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+    if (!project) return;
+
+    const { sendOrganizationEmail } = await import("@calder/notify");
+    await sendOrganizationEmail(db, {
+      id: "operations.webhook_failing",
+      organizationId: project.organizationId,
+      // One warning per endpoint per day: an endpoint that is down stays down,
+      // and the next sweep must not produce a mail per failed event.
+      idempotencyKey: `webhook-failing:${projectId}:${endpointUrl}:${new Date()
+        .toISOString()
+        .slice(0, 10)}`,
+      data: { endpointUrl, event: "webhook.delivery", lastError },
+    });
+  } catch (err) {
+    logger.warn(
+      { projectId, err: err instanceof Error ? err.message : "unknown" },
+      "Webhook failure notice could not be sent"
+    );
+  }
+}
+
+/** How many consecutive exhausted deliveries turn an endpoint off. */
+const DISABLE_AFTER_FAILURES = 5;
+
+/**
+ * Stop delivering to an endpoint that has burned its budget five times in a
+ * row. The rows stay, so history is intact and the endpoint can be turned back
+ * on; what stops is new work against an address that is visibly dead.
+ *
+ * Returns true only for the caller that performed the flip, so the mail is
+ * sent once per disable rather than once per failed delivery.
+ */
+async function disableAfterSustainedFailure(
+  db: DbClient,
+  webhookId: string,
+  projectId: string
+): Promise<boolean> {
+  try {
+    const { webhookDeliveries, webhooks } = await import("@calder/db");
+    const { and, desc, eq } = await import("drizzle-orm");
+
+    const recent = await db
+      .select({ status: webhookDeliveries.status })
+      .from(webhookDeliveries)
+      .where(
+        and(eq(webhookDeliveries.webhookId, webhookId), eq(webhookDeliveries.projectId, projectId))
+      )
+      .orderBy(desc(webhookDeliveries.createdAt), desc(webhookDeliveries.id))
+      .limit(DISABLE_AFTER_FAILURES);
+
+    if (recent.length < DISABLE_AFTER_FAILURES) return false;
+    if (!recent.every((row) => row.status === "failed")) return false;
+
+    const [flipped] = await db
+      .update(webhooks)
+      .set({ enabled: false })
+      .where(
+        and(
+          eq(webhooks.id, webhookId),
+          eq(webhooks.projectId, projectId),
+          eq(webhooks.enabled, true)
+        )
+      )
+      .returning({ id: webhooks.id });
+    return Boolean(flipped);
+  } catch (err) {
+    logger.warn(
+      { webhookId, err: err instanceof Error ? err.message : "unknown" },
+      "Could not evaluate webhook auto-disable"
+    );
+    return false;
+  }
+}
+
+/** Tell the workspace an endpoint was switched off, and how to switch it on. */
+async function notifyEndpointDisabled(
+  db: DbClient,
+  projectId: string,
+  endpointUrl: string
+): Promise<void> {
+  try {
+    const { projects } = await import("@calder/db");
+    const { eq } = await import("drizzle-orm");
+    const [project] = await db
+      .select({ organizationId: projects.organizationId })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+    if (!project) return;
+
+    const { sendOrganizationEmail } = await import("@calder/notify");
+    await sendOrganizationEmail(db, {
+      id: "operations.webhook_disabled",
+      organizationId: project.organizationId,
+      idempotencyKey: `webhook-disabled:${projectId}:${endpointUrl}:${new Date()
+        .toISOString()
+        .slice(0, 10)}`,
+      data: {
+        endpointUrl,
+        failureCount: DISABLE_AFTER_FAILURES,
+        reenableUrl: `${process.env.DASHBOARD_URL ?? "https://app.calder.click"}/webhooks`,
+      },
+    });
+  } catch (err) {
+    logger.warn(
+      { projectId, err: err instanceof Error ? err.message : "unknown" },
+      "Webhook disabled notice could not be sent"
+    );
+  }
+}
+
 interface DeliverJob {
   deliveryId: string;
 }
@@ -141,7 +279,13 @@ async function processDelivery(job: QueueJob<DeliverJob>): Promise<void> {
     .limit(1);
 
   const attempt = job.attempts + 1;
-  const fail = async (message: string, terminal: boolean, extra?: Record<string, unknown>) => {
+  const fail = async (
+    message: string,
+    terminal: boolean,
+    extra?: Record<string, unknown>,
+    /** True when the endpoint itself failed, so the workspace should hear about it. */
+    notifyWorkspace = false
+  ) => {
     const retryDelay = nextRetryDelayMs(attempt);
     const exhausted = terminal || retryDelay === null || attempt >= WEBHOOK_MAX_ATTEMPTS;
     await db
@@ -161,6 +305,17 @@ async function processDelivery(job: QueueJob<DeliverJob>): Promise<void> {
       );
     if (!exhausted) throw new Error(message); // queue retries per its own backoff
     logger.error({ deliveryId, attempt }, `webhook delivery failed permanently: ${message}`);
+    if (notifyWorkspace) {
+      await notifyEndpointFailed(db, delivery.projectId, hook?.url ?? "the endpoint", message);
+      const disabled = await disableAfterSustainedFailure(
+        db,
+        delivery.webhookId,
+        delivery.projectId
+      );
+      if (disabled) {
+        await notifyEndpointDisabled(db, delivery.projectId, hook?.url ?? "the endpoint");
+      }
+    }
   };
 
   if (!hook) return fail("webhook was deleted before delivery", true);
@@ -214,10 +369,12 @@ async function processDelivery(job: QueueJob<DeliverJob>): Promise<void> {
       logger.info({ deliveryId, latencyMs, status: res.status }, "webhook delivered");
       return;
     }
-    await fail(`endpoint answered HTTP ${res.status}`, false, {
-      latencyMs,
-      responseStatus: res.status,
-    });
+    await fail(
+      `endpoint answered HTTP ${res.status}`,
+      false,
+      { latencyMs, responseStatus: res.status },
+      true
+    );
   } catch (err) {
     // Do not persist arbitrary TLS/socket/provider exception text in delivery
     // records. It can contain host details or credentials from an upstream
@@ -226,7 +383,7 @@ async function processDelivery(job: QueueJob<DeliverJob>): Promise<void> {
     const msg = timedOut
       ? `endpoint timed out after ${DELIVERY_TIMEOUT_MS}ms`
       : "endpoint unreachable";
-    await fail(msg, false, { latencyMs: Date.now() - started });
+    await fail(msg, false, { latencyMs: Date.now() - started }, true);
   }
 }
 

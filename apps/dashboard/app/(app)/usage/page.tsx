@@ -1,6 +1,6 @@
 import { desc, inArray } from "drizzle-orm";
-import { getDb, usageSummaries, plans, planPrices, orgUsageSnapshot } from "@calder/db";
-import { planEmailsLimit, PLAN_LIMITS } from "@calder/config";
+import { getDb, usageSummaries, orgUsageSnapshot } from "@calder/db";
+import { PLAN_ORDER, formatPlanPrice, planDisplayName, planEmailsLimit } from "@calder/config";
 import { getTenantContext } from "../../../lib/auth";
 import { pricingUrl } from "../../../lib/pricing";
 import { Gauge, Sparkles, ExternalLink, CheckCircle2 } from "lucide-react";
@@ -34,11 +34,6 @@ export default async function UsagePage() {
           .orderBy(desc(usageSummaries.periodStart))
           .limit(12)
       : [];
-
-  const tiers = await db.select().from(plans);
-  const prices = await db.select().from(planPrices);
-  const priceOf = (planId: string, currency: string) =>
-    prices.find((p) => p.planId === planId && p.currency === currency);
 
   return (
     <div>
@@ -182,69 +177,46 @@ export default async function UsagePage() {
           </div>
         </div>
         <div className="ds-card-body">
-          {tiers.length === 0 ? (
-            <p style={{ color: "var(--color-muted)", fontSize: 13.5, margin: 0 }}>
-              Plans seed at launch—see{" "}
-              <a href={pricingUrl()} style={{ color: "var(--color-accent)", fontWeight: 600 }}>
-                pricing
-              </a>{" "}
-              for the full schedule.
-            </p>
-          ) : (
-            <div className="ds-grid-4">
-              {tiers.map((t) => {
-                const ngn = priceOf(t.id, "NGN");
-                const usd = priceOf(t.id, "USD");
-                const q = Object.values(PLAN_LIMITS).find(
-                  (l) => l.tier === t.tier,
-                )?.emailsPerMonth;
-                return (
+          <div className="ds-grid-4">
+            {PLAN_ORDER.map((tier) => {
+              const quota = planEmailsLimit(tier);
+              return (
+                <div
+                  key={tier}
+                  style={{
+                    background: "var(--color-surface-elevated)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: "var(--radius-lg)",
+                    padding: 16,
+                  }}
+                >
                   <div
-                    key={t.id}
                     style={{
-                      background: "var(--color-surface-elevated)",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: "var(--radius-lg)",
-                      padding: 16,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 8,
                     }}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginBottom: 8,
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontWeight: 700,
-                          fontSize: 14,
-                          textTransform: "capitalize",
-                        }}
-                      >
-                        {t.tier}
-                      </span>
-                      <CheckCircle2 size={14} style={{ color: "var(--color-success)" }} />
-                    </div>
-                    <p
-                      className="mono tabular-nums"
-                      style={{ fontSize: 15, fontWeight: 700, margin: "0 0 6px" }}
-                    >
-                      {ngn ? `₦${(ngn.amountCents / 100).toLocaleString()}` : "Custom"} ·{" "}
-                      {usd ? `$${usd.amountCents / 100}/mo` : ""}
-                    </p>
-                    <p style={{ fontSize: 12, color: "var(--color-muted)", margin: 0 }}>
-                      {q === null || q === undefined
-                        ? "Custom emails/mo"
-                        : `${q.toLocaleString()} emails/mo`}{" "}
-                      · hard limit enforced
-                    </p>
+                    <span style={{ fontWeight: 700, fontSize: 14 }}>{planDisplayName(tier)}</span>
+                    <CheckCircle2 size={14} style={{ color: "var(--color-success)" }} />
                   </div>
-                );
-              })}
-            </div>
-          )}
+                  <p
+                    className="mono tabular-nums"
+                    style={{ fontSize: 15, fontWeight: 700, margin: "0 0 6px" }}
+                  >
+                    {formatPlanPrice(tier, "NGN")} · {formatPlanPrice(tier, "USD")}
+                  </p>
+                  <p style={{ fontSize: 12, color: "var(--color-muted)", margin: 0 }}>
+                    {quota === null
+                      ? "Custom emails/mo"
+                      : `${quota.toLocaleString("en-US")} emails/mo`}
+                    {quota === null ? "" : " · hard limit enforced"}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 

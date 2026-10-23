@@ -35,11 +35,35 @@ async function audit(
     // Audit must never break the operation it records.
   }
 }
+import { redirect } from "next/navigation";
 import { getTenantContext } from "../../../lib/auth";
 import { getConfig } from "@calder/config";
+import { sendCompanyEmailQuietly } from "@calder/notify";
 
 function rid(prefix: string): string {
   return `${prefix}_${randomBytes(12).toString("hex")}`;
+}
+
+/** The timestamp format every "something changed" email uses. */
+function formatWhen(date: Date): string {
+  const stamped = new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC",
+  }).format(date);
+  return `${stamped} UTC`;
+}
+
+async function organizationLabel(
+  db: ReturnType<typeof getDb>,
+  organizationId: string
+): Promise<string> {
+  const [row] = await db
+    .select({ name: organizations.name })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  return row?.name ?? "your workspace";
 }
 
 type Role = "owner" | "admin" | "member";
@@ -137,23 +161,51 @@ export async function inviteMember(orgId: string, email: string, role: Role) {
   }
   const rawToken = randomBytes(32).toString("hex");
   const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+  const inviteId = rid("inv");
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   await db.insert(orgInvitations).values({
-    id: rid("inv"),
+    id: inviteId,
     organizationId: orgId,
     email: clean,
     role,
     tokenHash,
-    invitedBy: (await getTenantContext()).user.userId,
-    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    invitedBy: inviter.user.userId,
+    expiresAt,
   });
   const appUrl = getConfig().APP_URL.replace(/\/$/, "");
+  const inviteLink = `${appUrl}/invite/${rawToken}`;
+
+  const [organization] = await db
+    .select({ name: organizations.name })
+    .from(organizations)
+    .where(eq(organizations.id, orgId))
+    .limit(1);
+
+  // The invitee may have no Calder account yet, so this cannot be a preference
+  // decision: it is the only way they learn the workspace exists. A send
+  // failure still leaves the link on screen for the inviter to pass on.
+  await sendCompanyEmailQuietly(db, {
+    id: "organization.invitation",
+    to: clean,
+    organizationId: orgId,
+    idempotencyKey: `invite:${inviteId}`,
+    data: {
+      inviterName: inviter.user.name ?? inviter.user.email,
+      organizationName: organization?.name ?? "a Calder workspace",
+      role,
+      acceptUrl: inviteLink,
+      expiresInDays: 7,
+    },
+  });
+
   await audit(db, {
     organizationId: orgId,
     actorUserId: inviter.user.userId,
     action: "member.invited",
     targetType: "invitation",
+    targetId: inviteId,
   });
-  return { inviteLink: `${appUrl}/invite/${rawToken}` };
+  return { inviteLink, invited: true };
 }
 
 export async function updateMemberRole(orgId: string, membershipId: string, role: Role) {
@@ -164,31 +216,64 @@ export async function updateMemberRole(orgId: string, membershipId: string, role
     throw new Error("Invalid role.");
   }
   const db = getDb();
+  // Read the target before writing: the email needs the previous role, and the
+  // old row is gone the moment the update lands.
+  const [target] = await db
+    .select({
+      userId: organizationMembers.userId,
+      role: organizationMembers.role,
+      email: users.email,
+      name: users.name,
+    })
+    .from(organizationMembers)
+    .innerJoin(users, eq(users.id, organizationMembers.userId))
+    .where(
+      and(eq(organizationMembers.id, membershipId), eq(organizationMembers.organizationId, orgId))
+    )
+    .limit(1);
+  if (!target) throw new Error("Member not found.");
+
   // Never demote/remove the last owner, an org without an owner is orphaned.
-  if (role !== "owner") {
+  if (role !== "owner" && target.role === "owner") {
     const owners = await db
-      .select({ id: organizationMembers.id, userId: organizationMembers.userId })
+      .select({ id: organizationMembers.id })
       .from(organizationMembers)
       .where(
         and(eq(organizationMembers.organizationId, orgId), eq(organizationMembers.role, "owner"))
       );
-    const target = await db
-      .select()
-      .from(organizationMembers)
-      .where(
-        and(eq(organizationMembers.id, membershipId), eq(organizationMembers.organizationId, orgId))
-      )
-      .limit(1);
-    if (target[0]?.organizationId === orgId && target[0]?.role === "owner" && owners.length <= 1) {
+    if (owners.length <= 1) {
       throw new Error("Cannot demote the last owner, transfer ownership first.");
     }
   }
+  if (target.role === role) return { ok: true as const };
+
   await db
     .update(organizationMembers)
     .set({ role })
     .where(
       and(eq(organizationMembers.id, membershipId), eq(organizationMembers.organizationId, orgId))
     );
+
+  // A role change is a permission change; the person it affects is told even
+  // when an owner did it deliberately. Silent demotions are how insider
+  // surprises happen.
+  if (target.userId !== ctx.user.userId) {
+    await sendCompanyEmailQuietly(db, {
+      id: "organization.role_changed",
+      to: target.email,
+      userId: target.userId,
+      organizationId: orgId,
+      idempotencyKey: `role:${membershipId}:${role}:${Date.now()}`,
+      data: {
+        organizationName: await organizationLabel(db, orgId),
+        oldRole: target.role,
+        newRole: role,
+        changedBy: ctx.user.name ?? ctx.user.email,
+        when: formatWhen(new Date()),
+      },
+    });
+  }
+
   await audit(db, {
     organizationId: orgId,
     actorUserId: ctx.user.userId,
@@ -229,6 +314,29 @@ export async function removeMember(orgId: string, membershipId: string) {
     .where(
       and(eq(organizationMembers.id, membershipId), eq(organizationMembers.organizationId, orgId))
     );
+
+  // Tell the person, not just the audit log: after this row is gone they can
+  // no longer open the workspace to find out why.
+  const [removed] = await db
+    .select({ email: users.email, name: users.name })
+    .from(users)
+    .where(eq(users.id, target[0].userId))
+    .limit(1);
+  if (removed) {
+    await sendCompanyEmailQuietly(db, {
+      id: "organization.member_removed",
+      to: removed.email,
+      userId: target[0].userId,
+      organizationId: orgId,
+      idempotencyKey: `removed:${membershipId}`,
+      data: {
+        organizationName: await organizationLabel(db, orgId),
+        removedBy: ctx.user.name ?? ctx.user.email,
+        when: formatWhen(new Date()),
+      },
+    });
+  }
+
   await audit(db, {
     organizationId: orgId,
     actorUserId: ctx.user.userId,
@@ -300,5 +408,189 @@ export async function signOutOtherSessions() {
   const ctx = await getTenantContext();
   const { revokeOtherSessions } = await import("@calder/auth");
   const n = await revokeOtherSessions(ctx.user.userId, ctx.user.sessionId);
+  // "Sign out everywhere" is the move people make when they think somebody
+  // else has their password. The confirmation belongs in the same inbox.
+  if (n > 0) {
+    await sendCompanyEmailQuietly(getDb(), {
+      id: "account.sessions_revoked",
+      to: ctx.user.email,
+      userId: ctx.user.userId,
+      idempotencyKey: `sessions:${ctx.user.userId}:${Date.now()}`,
+      data: {
+        when: formatWhen(new Date()),
+        reason: `requested from account settings — ${n} ${n === 1 ? "device" : "devices"} signed out`,
+      },
+    });
+  }
   return { revoked: n };
+}
+
+/**
+ * Move ownership from the caller to another member.
+ *
+ * Two writes, not a swap in one statement: the target becomes an owner first
+ * so the organization is never ownerless even if the second write is the one
+ * that fails. The caller is demoted to admin rather than member — they chose
+ * this person, and stripping their access at the same moment would be a
+ * punishment nobody asked for.
+ */
+export async function transferOwnership(orgId: string, membershipId: string) {
+  const ctx = await getTenantContext();
+  const caller = await callerRole(ctx.user.userId, orgId);
+  if (caller !== "owner") throw new Error("Only an owner can transfer ownership.");
+
+  const db = getDb();
+  const [target] = await db
+    .select({
+      id: organizationMembers.id,
+      userId: organizationMembers.userId,
+      role: organizationMembers.role,
+      email: users.email,
+      name: users.name,
+    })
+    .from(organizationMembers)
+    .innerJoin(users, eq(users.id, organizationMembers.userId))
+    .where(
+      and(eq(organizationMembers.id, membershipId), eq(organizationMembers.organizationId, orgId))
+    )
+    .limit(1);
+  if (!target) throw new Error("Member not found.");
+  if (target.userId === ctx.user.userId) throw new Error("You already own this workspace.");
+  if (target.role === "owner") throw new Error("That member is already an owner.");
+
+  await db
+    .update(organizationMembers)
+    .set({ role: "owner" })
+    .where(
+      and(eq(organizationMembers.id, membershipId), eq(organizationMembers.organizationId, orgId))
+    );
+  await db
+    .update(organizationMembers)
+    .set({ role: "admin" })
+    .where(
+      and(
+        eq(organizationMembers.organizationId, orgId),
+        eq(organizationMembers.userId, ctx.user.userId)
+      )
+    );
+
+  const organizationName = await organizationLabel(db, orgId);
+  const stamp = Date.now();
+  const actor = ctx.user.name ?? ctx.user.email;
+
+  // Both sides hear the same fact from their own direction. Two keys, because
+  // the idempotency index is global and one would swallow the other.
+  await sendCompanyEmailQuietly(db, {
+    id: "organization.ownership_transferred",
+    to: target.email,
+    userId: target.userId,
+    organizationId: orgId,
+    idempotencyKey: `ownership:${orgId}:to:${target.userId}:${stamp}`,
+    data: {
+      organizationName,
+      direction: "to you",
+      otherParty: actor,
+      when: formatWhen(new Date()),
+    },
+  });
+  await sendCompanyEmailQuietly(db, {
+    id: "organization.ownership_transferred",
+    to: ctx.user.email,
+    userId: ctx.user.userId,
+    organizationId: orgId,
+    idempotencyKey: `ownership:${orgId}:from:${ctx.user.userId}:${stamp}`,
+    data: {
+      organizationName,
+      direction: "from you",
+      otherParty: target.name ?? target.email,
+      when: formatWhen(new Date()),
+    },
+  });
+
+  await audit(db, {
+    organizationId: orgId,
+    actorUserId: ctx.user.userId,
+    action: "member.ownership_transferred",
+    targetType: "membership",
+    targetId: membershipId,
+  });
+  return { ok: true as const };
+}
+
+/**
+ * Start an email-address change.
+ *
+ * The confirmation link goes to the address being replaced, never to the new
+ * one: whoever controls the current inbox must bless the move. Nothing changes
+ * until the link is followed, and the link dies in an hour.
+ */
+export async function requestEmailChange(formData: FormData) {
+  const ctx = await getTenantContext();
+  const next = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(next)) {
+    redirect("/settings?emailChange=invalid");
+  }
+  if (next === ctx.user.email.toLowerCase()) {
+    redirect("/settings?emailChange=same");
+  }
+
+  const db = getDb();
+  const [taken] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, next))
+    .limit(1);
+  if (taken) redirect("/settings?emailChange=taken");
+
+  const { signEmailChangeToken } = await import("../../../lib/email-change");
+  const { token, expiresAt } = signEmailChangeToken({
+    userId: ctx.user.userId,
+    from: ctx.user.email,
+    to: next,
+  });
+  const link = `${getConfig().APP_URL.replace(/\/$/, "")}/api/auth/email-change/confirm?token=${encodeURIComponent(token)}`;
+
+  await sendCompanyEmailQuietly(db, {
+    id: "account.email_change_requested",
+    to: ctx.user.email,
+    userId: ctx.user.userId,
+    // One request per (account, address, hour): asking twice for the same
+    // change re-uses the live link instead of producing a second email.
+    idempotencyKey: `email-change:${ctx.user.userId}:${next}:${expiresAt.getTime()}`,
+    data: {
+      newEmail: next,
+      confirmUrl: link,
+      expiresInHours: 1,
+    },
+  });
+
+  redirect("/settings?emailChange=sent");
+}
+
+/**
+ * Email a signed, one-hour link to everything the account belongs to.
+ *
+ * The archive is built when the link is opened, not now: it is always the
+ * current data, and there is no file to expire or leak. Keyed per minute, so a
+ * double-click sends one email.
+ */
+export async function requestDataExport() {
+  const ctx = await getTenantContext();
+  const db = getDb();
+  const { signExportToken } = await import("../../../lib/data-export");
+  const { token } = signExportToken(ctx.user.userId);
+  const link = `${getConfig().APP_URL.replace(/\/$/, "")}/api/account/export?token=${encodeURIComponent(token)}`;
+
+  await sendCompanyEmailQuietly(db, {
+    id: "account.data_export_ready",
+    to: ctx.user.email,
+    userId: ctx.user.userId,
+    idempotencyKey: `export:${ctx.user.userId}:${Math.floor(Date.now() / 60_000)}`,
+    data: { downloadUrl: link, expiresInHours: 1 },
+  });
+
+  redirect("/settings?dataExport=sent");
 }

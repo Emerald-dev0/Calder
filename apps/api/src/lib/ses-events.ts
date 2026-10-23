@@ -1,4 +1,6 @@
 import { createVerify, X509Certificate, randomUUID } from "node:crypto";
+import { getConfig } from "@calder/config";
+import { logger } from "@calder/observability";
 import type { DbClient } from "@calder/db";
 import { AppError } from "../errors/index.js";
 
@@ -372,6 +374,8 @@ export interface ApplyResult {
   status: string | null;
   suppressed: string[];
   eventId: string | null;
+  /** Set when this event tripped the automatic feedback pause. */
+  autoPaused?: { organizationId: string; signals: string[] } | null;
 }
 
 /**
@@ -394,7 +398,9 @@ export async function applySesEvent(
   // organization pause and audit entry are one transaction. If any step fails,
   // SNS redelivery can retry the entire application rather than finding a
   // committed dedupe key with partially-applied feedback.
-  return db.transaction(async (tx) => {
+  let autoPaused: { organizationId: string; signals: string[] } | null = null;
+
+  const result = await db.transaction(async (tx) => {
     const eventRowId = `pev_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
     const inserted = await tx
       .insert(providerEvents)
@@ -450,6 +456,35 @@ export async function applySesEvent(
         eventId: eventRowId,
       };
     }
+
+    // Bounce and complaint events escalate to workspace-level accounting, so
+    // they take the organization lock HERE — before the email row, the event
+    // row or any suppression is written.
+    //
+    // Taking the same lock further down (where the abuse policy is evaluated)
+    // lets two concurrent feedback events hold what the other needs: Postgres
+    // then aborts one with "deadlock detected" and that event is lost until
+    // SNS redelivers. Reproduced with ten simultaneous complaints against one
+    // workspace. Locking the workspace first means every transaction acquires
+    // its shared rows in the same order and simply queues.
+    const escalatesAbuse = msg.eventType === "bounce" || msg.eventType === "complaint";
+    const lockedFeedback = escalatesAbuse
+      ? await (async () => {
+          const [feedbackProject] = await tx
+            .select({ organizationId: projects.organizationId })
+            .from(projects)
+            .where(eq(projects.id, row.projectId))
+            .limit(1);
+          if (!feedbackProject) return null;
+          const [organization] = await tx
+            .select({ id: organizations.id, sendingStatus: organizations.sendingStatus })
+            .from(organizations)
+            .where(eq(organizations.id, feedbackProject.organizationId))
+            .limit(1)
+            .for("update");
+          return organization ? { project: feedbackProject, organization } : null;
+        })()
+      : null;
 
     const transition = classifySesEvent(row.status, msg);
     const now = new Date();
@@ -513,23 +548,13 @@ export async function applySesEvent(
     // unmatched events, and events outside the configured recent window are
     // excluded. Only an active org transitions automatically; an operator-set
     // suspension can never be overwritten by feedback processing.
-    if (msg.eventType === "bounce" || msg.eventType === "complaint") {
+    if (escalatesAbuse) {
       const config = getConfig();
       const windowHours = config.ORG_ABUSE_WINDOW_HOURS;
       const windowStart = new Date(now.getTime() - windowHours * 60 * 60 * 1000);
-      const [project] = await tx
-        .select({ organizationId: projects.organizationId })
-        .from(projects)
-        .where(eq(projects.id, row.projectId))
-        .limit(1);
-      const [organization] = project
-        ? await tx
-            .select({ id: organizations.id, sendingStatus: organizations.sendingStatus })
-            .from(organizations)
-            .where(eq(organizations.id, project.organizationId))
-            .limit(1)
-            .for("update")
-        : [];
+      // Already locked, in the same order, before any child row was touched.
+      const project = lockedFeedback?.project;
+      const organization = lockedFeedback?.organization;
       // Serialize threshold evaluation per org so concurrent feedback events
       // cannot each observe a sub-threshold partial count and miss the pause.
       if (project && organization?.sendingStatus === "active") {
@@ -595,6 +620,10 @@ export async function applySesEvent(
             )
             .returning({ id: organizations.id });
           if (paused) {
+            autoPaused = {
+              organizationId: project.organizationId,
+              signals: evaluation.signals,
+            };
             await tx.insert(auditLogs).values({
               id: `audit_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
               organizationId: project.organizationId,
@@ -630,6 +659,59 @@ export async function applySesEvent(
       status: transition.status,
       suppressed,
       eventId: eventRowId,
+      autoPaused,
     };
   });
+
+  // The pause is committed; telling the workspace happens outside the
+  // transaction, because a provider call inside one holds a connection open
+  // and a mail failure must not roll back a safety decision.
+  if (result.autoPaused) {
+    await notifyAbusePause(db, result.autoPaused);
+  }
+  return result;
+}
+
+/**
+ * Two warning templates, one pause. The signal that tripped the policy decides
+ * which fact is reported, and a workspace that trips both gets both — they are
+ * both true and both actionable in different ways.
+ */
+async function notifyAbusePause(
+  db: DbClient,
+  paused: { organizationId: string; signals: string[] }
+): Promise<void> {
+  try {
+    const { sendOrganizationEmail } = await import("@calder/notify");
+    const day = new Date().toISOString().slice(0, 10);
+    const usable = paused.signals.filter(
+      (signal) => signal === "permanent_bounce_rate" || signal === "complaint_rate"
+    );
+    for (const signal of usable) {
+      await sendOrganizationEmail(db, {
+        id:
+          signal === "complaint_rate"
+            ? "operations.complaint_rate_warning"
+            : "operations.bounce_rate_warning",
+        organizationId: paused.organizationId,
+        idempotencyKey: `abuse:${signal}:${paused.organizationId}:${day}`,
+        data: {
+          window: "the last 24 hours",
+          topReason:
+            signal === "complaint_rate"
+              ? "recipients marked it as spam"
+              : "mailboxes rejected the address",
+          suppressionsUrl: `${getConfig().APP_URL.replace(/\/$/, "")}/suppressions`,
+        },
+      });
+    }
+  } catch (err) {
+    logger.warn(
+      {
+        organizationId: paused.organizationId,
+        err: err instanceof Error ? err.message : "unknown",
+      },
+      "Abuse pause notice could not be sent"
+    );
+  }
 }

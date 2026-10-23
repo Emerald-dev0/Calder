@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { planPrice, planSummary } from "../../../lib/plans";
 
 export const metadata: Metadata = {
   title: "Usage & Billing, Calder Docs",
@@ -26,10 +27,11 @@ export default function UsageBilling() {
 
       <h2>Plans</h2>
       <p>
-        Beginner is free: 5,000 emails a month, 3 projects, 2 domains. Pro is $15 or ₦25,000 for
-        50,000 sends. Premium is $49 or ₦75,000 for 250,000. Scale is custom volume and pricing.
-        Naira and dollar prices are set separately, not converted from one another, full detail on
-        the <Link href="/pricing">pricing page</Link>.
+        Beginner is free: {planSummary("beginner")}. Pro is {planPrice("pro", "USD")} or{" "}
+        {planPrice("pro", "NGN")} for 50,000 sends. Premium is {planPrice("premium", "USD")} or{" "}
+        {planPrice("premium", "NGN")} for 250,000. Scale is custom volume and pricing. Naira and
+        dollar prices are set separately, not converted from one another, full detail on the{" "}
+        <Link href="/pricing">pricing page</Link>.
       </p>
 
       <h2>Limits, not overages</h2>

@@ -3,6 +3,7 @@ import type { Env } from "../app.js";
 import { getDb } from "@calder/db";
 import { logger } from "@calder/observability";
 import { drainPendingEmails } from "../lib/drain.js";
+import { runCompanyEmailSweep } from "../lib/company-email-sweep.js";
 
 const cron = new Hono<Env>();
 
@@ -85,6 +86,25 @@ cron.on(["GET", "POST"], "/aggregate-usage", async (c) => {
   } catch (err) {
     logger.error({ err }, "Usage aggregation failed");
     return c.json({ ok: false, error: "aggregation_failed" }, 500);
+  }
+});
+
+/**
+ * GET/POST /v1/cron/company-email — the time-driven half of Calder's own mail.
+ *
+ * Invitations that lapse in two days and API keys that stop working in seven
+ * are the only things here: both are dated facts, both are deduped by an
+ * idempotency key that contains that date, so an extra run is free.
+ */
+cron.on(["GET", "POST"], "/company-email", async (c) => {
+  if (!authorized(c))
+    return c.json({ error: { code: "unauthorized", message: "Invalid cron secret" } }, 401);
+  try {
+    const result = await runCompanyEmailSweep(getDb());
+    return c.json({ ok: true, data: result });
+  } catch (err) {
+    logger.error({ err }, "Company email sweep failed");
+    return c.json({ ok: false, error: "sweep_failed" }, 500);
   }
 });
 

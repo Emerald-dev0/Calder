@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { getDb, senderIdentities, type DbClient } from "@calder/db";
 import { AppError } from "../errors/index.js";
 
@@ -27,8 +27,9 @@ export interface ResolvedSender {
 /**
  * Resolve `from` (sender ID or bare address) for a project.
  *
- * - sender_xxx: must exist IN THIS PROJECT (cross-org IDs reject as unknown)
- *   and be verified/connected, otherwise a plain-language error.
+ * - sender_xxx: must exist IN THIS PROJECT (cross-org IDs reject as unknown),
+ *   must not be archived, and must be verified/connected, otherwise a
+ *   plain-language error.
  * - bare address: legacy path. If an identity exists for it, it must be
  *   usable (a disabled sender stays disabled even by string) and its id is
  *   attached; otherwise the send proceeds unattributed.
@@ -47,7 +48,15 @@ export async function resolveSender(
     const [sender] = await db
       .select()
       .from(senderIdentities)
-      .where(and(eq(senderIdentities.id, ref.id), eq(senderIdentities.projectId, projectId)))
+      .where(
+        and(
+          eq(senderIdentities.id, ref.id),
+          eq(senderIdentities.projectId, projectId),
+          // Archived senders are not selectable, exactly as they are absent
+          // from every dashboard picker.
+          isNull(senderIdentities.archivedAt)
+        )
+      )
       .limit(1);
     if (!sender) {
       throw new AppError(
@@ -75,6 +84,15 @@ export async function resolveSender(
     .where(and(eq(senderIdentities.email, ref.email), eq(senderIdentities.projectId, projectId)))
     .limit(1);
   if (!sender) return { senderIdentityId: null, email: ref.email, displayName: null };
+  // An archived identity may not send even by bare address: the legacy string
+  // path must not become a way to keep using a sender someone retired.
+  if (sender.archivedAt) {
+    throw new AppError(
+      "sender_not_ready",
+      `${sender.email} is archived. Restore it in Senders before sending from it.`,
+      422
+    );
+  }
   if (!isSenderUsable(sender.status)) {
     throw new AppError(
       "sender_not_ready",

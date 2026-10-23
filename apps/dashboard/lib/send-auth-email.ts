@@ -1,66 +1,30 @@
-import { getConfig } from "@calder/config";
-import { MAGIC_LINK_FROM } from "@calder/auth";
-import { brandEmail, createEmailService } from "@calder/email";
-import { resolveEmailProvider } from "@calder/providers";
-import { logger } from "@calder/observability";
+import { getDb } from "@calder/db";
+import { sendCompanyEmailQuietly } from "@calder/notify";
 
+/**
+ * One-time codes: signup verification and password reset.
+ *
+ * These are the two emails where failure is terminal for the user — no code,
+ * no account, no way back in — so they go through the same delivery path as
+ * every other company email, which records the attempt in `company_emails`
+ * and warns when no real provider is configured. A silent mock in production
+ * is the failure mode this is written to make visible.
+ */
 export async function sendOtpEmail(opts: {
   to: string;
   code: string;
   purpose: "verification" | "reset";
+  userId?: string | null;
 }): Promise<void> {
-  const config = getConfig();
-  const status = resolveEmailProvider();
-  const service = createEmailService(status.provider);
-  if (!status.deliverable) {
-    // Loud on purpose: users who never receive a verification code cannot
-    // finish signup, and the silent-mock failure mode is indistinguishable
-    // from a deliverability problem without this line.
-    logger.warn(
-      { driver: status.driver, reason: status.reason },
-      "Auth email is NOT deliverable: no real provider configured"
-    );
-  }
-
   const isVerification = opts.purpose === "verification";
-  const subject = isVerification
-    ? `${opts.code} is your Calder verification code`
-    : `${opts.code} is your Calder password reset code`;
 
-  const heading = isVerification ? "Verify your email address" : "Reset your Calder password";
-
-  const description = isVerification
-    ? "Use the 6-digit code below to finish creating your account. It expires in 10 minutes."
-    : "Use the 6-digit code below to set a new password. It expires in 10 minutes.";
-
-  const html = brandEmail(
-    `
-    <h2 style="font-size: 20px; font-weight: 700; color: #0B0C0E; margin: 0 0 12px;">${heading}</h2>
-    <p style="color: #404040; font-size: 15px; line-height: 1.5; margin: 0 0 24px;">${description}</p>
-    <div style="background: #F5F4EF; border: 1px solid #E5E5E5; border-radius: 8px; padding: 18px 24px; text-align: center; margin: 0 0 24px;">
-      <span style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 32px; font-weight: 700; letter-spacing: 6px; color: #0B0C0E;">${opts.code}</span>
-    </div>
-    <p style="color: #737373; font-size: 13px; margin: 0;">If you did not request this code, you can safely ignore this email. No action is required.</p>
-    `,
-    { preheader: subject }
-  );
-
-  const text = `${heading}\n\n${description}\n\nCode: ${opts.code}\n\nExpires in 10 minutes.\nIf you did not request this, ignore this email.`;
-
-  try {
-    const result = await service.send({
-      from: config.AUTH_EMAIL_FROM ?? MAGIC_LINK_FROM,
-      to: opts.to,
-      subject,
-      html,
-      text,
-    });
-    if (!result.accepted) {
-      logger.warn({ purpose: opts.purpose }, "Provider refused auth OTP send");
-    }
-  } catch {
-    // Do not serialize provider exception text; it can contain recipient or
-    // transport details. The challenge remains short-lived and rate-limited.
-    logger.warn({ purpose: opts.purpose }, "Failed to send auth OTP email");
-  }
+  await sendCompanyEmailQuietly(getDb(), {
+    id: isVerification ? "account.verification_code" : "account.password_reset_code",
+    to: opts.to,
+    userId: opts.userId ?? null,
+    // Keyed on the code, not the challenge: a resend issues a new code and MUST
+    // produce a new email, while a retried request for the same code must not.
+    idempotencyKey: `otp:${opts.purpose}:${opts.to.toLowerCase()}:${opts.code}`,
+    data: { code: opts.code, expiresInMinutes: 10 },
+  });
 }

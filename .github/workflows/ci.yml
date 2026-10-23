@@ -1,5 +1,16 @@
 name: CI
 
+# Least privilege by default. Every job inherits contents:read and a job that
+# needs more must say so explicitly.
+#
+# NOTE ON SECRETS: no job triggered by pull_request has access to any
+# repository secret. PRs run the zero-secret integrity gate, install, lint,
+# typecheck, test and build against throwaway service containers. Deploy-style
+# steps and anything holding a credential are gated on
+# `github.event_name == 'push' && github.ref == 'refs/heads/main'`.
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -9,11 +20,40 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
 jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  # 1. Source-integrity gate. Runs FIRST, before any dependency is installed
+  #    and before any repository code executes.
+  #
+  #    This ordering is the whole point: the 2026-09 and 2026-10 payloads
+  #    lived in files the toolchain runs during install/build/migrate
+  #    (next.config.mjs, seed.ts, migrate.ts). A gate that needs `pnpm install`
+  #    to run has already executed the thing it is meant to catch.
+  #
+  #    It only reads files: no install, no build, no secrets, ~2 seconds.
+  # ───────────────────────────────────────────────────────────────────────────
+  source-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 22 for built-in TypeScript type stripping, so the gate imports the
+      # shared rule table directly with no install and no build step.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Source integrity gate
+        run: node --experimental-strip-types scripts/source-integrity-gate.mjs
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # 2. Verify. Unit + integration tests against throwaway service containers.
+  #    Runs after the gate so no step here can be the first execution of
+  #    poisoned code.
+  # ───────────────────────────────────────────────────────────────────────────
   verify:
+    needs: source-integrity
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -35,9 +75,9 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
-      # Redis is no longer optional: the queue unit/integration suites and the
-      # end-to-end job assert the durable path (enqueue → worker → provider),
-      # and staging/production refuse to boot without it.
+      # Redis is no longer optional: the queue unit/integration suites assert
+      # the durable path (enqueue → worker → provider), and staging/production
+      # refuse to boot without it.
       redis:
         image: redis:7-alpine
         ports:
@@ -70,10 +110,14 @@ jobs:
 
       # Exact fixture allowlists live in .gitleaks.toml; real credentials are
       # never allowlisted by path or broad token shape.
+      # `github.token` is the automatic, ephemeral token — not a stored
+      # repository secret. Scoped to contents:read above, so even a hostile PR
+      # branch cannot use it to read anything the checkout has not already
+      # given it. No repository secret is exposed to any pull_request job.
       - name: Secret scan
         uses: gitleaks/gitleaks-action@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Format check
         run: pnpm format:check
@@ -84,8 +128,12 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Migrate database
-        run: pnpm --filter @calder/db db:migrate
+      # The suite needs a schema. This migrates the EPHEMERAL service container
+      # using that container's throwaway credential — never a real database, and
+      # never the `db:migrate` script (which runs packages/db/src/migrate.ts).
+      # Production migrations are a separate, main-only job below.
+      - name: Migrate ephemeral test database (drizzle-kit)
+        run: pnpm --filter @calder/db exec drizzle-kit migrate
         env:
           DATABASE_URL: postgresql://calder:calder@localhost:5432/calder
 
@@ -147,12 +195,11 @@ jobs:
       - name: Build
         run: pnpm build
 
-  # End-to-end journey over real HTTP with real Postgres + Redis:
-  #   signup → verification → login → org/project → API key → send → worker
-  #   → mock provider → delivery state → metering, plus the Redis-outage
-  #   durability guarantees. No browser is required, so this runs everywhere;
-  #   browser-level UI coverage is tracked in docs/OPERATIONS.md.
+  # ───────────────────────────────────────────────────────────────────────────
+  # 3. End-to-end. Same zero-secret rules as verify; scratch database.
+  # ───────────────────────────────────────────────────────────────────────────
   e2e:
+    needs: source-integrity
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -203,8 +250,8 @@ jobs:
         run: |
           psql "postgresql://calder:calder@localhost:5432/calder" -c "CREATE DATABASE calder_e2e"
 
-      - name: Migrate E2E database
-        run: pnpm --filter @calder/db db:migrate
+      - name: Migrate ephemeral E2E database (drizzle-kit)
+        run: pnpm --filter @calder/db exec drizzle-kit migrate
         env:
           DATABASE_URL: postgresql://calder:calder@localhost:5432/calder_e2e
 
@@ -258,3 +305,42 @@ jobs:
               grep -aE "AssertionError|Error: " e2e-output.log | head -8 || true
             } | head -15 | sort -u
           )
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # 4. Production migration. `main` only, after the gate, the tests and e2e.
+  #
+  #    Uses MIGRATION_DATABASE_URL — a credential scoped to migrations, held in
+  #    a protected Environment so it can require manual approval. It is not
+  #    available to pull_request runs at all: the `if:` below excludes them, and
+  #    the environment itself is main-only.
+  # ───────────────────────────────────────────────────────────────────────────
+  migrate:
+    needs: [source-integrity, verify, e2e]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production-migrations
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations
+        run: pnpm --filter @calder/db exec drizzle-kit migrate
+        env:
+          DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+
+      - name: Migration status (no drift)
+        run: pnpm --filter @calder/db db:status
+        env:
+          DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}

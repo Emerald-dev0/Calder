@@ -35,6 +35,7 @@ gate("sender resolution (live Postgres)", async () => {
     disabled: `sender_off_${suffix}`,
     pending: `sender_wait_${suffix}`,
     otherOrg: `sender_foreign_${suffix}`,
+    archived: `sender_gone_${suffix}`,
   };
 
   beforeAll(async () => {
@@ -72,6 +73,15 @@ gate("sender resolution (live Postgres)", async () => {
         email: `new-${suffix}@test.test`,
         type: "domain",
         status: "pending",
+      },
+      {
+        id: ids.archived,
+        projectId: projId,
+        displayName: "Retired",
+        email: `gone-${suffix}@test.test`,
+        type: "domain",
+        status: "verified",
+        archivedAt: new Date(),
       },
     ]);
   });
@@ -143,6 +153,15 @@ gate("sender resolution (live Postgres)", async () => {
       email: `stranger-${suffix}@test.test`,
       displayName: null,
     });
+  });
+
+  it("hides archived senders from both resolution paths", async () => {
+    if (!(await reachable())) return;
+    const db = getDb();
+    // By id: archived senders are absent from the pickable set.
+    await expect(resolveSender(db, projId, ids.archived)).rejects.toThrow(/Unknown sender/);
+    // By address: the legacy string path must not resurrect a retired sender.
+    await expect(resolveSender(db, projId, `gone-${suffix}@test.test`)).rejects.toThrow(/archived/);
   });
 
   it("blocks bare addresses of disabled senders", async () => {
