@@ -99,6 +99,11 @@ export function DsInput({
   const autoId = React.useId();
   const inputId = id ?? autoId;
   const helpText = hint ?? description;
+  const errorId = `${inputId}-error`;
+  const hintId = `${inputId}-hint`;
+  const ariaDescribedBy =
+    rest["aria-describedby"] ?? (error ? errorId : helpText ? hintId : undefined);
+
   return (
     <div className="ds-field">
       {(label || rightSlot) && (
@@ -115,14 +120,15 @@ export function DsInput({
         id={inputId}
         className={`ds-input ${error ? "is-error" : ""} ${className}`.trim()}
         aria-invalid={Boolean(error)}
+        aria-describedby={ariaDescribedBy}
         {...rest}
       />
       {error ? (
-        <span className="ds-error-text" role="alert">
+        <span id={errorId} className="ds-error-text" role="alert">
           <XCircle size={13} /> {error}
         </span>
       ) : (
-        helpText && <span className="ds-hint">{helpText}</span>
+        helpText && <span id={hintId} className="ds-hint">{helpText}</span>
       )}
     </div>
   );
@@ -148,6 +154,11 @@ export function DsSelect({
   const autoId = React.useId();
   const selectId = id ?? autoId;
   const helpText = hint ?? description;
+  const errorId = `${selectId}-error`;
+  const hintId = `${selectId}-hint`;
+  const ariaDescribedBy =
+    rest["aria-describedby"] ?? (error ? errorId : helpText ? hintId : undefined);
+
   return (
     <div className="ds-field">
       {label && (
@@ -159,16 +170,17 @@ export function DsSelect({
         id={selectId}
         className={`ds-select ${error ? "is-error" : ""} ${className}`.trim()}
         aria-invalid={Boolean(error)}
+        aria-describedby={ariaDescribedBy}
         {...rest}
       >
         {children}
       </select>
       {error ? (
-        <span className="ds-error-text" role="alert">
+        <span id={errorId} className="ds-error-text" role="alert">
           <XCircle size={13} /> {error}
         </span>
       ) : (
-        helpText && <span className="ds-hint">{helpText}</span>
+        helpText && <span id={hintId} className="ds-hint">{helpText}</span>
       )}
     </div>
   );
@@ -193,6 +205,11 @@ export function DsTextarea({
   const autoId = React.useId();
   const areaId = id ?? autoId;
   const helpText = hint ?? description;
+  const errorId = `${areaId}-error`;
+  const hintId = `${areaId}-hint`;
+  const ariaDescribedBy =
+    rest["aria-describedby"] ?? (error ? errorId : helpText ? hintId : undefined);
+
   return (
     <div className="ds-field">
       {label && (
@@ -204,14 +221,15 @@ export function DsTextarea({
         id={areaId}
         className={`ds-textarea ${error ? "is-error" : ""} ${className}`.trim()}
         aria-invalid={Boolean(error)}
+        aria-describedby={ariaDescribedBy}
         {...rest}
       />
       {error ? (
-        <span className="ds-error-text" role="alert">
+        <span id={errorId} className="ds-error-text" role="alert">
           <XCircle size={13} /> {error}
         </span>
       ) : (
-        helpText && <span className="ds-hint">{helpText}</span>
+        helpText && <span id={hintId} className="ds-hint">{helpText}</span>
       )}
     </div>
   );
