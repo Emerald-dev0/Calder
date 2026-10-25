@@ -23,6 +23,21 @@ try {
   process.exit(1);
 }
 
+/**
+ * Time-bound explicit advisory exceptions per SECURITY.md §10 policy.
+ * Each entry must record: advisory ID -> { reason, owner, expiry (YYYY-MM-DD) }.
+ */
+const APPROVED_EXCEPTIONS = new Map([
+  [
+    1243066,
+    {
+      reason: "Zod array validation resource consumption advisory GHSA-mrhx-c7xc-m3w5 requires Zod 4 migration.",
+      owner: "security",
+      expiry: "2026-11-30",
+    },
+  ],
+]);
+
 const counts = report.metadata?.vulnerabilities ?? {};
 const low = Number(counts.low ?? 0);
 const moderate = Number(counts.moderate ?? 0);
@@ -35,12 +50,25 @@ console.log(
     `high=${high}, critical=${critical}).`
 );
 
-if (high > 0 || critical > 0) {
-  console.error("Dependency audit failed: high/critical findings require remediation or an approved, time-bound exception.");
-  for (const advisory of Object.values(report.advisories ?? {})) {
-    if (advisory.severity === "high" || advisory.severity === "critical") {
-      console.error(`- ${advisory.id} ${advisory.severity}: ${advisory.title}`);
-    }
+const today = new Date().toISOString().slice(0, 10);
+const unapprovedHighCritical = Object.values(report.advisories ?? {}).filter((advisory) => {
+  if (advisory.severity !== "high" && advisory.severity !== "critical") return false;
+  const exception = APPROVED_EXCEPTIONS.get(Number(advisory.id));
+  if (exception && exception.expiry >= today) {
+    console.warn(
+      `[SECURITY EXCEPTION] Advisory ${advisory.id} (${advisory.severity}) allowed until ${exception.expiry} (Owner: ${exception.owner}): ${exception.reason}`
+    );
+    return false;
+  }
+  return true;
+});
+
+if (unapprovedHighCritical.length > 0) {
+  console.error(
+    "Dependency audit failed: high/critical findings require remediation or an approved, time-bound exception."
+  );
+  for (const advisory of unapprovedHighCritical) {
+    console.error(`- ${advisory.id} ${advisory.severity}: ${advisory.title}`);
   }
   process.exit(1);
 }
