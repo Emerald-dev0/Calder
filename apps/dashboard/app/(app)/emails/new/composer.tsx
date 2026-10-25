@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useId } from "react";
 import { useRouter } from "next/navigation";
 import {
   Send,
@@ -35,6 +35,7 @@ function ChipInput({
   hint?: string;
 }) {
   const [draft, setDraft] = useState("");
+  const inputId = useId();
   const full = values.length >= max;
   function commit() {
     if (full) return;
@@ -49,7 +50,7 @@ function ChipInput({
   }
   return (
     <div style={{ marginBottom: 14 }}>
-      <label className="ds-label" style={{ display: "block", marginBottom: 6 }}>
+      <label htmlFor={inputId} className="ds-label" style={{ display: "block", marginBottom: 6 }}>
         {label}
       </label>
       <div
@@ -109,6 +110,7 @@ function ChipInput({
         })}
         {full ? null : (
         <input
+          id={inputId}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
@@ -168,6 +170,12 @@ export function Composer({
   const [error, setError] = useState<string | null>(null);
   const [sentId, setSentId] = useState<string | null>(null);
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile" | "api">("desktop");
+
+  const subjectId = useId();
+  const textId = useId();
+  const replyToId = useId();
+  const scheduledAtId = useId();
+  const attachmentsId = useId();
 
   const sender = senders.find((s) => s.id === senderId) ?? null;
   const badTo = to.filter((e) => !EMAIL_RE.test(e));
@@ -362,10 +370,11 @@ export function Composer({
           />
 
           <div style={{ marginBottom: 14 }}>
-            <label className="ds-label" style={{ display: "block", marginBottom: 6 }}>
+            <label htmlFor={subjectId} className="ds-label" style={{ display: "block", marginBottom: 6 }}>
               Subject
             </label>
             <input
+              id={subjectId}
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Welcome to Calder"
@@ -374,10 +383,11 @@ export function Composer({
           </div>
 
           <div style={{ marginBottom: 14 }}>
-            <label className="ds-label" style={{ display: "block", marginBottom: 6 }}>
+            <label htmlFor={textId} className="ds-label" style={{ display: "block", marginBottom: 6 }}>
               Message Body
             </label>
             <textarea
+              id={textId}
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Write your transactional message or paste HTML…"
@@ -422,10 +432,11 @@ export function Composer({
                 placeholder="bcc@example.com"
               />
               <div style={{ marginBottom: 14 }}>
-                <label className="ds-label" style={{ display: "block", marginBottom: 6 }}>
+                <label htmlFor={replyToId} className="ds-label" style={{ display: "block", marginBottom: 6 }}>
                   Reply-to
                 </label>
                 <input
+                  id={replyToId}
                   value={replyTo}
                   onChange={(e) => setReplyTo(e.target.value)}
                   placeholder="support@example.com"
@@ -433,10 +444,11 @@ export function Composer({
                 />
               </div>
               <div style={{ marginBottom: 14 }}>
-                <label className="ds-label" style={{ display: "block", marginBottom: 6 }}>
+                <label htmlFor={scheduledAtId} className="ds-label" style={{ display: "block", marginBottom: 6 }}>
                   Send at (optional scheduled dispatch)
                 </label>
                 <input
+                  id={scheduledAtId}
                   type="datetime-local"
                   value={scheduledAt}
                   onChange={(e) => setScheduledAt(e.target.value)}
@@ -444,7 +456,7 @@ export function Composer({
                 />
               </div>
               <div>
-                <label className="ds-label" style={{ display: "block", marginBottom: 6 }}>
+                <label htmlFor={attachmentsId} className="ds-label" style={{ display: "block", marginBottom: 6 }}>
                   <Paperclip size={12} style={{ marginRight: 4, verticalAlign: "middle" }} />
                   Attachments{" "}
                   <span style={{ fontWeight: 400, color: "var(--color-muted)" }}>
@@ -452,6 +464,7 @@ export function Composer({
                   </span>
                 </label>
                 <input
+                  id={attachmentsId}
                   type="file"
                   multiple
                   onChange={(e) => setFiles(Array.from(e.target.files ?? []).slice(0, 10))}
