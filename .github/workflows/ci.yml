@@ -37,12 +37,20 @@ jobs:
   #    to run has already executed the thing it is meant to catch.
   #
   #    It only reads files: no install, no build, no secrets, ~2 seconds.
+  #
+  #    The second step widens the question: a payload deleted before the merge
+  #    is invisible to a tree scan but still reachable in the branch's own
+  #    commits, and resurrection is exactly what the 2026-10 outbreak did after
+  #    the 2026-09 cleanup left its `createRequire` preamble behind. That scan
+  #    needs history, hence fetch-depth 0.
   # ───────────────────────────────────────────────────────────────────────────
   source-integrity:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
 
       # Node 22 for built-in TypeScript type stripping, so the gate imports the
       # shared rule table directly with no install and no build step.
@@ -52,6 +60,36 @@ jobs:
 
       - name: Source integrity gate
         run: node --experimental-strip-types scripts/source-integrity-gate.mjs
+
+      # Only the blobs the change under review introduces. Scanning all of
+      # history here would fail forever: the payload is a known, documented part
+      # of this repository's object database and history is not rewritten.
+      - name: Payload markers in the commits under review
+        shell: bash
+        env:
+          # Passed as env, not interpolated into the script, so a ref name can
+          # never become shell.
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          base="${BASE_SHA:-${BEFORE_SHA:-}}"
+          if [ "$base" = "0000000000000000000000000000000000000000" ]; then base=""; fi
+          # A force-push can leave `before` pointing at a commit that is no
+          # longer reachable, and an unfetched base makes the range meaningless.
+          if [ -n "$base" ] && ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            echo "Base ${base} is not in the fetched history; falling back to HEAD^."
+            base=""
+          fi
+          if [ -z "$base" ]; then
+            base="$(git rev-parse --verify --quiet "${GITHUB_SHA}^" || true)"
+          fi
+          if [ -z "$base" ]; then
+            echo "No base commit to diff against; the tree scan above is the gate."
+            exit 0
+          fi
+          node --experimental-strip-types scripts/source-integrity-history-scan.mjs \
+            --fail-on-any "${base}..${GITHUB_SHA}"
 
   # ───────────────────────────────────────────────────────────────────────────
   # 2. Verify. Unit + integration tests against throwaway service containers.
