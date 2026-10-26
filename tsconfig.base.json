@@ -16,6 +16,9 @@
     "isolatedModules": true,
     "allowJs": false,
     "noEmit": true,
+    // A typecheck failure must never leave runnable JS behind: tsc otherwise writes dist/ and
+    // exits 2, which is how the 2026-10 payload reached packages/db/dist/*.js on a red build.
+    "noEmitOnError": true,
     "noUncheckedIndexedAccess": true,
     "noFallthroughCasesInSwitch": true
   },
