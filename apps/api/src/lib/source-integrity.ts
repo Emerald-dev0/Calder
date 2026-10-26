@@ -112,6 +112,25 @@ export function fileViolates(rule: Rule, text: string): boolean {
   return Boolean(rule.line && text.split("\n").some((l) => rule.line!.test(l)));
 }
 
+/**
+ * An ES module that installs a CommonJS `require` and then never calls it.
+ *
+ * This is the half of the outbreak that survives a bad cleanup: the tail
+ * (`eval` of a decoded blob) gets deleted, the two-line preamble that hands the
+ * payload a module loader stays behind, and the next append only has to add the
+ * tail back. A *used* `createRequire` is legitimate — `apps/api/src/routes/health.ts`
+ * needs one to read a JSON asset through a per-file transpiler — so the check
+ * keys on the alias never being called, not on its presence.
+ */
+const ES_MODULE_REQUIRE_ALIAS = /(?:^|\n)[ \t]*const\s+require\s*=\s*createRequire\s*\(/;
+
+export function unusedRequireShim(text: string): string | null {
+  if (!ES_MODULE_REQUIRE_ALIAS.test(text)) return null;
+  const withoutAlias = text.replace(ES_MODULE_REQUIRE_ALIAS, "");
+  if (/\brequire\s*[(.]/.test(withoutAlias)) return null;
+  return "installs a CommonJS require that nothing calls — the payload preamble shape";
+}
+
 // ── Non-source file checks ───────────────────────────────────────────────────
 //
 // The payload family targets whatever a developer's toolchain will execute
