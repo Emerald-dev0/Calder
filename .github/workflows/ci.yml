@@ -189,6 +189,13 @@ jobs:
         env:
           DATABASE_URL: postgresql://calder:calder@localhost:5432/calder
 
+      # The other direction, and the one db:status cannot see: does the committed
+      # migration set actually cover the schema the code declares? OPS-03 lived
+      # exactly here — drizzle-kit exited 0 while failing to read the schema, so
+      # generation wrote nothing and CI stayed green.
+      - name: Schema coverage (migrations cover the declared schema)
+        run: pnpm --filter @calder/db db:drift
+
       # Output is captured and uploaded on failure: GitHub's job-log endpoint
       # has been returning EOF for this repo, which makes a red Test step
       # undiagnosable without it.
