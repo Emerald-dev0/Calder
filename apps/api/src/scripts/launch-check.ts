@@ -157,6 +157,38 @@ async function checkSendingIdentity(): Promise<void> {
   }
 }
 
+/**
+ * The gate above is one-directional: it proves the database has every committed
+ * migration, not that the committed migrations cover the schema the code
+ * declares. OPS-03 is what slips through — drizzle-kit 0.30.6 prints
+ * `Error: Cannot find module …` and exits 0, so `db:generate` produced nothing
+ * for weeks while every job reading its status reported green, and a schema
+ * change can reach production with no migration behind it at all.
+ *
+ * `checkDbSchemaDrift` regenerates into a scratch copy of `drizzle/` and
+ * distrusts the exit code, so this is the check that actually bites.
+ */
+async function checkSchemaCoverage(): Promise<void> {
+  try {
+    const { checkDbSchemaDrift } = await import("@calder/db");
+    const result = checkDbSchemaDrift();
+    if (result.ok) {
+      add("pass", "schema coverage", result.detail);
+    } else {
+      add("fail", "schema coverage", `${result.kind}: ${result.detail}`);
+    }
+  } catch (err) {
+    // drizzle-kit is a devDependency: a launch check run from an installed
+    // production image cannot generate, which is a gap to report, not a failure.
+    add(
+      "warn",
+      "schema coverage",
+      `could not run the drift check (${err instanceof Error ? err.message : "unknown error"}); ` +
+        `run pnpm --filter @calder/db db:drift from the repo`
+    );
+  }
+}
+
 async function checkDatabase(): Promise<void> {
   if (!process.env.DATABASE_URL) {
     add(
@@ -203,6 +235,8 @@ async function checkDatabase(): Promise<void> {
         `could not verify migration state: ${err instanceof Error ? err.message : "unknown error"}`
       );
     }
+
+    await checkSchemaCoverage();
 
     const internalProjects = await db
       .select({ id: projects.id })

@@ -181,16 +181,25 @@ export function findPackageDir(start: string): string {
   return start;
 }
 
-const isCli =
-  process.argv[1] !== undefined && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
-
-if (isCli) {
+/**
+ * The check as `@calder/db` sees it: this module resolves through the real
+ * package directory even when another workspace imports it through a symlink,
+ * so callers need no path knowledge of their own.
+ */
+export function checkDbSchemaDrift(): DriftOutcome {
   const packageDir = findPackageDir(dirname(fileURLToPath(import.meta.url)));
-  const result = detectSchemaDrift({
+  return detectSchemaDrift({
     packageDir,
     schemaEntry: "dist/schema/index.js",
     migrationsFolder: join(packageDir, "drizzle"),
   });
+}
+
+const isCli =
+  process.argv[1] !== undefined && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+
+if (isCli) {
+  const result = checkDbSchemaDrift();
   if (result.ok) {
     console.log(`schema-drift: ${result.detail}`);
     process.exit(0);

@@ -325,7 +325,9 @@ customer.
   migration is applied, `db:drift` says the committed set actually **covers** the
   schema the code declares. Run both — `pnpm --filter @calder/db db:drift`
   regenerates into a scratch folder and fails if it produces a migration that
-  was never committed.
+  was never committed. `pnpm launch-check` runs the same check as
+  `schema coverage`, so a schema change with no migration behind it blocks the
+  launch on its own.
 - Post-deploy: `pnpm verify:deploy -- --url https://api.calder.click` (health,
   readiness, OpenAPI, auth rejection, optional mock test send, alert sweep).
   It never emails a customer: the send check requires a `calder_sk_test_` key.
