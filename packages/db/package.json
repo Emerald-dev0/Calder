@@ -34,13 +34,14 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "clean": "rm -rf dist",
-    "db:generate": "drizzle-kit generate",
+    "db:generate": "pnpm run build && drizzle-kit generate",
     "db:migrate": "tsx src/migrate.ts",
     "db:seed": "tsx src/seed.ts",
     "db:seed-demo": "NODE_ENV=development tsx src/seed-demo.ts",
-    "db:studio": "drizzle-kit studio",
-    "db:push": "drizzle-kit push",
-    "db:status": "tsx src/migrate-status.ts"
+    "db:studio": "pnpm run build && drizzle-kit studio",
+    "db:push": "pnpm run build && drizzle-kit push",
+    "db:status": "tsx src/migrate-status.ts",
+    "db:drift": "pnpm run build && tsx src/schema-drift.ts"
   },
   "dependencies": {
     "@calder/config": "workspace:*",

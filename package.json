@@ -23,6 +23,7 @@
     "db:studio": "turbo run db:studio",
     "launch-check": "pnpm --filter @calder/api launch-check",
     "db:status": "turbo run db:status",
+    "db:drift": "turbo run db:drift",
     "verify:deploy": "pnpm --filter @calder/api verify-deploy"
   },
   "devDependencies": {

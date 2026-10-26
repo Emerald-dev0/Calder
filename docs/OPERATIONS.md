@@ -321,6 +321,11 @@ customer.
 
 - Pre-deploy: `pnpm launch-check` (blocking); migrations before code
   (`pnpm --filter @calder/db db:migrate`, then `pnpm db:status` to prove no drift).
+  Two different drifts, both cheap to miss: `db:status` says every **committed**
+  migration is applied, `db:drift` says the committed set actually **covers** the
+  schema the code declares. Run both — `pnpm --filter @calder/db db:drift`
+  regenerates into a scratch folder and fails if it produces a migration that
+  was never committed.
 - Post-deploy: `pnpm verify:deploy -- --url https://api.calder.click` (health,
   readiness, OpenAPI, auth rejection, optional mock test send, alert sweep).
   It never emails a customer: the send check requires a `calder_sk_test_` key.

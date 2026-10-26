@@ -17,6 +17,9 @@ coverage
 # Test fixtures generated at run time (never commit key material, even dummies)
 apps/api/src/lib/__fixtures__/
 
+# Scratch copy packages/db/src/schema-drift.ts regenerates into
+packages/db/.schema-drift-*/
+
 # python sdks
 __pycache__/
 *.pyc

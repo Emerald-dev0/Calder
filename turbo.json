@@ -53,6 +53,9 @@
     },
     "db:status": {
       "cache": false
+    },
+    "db:drift": {
+      "cache": false
     }
   }
 }
