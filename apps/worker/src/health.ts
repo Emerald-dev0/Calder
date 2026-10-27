@@ -42,7 +42,11 @@ async function checkSESConnectivity(): Promise<CheckResult> {
         detail: `SES production (quota: ${account.max24HourSend}/day, rate: ${account.maxSendRate}/sec)`,
       };
     }
-    return { state: "degraded", detail: "SES not configured, using mock provider" };
+    const config = getConfig();
+    if (config.NODE_ENV === "production") {
+      return { state: "degraded", detail: "SES not configured, using mock provider" };
+    }
+    return { state: "skipped", detail: "mock provider active (development/test)" };
   } catch (err) {
     return { state: "degraded", detail: err instanceof Error ? err.message : "SES check failed" };
   }

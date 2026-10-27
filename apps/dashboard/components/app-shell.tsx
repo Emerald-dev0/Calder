@@ -864,6 +864,7 @@ export function AppShell({
                 onClick={() => setNotifOpen((v) => !v)}
                 className="ds-btn ds-btn-ghost ds-btn-icon ds-btn-sm"
                 aria-label="Notifications"
+                aria-expanded={notifOpen}
                 title="System notifications"
               >
                 <Bell size={15} />
