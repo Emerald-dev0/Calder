@@ -9,9 +9,9 @@ const aliasSchema = z
   .regex(/^[a-z0-9-]+$/, "Alias must be lowercase alphanumeric and hyphens");
 
 const senderRefSchema = z.union(
-  [z.string().email().max(320), z.string().regex(/^sender_[A-Za-z0-9_-]{1,64}$/)],
+  [z.email().max(320), z.string().regex(/^sender_[A-Za-z0-9_-]{1,64}$/)],
   {
-    errorMap: () => ({ message: "from must be an email address or a sender ID (sender_...)" }),
+    error: "from must be an email address or a sender ID (sender_...)",
   }
 );
 
@@ -35,10 +35,10 @@ export const sendEmailSchema = z
   .object({
     from: senderRefSchema,
     stream: emailStreamSchema,
-    to: z.string().email().max(320),
-    cc: z.string().email().max(320).optional(),
-    bcc: z.string().email().max(320).optional(),
-    reply_to: z.string().email().max(320).optional(),
+    to: z.email().max(320),
+    cc: z.email().max(320).optional(),
+    bcc: z.email().max(320).optional(),
+    reply_to: z.email().max(320).optional(),
     subject: z.string().min(1).max(998).optional(),
     html: z.string().max(1_000_000).optional(),
     text: z.string().max(1_000_000).optional(),
@@ -46,12 +46,12 @@ export const sendEmailSchema = z
       .array(z.object({ name: z.string().max(100), value: z.string().max(500) }))
       .max(20)
       .optional(),
-    metadata: z.record(z.unknown()).optional(),
-    headers: z.record(z.string().max(2000)).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+    headers: z.record(z.string(), z.string().max(2000)).optional(),
     attachments: z.array(attachmentSchema).max(10).optional(),
-    scheduled_at: z.string().datetime({ offset: true }).optional(),
+    scheduled_at: z.iso.datetime({ offset: true }).optional(),
     template: aliasSchema.optional(),
-    variables: z.record(z.string().max(100_000)).optional(),
+    variables: z.record(z.string(), z.string().max(100_000)).optional(),
   })
   .refine((d) => d.html !== undefined || d.text !== undefined || d.template !== undefined, {
     message: "Provide html, text, or a template alias",
@@ -91,12 +91,12 @@ export const bulkSendSchema = z.object({
   messages: z
     .array(
       z.object({
-        to: z.string().email().max(320),
+        to: z.email().max(320),
         subject: z.string().min(1).max(998).optional(),
         html: z.string().max(1_000_000).optional(),
         text: z.string().max(1_000_000).optional(),
         template: aliasSchema.optional(),
-        variables: z.record(z.string().max(100_000)).optional(),
+        variables: z.record(z.string(), z.string().max(100_000)).optional(),
       })
     )
     .min(1)
@@ -105,7 +105,7 @@ export const bulkSendSchema = z.object({
   html: z.string().max(1_000_000).optional(),
   text: z.string().max(1_000_000).optional(),
   template: aliasSchema.optional(),
-  variables: z.record(z.string().max(100_000)).optional(),
+  variables: z.record(z.string(), z.string().max(100_000)).optional(),
 });
 
 export type BulkSendInput = z.infer<typeof bulkSendSchema>;
@@ -157,7 +157,7 @@ export const senderTypeSchema = z.enum(["domain", "gmail", "managed"]);
 
 export const createSenderSchema = z.object({
   display_name: z.string().min(2).max(255),
-  email: z.string().email().max(320),
+  email: z.email().max(320),
   type: senderTypeSchema,
   transport_id: z.string().max(100).optional(),
 });
@@ -175,7 +175,7 @@ export const patchSenderSchema = z
     is_default: z.boolean().optional(),
     is_default_marketing: z.boolean().optional(),
     /** Empty string clears it, which means "reply to the From address". */
-    reply_to: z.union([z.string().email().max(320), z.literal(""), z.null()]).optional(),
+    reply_to: z.union([z.email().max(320), z.literal(""), z.null()]).optional(),
   })
   .refine(
     (d) =>
@@ -239,14 +239,14 @@ export const createTemplateVersionSchema = z.object({
 // ── Suppressions ─────────────────────────────────────────────
 
 export const createSuppressionSchema = z.object({
-  email: z.string().email().max(320),
+  email: z.email().max(320),
   reason: z.string().min(1).max(100),
 });
 
 // ── Webhook ──────────────────────────────────────────────────
 
 export const createWebhookSchema = z.object({
-  url: z.string().url().max(2048),
+  url: z.url().max(2048),
   events: z.array(z.string()).min(1),
 });
 
@@ -291,7 +291,7 @@ const beaconEventSchema = z
     label: z.string().max(100).optional(),
     referrer: z.string().max(512).optional(),
     source: z.string().max(100).optional(),
-    utm: z.record(z.string().max(200)).optional(),
+    utm: z.record(z.string(), z.string().max(200)).optional(),
     sessionId: z.string().min(8).max(64),
     visitorId: z.string().min(8).max(64),
     device: z.enum(["desktop", "mobile", "tablet"]).optional(),
