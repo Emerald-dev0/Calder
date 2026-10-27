@@ -1,0 +1,33 @@
+# Review ownership.
+#
+# CODEOWNERS only *requests* reviews; it does not enforce them. As of
+# 2026-10-26, `gh api repos/Emerald-dev0/Calder/branches/main/protection`
+# returns {"message":"Branch not protected","status":"404"}, so nothing on this
+# file is enforced yet. Protection has to be turned on in the repository
+# settings (or with `gh api`) by someone who owns the workflow — that is a
+# founder decision, not something to change from a cleanup PR.
+#
+# Deliberately one human for now. `Ferousco-dev` is a collaborator on this repo,
+# but no area of it has been assigned to them for review, and inventing a second
+# owner would make the file a decoration rather than a statement of fact.
+
+# Everything, by default.
+* @Emerald-dev0
+
+# Named explicitly because these are the paths where a bad merge is not a bug
+# but an incident: the sending path, tenant isolation, credentials, migrations,
+# and the CI that gates all of it.
+/apps/api/src/routes/ @Emerald-dev0
+/apps/worker/ @Emerald-dev0
+/packages/providers/ @Emerald-dev0
+/packages/email/ @Emerald-dev0
+/packages/auth/ @Emerald-dev0
+/packages/db/src/schema/ @Emerald-dev0
+/packages/db/drizzle/ @Emerald-dev0
+/packages/db/drizzle.config.ts @Emerald-dev0
+/packages/config/ @Emerald-dev0
+/packages/billing/ @Emerald-dev0
+/.github/ @Emerald-dev0
+/scripts/ @Emerald-dev0
+SECURITY.md @Emerald-dev0
+AGENTS.md @Emerald-dev0

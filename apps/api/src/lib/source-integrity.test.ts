@@ -10,6 +10,7 @@ import {
   fileViolates,
   fontSignatureProblem,
   hasFolderOpenTask,
+  unusedRequireShim,
   violationsIn,
 } from "./source-integrity.js";
 
@@ -137,6 +138,33 @@ describe("detectors fire on synthetic samples", () => {
   it("rule 6: global.require rewrite", () => {
     expect(violationsIn(`global.require = require;`)).toContain("global object rewrite");
     expect(violationsIn(`globalThis.module = mod;`)).toContain("global object rewrite");
+  });
+
+  it("require shim: fires on the preamble left behind by a half-done cleanup", () => {
+    // The exact shape that survived commit a11fe6a in both next.config.mjs
+    // files: the tail was deleted, the loader it needed was not.
+    const sample = [
+      `import { createRequire } from 'module';`,
+      `const require = createRequire(import.meta.url);`,
+      `const nextConfig = { reactStrictMode: true };`,
+      `export default nextConfig;`,
+    ].join("\n");
+    expect(unusedRequireShim(sample)).toContain("nothing calls");
+  });
+
+  it("require shim: silent when the require is genuinely used", () => {
+    const used = [
+      `import { createRequire } from "node:module";`,
+      `const require = createRequire(import.meta.url);`,
+      `export function read() {`,
+      `  return require("../../openapi.json");`,
+      `}`,
+    ].join("\n");
+    expect(unusedRequireShim(used)).toBeNull();
+  });
+
+  it("require shim: silent in a normal ES module", () => {
+    expect(unusedRequireShim(`export const a = 1;\n`)).toBeNull();
   });
 
   it("rule 7: abnormal whitespace padding before code", () => {
@@ -310,6 +338,13 @@ module.exports = {};${pad}x();`;
       expect(hasFolderOpenTask(file, text)).toBe(false);
       expect(configTailPadding(file, text)).toBeNull();
     }
+  });
+
+  it("no tracked source file installs a require shim it never calls", () => {
+    const offenders = sources()
+      .filter(({ text }) => unusedRequireShim(text) !== null)
+      .map((f) => f.file);
+    expect(offenders).toEqual([]);
   });
 });
 

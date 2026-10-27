@@ -23,7 +23,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO_ROOT = fileURLToPath(new URL("../", import.meta.url));
 const rulesModule = pathToFileURL(join(REPO_ROOT, "apps/api/src/lib/source-integrity.ts")).href;
-const { RULES, fileViolates, hasFolderOpenTask, fontSignatureProblem, configTailPadding } =
+const { RULES, fileViolates, hasFolderOpenTask, fontSignatureProblem, configTailPadding, unusedRequireShim } =
   await import(rulesModule);
 
 const SOURCE_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
@@ -41,6 +41,9 @@ const SKIP_DIRS = new Set([
 ]);
 const BASE64_ALLOWED = [/apps\/api\/src\/assets\//, /\.png$|\.jpg$|\.webp$/];
 const GATE_TEST_FILE = "apps/api/src/lib/source-integrity.test.ts";
+/** Rules that need the whole file rather than one line: folder-open, font
+ * signature, config tail padding, unused require shim. */
+const STRUCTURAL_CHECKS = 4;
 
 function* walk(dir) {
   for (const entry of readdirSync(dir)) {
@@ -94,6 +97,10 @@ for (const file of files) {
     for (const rule of RULES) {
       if (fileViolates(rule, text)) record(file, rule.name);
     }
+    // Not a rule-table entry: it needs the whole file, because the signal is an
+    // alias that nothing calls.
+    const shim = unusedRequireShim(text);
+    if (shim) record(file, `unused require shim — ${shim}`);
     // A build config is both source and a toolchain entry point: apply the
     // config-tail rule as well, since it is stricter about where the padding
     // lands and names the line.
@@ -126,7 +133,7 @@ for (const file of files) {
 }
 
 console.log(
-  `source-integrity: scanned ${scannedSource} source files, ${scannedOther} non-source files, ${RULES.length} rules + 3 structural checks`
+  `source-integrity: scanned ${scannedSource} source files, ${scannedOther} non-source files, ${RULES.length} rules + ${STRUCTURAL_CHECKS} structural checks`
 );
 
 if (problems.length) {

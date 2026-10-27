@@ -3,6 +3,12 @@ name: CI
 # Least privilege by default. Every job inherits contents:read and a job that
 # needs more must say so explicitly.
 #
+# SHA PINNING: every `uses:` below is pinned to a full commit SHA with its
+# release in a trailing comment. A floating `@v4` is a supply-chain dependency:
+# whoever can move that tag decides what code runs in this repo's CI, with the
+# job token. Dependabot proposes the bumps as ordinary reviewed PRs
+# (.github/dependabot.yml); nothing merges itself.
+#
 # NOTE ON SECRETS: no job triggered by pull_request has access to any
 # repository secret. PRs run the zero-secret integrity gate, install, lint,
 # typecheck, test and build against throwaway service containers. Deploy-style
@@ -31,21 +37,59 @@ jobs:
   #    to run has already executed the thing it is meant to catch.
   #
   #    It only reads files: no install, no build, no secrets, ~2 seconds.
+  #
+  #    The second step widens the question: a payload deleted before the merge
+  #    is invisible to a tree scan but still reachable in the branch's own
+  #    commits, and resurrection is exactly what the 2026-10 outbreak did after
+  #    the 2026-09 cleanup left its `createRequire` preamble behind. That scan
+  #    needs history, hence fetch-depth 0.
   # ───────────────────────────────────────────────────────────────────────────
   source-integrity:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
 
       # Node 22 for built-in TypeScript type stripping, so the gate imports the
       # shared rule table directly with no install and no build step.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
 
       - name: Source integrity gate
         run: node --experimental-strip-types scripts/source-integrity-gate.mjs
+
+      # Only the blobs the change under review introduces. Scanning all of
+      # history here would fail forever: the payload is a known, documented part
+      # of this repository's object database and history is not rewritten.
+      - name: Payload markers in the commits under review
+        shell: bash
+        env:
+          # Passed as env, not interpolated into the script, so a ref name can
+          # never become shell.
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          base="${BASE_SHA:-${BEFORE_SHA:-}}"
+          if [ "$base" = "0000000000000000000000000000000000000000" ]; then base=""; fi
+          # A force-push can leave `before` pointing at a commit that is no
+          # longer reachable, and an unfetched base makes the range meaningless.
+          if [ -n "$base" ] && ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            echo "Base ${base} is not in the fetched history; falling back to HEAD^."
+            base=""
+          fi
+          if [ -z "$base" ]; then
+            base="$(git rev-parse --verify --quiet "${GITHUB_SHA}^" || true)"
+          fi
+          if [ -z "$base" ]; then
+            echo "No base commit to diff against; the tree scan above is the gate."
+            exit 0
+          fi
+          node --experimental-strip-types scripts/source-integrity-history-scan.mjs \
+            --fail-on-any "${base}..${GITHUB_SHA}"
 
   # ───────────────────────────────────────────────────────────────────────────
   # 2. Verify. Unit + integration tests against throwaway service containers.
@@ -89,15 +133,15 @@ jobs:
           --health-retries 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9.12.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
           cache: pnpm
@@ -115,7 +159,7 @@ jobs:
       # branch cannot use it to read anything the checkout has not already
       # given it. No repository secret is exposed to any pull_request job.
       - name: Secret scan
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -145,6 +189,13 @@ jobs:
         env:
           DATABASE_URL: postgresql://calder:calder@localhost:5432/calder
 
+      # The other direction, and the one db:status cannot see: does the committed
+      # migration set actually cover the schema the code declares? OPS-03 lived
+      # exactly here — drizzle-kit exited 0 while failing to read the schema, so
+      # generation wrote nothing and CI stayed green.
+      - name: Schema coverage (migrations cover the declared schema)
+        run: pnpm --filter @calder/db db:drift
+
       # Output is captured and uploaded on failure: GitHub's job-log endpoint
       # has been returning EOF for this repo, which makes a red Test step
       # undiagnosable without it.
@@ -161,7 +212,7 @@ jobs:
 
       - name: Upload test output (on failure)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: test-output
           path: test-output.log
@@ -229,13 +280,13 @@ jobs:
           --health-retries 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9.12.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
           cache: pnpm
@@ -278,7 +329,7 @@ jobs:
 
       - name: Upload e2e output (on failure)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: e2e-output
           path: e2e-output.log
@@ -321,13 +372,13 @@ jobs:
     timeout-minutes: 10
     environment: production-migrations
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9.12.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
           cache: pnpm

@@ -15,9 +15,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { createRequire } from "node:module";
 
-const require = createRequire(import.meta.url);
 const dataDir = process.env.CALDER_PGDATA ?? join(homedir(), ".cache", "calder-pgdata");
 const port = String(process.env.CALDER_PGPORT ?? 5432);
 

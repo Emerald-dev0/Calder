@@ -1,0 +1,51 @@
+version: 2
+
+# Dependency updates arrive as ordinary pull requests and stop there. Nothing
+# here enables auto-merge, and there is no `merge_group`/auto-merge workflow in
+# this repository: a human approves every dependency change, including the
+# action SHA bumps, because a floating action tag and a malicious package
+# release are the same class of risk (see the SHA-pinned `uses:` in ci.yml).
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - ci
+    groups:
+      # One PR for all action bumps: they are reviewed together and reverted
+      # together, and a partial set tells you nothing about which one broke.
+      github-actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: pnpm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+    groups:
+      aws-sdk:
+        patterns:
+          - "@aws-sdk/*"
+      typescript-toolchain:
+        patterns:
+          - typescript
+          - "@types/node"
+          - "@typescript-eslint/*"
+      eslint:
+        patterns:
+          - eslint
+          - "@eslint/*"
+          - eslint-*
