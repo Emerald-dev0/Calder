@@ -156,7 +156,7 @@ export default async function CommandCenter({
   const clicks = traffic?.ctaClicks ?? 0;
   const submissions = wlWindow.current;
   const confirmed = convTotal;
-  const overallConv = visitors > 0 ? (confirmed / visitors) * 100 : null;
+  const overallConv = visitors > 0 ? ((confirmed ?? 0) / (visitors ?? 1)) * 100 : undefined;
   const wlDelta = pctChange(wlWindow.current, wlWindow.previous ?? 0);
 
   const funnel = [
@@ -347,11 +347,7 @@ export default async function CommandCenter({
               { key: "submissions", label: "Submissions", color: "#a3a094" },
               { key: "confirmed", label: "Confirmed", color: "#1f9d5b" },
             ]}
-            footer={(row: Record<string, string | number>) =>
-              Number(row.visitors ?? 0) > 0
-                ? `Conversion that day: ${fmtPct((Number(row.confirmed ?? 0) / Number(row.visitors)) * 100)}`
-                : null
-            }
+            conversionRate={overallConv}
           />
         </Panel>
 
@@ -371,7 +367,7 @@ export default async function CommandCenter({
                           ? `${fmtPct(rate)} of previous step`
                           : "no upstream data yet"
                         : overallConv !== null
-                          ? `${fmtPct(overallConv)} overall visitor → confirmed`
+                          ? `${fmtPct(overallConv ?? 0)} overall visitor → confirmed`
                           : "overall conversion needs visitor data"}
                     </span>
                     <span className="cp-funnel-track">
