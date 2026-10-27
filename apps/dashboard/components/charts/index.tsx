@@ -11,6 +11,7 @@
  */
 
 import { useId, useMemo, useState } from "react";
+import { fmtPct } from "@/lib/control/format";
 import {
   Area,
   AreaChart,
@@ -86,19 +87,18 @@ function ChartTooltip({
   payload,
   label,
   series,
-  footer,
 }: {
   active?: boolean;
   payload?: Array<{ dataKey?: string | number; value?: string | number; color?: string }>;
   label?: string | number;
   series: SeriesDef[];
-  footer?: (row: Record<string, string | number>) => string | null;
 }) {
   if (!active || !payload || payload.length === 0) return null;
   const row: Record<string, string | number> = {};
   for (const p of payload) {
     if (p.dataKey !== undefined) row[String(p.dataKey)] = Number(p.value ?? 0);
   }
+  const conversionRate = payload ? payload[0]?.value : null;
   return (
     <div
       style={{
@@ -135,7 +135,7 @@ function ChartTooltip({
           </div>
         );
       })}
-      {footer ? (
+      {conversionRate !== undefined && conversionRate !== null ? (
         <p
           style={{
             margin: "8px 0 0",
@@ -145,7 +145,7 @@ function ChartTooltip({
             paddingTop: 6,
           }}
         >
-          {footer(row)}
+          Conversion that day: {fmtPct(Number(conversionRate) / 100)}
         </p>
       ) : null}
     </div>
@@ -161,14 +161,15 @@ export function TrendChart({
   series,
   height = 320,
   compareKey,
-  footer,
+  conversionRate,
 }: {
   data: TrendRow[];
   series: Array<SeriesDef & { color: string }>;
   height?: number;
   /** Optional companion series rendered dashed (previous period). */
   compareKey?: string;
-  footer?: (row: Record<string, string | number>) => string | null;
+  /** Conversion rate displayed in the tooltip footer (e.g. 12.5 for 12.5%). */
+  conversionRate?: number;
 }) {
   const [off, setOff] = useState<Set<string>>(new Set());
   const gradId = useId();
@@ -245,7 +246,7 @@ export function TrendChart({
           <YAxis tick={AXIS_STYLE} axisLine={false} tickLine={false} width={44} />
           <Tooltip
             content={
-              <ChartTooltip series={series} footer={footer ? (row) => footer(row) : undefined} />
+              <ChartTooltip series={series} />
             }
           />
           {compareKey && !off.has(compareKey) ? (

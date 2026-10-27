@@ -178,6 +178,7 @@ export default async function GrowthOverviewPage({
   const clicks = traffic?.ctaClicks ?? 0;
   const submissions = wlWin.current;
   const confirmed = convTotal;
+  const overallConv = visitors > 0 ? ((confirmed ?? 0) / (visitors ?? 1)) * 100 : undefined;
 
   // Deltas (REQ-091): counts get %, rates get pp. Each labeled with basis.
   const dVisitors = hasTrafficData ? pctChange(visitors, trafficPrev?.visitors ?? 0) : null;
@@ -362,11 +363,7 @@ export default async function GrowthOverviewPage({
               { key: "submissions", label: "Submissions", color: "#7c86f8" },
               { key: "confirmed", label: "Confirmed", color: "#1f9d5b" },
             ]}
-            footer={(row: Record<string, string | number>) =>
-              Number(row.visitors ?? 0) > 0
-                ? `Conversion that day: ${fmtPct((Number(row.confirmed ?? 0) / Number(row.visitors)) * 100)}`
-                : null
-            }
+            conversionRate={overallConv}
           />
         </Panel>
 
