@@ -1,5 +1,3 @@
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
 import { randomBytes } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import {

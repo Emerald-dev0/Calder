@@ -1,5 +1,3 @@
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { getDb, closeDb } from "./client.js";
 

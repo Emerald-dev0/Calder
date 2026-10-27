@@ -1,5 +1,3 @@
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
 import { PLAN_LIMITS } from "@calder/config";
 import { getDb, organizations, projects, plans, planPrices } from "./index.js";
 

@@ -14,8 +14,6 @@
  *                 re-runs it, then crashes on existing objects; this is the
  *                 0017 auth-columns incident)
  */
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
 import { getDb } from "./client.js";
 import { migrationStatus } from "./migration-status.js";
 
