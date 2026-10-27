@@ -158,6 +158,7 @@ function SwitcherInner({
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label={`Switch organization: ${currentOrg.organization.name} - ${current?.name ?? "No project"}`}
+        aria-expanded={open}
         title={`${currentOrg.organization.name} · ${current?.name ?? "No project"}`}
         style={{
           width: 38,

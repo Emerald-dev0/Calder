@@ -209,6 +209,8 @@ export function TrendChart({
             type="button"
             className="cp-series"
             data-on={!off.has(s.key)}
+            aria-pressed={!off.has(s.key)}
+            aria-label={`Toggle ${s.label} series`}
             onClick={() =>
               setOff((prev) => {
                 const next = new Set(prev);

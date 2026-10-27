@@ -87,6 +87,7 @@ export function CopyableMono({
         setTimeout(() => setCopied(false), 1400);
       }}
       title={`Click to copy: ${value}`}
+      aria-label={copied ? "Copied ID to clipboard" : `Copy ID: ${value}`}
       className="mono"
       style={{
         appearance: "none",
@@ -103,7 +104,7 @@ export function CopyableMono({
       }}
     >
       <span>{short}</span>
-      {copied ? <Check size={11} /> : <Copy size={11} style={{ opacity: 0.65 }} />}
+      {copied ? <Check size={11} aria-hidden="true" /> : <Copy size={11} aria-hidden="true" style={{ opacity: 0.65 }} />}
     </button>
   );
 }
