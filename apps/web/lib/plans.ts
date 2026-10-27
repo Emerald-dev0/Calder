@@ -15,7 +15,7 @@
 import { PLAN_LIMITS, formatPlanPrice, type PlanTier } from "@calder/config/plan-limits";
 
 export type Currency = "NGN" | "USD";
-export type PlanId = "beginner" | "pro" | "premium" | "scale";
+export type PlanId = "beginner" | "starter" | "pro" | "premium" | "scale";
 
 /**
  * Marketing plan id → catalogue tier. The database still calls the entry tier
@@ -23,6 +23,7 @@ export type PlanId = "beginner" | "pro" | "premium" | "scale";
  */
 const TIER_OF: Record<PlanId, PlanTier> = {
   beginner: "free",
+  starter: "starter",
   pro: "pro",
   premium: "premium",
   scale: "scale",
@@ -119,6 +120,40 @@ export const PLANS: Plan[] = [
     ],
     cta: "Start free",
     ctaHref: "/signup",
+  },
+  {
+    id: "starter",
+    name: "Starter",
+    promise: "Start small, grow built-in.",
+    audience:
+      "For side projects and early-stage products ready to move beyond the free tier into a paid plan with higher quotas and more sending capacity.",
+    price: { NGN: price("starter", "NGN"), USD: price("starter", "USD") },
+    volume: volumeText("starter"),
+    volumeRaw: catalogue("starter").emailsPerMonth,
+    projects: count(catalogue("starter").projects),
+    domains: count(catalogue("starter").domains),
+    team: count(catalogue("starter").seats),
+    environments: "Development",
+    logs: retentionText("starter"),
+    support: "Community",
+    highlights: [
+      "Everything in Beginner",
+      "10,000 emails / month",
+      "3 projects",
+      "3 sending domains",
+      "10 sender identities",
+      "Scoped API keys",
+      "Signed webhooks with retries",
+      "Delivery trends",
+      "Advanced delivery history",
+      "Suppression and unsubscribe controls",
+      "14 days log retention",
+      "Batch and scheduled sending",
+      `${count(catalogue("starter").seats)} team member`,
+    ],
+    cta: "Get started",
+    ctaHref: "/signup",
+    popular: true,
   },
   {
     id: "pro",
@@ -233,6 +268,7 @@ export const PLANS: Plan[] = [
 /** One-line progression shown under the cards. See docs/PRICING.md § narrative. */
 export const PROGRESSION = [
   { plan: "Beginner", line: "Build and experiment." },
+  { plan: "Starter", line: "Start small, grow built-in." },
   { plan: "Pro", line: "Ship and grow." },
   { plan: "Premium", line: "Operate at scale." },
   { plan: "Scale", line: "Make communication infrastructure." },
@@ -256,9 +292,9 @@ export interface ComparisonGroup {
 const YES = "✓";
 const NO = "—";
 
-/** Comparison columns follow PLANS order: Beginner, Pro, Premium, Scale. */
+/** Comparison columns follow PLANS order: Beginner, Starter, Pro, Premium. */
 function rowOf(pick: (id: PlanId) => string): [string, string, string, string] {
-  return [pick("beginner"), pick("pro"), pick("premium"), "Custom"];
+  return [pick("beginner"), pick("starter"), pick("pro"), pick("premium")];
 }
 
 const projectsRow = () => rowOf((id) => count(catalogue(id).projects));
