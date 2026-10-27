@@ -86,6 +86,10 @@ const envSchema = z.object({
   // Billing (Bachs), optional until integration validated
   BACHS_API_KEY: z.string().optional(),
   BACHS_WEBHOOK_SECRET: z.string().optional(),
+  FEATURE_MARKETING: z
+    .enum(["on", "off"])
+    .default("off")
+    .transform((v) => v === "on"),
   BACHS_API_URL: z.url().optional(),
 
   // Browser origins allowed to call the public API. Server-to-server calls are
