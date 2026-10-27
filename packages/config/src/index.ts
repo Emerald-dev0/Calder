@@ -24,9 +24,9 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
 
   // URLs
-  APP_URL: z.string().url().default("http://localhost:3000"),
-  DASHBOARD_URL: z.string().url().default("http://localhost:3001"),
-  API_URL: z.string().url().default("http://localhost:3002"),
+  APP_URL: z.url().default("http://localhost:3000"),
+  DASHBOARD_URL: z.url().default("http://localhost:3001"),
+  API_URL: z.url().default("http://localhost:3002"),
 
   // Database
   DATABASE_URL: z.string().min(1).default("postgresql://calder:calder@localhost:5432/calder"),
@@ -46,7 +46,7 @@ const envSchema = z.object({
   AUTH_SECRET: z.string().min(16).default("calder-development-auth-placeholder-not-for-production"),
   /** Production API-key hashing pepper; changing it requires a key re-issue plan. */
   API_KEY_PEPPER: z.string().min(32).optional(),
-  AUTH_URL: z.string().url().default("http://localhost:3001"),
+  AUTH_URL: z.url().default("http://localhost:3001"),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GITHUB_CLIENT_ID: z.string().optional(),
@@ -86,7 +86,7 @@ const envSchema = z.object({
   // Billing (Bachs), optional until integration validated
   BACHS_API_KEY: z.string().optional(),
   BACHS_WEBHOOK_SECRET: z.string().optional(),
-  BACHS_API_URL: z.string().url().optional(),
+  BACHS_API_URL: z.url().optional(),
 
   // Browser origins allowed to call the public API. Server-to-server calls are
   // unaffected (no CORS involved). Defaults cover the first-party surfaces;
