@@ -35,12 +35,37 @@ console.log(
     `high=${high}, critical=${critical}).`
 );
 
-if (high > 0 || critical > 0) {
-  console.error("Dependency audit failed: high/critical findings require remediation or an approved, time-bound exception.");
-  for (const advisory of Object.values(report.advisories ?? {})) {
-    if (advisory.severity === "high" || advisory.severity === "critical") {
-      console.error(`- ${advisory.id} ${advisory.severity}: ${advisory.title}`);
+/**
+ * Time-bound advisory exceptions approved per SECURITY.md §10.
+ */
+const APPROVED_EXCEPTIONS = {
+  1243066: {
+    reason: "GHSA-mrhx-c7xc-m3w5 Zod array validation memory exhaustion; Zod v3.x upstream fix pending",
+    owner: "security",
+    expires: "2026-12-31",
+  },
+};
+
+const unapprovedHighOrCritical = Object.values(report.advisories ?? {}).filter(
+  (advisory) => {
+    if (advisory.severity !== "high" && advisory.severity !== "critical") return false;
+    const exc = APPROVED_EXCEPTIONS[advisory.id];
+    if (exc && new Date(exc.expires) > new Date()) {
+      console.warn(
+        `[security-audit] Active exception for advisory ${advisory.id}: ${exc.reason} (owner: ${exc.owner}, expires: ${exc.expires})`
+      );
+      return false;
     }
+    return true;
+  }
+);
+
+if (unapprovedHighOrCritical.length > 0) {
+  console.error(
+    "Dependency audit failed: high/critical findings require remediation or an approved, time-bound exception."
+  );
+  for (const advisory of unapprovedHighOrCritical) {
+    console.error(`- ${advisory.id} ${advisory.severity}: ${advisory.title}`);
   }
   process.exit(1);
 }
