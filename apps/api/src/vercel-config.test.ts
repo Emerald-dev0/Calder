@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -65,6 +74,48 @@ describe("API deployment config", () => {
     // exist after the build, even for a functions-only project.
     expect(api.outputDirectory).toBe("public");
     expect(existsSync(join(API, "public"))).toBe(true);
+  });
+
+  it("keeps no page in the output directory", () => {
+    // The friendly placeholder that used to live here masked a dead
+    // deployment: with no function built, Vercel served it for every path —
+    // 200, `text/html`, a green status — while nothing could send mail. A
+    // missing function must read as a broken deployment, never as a page.
+    expect(existsSync(join(API, "public", "index.html"))).toBe(false);
+    expect(readdirSync(join(API, "public")).filter((f) => f.endsWith(".html"))).toEqual([]);
+  });
+
+  it("refuses to deploy when the function was not bundled", () => {
+    // The build command ends in a guard, so a deployment that would serve only
+    // static files fails the build instead of turning green.
+    expect(api.buildCommand).toContain("node scripts/assert-bundle.mjs");
+  });
+
+  it("guard: fails without api/index.js, passes with a real bundle", () => {
+    const script = join(API, "scripts", "assert-bundle.mjs");
+
+    // Missing bundle — the exact deployment shape that caused the outage.
+    const empty = mkdtempSync(join(tmpdir(), "calder-bundle-missing-"));
+    const missing = spawnSync(process.execPath, [script], { cwd: empty, encoding: "utf8" });
+    expect(missing.status).toBe(1);
+    expect(missing.stderr).toContain("the API function was not produced");
+    expect(missing.stderr).toContain("200 text/html");
+
+    // Truncated bundle — workspace packages not inlined.
+    const tiny = mkdtempSync(join(tmpdir(), "calder-bundle-tiny-"));
+    mkdirSync(join(tiny, "api"));
+    writeFileSync(join(tiny, "api", "index.js"), "export default {};");
+    const short = spawnSync(process.execPath, [script], { cwd: tiny, encoding: "utf8" });
+    expect(short.status).toBe(1);
+    expect(short.stderr).toContain("only 18 bytes");
+
+    // A real bundle passes and says what it found.
+    const ok = mkdtempSync(join(tmpdir(), "calder-bundle-ok-"));
+    mkdirSync(join(ok, "api"));
+    writeFileSync(join(ok, "api", "index.js"), "x".repeat(200_000));
+    const good = spawnSync(process.execPath, [script], { cwd: ok, encoding: "utf8" });
+    expect(good.status).toBe(0);
+    expect(good.stdout).toContain("bundle ok");
   });
 
   it("is not pretending to be a framework project", () => {

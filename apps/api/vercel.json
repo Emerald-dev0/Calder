@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter \"@calder/api...\" build",
+  "buildCommand": "pnpm --filter \"@calder/api...\" build && node scripts/assert-bundle.mjs",
   "outputDirectory": "public",
   "rewrites": [
     {
