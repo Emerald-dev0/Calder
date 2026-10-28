@@ -10,7 +10,7 @@
  * `pnpm build` therefore runs `apps/api/scripts/bundle-serverless.mjs`, which
  * compiles this file — inlining every `@calder/*` workspace source while
  * leaving npm packages as normal external imports Vercel traces from
- * node_modules — and emits the self-contained `api/index.js` that actually
+ * node_modules — and emits the self-contained `dist/serverless.js` that actually
  * ships (gitignored). The long-running node server (`src/index.ts`) remains
  * for local dev and non-serverless deploys.
  *
