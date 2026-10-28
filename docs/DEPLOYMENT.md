@@ -198,6 +198,57 @@ pnpm launch-check          # exits non-zero when the path is not launch-ready
 | `ALLOWED_ORIGINS`          |     |           | required |          |
 | `API_URL`                  |     | required  | required |          |
 
+### The cron secret (`CRON_SECRET`)
+
+Nothing issues this value — you invent it. It is one shared password for the
+`/v1/cron/*` endpoints (`drain`, `alerts`, `aggregate-usage`) and for the
+wake-up the API sends itself after a `202`. Any long random string works:
+
+```bash
+openssl rand -hex 32        # 64 characters; the output is the secret
+```
+
+Set it on the **calder-api** project only (Settings → Environment Variables →
+`CRON_SECRET`, Production, and Preview if you want preview crons), then
+redeploy. Once the variable exists, Vercel attaches
+`Authorization: Bearer $CRON_SECRET` to every scheduled cron invocation
+automatically — there is no second place to paste it.
+
+What silently breaks without it, worst first:
+
+1. **The daily drain 401s.** In production `/v1/cron/*` refuses every request
+   without the secret: the bare `x-vercel-cron` header is deliberately not
+   authentication (it is forgeable from anywhere). The drain cron runs once a
+   day (`0 0 * * *`), so accepted mail then waits for the next midnight — at
+   best.
+2. **The post-send wake-up does nothing.** `kickDrain()` logs one warning and
+   returns, so a `202` no longer leaves immediately.
+3. **Alerting stays quiet.** `GET /v1/cron/alerts` is the endpoint that returns
+   503 when something critical is firing, precisely so an uptime monitor can
+   page without parsing JSON. Without the secret it only answers 401.
+
+Two variables travel with it:
+
+- `API_URL` must be set on the API project (`https://api.calder.click`). The
+  wake-up POSTs to `$API_URL/v1/cron/drain`; with the secret set and `API_URL`
+  unset, the log says so and nothing gets faster.
+- `WORKER_EXPECTED=false` when the serverless drain is the delivery path, so
+  `/ready` stops reporting a missing worker as an outage.
+
+Test it once from a shell, with the same value:
+
+```bash
+curl -s -H "authorization: Bearer $CRON_SECRET" \
+  https://api.calder.click/v1/cron/drain
+# {"ok":true,"checked":0,"sent":0,"failed":0,"skipped":0}
+```
+
+In development a bare `x-vercel-cron: 1` header is accepted while `NODE_ENV` is
+not `production` — convenient, and the reason a deployment that forgot
+`NODE_ENV=production` looks fine until something relies on the check. Do not
+reuse `AUTH_SECRET` or `ADMIN_API_KEY` here: both the cron handler and the
+wake-up read this per request, so rotating it is one env change and a redeploy.
+
 ### Phase 1 abuse/sending configuration
 
 All settings are validated in `@calder/config` and have safe defaults:
