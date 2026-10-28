@@ -446,6 +446,11 @@ const STATUS_META: Record<
   connected: { tone: "success", label: "Connected", icon: CheckCircle2 },
   active: { tone: "success", label: "Active", icon: CheckCircle2 },
   healthy: { tone: "success", label: "Healthy", icon: CheckCircle2 },
+  // A figure nobody can defend: no delivery feedback is arriving, so the
+  // number is not a measurement. Neutral, not a reassuring green.
+  unknown: { tone: "neutral", label: "Unknown", icon: Info },
+  // A message that was sent under a From address no registered identity owns.
+  unattributed: { tone: "warning", label: "Unattributed", icon: AlertTriangle },
   live: { tone: "success", label: "Live", icon: CheckCircle2 },
   sent: { tone: "info", label: "Sent", icon: Send },
   queued: { tone: "warning", label: "Queued", icon: Clock },
@@ -730,7 +735,9 @@ export function StatCard({
   status,
 }: {
   label: string;
-  value: string | number;
+  // ReactNode, not string | number: a figure may be replaced by words when the
+  // number cannot be defended ("Unknown" for a zero with no feedback source).
+  value: React.ReactNode;
   sub?: React.ReactNode;
   sublabel?: React.ReactNode;
   delta?: { value: string; positive?: boolean };

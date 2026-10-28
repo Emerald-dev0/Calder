@@ -106,6 +106,14 @@ export const emailEvents = pgTable(
   (t) => [
     index("email_events_email_idx").on(t.emailId),
     index("email_events_project_idx").on(t.projectId),
+    // "When did SES last report back?" — asked by /ready for the whole fleet.
+    // Delivery feedback is identified by event type alone (only the SES
+    // ingress writes delivered/bounced/complained), so type + recency is the
+    // whole predicate and the scan stops at the first row.
+    index("email_events_type_created_idx").on(t.type, t.createdAt.desc()),
+    // The same question narrowed to one project, for the senders page. Without
+    // the project prefix the planner would walk every tenant's events.
+    index("email_events_project_type_created_idx").on(t.projectId, t.type, t.createdAt.desc()),
   ]
 );
 

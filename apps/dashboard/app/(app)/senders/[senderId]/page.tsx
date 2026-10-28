@@ -3,6 +3,7 @@ import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { getDb, emails, senderIdentities } from "@calder/db";
 import { getTenantContext } from "../../../../lib/auth";
 import {
+  deliveryEventHealth,
   senderHealthFor,
   senderStreamStats,
   senderAllowedKeyIds,
@@ -12,6 +13,11 @@ import { SenderDetailActions } from "./sender-detail-actions";
 import { UserCheck, ArrowLeft, ShieldAlert } from "lucide-react";
 import { DsPageHeader, StatusPill, StatCard, DsBanner } from "../../../../components/design-system";
 import { EmptyState } from "../../../../components/empty-state";
+import {
+  DeliveryEventNotice,
+  DeliveryStatValue,
+  deliverySubline,
+} from "../../../../components/delivery-event-notice";
 
 export async function generateMetadata({ params }: { params: Promise<{ senderId: string }> }) {
   const { senderId } = await params;
@@ -52,7 +58,7 @@ export default async function SenderDetailPage({
   }
   const projectId = sender.projectId;
 
-  const [totals, recent, health, stats, keyIds, apiKeys] = await Promise.all([
+  const [totals, recent, health, stats, keyIds, apiKeys, deliveryHealth] = await Promise.all([
     db
       .select({ status: emails.status, value: count() })
       .from(emails)
@@ -75,6 +81,7 @@ export default async function SenderDetailPage({
     senderStreamStats(sender.id),
     senderAllowedKeyIds(sender.id),
     projectApiKeys(projectId),
+    deliveryEventHealth(projectId),
   ]);
 
   const byStatus: Record<string, number> = {};
@@ -160,29 +167,58 @@ export default async function SenderDetailPage({
         {health.warned && <ShieldAlert size={14} color="var(--color-warning)" />}
       </div>
 
+      <DeliveryEventNotice health={deliveryHealth} projectId={projectId} />
+
       <div className="ds-grid-4" style={{ marginBottom: 10 }}>
         <StatCard
           label="Transactional sent"
           value={stats.transactional.sent.toLocaleString()}
-          sub={`${stats.transactional.delivered.toLocaleString()} delivered · ${stats.transactional.bounced.toLocaleString()} bounced`}
+          sub={
+            <>
+              <DeliveryStatValue count={stats.transactional.delivered} health={deliveryHealth} />{" "}
+              delivered ·{" "}
+              <DeliveryStatValue count={stats.transactional.bounced} health={deliveryHealth} />{" "}
+              bounced
+            </>
+          }
         />
         <StatCard
           label="Broadcast sent"
           value={stats.marketing.sent.toLocaleString()}
-          sub={`${stats.marketing.delivered.toLocaleString()} delivered · ${stats.marketing.bounced.toLocaleString()} bounced`}
+          sub={
+            <>
+              <DeliveryStatValue count={stats.marketing.delivered} health={deliveryHealth} />{" "}
+              delivered ·{" "}
+              <DeliveryStatValue count={stats.marketing.bounced} health={deliveryHealth} /> bounced
+            </>
+          }
         />
         <StatCard
           label="Complaints"
-          value={(stats.transactional.complained + stats.marketing.complained).toLocaleString()}
-          status={
-            stats.transactional.complained + stats.marketing.complained > 0 ? "warning" : "healthy"
+          value={
+            <DeliveryStatValue
+              count={stats.transactional.complained + stats.marketing.complained}
+              health={deliveryHealth}
+            />
           }
-          sub="Marked as spam, 7 days"
+          status={
+            deliveryHealth.zerosTrusted
+              ? stats.transactional.complained + stats.marketing.complained > 0
+                ? "warning"
+                : "healthy"
+              : "unknown"
+          }
+          sub={deliverySubline(deliveryHealth, "Marked as spam, 7 days")}
         />
         <StatCard
           label="Lifetime volume"
           value={total.toLocaleString()}
-          sub={`${(byStatus.delivered ?? 0).toLocaleString()} delivered all time`}
+          sub={
+            <>
+              <DeliveryStatValue count={byStatus.delivered ?? 0} health={deliveryHealth} />{" "}
+              delivered all time
+            </>
+          }
         />
       </div>
 

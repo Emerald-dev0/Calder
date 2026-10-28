@@ -53,7 +53,7 @@ export function AddSender({
   }
 
   return (
-    <div className="ds-card" style={{ marginTop: 20 }}>
+    <div className="ds-card" id="add-sender" style={{ marginTop: 20 }}>
       <div className="ds-card-header">
         <div>
           <h2 className="ds-card-title">Add Sender Identity</h2>

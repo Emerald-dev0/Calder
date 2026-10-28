@@ -81,6 +81,37 @@ describe("readiness", () => {
     expect(body.checks.queue?.state).toBe("degraded");
   });
 
+  it("reports delivery feedback as an observable fact, never a gate", async () => {
+    setEnv({ NODE_ENV: "test", REDIS_URL: undefined, SES_SNS_TOPIC_ARNS: undefined });
+    const res = await app.request("/ready");
+    const body = (await res.json()) as {
+      checks: Record<string, { state: string; detail?: string }>;
+      required: string[];
+    };
+    // Present, so an operator can see whether "Delivered 0" is measurable.
+    expect(body.checks.delivery_events).toBeDefined();
+    expect(["ok", "degraded", "skipped"]).toContain(body.checks.delivery_events?.state);
+    // Informational only: an owner who has not subscribed SES feedback does
+    // not make the API unready — they make one dashboard number unprovable.
+    expect(body.required).not.toContain("delivery_events");
+    expect(res.status).toBe(200);
+  });
+
+  it("uses the same wording as the dashboard when feedback is missing", async () => {
+    setEnv({ NODE_ENV: "test", REDIS_URL: undefined, SES_SNS_TOPIC_ARNS: undefined });
+    const { classifyDeliveryEvents } = await import("@calder/observability");
+    const sentence = classifyDeliveryEvents({
+      topicArnsConfigured: false,
+      lastEventAt: null,
+      acceptedInWindow: 5,
+      windowStart: new Date(Date.now() - 7 * 86_400_000),
+    }).headline;
+    // Rendered by the senders page banner and by this route's detail string.
+    expect(sentence).toBe(
+      "No delivery events received — Delivered and Bounced are unknown, not zero."
+    );
+  });
+
   it("never leaks credentials, connection strings or secrets", async () => {
     setEnv({
       NODE_ENV: "test",

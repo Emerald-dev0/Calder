@@ -1,7 +1,7 @@
-import { and, desc, eq, gt, gte, ilike, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, ilike, isNull, lt, or, sql } from "drizzle-orm";
 import { emailEvents, emails, suppressions, type DbClient } from "@calder/db";
 import type { Cursor } from "../pagination";
-import { looksLikeMessageId, rangeStart, type EmailFilters } from "./filters";
+import { looksLikeMessageId, rangeStart, UNATTRIBUTED_SENDER, type EmailFilters } from "./filters";
 import { EXPORT_ROW_CAP } from "./csv";
 
 /**
@@ -25,7 +25,11 @@ export function emailFilterWhere(projectId: string, filters: EmailFilters) {
     filters.stream === "all" ? undefined : eq(emails.stream, filters.stream),
     filters.status === "all" ? undefined : eq(emails.status, filters.status),
     start ? gte(emails.createdAt, start) : undefined,
-    filters.sender ? eq(emails.senderIdentityId, filters.sender) : undefined,
+    filters.sender === UNATTRIBUTED_SENDER
+      ? isNull(emails.senderIdentityId)
+      : filters.sender
+        ? eq(emails.senderIdentityId, filters.sender)
+        : undefined,
     filters.domain ? eq(sql`split_part(${emails.from}, '@', 2)`, filters.domain) : undefined,
     q
       ? or(

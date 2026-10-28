@@ -15,6 +15,7 @@ export * from "./suppression-guard.js";
 export * from "./suite-cleanup.js";
 export * from "./gmail-watch.js";
 export * from "./webhook-deliveries.js";
+export * from "./delivery-events.js";
 export * from "./dns-challenge.js";
 export * from "./domain-verification.js";
 export * from "./migration-status.js";

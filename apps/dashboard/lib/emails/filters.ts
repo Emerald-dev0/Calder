@@ -54,6 +54,16 @@ export const SORT_LABELS: Record<SortFilter, string> = {
   oldest: "Oldest first",
 };
 
+/**
+ * Sentinel for "sent by nobody we know about".
+ *
+ * Not a sender id: unattributed messages have `sender_identity_id IS NULL`, so
+ * the filter cannot be an equality on an id. It lives in the URL so the senders
+ * page can link straight to the exact rows behind its "N sent without a
+ * registered sender" line.
+ */
+export const UNATTRIBUTED_SENDER = "unattributed";
+
 export interface EmailFilters {
   stream: StreamFilter;
   sort: SortFilter;
@@ -96,8 +106,13 @@ export function parseFilters(params: RawParams): EmailFilters {
       : "all",
     range: (RANGES as readonly string[]).includes(rangeRaw) ? (rangeRaw as RangeFilter) : "all",
     sort: (SORTS as readonly string[]).includes(sortRaw) ? (sortRaw as SortFilter) : "newest",
-    // Sender ids are opaque; keep them only if they look like one.
-    sender: /^sender_[A-Za-z0-9_-]{1,64}$/.test(one(params.sender)) ? one(params.sender) : "",
+    // Sender ids are opaque; keep them only if they look like one. The
+    // unattributed sentinel is the one non-id value allowed through.
+    sender:
+      one(params.sender) === UNATTRIBUTED_SENDER ||
+      /^sender_[A-Za-z0-9_-]{1,64}$/.test(one(params.sender))
+        ? one(params.sender)
+        : "",
     domain: normalizeDomain(one(params.domain)),
     q: one(params.q).slice(0, 200),
   };

@@ -55,3 +55,14 @@ export {
   type RequestMetricsSnapshot,
   type RequestSample,
 } from "./metrics.js";
+export {
+  DELIVERY_SETUP_HREF,
+  DELIVERY_UNKNOWN_HEADLINE,
+  classifyDeliveryEvents,
+  describeAge,
+  hasSesTopicArns,
+  sesTopicArns,
+  type DeliveryEventHealth,
+  type DeliveryEventState,
+  type DeliveryEventFacts,
+} from "./delivery-events.js";
