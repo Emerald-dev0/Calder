@@ -12,8 +12,11 @@ export {
   errorCodeOf,
   safeDeliveryReason,
   safeErrorName,
+  httpStatusOf,
+  providerEvidence,
   deliveryFailureDetail,
   type DeliveryFailureDetail,
+  type ProviderEvidence,
 } from "./safe-errors.js";
 export {
   classifyError,

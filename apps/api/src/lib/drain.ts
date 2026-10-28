@@ -12,7 +12,12 @@ import {
   recordSendUsage,
   type DbClient,
 } from "@calder/db";
-import { deliveryFailureDetail, logger, safeDeliveryReason } from "@calder/observability";
+import {
+  deliveryFailureDetail,
+  logger,
+  providerEvidence,
+  safeDeliveryReason,
+} from "@calder/observability";
 import { isProduction } from "@calder/config";
 import {
   createEmailService,
@@ -631,6 +636,23 @@ export async function drainPendingEmails(
     // Failure path
     const transient = isTransientError(lastErr);
     const reason = safeDeliveryReason(lastErr);
+    // Say what actually failed, while the error still exists.
+    //
+    // This line is the whole difference between the last outage and a diagnosis:
+    // the reason was persisted and the exception was dropped, so four hours of
+    // failed sends left no record of the provider's error name or HTTP status —
+    // only the word "provider_error". `providerEvidence` is bounded identifiers
+    // (exception name, status code), never the message, so it is safe to log.
+    logger.error(
+      {
+        emailId: row.id,
+        projectId: row.projectId,
+        legs: attemptedLegs,
+        transient,
+        ...providerEvidence(lastErr),
+      },
+      "drain: delivery failed"
+    );
     if (isCap || senderNotReady || organizationUnavailable) {
       const terminalMessage = organizationUnavailable
         ? "Sending is currently unavailable for this organization."

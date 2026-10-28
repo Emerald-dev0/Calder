@@ -1,4 +1,4 @@
-import { and, count, eq, gte, inArray } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray } from "drizzle-orm";
 import { getDb, emails, type DbClient } from "@calder/db";
 
 /**
@@ -114,6 +114,125 @@ export async function deliveryOutcomeFacts(
     else accepted += n;
   }
   return { windowMinutes, accepted, failed };
+}
+
+/**
+ * How `/ready` must render a verdict.
+ *
+ * "idle" means the window contained too few finished messages to judge. It is
+ * not health — it is the absence of evidence — so it is reported as `skipped`.
+ * Rendering it as `ok` was the same defect as `driver=ses`: a surface claiming
+ * something it never measured. During the outage this check would have said
+ * `ok` on every request, because one failure and one delivery is "too few".
+ */
+export function readinessCheck(verdict: DeliveryOutcomeVerdict): {
+  state: "ok" | "degraded" | "skipped";
+  detail: string;
+} {
+  if (verdict.state === "degraded") return { state: "degraded", detail: verdict.detail };
+  if (verdict.state === "idle") return { state: "skipped", detail: verdict.detail };
+  return { state: "ok", detail: verdict.detail };
+}
+
+export interface DeliveryFailureFact {
+  /** The reason recorded on the row — an allowlisted code or fixed sentence. */
+  code: string;
+  minutesAgo: number;
+}
+
+/**
+ * The newest failure inside the window, whatever the ratio says.
+ *
+ * The threshold above answers "is delivery broken for most messages?". This
+ * answers "what broke, and when?" — the question a single failed send raises
+ * and a ratio of 1-in-3 cannot. Only the reason is returned: it has already
+ * been through the allowlist that writes `last_error`, so it cannot contain
+ * recipient or provider detail.
+ */
+export async function lastDeliveryFailure(
+  db: DbClient = getDb(),
+  opts: { windowMinutes?: number; now?: Date } = {}
+): Promise<DeliveryFailureFact | null> {
+  const windowMinutes = opts.windowMinutes ?? OUTCOME_WINDOW_MINUTES;
+  const now = opts.now ?? new Date();
+  const since = new Date(now.getTime() - windowMinutes * 60_000);
+
+  const [row] = await db
+    .select({ lastError: emails.lastError, updatedAt: emails.updatedAt })
+    .from(emails)
+    .where(
+      and(gte(emails.createdAt, since), eq(emails.env, "live"), eq(emails.status, FAILED_STATUS))
+    )
+    .orderBy(desc(emails.updatedAt))
+    .limit(1);
+
+  if (!row) return null;
+  const ageMs = now.getTime() - new Date(row.updatedAt).getTime();
+  return {
+    code: row.lastError ?? "failed with no recorded reason",
+    minutesAgo: Math.max(0, Math.round(ageMs / 60_000)),
+  };
+}
+
+/**
+ * Codes that mean the platform cannot send, as opposed to one message that
+ * could not be delivered. At a million senders something is always failing
+ * inside the hour; a check that turns red for every bad address is a check
+ * nobody reads. These are the ones that mean every send is at risk.
+ */
+const SYSTEMIC_FAILURE_CODES = new Set([
+  "provider_error",
+  "email_provider_not_configured",
+  "SesError",
+  "AccessDenied",
+  "AccessDeniedException",
+  "NotAuthorized",
+  "UnrecognizedClientException",
+  "InvalidClientTokenId",
+  "ExpiredTokenException",
+  "CredentialsProviderError",
+  "ConfigurationSetDoesNotExistException",
+  "ConfigurationSetSendingPausedException",
+  "AccountSendingPausedException",
+  "AccountSuspendedException",
+  "SendingPausedException",
+  "MailFromDomainNotVerified",
+  "MailFromDomainNotVerifiedException",
+  "LimitExceededException",
+  "InternalServiceErrorException",
+  "Throttling",
+  "TooManyRequestsException",
+  "organization_sending_unavailable",
+  "sender_not_ready",
+  "gmail_cap",
+  "gmail_credentials_missing",
+  "gmail_revoked",
+  "gmail_suspended",
+  "gmail_velocity_limit",
+  "invalid_grant",
+  "unauthorized_client",
+  "insufficientPermissions",
+  "dailyLimitExceeded",
+  "rateLimitExceeded",
+]);
+
+/**
+ * Is the newest failure a platform fault or a single message?
+ *
+ * `Exhausted: provider_error` and `Exhausted after 5 attempts: Throttling` both
+ * carry the same reason under a different prefix, so the prefix is stripped
+ * before the lookup.
+ */
+export function classifyLastFailure(code: string): "ok" | "degraded" {
+  const bare = code.replace(/^Exhausted(?: after \d+ attempts)?:\s*/, "").trim();
+  if (bare.startsWith("Sending is currently unavailable")) return "degraded";
+  return SYSTEMIC_FAILURE_CODES.has(bare) ? "degraded" : "ok";
+}
+
+/** Pure: the sentence `/ready` prints for a failure fact. */
+export function describeDeliveryFailure(fact: DeliveryFailureFact): string {
+  const when = fact.minutesAgo === 0 ? "less than a minute ago" : `${fact.minutesAgo} min ago`;
+  return `last failure: ${fact.code} (${when})`;
 }
 
 /** Convenience for the readiness route: measure, then judge. */
