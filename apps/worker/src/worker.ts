@@ -14,6 +14,7 @@ import {
   captureError,
   exhaustedJobs,
   logger,
+  providerEvidence,
   providerFailures,
   safeDeliveryReason,
   type Logger,
@@ -542,7 +543,12 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
         attempt,
         transient,
       });
-      logger.error({ emailId, transient, attempt }, `Email job failed (transient=${transient})`);
+      // Name the failure: exception code and HTTP status stay in the log, the
+      // message (which may carry the recipient) does not.
+      logger.error(
+        { emailId, transient, attempt, ...providerEvidence(err) },
+        `Email job failed (transient=${transient})`
+      );
 
       if (transient) {
         try {

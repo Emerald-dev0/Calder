@@ -245,12 +245,30 @@ health.get("/ready", async (c) => {
   // The number every health surface was missing during the outage: how many of
   // the messages that finished in the last hour actually made it.
   try {
-    const { deliveryOutcomes } = await import("../lib/delivery-outcomes.js");
+    const {
+      deliveryOutcomes,
+      lastDeliveryFailure,
+      readinessCheck,
+      describeDeliveryFailure,
+      classifyLastFailure,
+    } = await import("../lib/delivery-outcomes.js");
     const verdict = await deliveryOutcomes();
+    // `idle` renders as `skipped`, never `ok`: too few finished messages is the
+    // absence of evidence, not evidence of health.
     checks.delivery_outcomes = {
-      state: verdict.state === "degraded" ? "degraded" : "ok",
+      ...readinessCheck(verdict),
       detail: redactText(verdict.detail),
     };
+    // The reason, not just the ratio. A single failed send is below the ratio
+    // threshold by definition, and it is exactly what an operator is looking at
+    // when they open this page.
+    const last = await lastDeliveryFailure();
+    if (last) {
+      checks.last_delivery_failure = {
+        state: classifyLastFailure(last.code),
+        detail: redactText(describeDeliveryFailure(last)),
+      };
+    }
   } catch (err) {
     checks.delivery_outcomes = {
       state: "skipped",
