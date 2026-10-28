@@ -44,6 +44,11 @@ export const emailEventTypeEnum = pgEnum("email_event_type", [
   "opened",
   "clicked",
   "suppressed",
+  // The message was accepted and sent from an address with no sender identity
+  // on the project. It is not an error (the send succeeded; rejecting it would
+  // break every existing caller) but it must be queryable, because it is the
+  // reason a project's per-sender totals do not add up to its stream totals.
+  "unattributed",
 ]);
 export const webhookEventEnum = pgEnum("webhook_event", [
   "email.queued",

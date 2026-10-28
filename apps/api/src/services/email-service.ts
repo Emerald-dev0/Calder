@@ -111,8 +111,32 @@ function notifyAllowance(
   })();
 }
 
+/**
+ * Who the message is attributed to.
+ *
+ * `attributed: false` means the accepted `from` address has no sender identity
+ * on the project. That is not an error and must not become a rejection — every
+ * caller that sends from a bare address today would break — but it has to be
+ * visible, because it is why a project's per-sender totals can be smaller than
+ * its stream totals on /senders.
+ */
+export interface SenderAttribution {
+  id: string | null;
+  email: string;
+  display_name: string | null;
+  attributed: boolean;
+}
+
+export interface SendAcceptedResponse {
+  id: string;
+  status: string;
+  message: string;
+  /** Additive: every existing field above is unchanged. */
+  sender: SenderAttribution;
+}
+
 export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
-  response: { id: string; status: string; message: string };
+  response: SendAcceptedResponse;
   idempotentReplay: boolean;
 }> {
   const { projectId, idempotencyKey, input, requestId, env } = params;
@@ -124,7 +148,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
     if (existing) {
       logger.info({ projectId, requestId }, "Idempotent replay");
       return {
-        response: existing.responseBody as { id: string; status: string; message: string },
+        response: existing.responseBody as SendAcceptedResponse,
         idempotentReplay: true,
       };
     }
@@ -143,6 +167,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
   let senderIdentityId: string | null = null;
   let senderEmail = input.from;
   let senderName: string | null = null;
+  let attributed = false;
   try {
     const { getDb } = await import("@calder/db");
     const { resolveSender } = await import("./sender-service.js");
@@ -150,6 +175,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
     senderIdentityId = resolved.senderIdentityId;
     senderEmail = resolved.email;
     senderName = resolved.displayName;
+    attributed = resolved.senderIdentityId !== null;
   } catch (err) {
     if (err instanceof AppError) throw err;
     // Sender authorization is a trust-boundary check. A hosted API must not
@@ -321,7 +347,29 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
     attemptCount: 0,
   };
 
-  const response = { id: emailId, status: "queued" as const, message: "Email queued for delivery" };
+  const sender: SenderAttribution = {
+    id: senderIdentityId,
+    email: senderEmail,
+    display_name: senderName,
+    attributed,
+  };
+  if (!attributed) {
+    // Exactly once per accepted message, at acceptance: the address a caller
+    // asked for that no sender identity owns, and the row it became. Nothing
+    // is refused here — the send proceeds, and the event row below makes it
+    // findable without grepping logs.
+    logger.warn(
+      { emailId, projectId, from: input.from, senderEmail },
+      "email accepted without a registered sender identity"
+    );
+  }
+
+  const response = {
+    id: emailId,
+    status: "queued" as const,
+    message: "Email queued for delivery",
+    sender,
+  };
 
   // ── Eligibility, durable persist + atomic idempotency claim ──
   // The same organization-row lock serializes new-org/monthly limits with
@@ -363,6 +411,22 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       type: "queued" as const,
       data: { requestId, env },
     };
+    // A second event for the unattributed case, written in the same
+    // transaction as the message itself: the row and the fact that nobody owns
+    // it land together or not at all. No address in the payload — the email
+    // row already carries `from`, and events stay free of copied personal data.
+    const events = attributed
+      ? [queuedEvent]
+      : [
+          queuedEvent,
+          {
+            id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+            emailId,
+            projectId,
+            type: "unattributed" as const,
+            data: { reason: "no_sender_identity_for_from" },
+          },
+        ];
 
     const admission = await withOrganizationSendingEligibility(
       db,
@@ -392,7 +456,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
             // Materialize the stream only after shared eligibility passes.
             stream: resolveEmailStream(input),
           });
-          await tx.insert(emailEvents).values(queuedEvent);
+          await tx.insert(emailEvents).values(events);
           await tx
             .update(idempotencyKeys)
             .set({ responseStatus: 202, responseBody: response })
@@ -406,7 +470,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
           // Materialize the stream only after shared eligibility passes.
           stream: resolveEmailStream(input),
         });
-        await tx.insert(emailEvents).values(queuedEvent);
+        await tx.insert(emailEvents).values(events);
         return true;
       }
     );
@@ -416,7 +480,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
         const stored = await lookupIdempotency(projectId, idempotencyKey);
         if (stored) {
           return {
-            response: stored.responseBody as { id: string; status: string; message: string },
+            response: stored.responseBody as SendAcceptedResponse,
             idempotentReplay: true,
           };
         }
@@ -435,7 +499,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       if (stored) {
         logger.info({ projectId, requestId }, "Idempotent replay (concurrent)");
         return {
-          response: stored.responseBody as { id: string; status: string; message: string },
+          response: stored.responseBody as SendAcceptedResponse,
           idempotentReplay: true,
         };
       }
@@ -455,7 +519,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
       const stored = await lookupIdempotency(projectId, idempotencyKey);
       if (stored) {
         return {
-          response: stored.responseBody as { id: string; status: string; message: string },
+          response: stored.responseBody as SendAcceptedResponse,
           idempotentReplay: true,
         };
       }
