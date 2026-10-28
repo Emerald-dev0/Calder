@@ -47,6 +47,13 @@ marked otherwise.
   repo-root project ("calder", which also owns the CSP headers and the
   `/api/billing/webhook` rewrite) builds without any dashboard settings.
 
+  The repo-root project needs `next` in the root `devDependencies` for Vercel's
+  Next.js builder to find a version — the app's own dependency lives in
+  `apps/web/package.json`, which the builder never reads from the repo root.
+  Without it the deployment fails before the build starts ("No Next.js version
+  detected"), which is what made `calder` red for months while `calder-web`
+  built the same code fine.
+
   **Two settings the repo cannot provide.** A Vercel project that fails with a
   generic "Deployment has failed" while the same command passes locally is
   almost always one of these, and both live in the dashboard:
