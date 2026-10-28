@@ -541,3 +541,18 @@ in this order.
 
 Rehearsal: `OWNER ACTION REQUIRED` — rehearse once against a preview deployment
 and record the date in `docs/OPERATIONS.md §12`.
+
+### Serverless startup: OpenAPI document
+
+The health router statically imports `apps/api/openapi.json` with a JSON import
+attribute. esbuild inlines that document into `dist/serverless.js`; the deployed
+function must not depend on locating the source JSON on disk. An opaque
+`createRequire(import.meta.url)` lookup previously escaped bundling/tracing and
+crashed module initialization with `openapi.json not found relative to the
+health route`, causing `FUNCTION_INVOCATION_FAILED` even on `/health`.
+
+The API deployment regression tests build the actual serverless entry, copy only
+its bundle into an isolated directory (with installed external packages), and
+check `/health` and the complete `/v1/openapi.json` response without source files.
+This checks packaging, not hosted Redis/database readiness; verify the production
+`/health` and `/ready` endpoints after deploying.
