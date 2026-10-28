@@ -111,7 +111,7 @@ marked otherwise.
   | --------- | ---------------- | ---------------- | --------------------------------------------------------------------- |
   | web       | `apps/web`       | `.next`          | marketing site                                                        |
   | dashboard | `apps/dashboard` | `.next`          | product app, `app.calder.click`                                       |
-  | api       | `apps/api`       | `public`         | functions-only; tracked `api/index.js` imports the build bundle              |
+  | api       | `apps/api`       | `public`         | functions-only; tracked `api/index.js` imports the build bundle       |
   | calder    | repo root        | `apps/web/.next` | duplicate of `web`; CSP headers + billing webhook rewrite — see below |
 
 **Does the repo-root `calder` project duplicate `calder-web`? Yes.** It builds
