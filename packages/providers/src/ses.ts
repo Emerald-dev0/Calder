@@ -135,9 +135,17 @@ export interface SesAccountStatus {
  * rejected (or silently dropped in some flows). `/ready` cannot see this, it
  * needs an API call, so this is used by the launch check and by operators.
  */
-export async function getSesAccountStatus(client?: SESv2Client): Promise<SesAccountStatus> {
+export async function getSesAccountStatus(
+  client?: SESv2Client,
+  opts: { abortSignal?: AbortSignal } = {}
+): Promise<SesAccountStatus> {
   const ses = client ?? new SESv2Client({ region: process.env.AWS_REGION ?? "us-east-1" });
-  const account = await ses.send(new GetAccountCommand({}));
+  // The abort signal lets a health probe give up on a provider that hangs
+  // rather than holding the request open. Optional: callers that want the
+  // default SDK behaviour pass nothing.
+  const account = await ses.send(new GetAccountCommand({}), {
+    ...(opts.abortSignal ? { abortSignal: opts.abortSignal } : {}),
+  });
   return {
     sandbox: account.ProductionAccessEnabled !== true,
     enforcementStatus: account.EnforcementStatus ?? null,
