@@ -306,17 +306,27 @@ senders.delete("/:id", authMiddleware, async (c) => {
     .limit(1);
   if (!existing) throw new AppError("not_found", "Sender not found", 404);
 
-  if (existing.archivedAt) {
-    return c.json({
-      data: { id, deleted: false, archived: true, archived_at: existing.archivedAt },
-    });
-  }
-
+  // History decides between archive and delete, so it is counted up front.
   const [row] = await db
     .select({ value: count() })
     .from(emails)
     .where(and(eq(emails.senderIdentityId, id), eq(emails.projectId, a.projectId)));
   const emailCount = Number(row?.value ?? 0);
+
+  if (existing.archivedAt) {
+    // Already archived: DELETE is idempotent, and the reply keeps the shape of
+    // the first call. A caller retrying after a dropped response must not get
+    // a different body and conclude the archive did not happen.
+    return c.json({
+      data: {
+        id,
+        deleted: false,
+        archived: true,
+        archived_at: existing.archivedAt,
+        email_count: emailCount,
+      },
+    });
+  }
 
   if (emailCount > 0) {
     const [archived] = await db

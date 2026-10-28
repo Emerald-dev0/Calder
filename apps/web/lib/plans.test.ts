@@ -9,7 +9,13 @@ import { PLANS, planPrice, planSummary } from "./plans";
  */
 describe("marketing plans match the catalogue", () => {
   it("prices every plan from the catalogue", () => {
-    const expected = { beginner: "free", pro: "pro", premium: "premium", scale: "scale" } as const;
+    const expected = {
+      beginner: "free",
+      starter: "starter",
+      pro: "pro",
+      premium: "premium",
+      scale: "scale",
+    } as const;
     for (const plan of PLANS) {
       const tier = expected[plan.id as keyof typeof expected];
       expect(plan.price.NGN, `${plan.id} NGN`).toBe(formatPlanPrice(tier, "NGN"));
@@ -53,6 +59,6 @@ describe("marketing plans match the catalogue", () => {
   it("keeps every catalogue tier named the same everywhere", () => {
     const names = PLAN_ORDER.map((t) => PLAN_LIMITS[t].displayName);
     expect(names).toEqual(["Beginner", "Starter", "Pro", "Premium", "Scale"]);
-    expect(PLANS.map((p) => p.name)).toEqual(["Beginner", "Pro", "Premium", "Scale"]);
+    expect(PLANS.map((p) => p.name)).toEqual(["Beginner", "Starter", "Pro", "Premium", "Scale"]);
   });
 });

@@ -1,6 +1,3 @@
-export {
-  type BillingProvider,
-  type CheckoutSession,
-} from "./provider.ts";
-export { createBillingService } from "./service.ts";
-export { BachsBillingProvider } from "./provider.ts";
+export { type BillingProvider, type CheckoutSession } from "./provider.js";
+export { createBillingService } from "./service.js";
+export { BachsBillingProvider } from "./provider.js";

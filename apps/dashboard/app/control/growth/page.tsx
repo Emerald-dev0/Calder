@@ -362,11 +362,11 @@ export default async function GrowthOverviewPage({
               { key: "submissions", label: "Submissions", color: "#7c86f8" },
               { key: "confirmed", label: "Confirmed", color: "#1f9d5b" },
             ]}
-            footer={(row: Record<string, string | number>) =>
-              Number(row.visitors ?? 0) > 0
-                ? `Conversion that day: ${fmtPct((Number(row.confirmed ?? 0) / Number(row.visitors)) * 100)}`
-                : null
-            }
+            footer={{
+              label: "Conversion that day",
+              numerator: "confirmed",
+              denominator: "visitors",
+            }}
           />
         </Panel>
 

@@ -1,4 +1,4 @@
-import type { BillingProvider, CheckoutSession } from "./provider.ts";
+import type { BillingProvider, CheckoutSession } from "./provider.js";
 
 export interface BillingService {
   createCheckout(
@@ -21,11 +21,7 @@ export function createBillingService(provider: BillingProvider): BillingService 
     ): Promise<CheckoutSession> =>
       provider.createCheckoutSession({ organizationId, planId, successUrl, cancelUrl }),
 
-    verifyWebhook: (
-      payload: string,
-      signature: string,
-      secret?: string
-    ): boolean => false,
+    verifyWebhook: (payload: string, signature: string, secret?: string): boolean => false,
 
     getProviderName: (): string => provider.name,
   };
