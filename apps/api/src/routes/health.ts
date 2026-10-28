@@ -207,6 +207,57 @@ health.get("/ready", async (c) => {
     };
   }
 
+  // ── Informational: is the provider reachable? ─────────────────
+  // `email_provider` above reports *configuration*: two env vars are non-empty.
+  // It said "ok" through an outage in which every send failed, so it is left
+  // as-is (it answers a real question) and this check answers the other one by
+  // actually calling SES. Bounded at 2s and cached for 60s: a health poll must
+  // never be able to hang or hammer the provider.
+  try {
+    const { providerReachability } = await import("../lib/provider-reachability.js");
+    const resolution = await import("@calder/providers").then((m) => m.resolveEmailProvider());
+    if (resolution.driver !== "ses") {
+      checks.email_provider_reachability = {
+        state: "skipped",
+        detail: `driver=${resolution.driver}: no provider to reach`,
+      };
+    } else {
+      // One place talks to SES: the provider package. The probe passes the
+      // signal through so an aborted request stops work instead of completing
+      // into a discarded promise.
+      const { getSesAccountStatus } = await import("@calder/providers");
+      const { result } = await providerReachability({
+        probe: (signal) => getSesAccountStatus(undefined, { abortSignal: signal }),
+      });
+      checks.email_provider_reachability = {
+        state: result.state === "ok" ? "ok" : "degraded",
+        detail: redactText(result.detail),
+      };
+    }
+  } catch (err) {
+    checks.email_provider_reachability = {
+      state: "degraded",
+      detail: redactText(err instanceof Error ? err.message : "provider probe failed"),
+    };
+  }
+
+  // ── Informational: are recent sends succeeding? ───────────────
+  // The number every health surface was missing during the outage: how many of
+  // the messages that finished in the last hour actually made it.
+  try {
+    const { deliveryOutcomes } = await import("../lib/delivery-outcomes.js");
+    const verdict = await deliveryOutcomes();
+    checks.delivery_outcomes = {
+      state: verdict.state === "degraded" ? "degraded" : "ok",
+      detail: redactText(verdict.detail),
+    };
+  } catch (err) {
+    checks.delivery_outcomes = {
+      state: "skipped",
+      detail: redactText(err instanceof Error ? err.message : "outcomes could not be measured"),
+    };
+  }
+
   // ── Informational: delivery feedback ingress ──────────────────
   // "Delivered 0" is only a fact when SES events are known to arrive. This
   // reports the same judgement the dashboard renders (one classifier, two
