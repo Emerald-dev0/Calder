@@ -76,7 +76,26 @@ async function checkHealth(): Promise<void> {
       add("fail", "liveness", `/health returned ${res.status}`);
       return;
     }
-    add("pass", "liveness", "/health answers 200");
+    // A 200 is not proof that the API answered. `apps/api/vercel.json` sets
+    // `outputDirectory: "public"`, and that directory holds an index.html. If
+    // the function fails to build, the static layer serves that page for every
+    // path — 200, `text/html`, and nothing that can send mail. Getting this
+    // wrong is expensive: a host that cannot deliver a single message reports
+    // green, and the failure is only discovered by a user who never got a code.
+    //
+    // `/health` is the API's own JSON (`{status, service:"api", ...}`); a static
+    // page parses as nothing. Require the service name, not just the status.
+    if (res.body?.service !== "api") {
+      const served = res.body ? "JSON without service:api" : "not JSON";
+      add(
+        "fail",
+        "liveness",
+        `/health answered 200 but ${served} ("${res.raw.slice(0, 60).replace(/\s+/g, " ")}"): ` +
+          "the API function is not serving this host"
+      );
+      return;
+    }
+    add("pass", "liveness", "/health answers 200 from the API");
   } catch (err) {
     add(
       "fail",
