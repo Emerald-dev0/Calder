@@ -1,10 +1,12 @@
 "use server";
 
+import type { DeliveryEventHealth } from "@calder/observability";
 import { getTenantContext } from "../../../lib/auth";
 import {
   createDomainSender as createDomainSenderSvc,
   createGmailSender as createGmailSenderSvc,
   dispatchStatus as dispatchStatusSvc,
+  deliveryEventHealth as deliveryEventHealthSvc,
   dispatchTestEmail as dispatchTestEmailSvc,
   getSender as getSenderSvc,
   listSenders as listSendersSvc,
@@ -21,6 +23,7 @@ import {
   setSenderReplyTo as setSenderReplyToSvc,
   streamStats as streamStatsSvc,
   unarchiveSender as unarchiveSenderSvc,
+  unattributedSends as unattributedSendsSvc,
   updateSenderDisplayName as updateSenderDisplayNameSvc,
   type DefaultKind,
   type DispatchStatus,
@@ -73,6 +76,22 @@ export async function senderHealth(projectId: string): Promise<Record<string, Se
 export async function streamStats(projectId: string): Promise<StreamStats> {
   await actorForProject(projectId);
   return streamStatsSvc(projectId);
+}
+
+/**
+ * Delivery-event posture for the stream cards. Tenant-checked like every other
+ * read here; the classifier itself is in @calder/observability so the API's
+ * /ready check answers identically.
+ */
+export async function deliveryEventHealth(projectId: string): Promise<DeliveryEventHealth> {
+  await actorForProject(projectId);
+  return deliveryEventHealthSvc(projectId);
+}
+
+/** Accepted-in-window messages with no sender identity, for the page's sum. */
+export async function unattributedSends(projectId: string): Promise<number> {
+  await actorForProject(projectId);
+  return unattributedSendsSvc(projectId);
 }
 
 export async function senderHealthFor(senderId: string): Promise<SenderHealth> {

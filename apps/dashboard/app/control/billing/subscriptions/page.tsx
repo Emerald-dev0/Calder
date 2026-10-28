@@ -3,6 +3,7 @@ import { fmtDate, fmtInt, fmtMoney } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
 import { subscriptionRows } from "@/lib/control/queries";
 import { Badge, Dot, PageHeader, Panel, Stat } from "@/control/_components/ui";
+import { BillingSoon } from "../_components/soon";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ export default async function SubscriptionsPage() {
 
   return (
     <>
+      <BillingSoon where="This subscription ledger" />
       <PageHeader
         eyebrow="Billing"
         title="Subscriptions"

@@ -3,12 +3,12 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { OtpInput } from "../../components/otp-input";
+import { OAuthButtons } from "../../components/auth/oauth-buttons";
+import { PasswordToggle } from "../../components/auth/password-toggle";
 
 interface SignupFormProps {
   providers: readonly ("google" | "github")[];
 }
-
-const LABELS = { google: "Continue with Google", github: "Continue with GitHub" } as const;
 
 export function SignupForm({ providers }: SignupFormProps) {
   const [step, setStep] = useState<"form" | "code">("form");
@@ -142,8 +142,14 @@ export function SignupForm({ providers }: SignupFormProps) {
             disabled={busy}
           />
 
-          <button type="submit" disabled={busy || code.length !== 6} className="auth-btn-primary">
-            {busy ? "Verifying..." : "Verify & enter"}
+          <button
+            type="submit"
+            disabled={busy || code.length !== 6}
+            className="auth-btn-primary"
+            data-busy={busy || undefined}
+          >
+            {busy && <span className="auth-spinner" aria-hidden="true" />}
+            {busy ? "Verifying…" : "Verify and enter"}
           </button>
 
           <div className="resend-row">
@@ -187,6 +193,11 @@ export function SignupForm({ providers }: SignupFormProps) {
       </p>
 
       {error && <p className="login-error">{error}</p>}
+
+      {/* Same order as /login: one-click social above, the form below, so the
+          two screens do not teach different muscle memory. */}
+      <OAuthButtons providers={providers} />
+      {providers.length > 0 && <div className="login-divider">or sign up with email</div>}
 
       <form onSubmit={handleSignupSubmit} className="auth-form-fields">
         <div className="auth-field">
@@ -236,14 +247,7 @@ export function SignupForm({ providers }: SignupFormProps) {
               className="auth-input"
               autoComplete="new-password"
             />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="password-toggle-btn"
-              aria-label={showPassword ? "Hide password" : "Show password"}
-            >
-              {showPassword ? "Hide" : "Show"}
-            </button>
+            <PasswordToggle shown={showPassword} onToggle={() => setShowPassword(!showPassword)} />
           </div>
           <div className="strength-hint">
             {passwordLength === 0 ? (
@@ -258,31 +262,22 @@ export function SignupForm({ providers }: SignupFormProps) {
           </div>
         </div>
 
-        <button type="submit" disabled={busy} className="auth-btn-primary" style={{ marginTop: 8 }}>
-          {busy ? "Creating account..." : "Continue with email"}
+        <button
+          type="submit"
+          disabled={busy}
+          className="auth-btn-primary"
+          data-busy={busy || undefined}
+        >
+          {busy && <span className="auth-spinner" aria-hidden="true" />}
+          {busy ? "Creating account…" : "Create account"}
         </button>
 
         <p className="terms-note">
-          By signing up, you agree to our terms and service policies. No credit card required.
+          By creating an account you agree to the{" "}
+          <a href="https://calder.click/legal/terms">terms of service</a> and{" "}
+          <a href="https://calder.click/legal/privacy">privacy policy</a>. No credit card required.
         </p>
       </form>
-
-      {providers.length > 0 && (
-        <>
-          <div className="login-divider">or continue with</div>
-          <div className="login-oauth">
-            {providers.map((p) => (
-              // Plain anchor, never Next <Link>: this URL 307-redirects to
-              // Google/GitHub, and Link's RSC prefetch follows that redirect
-              // with fetch, which dies on CORS (console errors) instead of
-              // navigating. A full browser navigation is the correct behavior.
-              <a key={p} href={`/api/auth/${p}`} className="login-oauth-btn">
-                {LABELS[p]}
-              </a>
-            ))}
-          </div>
-        </>
-      )}
 
       <p className="auth-footer-link">
         Already have an account? <Link href="/login">Sign in</Link>

@@ -4,11 +4,23 @@ import { checkOrganizationResource, getDb } from "@calder/db";
 import { planDisplayName } from "@calder/config";
 import { getTenantContext, resolveProject } from "../../../lib/auth";
 import { pricingUrl } from "../../../lib/pricing";
-import { listSenders, senderHealth, senderCreationOptions, streamStats } from "./actions";
+import {
+  deliveryEventHealth,
+  listSenders,
+  senderHealth,
+  senderCreationOptions,
+  streamStats,
+  unattributedSends,
+} from "./actions";
 import { AddSender } from "./add-sender";
 import { SenderTable } from "./sender-table";
 import { DsPageHeader, StatusPill, DsBanner, StatCard } from "../../../components/design-system";
 import { EmptyState } from "../../../components/empty-state";
+import {
+  DeliveryEventNotice,
+  DeliveryStatValue,
+  deliverySubline,
+} from "../../../components/delivery-event-notice";
 
 export const metadata = { title: "Calder — Senders" };
 
@@ -58,7 +70,15 @@ export default async function SendersPage({
   const activeSenders = allSenders.filter((s) => !s.archivedAt);
   const archivedSenders = allSenders.filter((s) => s.archivedAt);
 
-  const stats = await streamStats(projectId);
+  // Two facts the cards need before they may print a zero: is SES reporting
+  // back at all, and how much of the volume has no sender identity. Both are
+  // loaded here so the page renders one story, not four independently-worded
+  // ones.
+  const [stats, deliveryHealth, unattributed] = await Promise.all([
+    streamStats(projectId),
+    deliveryEventHealth(projectId),
+    unattributedSends(projectId),
+  ]);
   const seg = stats[stream];
 
   // Plan usage for the sender-identity ceiling. Counts are organization-wide
@@ -183,25 +203,77 @@ export default async function SendersPage({
             </span>
           </div>
 
+          <DeliveryEventNotice health={deliveryHealth} projectId={projectId} />
+
+          {/* Arithmetic that adds up. The sender table below is per-identity,
+              so unattributed sends are invisible in it; without this line the
+              stream total and the table simply disagree. */}
+          {unattributed > 0 && (
+            <div
+              data-testid="unattributed-sends"
+              style={{
+                marginBottom: 16,
+                padding: "10px 14px",
+                borderRadius: 10,
+                border: "1px solid var(--color-border, rgba(0,0,0,.12))",
+                fontSize: 13,
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap",
+                alignItems: "center",
+              }}
+            >
+              <span>
+                <strong>{unattributed.toLocaleString()}</strong> sent without a registered sender
+                {unattributed === 1 ? "" : "s"} in the last 7 days.
+              </span>
+              <Link
+                href={`/emails?project=${projectId}&range=7d&sender=unattributed`}
+                style={{ textDecoration: "none" }}
+                data-testid="unattributed-emails"
+              >
+                View those messages
+              </Link>
+              <span aria-hidden="true" style={{ color: "var(--color-muted)" }}>
+                ·
+              </span>
+              <Link
+                href={`${base}#add-sender`}
+                style={{ textDecoration: "none" }}
+                data-testid="unattributed-add-sender"
+              >
+                Add Sender Identity
+              </Link>
+            </div>
+          )}
+
           <div className="ds-grid-4" style={{ marginBottom: 20 }}>
             <StatCard label="Sent" value={seg.sent.toLocaleString()} sub="Accepted for delivery" />
             <StatCard
               label="Delivered"
-              value={seg.delivered.toLocaleString()}
-              status="delivered"
-              sub="Confirmed by provider"
+              value={<DeliveryStatValue count={seg.delivered} health={deliveryHealth} />}
+              status={deliveryHealth.zerosTrusted ? "delivered" : "unknown"}
+              sub={deliverySubline(deliveryHealth, "Confirmed by provider")}
             />
             <StatCard
               label="Bounced"
-              value={seg.bounced.toLocaleString()}
-              status={seg.bounced > 0 ? "bounced" : "healthy"}
-              sub="Hard and soft rejections"
+              value={<DeliveryStatValue count={seg.bounced} health={deliveryHealth} />}
+              status={
+                deliveryHealth.zerosTrusted ? (seg.bounced > 0 ? "bounced" : "healthy") : "unknown"
+              }
+              sub={deliverySubline(deliveryHealth, "Hard and soft rejections")}
             />
             <StatCard
               label="Complaints"
-              value={seg.complained.toLocaleString()}
-              status={seg.complained > 0 ? "warning" : "healthy"}
-              sub="Marked as spam"
+              value={<DeliveryStatValue count={seg.complained} health={deliveryHealth} />}
+              status={
+                deliveryHealth.zerosTrusted
+                  ? seg.complained > 0
+                    ? "warning"
+                    : "healthy"
+                  : "unknown"
+              }
+              sub={deliverySubline(deliveryHealth, "Marked as spam")}
             />
           </div>
 

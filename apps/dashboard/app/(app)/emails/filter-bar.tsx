@@ -114,6 +114,9 @@ export function EmailFilterBar({
         </label>
         <DsSelect id="email-sender" name="sender" defaultValue={filters.sender}>
           <option value="">All senders</option>
+          {/* Messages whose From matched no registered sender. A real state of
+              the data, and the rows the senders page points at. */}
+          <option value="unattributed">No registered sender</option>
           {senders.map((s) => (
             <option key={s.id} value={s.id}>
               {s.displayName}

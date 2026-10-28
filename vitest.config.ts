@@ -1,6 +1,10 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  // Components are tested by rendering them, so .tsx files reach vitest through
+  // esbuild. Next uses the automatic JSX runtime; match it here instead of
+  // asking every component to import React for the sake of a test.
+  esbuild: { jsx: "automatic" },
   test: {
     globals: true,
     environment: "node",

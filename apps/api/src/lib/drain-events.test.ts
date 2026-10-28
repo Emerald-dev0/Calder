@@ -40,6 +40,17 @@ describe("recordDrainEvent", () => {
 describe("isForeignKeyViolation", () => {
   it("matches Postgres 23503 only", () => {
     expect(isForeignKeyViolation({ code: "23503" })).toBe(true);
+    // Drizzle wraps the driver error; the code lives on the cause chain.
+    expect(
+      isForeignKeyViolation(
+        Object.assign(new Error("Failed query: insert into email_events"), {
+          cause: Object.assign(new Error("violates foreign key constraint"), { code: "23503" }),
+        })
+      )
+    ).toBe(true);
+    expect(isForeignKeyViolation({ cause: { code: "23505" } })).toBe(false);
+    // A malformed chain must terminate, not loop or throw.
+    expect(isForeignKeyViolation({ cause: { cause: { cause: {} } } })).toBe(false);
     expect(isForeignKeyViolation({ code: "23505" })).toBe(false);
     expect(isForeignKeyViolation(new Error("x"))).toBe(false);
     expect(isForeignKeyViolation(null)).toBe(false);

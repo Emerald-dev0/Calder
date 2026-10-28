@@ -44,6 +44,14 @@ describe("parseFilters", () => {
     expect(parseFilters({ sender: "'; drop table emails; --" }).sender).toBe("");
   });
 
+  it("keeps the unattributed sentinel and nothing else that is not an id", () => {
+    // The senders page links here with ?sender=unattributed; a typo must not
+    // silently turn into "all senders", so the sentinel is exact-match.
+    expect(parseFilters({ sender: "unattributed" }).sender).toBe("unattributed");
+    expect(parseFilters({ sender: "Unattributed" }).sender).toBe("");
+    expect(parseFilters({ sender: "unattributed; drop table emails" }).sender).toBe("");
+  });
+
   it("normalises the domain filter and rejects wildcards and URLs", () => {
     expect(normalizeDomain("Example.COM")).toBe("example.com");
     expect(normalizeDomain("*.example.com")).toBe("");

@@ -1476,3 +1476,39 @@
   padding: 10px 0;
   border-top: 1px solid var(--cp-border-soft);
 }
+
+/* ── Billing: coming soon ──────────────────────────────────────────
+   Billing tables exist and every billing screen reads them, so the screens
+   look live. One banner, rendered by every billing page, says otherwise. */
+.cp-soon {
+  border: 1px solid #ecd9b0;
+  border: 1px solid color-mix(in srgb, var(--cp-warn) 38%, var(--cp-border));
+  background: #fdf8ee;
+  background: color-mix(in srgb, var(--cp-warn) 7%, var(--cp-panel));
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.cp-soon-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.cp-soon-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.cp-soon-body {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--cp-muted);
+  margin: 0;
+  max-width: 84ch;
+}

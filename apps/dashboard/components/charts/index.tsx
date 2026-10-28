@@ -24,6 +24,10 @@ import {
   YAxis,
 } from "recharts";
 
+import { footerLine, type TrendFooterSpec } from "./footer";
+
+export { footerLine, type TrendFooterSpec };
+
 export const SERIES_COLORS = ["#0b0c0e", "#3d5afe", "#a3a094"] as const;
 
 export interface SeriesDef {
@@ -92,13 +96,14 @@ function ChartTooltip({
   payload?: Array<{ dataKey?: string | number; value?: string | number; color?: string }>;
   label?: string | number;
   series: SeriesDef[];
-  footer?: (row: Record<string, string | number>) => string | null;
+  footer?: TrendFooterSpec;
 }) {
   if (!active || !payload || payload.length === 0) return null;
-  const row: Record<string, string | number> = {};
+  const row: Record<string, number> = {};
   for (const p of payload) {
     if (p.dataKey !== undefined) row[String(p.dataKey)] = Number(p.value ?? 0);
   }
+  const footerText = footer ? footerLine(footer, row) : null;
   return (
     <div
       style={{
@@ -135,7 +140,7 @@ function ChartTooltip({
           </div>
         );
       })}
-      {footer ? (
+      {footerText ? (
         <p
           style={{
             margin: "8px 0 0",
@@ -145,7 +150,7 @@ function ChartTooltip({
             paddingTop: 6,
           }}
         >
-          {footer(row)}
+          {footerText}
         </p>
       ) : null}
     </div>
@@ -168,7 +173,11 @@ export function TrendChart({
   height?: number;
   /** Optional companion series rendered dashed (previous period). */
   compareKey?: string;
-  footer?: (row: Record<string, string | number>) => string | null;
+  /**
+   * Serializable description of an extra tooltip line (see ./footer). A
+   * callback cannot cross the server/client boundary, so this is data.
+   */
+  footer?: TrendFooterSpec;
 }) {
   const [off, setOff] = useState<Set<string>>(new Set());
   const gradId = useId();
@@ -243,11 +252,7 @@ export function TrendChart({
             minTickGap={28}
           />
           <YAxis tick={AXIS_STYLE} axisLine={false} tickLine={false} width={44} />
-          <Tooltip
-            content={
-              <ChartTooltip series={series} footer={footer ? (row) => footer(row) : undefined} />
-            }
-          />
+          <Tooltip content={<ChartTooltip series={series} footer={footer} />} />
           {compareKey && !off.has(compareKey) ? (
             <Line
               type="monotone"

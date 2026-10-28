@@ -4,6 +4,7 @@ import { requireSection } from "@/lib/control/guard";
 import { billingOverview, customerTotals } from "@/lib/control/queries";
 import { BarsChart } from "@/control/_components/charts";
 import { Badge, BarList, PageHeader, Panel, Stat } from "@/control/_components/ui";
+import { BillingSoon } from "./_components/soon";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +14,11 @@ export default async function BillingOverviewPage() {
 
   return (
     <>
+      <BillingSoon where="This overview" />
       <PageHeader
         eyebrow="Billing"
         title="Overview"
-        subtitle="Revenue, subscriptions, and the state of every commercial relationship. NGN-led pricing, live from subscription records."
+        subtitle="Revenue, subscriptions, and the state of every commercial relationship — read straight from the billing tables, not from a payment provider."
       />
 
       <div className="cp-stats">

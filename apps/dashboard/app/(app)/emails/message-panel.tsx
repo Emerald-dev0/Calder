@@ -25,6 +25,7 @@ import {
   useToast,
 } from "../../../components/design-system";
 import { redactHeaders, redactText, redactedJson } from "../../../lib/emails/redact";
+import { describeTransport } from "../../../lib/emails/transport";
 import { addMessageRecipientToSuppressions, resendEmail } from "./actions";
 
 export interface PanelMessage {
@@ -118,6 +119,19 @@ export function MessagePanel({
   const [confirming, setConfirming] = React.useState<null | "resend" | "suppress">(null);
 
   const metadata = (message.metadata ?? {}) as Record<string, unknown>;
+
+  // The legs the drain actually handed this message to, from the failed event.
+  // The row's `transport` column is only written when a leg succeeds, so it
+  // cannot answer "what did we try" for a message that never went out.
+  const failedEvent = events.find((e) => e.type === "failed");
+  const attemptedLegs = Array.isArray((failedEvent?.data as { legs?: unknown })?.legs)
+    ? ((failedEvent!.data as { legs: string[] }).legs ?? [])
+    : [];
+  const transport = describeTransport({
+    status: message.status,
+    transport: message.transport,
+    attempted: attemptedLegs,
+  });
   const headers = redactHeaders(metadata.headers);
 
   const close = () => router.push(closeHref, { scroll: false });
@@ -411,7 +425,7 @@ export function MessagePanel({
                   mono: true,
                 },
                 { label: "Environment", value: message.env, mono: true },
-                { label: "Transport", value: message.transport ?? "—", mono: true },
+                { label: "Transport", value: transport.value, mono: transport.mono },
               ]}
             />
           </div>
@@ -603,6 +617,16 @@ function describeEvent(e: PanelEvent): string | null {
   push("sns", d.snsMessageId);
   push("via", d.via);
   push("resend of", d.resendOf);
+  // The failed event now carries a cause (`code`), the leg that produced it
+  // and the error's class — never its message. Show all three: "provider_error"
+  // alone sends an operator hunting in the wrong place.
+  push("code", d.code);
+  push("leg", d.leg);
+  push("error", d.errorName);
+  if (e.type === "unattributed") {
+    // The stored reason is a machine code; say what it means.
+    return "No registered sender matches this From address";
+  }
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 

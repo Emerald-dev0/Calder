@@ -1,3 +1,7 @@
 {
-  "buildCommand": "pnpm --filter @calder/dashboard... build"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter \"@calder/dashboard...\" build",
+  "outputDirectory": ".next"
 }

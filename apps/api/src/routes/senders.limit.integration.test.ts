@@ -43,7 +43,7 @@ gate("POST /v1/senders enforces the plan ceiling (live Postgres)", async () => {
     subscriptions,
     cleanupSuiteOrg,
   } = await import("@calder/db");
-  const { eq } = await import("drizzle-orm");
+  const { eq, and, isNull } = await import("drizzle-orm");
   const { createApp } = await import("../app.js");
   const { registerDevKey } = await import("../middleware/auth.js");
   const { planFor } = await import("@calder/config");
@@ -192,10 +192,13 @@ gate("POST /v1/senders enforces the plan ceiling (live Postgres)", async () => {
   it("archives rather than deletes a sender that has sent mail", async () => {
     if (!(await reachable())) return;
     const { emails } = await import("@calder/db");
+    // An active sender: a previous test in this file archives one, and DELETE
+    // is idempotent, so picking an already-archived row would exercise the
+    // retry path instead of the archive decision.
     const [victim] = await db
       .select({ id: senderIdentities.id, email: senderIdentities.email })
       .from(senderIdentities)
-      .where(eq(senderIdentities.projectId, projId))
+      .where(and(eq(senderIdentities.projectId, projId), isNull(senderIdentities.archivedAt)))
       .limit(1);
     await db.insert(emails).values({
       id: `em_sl_${suffix}`,

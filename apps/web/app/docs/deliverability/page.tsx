@@ -35,6 +35,24 @@ export default function Deliverability() {
         integration-tested end to end, not best-effort product copy.
       </p>
 
+      <h2 id="delivery-feedback">When delivery feedback stops arriving</h2>
+      <p>
+        Calder learns what happened to a message from SES: a signed SNS notification reports
+        <code>Delivery</code>, <code>Bounce</code> and <code>Complaint</code> events back to this
+        deployment. If that subscription is missing, sending still works — but nothing comes back,
+        so <strong>every delivery number reads zero</strong>. That zero is not a measurement, and
+        the product says so rather than printing it: a stream card shows &ldquo;Unknown&rdquo;, and
+        the senders page names the reason.
+      </p>
+      <p>
+        The fix is on the deployment, not in the dashboard: set <code>SES_SNS_TOPIC_ARNS</code> to
+        the topic that publishes SES feedback, subscribe that topic to <code>/v1/ses/events</code>{" "}
+        on this API, and confirm the subscription (Calder only auto-confirms for a topic in the
+        allowlist — otherwise anyone could point the endpoint at their own topic).{" "}
+        <code>GET /ready</code> reports the same judgement under <code>checks.delivery_events</code>
+        , so an operator can see it without opening a dashboard.
+      </p>
+
       <h2>Keep bounces and complaints near zero</h2>
       <p>
         Two numbers get senders blocked everywhere, not only here: sustained bounces above roughly

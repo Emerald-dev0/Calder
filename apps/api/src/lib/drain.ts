@@ -12,7 +12,7 @@ import {
   recordSendUsage,
   type DbClient,
 } from "@calder/db";
-import { logger, safeDeliveryReason } from "@calder/observability";
+import { deliveryFailureDetail, logger, safeDeliveryReason } from "@calder/observability";
 import { isProduction } from "@calder/config";
 import {
   createEmailService,
@@ -28,9 +28,23 @@ import { isTransientError } from "@calder/queue";
 export const DRAIN_BATCH = 25;
 export const DRAIN_MAX_ATTEMPTS = 5;
 
-/** Postgres foreign-key violation. Exported for tests. */
+/**
+ * Postgres foreign-key violation. Exported for tests.
+ *
+ * Walks the `cause` chain: drizzle wraps driver errors in a DrizzleQueryError
+ * before they surface, so the postgres.js error carrying `code: "23503"` sits
+ * one or two levels down. Checking only the top level meant the guard below
+ * never fired and a race we had explicitly designed for still aborted the
+ * batch — it showed up as a flaky integration test, not as a missing check.
+ */
 export function isForeignKeyViolation(err: unknown): boolean {
-  return typeof err === "object" && err !== null && (err as { code?: unknown }).code === "23503";
+  let current: unknown = err;
+  for (let depth = 0; depth < 5; depth += 1) {
+    if (typeof current !== "object" || current === null) return false;
+    if ((current as { code?: unknown }).code === "23503") return true;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
 }
 
 /**
@@ -411,7 +425,9 @@ export async function drainPendingEmails(
         emailId: row.id,
         projectId: row.projectId,
         type: "failed",
-        data: { code: "organization_sending_unavailable" },
+        // Same shape as every other failed event, so a reader never has to
+        // special-case one branch: nothing was tried, so no leg and no legs.
+        data: { code: "organization_sending_unavailable", leg: null, errorName: null, legs: [] },
       });
       await enqueueOrganizationBlockedWebhook(db, row.projectId, row.id);
       failed++;
@@ -489,7 +505,8 @@ export async function drainPendingEmails(
         emailId: row.id,
         projectId: row.projectId,
         type: "failed",
-        data: { code, transient: false },
+        // No leg: resolution refused before any transport was tried.
+        data: { ...deliveryFailureDetail(chainErr), transient: false },
       });
       logger.warn({ emailId: row.id, code }, "drain: chain refused, row failed");
       failed++;
@@ -497,6 +514,10 @@ export async function drainPendingEmails(
     }
     let result: { providerMessageId: string; provider: string } | null = null;
     let transportName = "default";
+    // Every leg the message was handed to, in order. `transport` on the row
+    // means "delivered by"; this is "was tried", which is the only honest
+    // answer for a message that never got through.
+    const attemptedLegs: string[] = [];
     let lastErr: unknown = null;
     let isCap = false;
     let senderNotReady = false;
@@ -516,6 +537,7 @@ export async function drainPendingEmails(
           lastErr = new Error("Sending is currently unavailable for this organization.");
           break;
         }
+        attemptedLegs.push(leg.transport);
         const r = await leg.service.send(payload as never);
         result = r;
         transportName = leg.transport;
@@ -622,9 +644,20 @@ export async function drainPendingEmails(
         emailId: row.id,
         projectId: row.projectId,
         type: "failed",
+        // `legs` answers "what did we try" for a message that never went out;
+        // the row's `transport` column stays null because nothing delivered it.
         data: organizationUnavailable
-          ? { code: "organization_sending_unavailable" }
-          : { code: reason, transient: false },
+          ? {
+              code: "organization_sending_unavailable",
+              leg: null,
+              errorName: null,
+              legs: attemptedLegs,
+            }
+          : {
+              ...deliveryFailureDetail(lastErr, attemptedLegs[attemptedLegs.length - 1]),
+              legs: attemptedLegs,
+              transient: false,
+            },
       });
       if (organizationUnavailable) {
         await enqueueOrganizationBlockedWebhook(db, row.projectId, row.id);
@@ -651,7 +684,11 @@ export async function drainPendingEmails(
       emailId: row.id,
       projectId: row.projectId,
       type: "failed",
-      data: { code: reason, exhausted: true },
+      data: {
+        ...deliveryFailureDetail(lastErr, attemptedLegs[attemptedLegs.length - 1]),
+        legs: attemptedLegs,
+        exhausted: true,
+      },
     });
     failed++;
   }

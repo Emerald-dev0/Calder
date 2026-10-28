@@ -1,0 +1,21 @@
+-- Delivery attribution: an email event type for "sent from an address with no
+-- registered sender identity".
+--
+-- Why: a bare `from` address with no matching identity is accepted today (and
+-- must stay accepted — rejecting it would break every existing caller), but the
+-- only trace was `emails.sender_identity_id = NULL`. That null is why a
+-- project's per-sender totals can be smaller than its stream totals, and it was
+-- invisible unless someone read the raw row.
+--
+-- Additive only: `ALTER TYPE ... ADD VALUE` appends to the enum. No existing
+-- row changes, no data is rewritten, and no default is affected.
+--
+-- Rollback (cannot be expressed in SQL): PostgreSQL has no `DROP VALUE` for
+-- enums, so the value stays regardless. That is safe — an unused enum value is
+-- inert — but the application must stop writing it first (deploy the previous
+-- build), and only then may this migration's effect be considered reverted:
+--   -- nothing to run; the value remains and is ignored by older code.
+-- If a genuinely clean enum is ever required, it is a new type, a column cast
+-- and a swap, i.e. a planned migration, not a rollback.
+--> statement-breakpoint
+ALTER TYPE "public"."email_event_type" ADD VALUE 'unattributed';

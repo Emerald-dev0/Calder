@@ -6,6 +6,11 @@ import { CalderLockup } from "@calder/ui";
 export const metadata = {
   title: "Create your Calder account",
 };
+// Which providers exist is deployment configuration, read at request time.
+// Prerendered, this page froze the answer from build time: with no OAuth
+// secrets in the build environment it shipped "OAuth isn't configured" and hid
+// Google and GitHub even when production had them.
+export const dynamic = "force-dynamic";
 
 export default function SignupPage() {
   const providers = configuredProviders();

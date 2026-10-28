@@ -207,6 +207,36 @@ health.get("/ready", async (c) => {
     };
   }
 
+  // ── Informational: delivery feedback ingress ──────────────────
+  // "Delivered 0" is only a fact when SES events are known to arrive. This
+  // reports the same judgement the dashboard renders (one classifier, two
+  // surfaces), and never gates readiness: the API serves requests fine while
+  // an owner is missing delivery feedback, and paging an operator would not
+  // set the SNS subscription for them.
+  try {
+    const { getDb, deliveryEventIngress } = await import("@calder/db");
+    const { classifyDeliveryEvents, hasSesTopicArns } = await import("@calder/observability");
+    const { deliveryEventsCheck } = await import("../lib/delivery-events-check.js");
+    const now = new Date();
+    const since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const ingress = await deliveryEventIngress(getDb(), { since });
+    const state = classifyDeliveryEvents({
+      topicArnsConfigured: hasSesTopicArns(),
+      lastEventAt: ingress.lastDeliveryEventAt,
+      acceptedInWindow: ingress.acceptedInWindow,
+      windowStart: since,
+      now,
+    });
+    checks.delivery_events = deliveryEventsCheck(state);
+  } catch (err) {
+    checks.delivery_events = {
+      state: "skipped",
+      detail: redactText(
+        err instanceof Error ? err.message : "delivery feedback could not be measured"
+      ),
+    };
+  }
+
   // ── Informational: error tracking ─────────────────────────────
   const reporting = errorReportingStatus();
   checks.error_tracking = {

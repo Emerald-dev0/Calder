@@ -8,7 +8,13 @@ export {
   isSensitiveKey,
   REDACTED,
 } from "./redact.js";
-export { errorCodeOf, safeDeliveryReason } from "./safe-errors.js";
+export {
+  errorCodeOf,
+  safeDeliveryReason,
+  safeErrorName,
+  deliveryFailureDetail,
+  type DeliveryFailureDetail,
+} from "./safe-errors.js";
 export {
   classifyError,
   describeClassification,
@@ -49,3 +55,14 @@ export {
   type RequestMetricsSnapshot,
   type RequestSample,
 } from "./metrics.js";
+export {
+  DELIVERY_SETUP_HREF,
+  DELIVERY_UNKNOWN_HEADLINE,
+  classifyDeliveryEvents,
+  describeAge,
+  hasSesTopicArns,
+  sesTopicArns,
+  type DeliveryEventHealth,
+  type DeliveryEventState,
+  type DeliveryEventFacts,
+} from "./delivery-events.js";

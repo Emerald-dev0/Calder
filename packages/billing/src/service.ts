@@ -1,4 +1,4 @@
-import type { BillingProvider, CheckoutSession } from "./provider.ts";
+import type { BillingProvider, CheckoutSession } from "./provider.js";
 
 export interface BillingService {
   createCheckout(
@@ -21,11 +21,11 @@ export function createBillingService(provider: BillingProvider): BillingService 
     ): Promise<CheckoutSession> =>
       provider.createCheckoutSession({ organizationId, planId, successUrl, cancelUrl }),
 
-    verifyWebhook: (
-      payload: string,
-      signature: string,
-      secret?: string
-    ): boolean => false,
+    // Delegated, never short-circuited: this used to `return false`, which
+    // meant a correctly signed webhook could never be accepted. The provider
+    // performs the timing-safe HMAC comparison against its own secret.
+    verifyWebhook: (payload: string, signature: string): boolean =>
+      provider.verifyWebhookSignature(payload, signature),
 
     getProviderName: (): string => provider.name,
   };

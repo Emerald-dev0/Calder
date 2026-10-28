@@ -1,5 +1,15 @@
 {
-  "buildCommand": "pnpm --filter @calder/api... build",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter \"@calder/api...\" build",
+  "outputDirectory": "public",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index.js"
+    }
+  ],
   "crons": [
     {
       "path": "/v1/cron/drain",

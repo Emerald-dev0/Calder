@@ -63,6 +63,26 @@
           "createdAt": { "type": "string", "format": "date-time" }
         }
       },
+      "SendAccepted": {
+        "type": "object",
+        "required": ["id", "status", "message", "sender"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["queued"] },
+          "message": { "type": "string" },
+          "sender": {
+            "type": "object",
+            "description": "The sender identity this message is attributed to. attributed=false means the From address has no sender identity on the project; the message was accepted anyway and its delivery is recorded as unattributed.",
+            "required": ["id", "email", "display_name", "attributed"],
+            "properties": {
+              "id": { "type": ["string", "null"] },
+              "email": { "type": "string" },
+              "display_name": { "type": ["string", "null"] },
+              "attributed": { "type": "boolean" }
+            }
+          }
+        }
+      },
       "SendEmail": {
         "type": "object",
         "required": ["from", "to"],
@@ -193,7 +213,12 @@
           }
         },
         "responses": {
-          "202": { "description": "Queued" },
+          "202": {
+            "description": "Queued",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/SendAccepted" } }
+            }
+          },
           "400": {
             "description": "Validation error",
             "content": {

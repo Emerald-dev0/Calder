@@ -12,8 +12,15 @@ import {
   organizationForProject,
   projectTransports,
   senderIdentities,
+  deliveryEventIngress,
+  ACCEPTED_DELIVERY_STATUSES,
   type DbClient,
 } from "@calder/db";
+import {
+  classifyDeliveryEvents,
+  hasSesTopicArns,
+  type DeliveryEventHealth,
+} from "@calder/observability";
 import { createQueue } from "@calder/queue";
 import { canManageProject } from "@calder/auth";
 import { assertDashboardAdmissionAllowed } from "../sending-eligibility";
@@ -271,6 +278,57 @@ export interface StreamStats {
 }
 
 const emptyStream = () => ({ sent: 0, delivered: 0, bounced: 0, complained: 0 });
+
+/**
+ * Can a "0 delivered" on this project's cards be believed?
+ *
+ * The window matches the cards (seven days). The ingress facts come from
+ * `@calder/db`; the judgement comes from `@calder/observability`, which the API
+ * readiness check uses too — so the owner's screen and the operator's probe
+ * cannot tell different stories about the same silence.
+ */
+export async function deliveryEventHealth(
+  projectId: string,
+  now: Date = new Date()
+): Promise<DeliveryEventHealth> {
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const ingress = await deliveryEventIngress(getDb(), { projectId, since });
+  return classifyDeliveryEvents({
+    topicArnsConfigured: hasSesTopicArns(),
+    lastEventAt: ingress.lastDeliveryEventAt,
+    acceptedInWindow: ingress.acceptedInWindow,
+    windowStart: since,
+    now,
+  });
+}
+
+/**
+ * Messages accepted in the window that no sender identity owns.
+ *
+ * `senderHealth` skips them (it is per-sender) while the stream cards count
+ * them, which is how one workspace showed 5 sent on the stream and 4 in the
+ * sender table with nothing explaining the difference. This is the missing
+ * term, exposed so the page can name it instead of leaving the arithmetic
+ * broken.
+ */
+export async function unattributedSends(
+  projectId: string,
+  now: Date = new Date()
+): Promise<number> {
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const [row] = await getDb()
+    .select({ value: count() })
+    .from(emails)
+    .where(
+      and(
+        eq(emails.projectId, projectId),
+        gte(emails.createdAt, since),
+        isNull(emails.senderIdentityId),
+        inArray(emails.status, [...ACCEPTED_DELIVERY_STATUSES])
+      )
+    );
+  return Number(row?.value ?? 0);
+}
 
 /**
  * Seven-day totals per stream, so the stat cards can be segmented without
