@@ -28,9 +28,23 @@ import { isTransientError } from "@calder/queue";
 export const DRAIN_BATCH = 25;
 export const DRAIN_MAX_ATTEMPTS = 5;
 
-/** Postgres foreign-key violation. Exported for tests. */
+/**
+ * Postgres foreign-key violation. Exported for tests.
+ *
+ * Walks the `cause` chain: drizzle wraps driver errors in a DrizzleQueryError
+ * before they surface, so the postgres.js error carrying `code: "23503"` sits
+ * one or two levels down. Checking only the top level meant the guard below
+ * never fired and a race we had explicitly designed for still aborted the
+ * batch — it showed up as a flaky integration test, not as a missing check.
+ */
 export function isForeignKeyViolation(err: unknown): boolean {
-  return typeof err === "object" && err !== null && (err as { code?: unknown }).code === "23503";
+  let current: unknown = err;
+  for (let depth = 0; depth < 5; depth += 1) {
+    if (typeof current !== "object" || current === null) return false;
+    if ((current as { code?: unknown }).code === "23503") return true;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
 }
 
 /**
