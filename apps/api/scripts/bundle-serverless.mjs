@@ -12,7 +12,7 @@
  * bullmq, @aws-sdk, …) stays external so Vercel traces and ships it from
  * node_modules as usual. esbuild is already in the dependency tree (vitest).
  *
- * Output: `api/index.js` (+ sourcemap), gitignored, shipped by Vercel.
+ * Output: `dist/serverless.js` (+ sourcemap), imported by the tracked Vercel entry.
  */
 import { build } from "esbuild";
 import { dirname, join } from "node:path";
@@ -38,7 +38,7 @@ const calderWorkspaceSources = {
 
 await build({
   entryPoints: [join(root, "src", "serverless.ts")],
-  outfile: join(root, "api", "index.js"),
+  outfile: join(root, "dist", "serverless.js"),
   bundle: true,
   splitting: false,
   format: "esm",

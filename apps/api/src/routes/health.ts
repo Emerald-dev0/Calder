@@ -16,7 +16,7 @@ import { redactText, redactConnectionUrl, errorReportingStatus } from "@calder/o
 // including Vercel's) drop import attributes, which plain Node then rejects
 // with ERR_IMPORT_ATTRIBUTE_MISSING. Both paths below are string literals so
 // Vercel's file tracer ships openapi.json with the function; src|dist
-// layouts resolve the first, the serverless bundle (apps/api/api/index.js)
+// layouts resolve the first, the serverless bundle (apps/api/dist/serverless.js)
 // the second.
 function loadOpenApiSpec(): unknown {
   const require = createRequire(import.meta.url);

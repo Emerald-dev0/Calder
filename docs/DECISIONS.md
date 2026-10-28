@@ -1039,3 +1039,19 @@ deliberately not partial, so an address has exactly one owner for all time.
 Senders that are archived, disabled or otherwise unusable fail closed in both
 send paths (`sender_not_ready` from the API, a visible failure in the worker),
 never silently rerouting to another transport.
+
+
+## ADR-047: Track the Vercel API discovery entry (2026-10-28)
+
+**Context:** the API's only `api/` entry was ignored and generated at build
+time. A valid local bundle does not prove that Vercel discovered a function;
+a function-less deployment can return platform `404 NOT_FOUND` on `/health`.
+
+**Decision:** commit a minimal `api/index.js` re-export and generate the ESM
+bundle at `dist/serverless.js`. Keep the existing catch-all rewrite and check
+the generated bundle during the build.
+
+**Consequence:** function discovery no longer depends on generated files.
+Production recovery still requires deployment and verification of both the
+deployment URL and custom-domain alias; this does not change health semantics
+or relax hosted Redis boot requirements.
