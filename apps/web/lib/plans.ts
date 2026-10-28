@@ -13,6 +13,7 @@
  */
 
 import { PLAN_LIMITS, formatPlanPrice, type PlanTier } from "@calder/config/plan-limits";
+import { SIGNUP_URL } from "./site";
 
 export type Currency = "NGN" | "USD";
 export type PlanId = "beginner" | "starter" | "pro" | "premium" | "scale";
@@ -119,7 +120,7 @@ export const PLANS: Plan[] = [
       `${count(catalogue("beginner").seats)} team member`,
     ],
     cta: "Start free",
-    ctaHref: "/signup",
+    ctaHref: SIGNUP_URL,
   },
   {
     id: "starter",
@@ -152,8 +153,7 @@ export const PLANS: Plan[] = [
       `${count(catalogue("starter").seats)} team member`,
     ],
     cta: "Get started",
-    ctaHref: "/signup",
-    popular: true,
+    ctaHref: SIGNUP_URL,
   },
   {
     id: "pro",
@@ -188,7 +188,7 @@ export const PLANS: Plan[] = [
       "Email support",
     ],
     cta: "Choose Pro",
-    ctaHref: "/signup",
+    ctaHref: SIGNUP_URL,
     popular: true,
   },
   {
@@ -226,7 +226,7 @@ export const PLANS: Plan[] = [
       "Priority support",
     ],
     cta: "Choose Premium",
-    ctaHref: "/signup",
+    ctaHref: SIGNUP_URL,
   },
   {
     id: "scale",
@@ -276,8 +276,8 @@ export const PROGRESSION = [
 
 export interface ComparisonRow {
   label: string;
-  /** Four values in PLANS order. */
-  values: [string, string, string, string];
+  /** One value per plan, in PLANS order. */
+  values: [string, string, string, string, string];
   status?: Status;
   note?: string;
 }
@@ -292,9 +292,9 @@ export interface ComparisonGroup {
 const YES = "✓";
 const NO = "—";
 
-/** Comparison columns follow PLANS order: Beginner, Starter, Pro, Premium. */
-function rowOf(pick: (id: PlanId) => string): [string, string, string, string] {
-  return [pick("beginner"), pick("starter"), pick("pro"), pick("premium")];
+/** Comparison columns follow PLANS order: Beginner, Starter, Pro, Premium, Scale. */
+function rowOf(pick: (id: PlanId) => string): [string, string, string, string, string] {
+  return [pick("beginner"), pick("starter"), pick("pro"), pick("premium"), pick("scale")];
 }
 
 const projectsRow = () => rowOf((id) => count(catalogue(id).projects));
@@ -310,6 +310,7 @@ export const COMPARISON: ComparisonGroup[] = [
         label: "Emails per month",
         values: [
           count(catalogue("beginner").emailsPerMonth),
+          count(catalogue("starter").emailsPerMonth),
           count(catalogue("pro").emailsPerMonth),
           count(catalogue("premium").emailsPerMonth),
           "Custom",
@@ -317,12 +318,12 @@ export const COMPARISON: ComparisonGroup[] = [
       },
       {
         label: "Transactional email",
-        values: [YES, YES, YES, YES],
+        values: [YES, YES, YES, YES, YES],
         note: "OTPs, password resets, receipts, invoices, security alerts, order updates.",
       },
       {
         label: "Marketing email",
-        values: [YES, YES, YES, YES],
+        values: [YES, YES, YES, YES, YES],
         status: "dev",
         note: "Newsletters, announcements, launches, promotions, lifecycle. Ships to every plan, no separate price.",
       },
@@ -331,12 +332,12 @@ export const COMPARISON: ComparisonGroup[] = [
       { label: "Sender identities", values: sendersRow() },
       {
         label: "Environments",
-        values: ["Development", "Dev + Staging + Prod", "Dev + Staging + Prod", "Custom"],
+        values: ["Development", "Dev + Staging + Prod", "Dev + Staging + Prod", "Custom", "Custom"],
       },
-      { label: "Batch sending (100 per call)", values: [YES, YES, YES, YES] },
+      { label: "Batch sending (100 per call)", values: [YES, YES, YES, YES, YES] },
       {
         label: "Scheduled sending",
-        values: [YES, YES, YES, YES],
+        values: [YES, YES, YES, YES, YES],
       },
     ],
   },
@@ -345,18 +346,18 @@ export const COMPARISON: ComparisonGroup[] = [
     rows: [
       {
         label: "REST API, versioned",
-        values: [YES, YES, YES, YES],
+        values: [YES, YES, YES, YES, YES],
         note: "/v1, with a live OpenAPI document at api.calder.click/v1/openapi.json.",
       },
-      { label: "SMTP relay", values: [YES, YES, YES, YES] },
-      { label: "Test and live API keys", values: [YES, YES, YES, YES] },
-      { label: "Scoped API keys", values: [NO, YES, YES, YES] },
-      { label: "Idempotency keys", values: [YES, YES, YES, YES] },
-      { label: "Signed webhooks with retries", values: [YES, YES, YES, YES] },
-      { label: "Webhook replay and delivery history", values: [NO, YES, YES, YES] },
+      { label: "SMTP relay", values: [YES, YES, YES, YES, YES] },
+      { label: "Test and live API keys", values: [YES, YES, YES, YES, YES] },
+      { label: "Scoped API keys", values: [NO, YES, YES, YES, YES] },
+      { label: "Idempotency keys", values: [YES, YES, YES, YES, YES] },
+      { label: "Signed webhooks with retries", values: [YES, YES, YES, YES, YES] },
+      { label: "Webhook replay and delivery history", values: [NO, YES, YES, YES, YES] },
       {
         label: "SDKs and CLI",
-        values: [YES, YES, YES, YES],
+        values: [YES, YES, YES, YES, YES],
         status: "dev",
         note: "The API is stable now; official packages follow the delivery core.",
       },
@@ -366,19 +367,19 @@ export const COMPARISON: ComparisonGroup[] = [
     group: "Reliability and control",
     status: "today",
     rows: [
-      { label: "Automatic retries with backoff", values: [YES, YES, YES, YES] },
-      { label: "Suppression and bounce handling", values: [YES, YES, YES, YES] },
-      { label: "Queue visibility", values: [NO, YES, YES, YES] },
-      { label: "Rate-limit controls", values: [NO, YES, YES, YES] },
-      { label: "Custom throughput", values: [NO, NO, YES, YES] },
+      { label: "Automatic retries with backoff", values: [YES, YES, YES, YES, YES] },
+      { label: "Suppression and bounce handling", values: [YES, YES, YES, YES, YES] },
+      { label: "Queue visibility", values: [NO, YES, YES, YES, YES] },
+      { label: "Rate-limit controls", values: [NO, YES, YES, YES, YES] },
+      { label: "Custom throughput", values: [NO, NO, YES, YES, YES] },
       {
         label: "Provider routing and fallback",
-        values: [NO, NO, YES, YES],
+        values: [NO, NO, YES, YES, YES],
         status: "dev",
         note: "SES is the delivery provider today; additional providers sit behind the same interface.",
       },
-      { label: "Dedicated IPs and warmup", values: [NO, NO, NO, YES] },
-      { label: "SLA", values: [NO, NO, NO, YES] },
+      { label: "Dedicated IPs and warmup", values: [NO, NO, NO, YES, YES] },
+      { label: "SLA", values: [NO, NO, NO, YES, YES] },
     ],
   },
   {
@@ -388,36 +389,37 @@ export const COMPARISON: ComparisonGroup[] = [
         label: "Log retention",
         values: [
           retentionText("beginner"),
+          retentionText("starter"),
           retentionText("pro"),
           retentionText("premium"),
           "Custom",
         ],
       },
-      { label: "Delivery, bounce and failure status", values: [YES, YES, YES, YES] },
-      { label: "Basic analytics", values: [YES, YES, YES, YES] },
+      { label: "Delivery, bounce and failure status", values: [YES, YES, YES, YES, YES] },
+      { label: "Basic analytics", values: [YES, YES, YES, YES, YES] },
       {
         label: "Advanced analytics: trends, failure analysis",
-        values: [NO, YES, YES, YES],
+        values: [NO, YES, YES, YES, YES],
         status: "dev",
       },
       {
         label: "Deliverability monitoring, domain reputation",
-        values: [NO, NO, YES, YES],
+        values: [NO, NO, YES, YES, YES],
         status: "dev",
       },
-      { label: "Custom dashboards and alerts", values: [NO, NO, YES, YES], status: "dev" },
+      { label: "Custom dashboards and alerts", values: [NO, NO, YES, YES, YES], status: "dev" },
     ],
   },
   {
     group: "Team, security and support",
     rows: [
       { label: "Team members", values: seatsRow() },
-      { label: "Roles and permissions", values: [NO, "Basic", "Advanced", "Custom"] },
-      { label: "Organization activity", values: [NO, YES, YES, YES], status: "dev" },
-      { label: "Audit logs and security events", values: [NO, NO, YES, YES], status: "dev" },
-      { label: "IP allowlisting", values: [NO, NO, YES, YES], status: "dev" },
-      { label: "SSO / SAML", values: [NO, NO, NO, YES], status: "dev" },
-      { label: "Support", values: ["Community", "Email", "Priority", "Dedicated"] },
+      { label: "Roles and permissions", values: [NO, "Basic", "Advanced", "Custom", "Custom"] },
+      { label: "Organization activity", values: [NO, YES, YES, YES, YES], status: "dev" },
+      { label: "Audit logs and security events", values: [NO, NO, YES, YES, YES], status: "dev" },
+      { label: "IP allowlisting", values: [NO, NO, YES, YES, YES], status: "dev" },
+      { label: "SSO / SAML", values: [NO, NO, NO, YES, YES], status: "dev" },
+      { label: "Support", values: ["Community", "Email", "Priority", "Dedicated", "Dedicated"] },
     ],
   },
 ];
@@ -431,16 +433,16 @@ export const COMPARISON: ComparisonGroup[] = [
 export const MARKETING_ALLOWANCES: ComparisonRow[] = [
   // Draft figures, deliberately NOT sourced from the plan catalogue: the
   // contacts allowance is unapproved and must not gain authority by moving.
-  { label: "Contacts", values: ["1,000", "10,000", "50,000", "Custom"] },
-  { label: "Campaigns", values: [YES, YES, YES, YES] },
-  { label: "Audiences", values: [YES, YES, YES, YES] },
-  { label: "Segments", values: ["Basic", YES, "Advanced", "Custom"] },
-  { label: "Automations", values: ["Basic", YES, "Advanced", "Custom"] },
-  { label: "Marketing analytics", values: ["Basic", "Advanced", "Advanced", "Custom"] },
-  { label: "Unsubscribe handling", values: [YES, YES, YES, YES] },
-  { label: "Suppression", values: [YES, YES, "Advanced", "Advanced"] },
-  { label: "Preference center", values: [NO, YES, YES, YES] },
-  { label: "Sending schedule", values: [YES, YES, YES, YES] },
+  { label: "Contacts", values: ["1,000", "10,000", "50,000", "Custom", "Custom"] },
+  { label: "Campaigns", values: [YES, YES, YES, YES, YES] },
+  { label: "Audiences", values: [YES, YES, YES, YES, YES] },
+  { label: "Segments", values: ["Basic", YES, "Advanced", "Custom", "Custom"] },
+  { label: "Automations", values: ["Basic", YES, "Advanced", "Custom", "Custom"] },
+  { label: "Marketing analytics", values: ["Basic", "Advanced", "Advanced", "Custom", "Custom"] },
+  { label: "Unsubscribe handling", values: [YES, YES, YES, YES, YES] },
+  { label: "Suppression", values: [YES, YES, "Advanced", "Advanced", "Advanced"] },
+  { label: "Preference center", values: [NO, YES, YES, YES, YES] },
+  { label: "Sending schedule", values: [YES, YES, YES, YES, YES] },
 ];
 
 /** Plain-language answers. Short, specific, no hedging. */

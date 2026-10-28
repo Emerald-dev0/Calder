@@ -115,7 +115,7 @@ export function articleJsonLd(input: {
  * Structured data for /pricing, built from the same PLANS array the page
  * renders. Naira and dollar figures are separate price points rather than
  * conversions, so each plan emits one Offer per currency. Scale is quoted, so
- * it carries no price and no fake number.
+ * it emits no Offer at all rather than an offer priced null.
  */
 export function pricingJsonLd(plans: Plan[]): Record<string, unknown> {
   const offers = plans.flatMap((plan) => {
@@ -135,7 +135,11 @@ export function pricingJsonLd(plans: Plan[]): Record<string, unknown> {
       description: `${plan.promise} ${plan.volume}, ${plan.projects} projects, ${plan.domains} sending domains, ${plan.team} team seat(s), ${plan.logs} log retention, ${plan.support.toLowerCase()} support.`,
     };
 
-    if (priced.length === 0) return [{ ...base }];
+    // A "contact us" plan has no price, and an Offer without a price is
+    // invalid structured data: Google reports "Missing field 'price'", and a
+    // machine reading the page is told Calder sells something for null. Skip
+    // those plans instead of shipping an empty offer.
+    if (priced.length === 0) return [];
     return priced.map((entry) => ({
       ...base,
       name: `${plan.name} plan (${entry.currency})`,

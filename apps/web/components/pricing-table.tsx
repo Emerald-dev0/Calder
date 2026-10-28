@@ -86,7 +86,7 @@ function ComparisonTable({ rows, label }: { rows: ComparisonRow[]; label: string
 export function PlanComparison() {
   return (
     <section className="section" id="compare" style={{ paddingTop: 0 }}>
-      <div className="wrap">
+      <div className="wrap wrap-wide">
         <Reveal>
           <p className="eyebrow">Every plan, line by line</p>
           <h2 className="h2">

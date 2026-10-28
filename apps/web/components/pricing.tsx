@@ -8,12 +8,20 @@ import { PLANS, PROGRESSION, type Currency } from "../lib/plans";
  * Plan cards. Four plans, two real currencies, no asterisks: every figure
  * shown is the price someone actually pays (see lib/plans.ts).
  */
+/**
+ * How many bullets fit on a card. Five plans share one row, so each card is
+ * ~200px wide: a fourteen-item list at that width is a wall of text, not a
+ * comparison. The card carries the headline features and links to the full
+ * table below, which lists every one of them.
+ */
+const CARD_HIGHLIGHTS = 5;
+
 export function Pricing() {
   const [currency, setCurrency] = React.useState<Currency>("NGN");
 
   return (
     <section className="section" id="pricing" style={{ paddingTop: 0 }}>
-      <div className="wrap">
+      <div className="wrap wrap-wide">
         <Reveal>
           <p className="eyebrow">Pricing</p>
           <h2 className="h2">
@@ -50,7 +58,11 @@ export function Pricing() {
             <Reveal
               key={plan.id}
               delay={i * 80}
-              className={`price-card${plan.popular ? "featured" : ""}`}
+              // Built as a list, not concatenated. The template literal used to
+              // read `price-card${plan.popular ? " featured" : ""}` — one missing
+              // space made the class "price-cardfeatured", which matches no rule,
+              // so the recommended card rendered as a plain one.
+              className={["price-card", plan.popular ? "featured" : null].filter(Boolean).join(" ")}
             >
               <div className="price-head">
                 <div className="price-tier">{plan.name}</div>
@@ -63,10 +75,16 @@ export function Pricing() {
               <p className="price-promise">{plan.promise}</p>
               <p className="price-quota">{plan.volume}</p>
               <ul>
-                {plan.highlights.map((f) => (
+                {plan.highlights.slice(0, CARD_HIGHLIGHTS).map((f) => (
                   <li key={f}>{f}</li>
                 ))}
               </ul>
+              {plan.highlights.length > CARD_HIGHLIGHTS && (
+                <a className="price-more" href="#compare">
+                  All {plan.highlights.length} features
+                  <span aria-hidden="true"> ↓</span>
+                </a>
+              )}
               <a
                 className={`btn ${plan.popular ? "btn-paper" : "btn-secondary"}`}
                 href={plan.ctaHref}
@@ -94,7 +112,9 @@ export function Pricing() {
               Limits are hard limits. When you reach one, sending pauses with an error that names
               it, your usage, and when it resets. Nothing is charged without you choosing it.
             </p>
-            <a className="btn btn-secondary btn-sm" href="/pricing">
+            {/* This block only ever renders on /pricing, so the button used to
+                link to the page it was already on. Jump to the table instead. */}
+            <a className="btn btn-secondary btn-sm" href="#compare">
               Compare every plan{" "}
               <span className="arrow" aria-hidden="true">
                 →
