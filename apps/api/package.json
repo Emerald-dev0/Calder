@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "clean": "rm -rf dist",
     "launch-check": "tsx src/scripts/launch-check.ts",
-    "verify-deploy": "tsx src/scripts/verify-deploy.ts"
+    "verify-deploy": "tsx src/scripts/verify-deploy.ts",
+    "diagnose:ses": "tsx src/scripts/diagnose-ses.ts"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.600.0",
