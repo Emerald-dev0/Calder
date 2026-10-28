@@ -79,6 +79,30 @@ marked otherwise.
   match any Serverless Functions inside the `api` directory.
   ```
 
+  **A deployment that builds but ships no function.** `outputDirectory` is
+  `public/`, so if the bundle step does not run, Vercel still marks the
+  deployment green and serves that directory for every path. `POST /v1/emails`
+  then answers `200 text/html` and no mail leaves — with nothing anywhere
+  reporting an error. Two things now prevent that:
+
+  1. `public/` contains no page. It exists only because Vercel requires the
+     configured output directory to exist; with no `index.html` there is
+     nothing to serve in place of the API, so a function-less deployment reads
+     as broken instead of polite.
+  2. The build command ends in `node scripts/assert-bundle.mjs`. A missing (or
+     suspiciously small) `api/index.js` fails the build with:
+
+     ```text
+     BUILD FAILED: the API function was not produced.
+     ```
+
+     which is the one place this failure can still be stopped.
+
+  If a deployment serves HTML from an API URL, the function is absent — the
+  build log will not contain `api/index.js  <n> KB`, and the fix is the Root
+  Directory / "include files outside the Root Directory" setting below, not a
+  code change.
+
   Both numbers are therefore **project settings**, set by hand in the Vercel
   dashboard for the `api` project, once per environment:
 
