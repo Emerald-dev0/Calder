@@ -1054,3 +1054,17 @@ the generated bundle during the build.
 Production recovery still requires deployment and verification of both the
 deployment URL and custom-domain alias; this does not change health semantics
 or relax hosted Redis boot requirements.
+
+## ADR-048: Inline the OpenAPI document in the serverless bundle (2026-10-28)
+
+**Context:** the tracked function entry fixed discovery, but production then
+crashed at module load because the health router could not locate `openapi.json`.
+A local smoke test inside the checkout masked the missing deployment asset.
+
+**Decision:** statically import the JSON with its import attribute so esbuild
+embeds it in the ESM bundle. Test the actual bundle outside the checkout with no
+source JSON and compare the served document to the source of truth.
+
+**Consequence:** no runtime file tracing or relative-path fallback is required
+for this document. Liveness/readiness semantics and hosted queue boot assertions
+remain unchanged. No new dependency is introduced.
