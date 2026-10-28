@@ -4,6 +4,7 @@ import { getDb } from "@calder/db";
 import { fmtInt, fmtMoney } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
 import { PageHeader, Panel, Stat } from "@/control/_components/ui";
+import { BillingSoon } from "../_components/soon";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ export default async function PlansPage() {
 
   return (
     <>
+      <BillingSoon where="This plan catalogue" />
       <PageHeader
         eyebrow="Billing"
         title="Plans"

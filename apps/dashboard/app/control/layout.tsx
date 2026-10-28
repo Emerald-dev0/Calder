@@ -58,7 +58,9 @@ const NAV: Array<{
     section: "billing",
     heading: "Billing",
     items: [
-      { label: "Overview", href: "/control/billing" },
+      // Badge only on the section entry: seven "soon" chips would read as a
+      // different feature per screen, and they are one feature.
+      { label: "Overview", href: "/control/billing", badge: "Soon" },
       { label: "Subscriptions", href: "/control/billing/subscriptions" },
       { label: "Plans", href: "/control/billing/plans" },
       { label: "Coupons", href: "/control/billing/coupons" },

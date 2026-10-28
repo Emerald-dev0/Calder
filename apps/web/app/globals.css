@@ -933,6 +933,40 @@ a {
 
 /* ── Pricing ────────────────────────────────────────────────── */
 
+/* Payments are off, so the page says so before it shows a price. Warm tint,
+   not danger red: this is a status, not a failure. */
+.pricing-soon {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  margin-top: 1.9rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid #ecd9b0;
+  border-radius: 12px;
+  background: #fdf8ee;
+}
+
+.pricing-soon-tag {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #92400e;
+  border: 1px solid #e7cfa0;
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  white-space: nowrap;
+}
+
+.pricing-soon p {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 66ch;
+}
+
 /* One row, five plans. The grid used to be four columns and PLANS grew a
    fifth (Scale), so the last card dropped onto a line of its own. */
 .pricing-grid {

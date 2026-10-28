@@ -3,14 +3,14 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { OtpInput } from "../../components/otp-input";
+import { OAuthButtons } from "../../components/auth/oauth-buttons";
+import { PasswordToggle } from "../../components/auth/password-toggle";
 
 interface LoginFormProps {
   providers: readonly ("google" | "github")[];
   initialError?: string;
   devLogin?: boolean;
 }
-
-const LABELS = { google: "Continue with Google", github: "Continue with GitHub" } as const;
 
 export function LoginForm({ providers, initialError, devLogin }: LoginFormProps) {
   const [mode, setMode] = useState<
@@ -602,6 +602,12 @@ export function LoginForm({ providers, initialError, devLogin }: LoginFormProps)
 
       {error && <p className="login-error">{error}</p>}
 
+      {/* Social first: it is the one-click path, and putting it above the form
+          means the primary button is the last thing on the screen rather than
+          a link sandwiched between two blocks. */}
+      <OAuthButtons providers={providers} />
+      {providers.length > 0 && <div className="login-divider">or sign in with email</div>}
+
       <form onSubmit={handleLoginSubmit} className="auth-form-fields">
         <div className="auth-field">
           <label htmlFor="login-email" className="auth-label">
@@ -620,15 +626,8 @@ export function LoginForm({ providers, initialError, devLogin }: LoginFormProps)
         </div>
 
         <div className="auth-field">
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 6,
-            }}
-          >
-            <label htmlFor="login-password" className="auth-label" style={{ margin: 0 }}>
+          <div className="auth-label-row">
+            <label htmlFor="login-password" className="auth-label">
               Password
             </label>
             <button
@@ -654,38 +653,20 @@ export function LoginForm({ providers, initialError, devLogin }: LoginFormProps)
               className="auth-input"
               autoComplete="current-password"
             />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="password-toggle-btn"
-              aria-label={showPassword ? "Hide password" : "Show password"}
-            >
-              {showPassword ? "Hide" : "Show"}
-            </button>
+            <PasswordToggle shown={showPassword} onToggle={() => setShowPassword(!showPassword)} />
           </div>
         </div>
 
-        <button type="submit" disabled={busy} className="auth-btn-primary" style={{ marginTop: 8 }}>
-          {busy ? "Signing in..." : "Sign in"}
+        <button
+          type="submit"
+          disabled={busy}
+          className="auth-btn-primary"
+          data-busy={busy || undefined}
+        >
+          {busy && <span className="auth-spinner" aria-hidden="true" />}
+          {busy ? "Signing in…" : "Sign in"}
         </button>
       </form>
-
-      {providers.length > 0 && (
-        <>
-          <div className="login-divider">or continue with</div>
-          <div className="login-oauth">
-            {providers.map((p) => (
-              // Plain anchor, never Next <Link>: this URL 307-redirects to
-              // Google/GitHub, and Link's RSC prefetch follows that redirect
-              // with fetch, which dies on CORS (console errors) instead of
-              // navigating. A full browser navigation is the correct behavior.
-              <a key={p} href={`/api/auth/${p}`} className="login-oauth-btn">
-                {LABELS[p]}
-              </a>
-            ))}
-          </div>
-        </>
-      )}
 
       {providers.length === 0 && (
         <div className="login-empty">

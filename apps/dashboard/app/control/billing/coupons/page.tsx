@@ -1,5 +1,6 @@
 import { requireSection } from "@/lib/control/guard";
 import { PageHeader, Panel, Planned } from "@/control/_components/ui";
+import { BillingSoon } from "../_components/soon";
 
 export const dynamic = "force-dynamic";
 
@@ -7,6 +8,7 @@ export default async function CouponsPage() {
   await requireSection("billing");
   return (
     <>
+      <BillingSoon where="This coupon list" />
       <PageHeader
         eyebrow="Billing"
         title="Coupons"

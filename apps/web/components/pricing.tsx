@@ -33,6 +33,19 @@ export function Pricing() {
           </p>
         </Reveal>
 
+        <Reveal delay={70}>
+          {/* Payments are not live, and a price with a "Choose Pro" button next
+              to it reads as a bill. Say it once, plainly, above the cards. */}
+          <div className="pricing-soon" role="note">
+            <span className="pricing-soon-tag">Coming soon</span>
+            <p>
+              Calder is not taking money yet. Card checkout and invoicing are still being built, so
+              every plan is free while they are. The prices below are the published catalogue, not a
+              bill.
+            </p>
+          </div>
+        </Reveal>
+
         <Reveal delay={80}>
           <div style={{ marginTop: "1.8rem" }} role="group" aria-label="Display currency">
             <div className="currency-toggle">
