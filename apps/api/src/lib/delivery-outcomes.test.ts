@@ -3,6 +3,9 @@ import {
   OUTCOME_FAIL_RATIO,
   OUTCOME_MIN_SAMPLE,
   classifyDeliveryOutcomes,
+  classifyLastFailure,
+  describeDeliveryFailure,
+  readinessCheck,
 } from "./delivery-outcomes";
 
 /**
@@ -67,5 +70,59 @@ describe("classifyDeliveryOutcomes", () => {
     // 90%-failure window as almost fine for an hour.
     expect(OUTCOME_FAIL_RATIO).toBeLessThanOrEqual(0.5);
     expect(OUTCOME_MIN_SAMPLE).toBeGreaterThan(1);
+  });
+});
+
+/**
+ * "Too few finished messages to judge" is not health.
+ *
+ * `/ready` rendered `idle` as `ok`, so during the outage — one failure and one
+ * delivery inside the hour — the check reported success on every request. The
+ * absent measurement is now labelled as absent.
+ */
+describe("readinessCheck", () => {
+  it("renders an idle window as skipped, never ok", () => {
+    const verdict = classifyDeliveryOutcomes({ windowMinutes: 60, accepted: 1, failed: 1 });
+    expect(verdict.state).toBe("idle");
+    expect(readinessCheck(verdict).state).toBe("skipped");
+  });
+
+  it("passes through a measured verdict unchanged", () => {
+    const degraded = classifyDeliveryOutcomes({ windowMinutes: 60, accepted: 1, failed: 9 });
+    expect(readinessCheck(degraded).state).toBe("degraded");
+    const ok = classifyDeliveryOutcomes({ windowMinutes: 60, accepted: 9, failed: 1 });
+    expect(readinessCheck(ok).state).toBe("ok");
+  });
+});
+
+/**
+ * A ratio needs five finished messages to say anything; a single failure is
+ * what an operator is actually looking for, and it has a reason attached.
+ */
+describe("classifyLastFailure", () => {
+  it("treats platform-wide codes as degraded, with or without the drain prefix", () => {
+    expect(classifyLastFailure("Exhausted: provider_error")).toBe("degraded");
+    expect(classifyLastFailure("Exhausted after 5 attempts: Throttling")).toBe("degraded");
+    expect(classifyLastFailure("AccessDeniedException")).toBe("degraded");
+    expect(classifyLastFailure("MailFromDomainNotVerifiedException")).toBe("degraded");
+    expect(classifyLastFailure("Sending is currently unavailable for this organization.")).toBe(
+      "degraded"
+    );
+  });
+
+  it("does not cry wolf for one message that could not be delivered", () => {
+    expect(classifyLastFailure("Exhausted: InvalidRecipient")).toBe("ok");
+    expect(classifyLastFailure("suppressed")).toBe("ok");
+  });
+});
+
+describe("describeDeliveryFailure", () => {
+  it("prints the reason and when it happened", () => {
+    expect(describeDeliveryFailure({ code: "Exhausted: provider_error", minutesAgo: 4 })).toBe(
+      "last failure: Exhausted: provider_error (4 min ago)"
+    );
+    expect(describeDeliveryFailure({ code: "provider_error", minutesAgo: 0 })).toContain(
+      "less than a minute ago"
+    );
   });
 });

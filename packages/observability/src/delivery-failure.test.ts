@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   deliveryFailureDetail,
   errorCodeOf,
+  httpStatusOf,
+  providerEvidence,
   safeDeliveryReason,
   safeErrorName,
 } from "./safe-errors";
@@ -84,5 +86,77 @@ describe("delivery failure detail", () => {
     // `Object` is what every plain object has; it says nothing about the cause.
     expect(safeErrorName({ code: "TimeoutError" })).toBeNull();
     expect(safeErrorName(new Error("timeout"))).toBe("Error");
+  });
+});
+
+/**
+ * The outage these tests exist for.
+ *
+ * Every send failed for hours and the only trace left anywhere was the word
+ * "provider_error": the SDK reported `AccessDeniedException` (or an unverified
+ * identity, or a missing configuration set), the allowlist did not contain
+ * that spelling, and nothing logged the exception before it was dropped.
+ */
+describe("provider exceptions that used to be erased", () => {
+  /** What an AWS SDK failure looks like: the API's code is the `name`. */
+  class SESv2ServiceException extends Error {
+    override name = "AccessDeniedException";
+    $metadata = { httpStatusCode: 403 };
+  }
+
+  it("keeps the exception name the SDK actually throws", () => {
+    expect(safeDeliveryReason({ name: "AccessDeniedException" })).toBe("AccessDeniedException");
+    expect(safeDeliveryReason({ name: "MailFromDomainNotVerifiedException" })).toBe(
+      "MailFromDomainNotVerifiedException"
+    );
+    expect(safeDeliveryReason({ name: "ConfigurationSetDoesNotExistException" })).toBe(
+      "ConfigurationSetDoesNotExistException"
+    );
+    expect(safeDeliveryReason({ name: "UnrecognizedClientException" })).toBe(
+      "UnrecognizedClientException"
+    );
+  });
+
+  it("reads the code from `name` when the transport set no `code`", () => {
+    expect(errorCodeOf({ name: "BadRequestException" })).toBe("BadRequestException");
+    expect(errorCodeOf({ code: "gmail_cap", name: "SomethingElse" })).toBe("gmail_cap");
+    expect(errorCodeOf({})).toBeNull();
+  });
+
+  it("still refuses a name that is not a provider code", () => {
+    // The point of widening the list is precision, not permissiveness: an
+    // unknown identifier must still degrade to the honest fallback.
+    expect(safeDeliveryReason({ name: "SomethingWentWrong" })).toBe("provider_error");
+    expect(safeDeliveryReason({ code: "arn:aws:ses:us-east-1:123:configuration-set/x" })).toBe(
+      "provider_error"
+    );
+  });
+
+  it("names the exception, not the SDK's wrapper class", () => {
+    // `SESv2ServiceException` is what every AWS failure looks like from the
+    // constructor, so the old field said the same word for all of them.
+    expect(deliveryFailureDetail(new SESv2ServiceException("denied"), "ses")).toEqual({
+      code: "AccessDeniedException",
+      leg: "ses",
+      errorName: "AccessDeniedException",
+    });
+  });
+
+  it("carries the HTTP status, which separates 403 from 400 from 429", () => {
+    expect(httpStatusOf(new SESv2ServiceException("denied"))).toBe(403);
+    expect(httpStatusOf({ $metadata: { httpStatusCode: 999 } })).toBeNull();
+    expect(httpStatusOf({ $metadata: { httpStatusCode: "403" } })).toBeNull();
+    expect(httpStatusOf(new Error("no metadata"))).toBeNull();
+    expect(providerEvidence(new SESv2ServiceException("denied"))).toEqual({
+      code: "AccessDeniedException",
+      errorName: "AccessDeniedException",
+      httpStatus: 403,
+    });
+  });
+
+  it("cannot be talked into persisting an address", () => {
+    const forged = { name: "noreply@intake.calder.click" };
+    expect(safeErrorName(forged)).toBeNull();
+    expect(JSON.stringify(providerEvidence(forged))).not.toContain("@");
   });
 });
