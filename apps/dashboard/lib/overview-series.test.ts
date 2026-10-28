@@ -34,6 +34,37 @@ describe("overview series", () => {
     expect(s.failureRate).toBeCloseTo(10);
   });
 
+  it("keeps bounce and complaint reports, which are a subset of failed", () => {
+    // The Overview prints "0 bounced" only when it is a measurement. With no
+    // delivery events, zero bounce reports means "nothing told us", so the page
+    // needs the three numbers apart, not one `failed` total.
+    const s = summarize([
+      { status: "delivered", value: 1 },
+      { status: "failed", value: 9 },
+      { status: "sent", value: 47 },
+    ]);
+    expect(s.failed).toBe(9);
+    expect(s.bounced).toBe(0);
+    expect(s.complained).toBe(0);
+    expect(s.settled).toBe(10);
+    // The rate is over confirmed outcomes, so the 47 unconfirmed cannot make
+    // delivery look better or worse than the 1-in-10 that was observed.
+    expect(s.deliveryRate).toBeCloseTo(10);
+  });
+
+  it("counts a real bounce report as evidence the channel works", () => {
+    const s = summarize([
+      { status: "delivered", value: 7 },
+      { status: "bounced", value: 2 },
+      { status: "complained", value: 1 },
+    ]);
+    expect(s.failed).toBe(3);
+    expect(s.bounced).toBe(2);
+    expect(s.complained).toBe(1);
+    expect(s.settled).toBe(10);
+    expect(s.failureRate).toBeCloseTo(30);
+  });
+
   it("reports null confirmed rates when mail is only sent, never confirmed", () => {
     const s = summarize([{ status: "sent", value: 2 }]);
     expect(s.sent).toBe(2);

@@ -53,7 +53,14 @@ export interface VolumeSummary {
   delivered: number;
   /** Accepted by the provider, delivery not yet confirmed. Never counted as delivered. */
   sent: number;
+  /** Everything in the failed class, including bounce and complaint reports. */
   failed: number;
+  /** Provider bounce reports received. A subset of `failed`, and NOT a measurement of bounces in general. */
+  bounced: number;
+  /** Provider complaint reports received. A subset of `failed`. */
+  complained: number;
+  /** delivered + failed: the messages that produced a confirmed outcome at all. */
+  settled: number;
   pending: number;
   /** confirmed delivered / settled (delivered + failed), 0–100. null when nothing confirmed. */
   deliveryRate: number | null;
@@ -66,12 +73,16 @@ export function summarize(rows: StatusCountRow[]): VolumeSummary {
   let sent = 0;
   let failed = 0;
   let pending = 0;
+  let bounced = 0;
+  let complained = 0;
   for (const r of rows) {
     const cls = classifyStatus(r.status);
     if (cls === "delivered") delivered += r.value;
     else if (cls === "sent") sent += r.value;
     else if (cls === "failed") failed += r.value;
     else pending += r.value;
+    if (r.status === "bounced") bounced += r.value;
+    if (r.status === "complained") complained += r.value;
   }
   const settled = delivered + failed;
   return {
@@ -79,6 +90,9 @@ export function summarize(rows: StatusCountRow[]): VolumeSummary {
     delivered,
     sent,
     failed,
+    bounced,
+    complained,
+    settled,
     pending,
     deliveryRate: settled > 0 ? (delivered / settled) * 100 : null,
     failureRate: settled > 0 ? (failed / settled) * 100 : null,

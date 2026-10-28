@@ -21,6 +21,8 @@ import {
   type StatusCountRow,
 } from "../../lib/overview-series";
 import { pricingUrl } from "../../lib/pricing";
+import { DeliveryEventNotice } from "../../components/delivery-event-notice";
+import { deliveryEventHealth } from "../../lib/senders/service";
 
 const DAY_MS = 86_400_000;
 
@@ -121,6 +123,23 @@ export default async function OverviewPage() {
       // best-effort counts
     }
   }
+
+  // Before a zero may be printed, ask whether the provider has ever reported
+  // back. Two of these cards are ratios over "confirmed outcomes"; with no
+  // delivery events there are no confirmed outcomes, and the bounce figure is
+  // an absence dressed as a measurement.
+  let deliveryHealth: Awaited<ReturnType<typeof deliveryEventHealth>> | null = null;
+  if (projectIds.length > 0) {
+    try {
+      const healths = await Promise.all(projectIds.map((id) => deliveryEventHealth(id)));
+      // If any project has never received feedback, the workspace-wide zeros
+      // are not measurable, so the strictest verdict wins.
+      deliveryHealth = healths.find((h) => !h.zerosTrusted) ?? healths[0] ?? null;
+    } catch {
+      // best-effort: the page still renders its counts without the caveat
+    }
+  }
+  const zerosTrusted = deliveryHealth?.zerosTrusted ?? true;
 
   const lifetime = summarize(allTime);
   const month = summarize(last30);
@@ -286,6 +305,10 @@ export default async function OverviewPage() {
 
       <OverviewSetupChecklist steps={setupSteps} />
 
+      {deliveryHealth && !zerosTrusted && (
+        <DeliveryEventNotice health={deliveryHealth} projectId={projectIds[0] ?? ""} />
+      )}
+
       <section className="ov-metrics" aria-label="Last 30 days">
         <div className="ov-metric">
           <span className="ov-metric-label">Emails sent</span>
@@ -293,17 +316,28 @@ export default async function OverviewPage() {
           <span className="ov-metric-sub">Last 30 days</span>
         </div>
         <div className="ov-metric">
-          <span className="ov-metric-label">Delivery rate</span>
+          <span className="ov-metric-label">
+            {zerosTrusted ? "Delivery rate" : "Confirmed delivery rate"}
+          </span>
           <span className="ov-metric-value tabular-nums">{formatRate(month.deliveryRate)}</span>
-          <span className="ov-metric-sub">{month.delivered.toLocaleString()} delivered{month.sent > 0 ? ` · ${month.sent.toLocaleString()} sent, unconfirmed` : ""}</span>
+          <span className="ov-metric-sub">
+            {month.delivered.toLocaleString()} delivered
+            {month.sent > 0 ? ` · ${month.sent.toLocaleString()} awaiting confirmation` : ""}
+          </span>
         </div>
         <div className="ov-metric">
-          <span className="ov-metric-label">Bounce &amp; failure rate</span>
+          <span className="ov-metric-label">
+            {zerosTrusted ? "Bounce & failure rate" : "Send failure rate"}
+          </span>
           <span className="ov-metric-value tabular-nums">{formatRate(month.failureRate)}</span>
           <span className={`ov-metric-sub ${failureHigh ? "is-danger" : ""}`}>
-            {failureHigh
-              ? "Above the 2% threshold"
-              : `${month.failed.toLocaleString()} bounced or failed`}
+            {!zerosTrusted
+              ? // Without bounce reports this rate is our own failures over our
+                // own failures: true, but not the thing the label promises.
+                `${month.failed.toLocaleString()} failed at send · bounces unknown`
+              : failureHigh
+                ? "Above the 2% threshold"
+                : `${month.failed.toLocaleString()} bounced or failed`}
           </span>
         </div>
         <div className="ov-metric">
