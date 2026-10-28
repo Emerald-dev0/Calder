@@ -31,7 +31,7 @@ function healthy(routes: Partial<Routes> = {}): Routes {
   return {
     "GET /health": (res) => {
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ status: "ok" }));
+      res.end(JSON.stringify({ status: "ok", service: "api", checks: "liveness only" }));
     },
     "GET /ready": (res) => {
       res.writeHead(200, { "content-type": "application/json" });
@@ -133,7 +133,7 @@ async function run(
 describe("verify:deploy refusals", () => {
   it("passes a healthy deployment and sends nothing without a test key", async () => {
     const { exit, out, sent } = await run([], healthy());
-    expect(out).toContain("liveness: /health answers 200");
+    expect(out).toContain("liveness: /health answers 200 from the API");
     expect(out).toContain("safe test send");
     expect(out).toContain("no test key supplied");
     expect(sent).toHaveLength(0);
@@ -172,6 +172,28 @@ describe("verify:deploy refusals", () => {
     expect(sent[0]?.authorization).toBe("Bearer calder_sk_test_deadbeef");
     expect(JSON.parse(sent[0]?.body ?? "{}")).toMatchObject({ subject: expect.any(String) });
     expect(exit).toBe(0);
+  }, 120_000);
+
+  it("refuses a host that answers 200 with a static page", async () => {
+    // The real failure this guards: the function failed to build, Vercel served
+    // `public/index.html` for every path, and the API reported healthy while
+    // being unable to send anything. Status alone cannot see that; the body can.
+    const { exit, out } = await run(
+      [],
+      healthy({
+        "GET /health": (res) => {
+          res.writeHead(200, { "content-type": "text/html" });
+          res.end(
+            "<!doctype html><html><body><code>calder:api</code>" +
+              "<p>This host serves the HTTP API.</p></body></html>"
+          );
+        },
+      })
+    );
+    expect(out).toContain("liveness: /health answered 200 but not JSON");
+    expect(out).toContain("the API function is not serving this host");
+    expect(out).toContain("Post-deploy verification FAILED");
+    expect(exit).toBe(1);
   }, 120_000);
 
   it("exits non-zero when the deployment is not live", async () => {
