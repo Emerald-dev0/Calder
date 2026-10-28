@@ -136,9 +136,14 @@ async function readiness(opts: HealthServerOptions): Promise<{
   }
 
   // SES connectivity check
+  // SES gates readiness exactly the way the API's `email_provider` check does
+  // (apps/api/src/routes/health.ts): an undeliverable provider is an outage in
+  // production, and the expected state everywhere else — development, CI and
+  // previews run the mock provider on purpose, so failing readiness there would
+  // report a healthy worker as unready and pull it out of rotation.
   const sesCheck = await checkSESConnectivity();
   checks.ses = sesCheck;
-  if (sesCheck.state === "degraded") ready = false;
+  if (sesCheck.state === "degraded" && config.NODE_ENV === "production") ready = false;
 
   const stats = workerStatsSnapshot(opts.workerId);
   const heartbeatAge = stats.lastHeartbeatAt
