@@ -2,6 +2,7 @@ import { pgTable, text, timestamp, varchar, index, jsonb } from "drizzle-orm/pg-
 import { organizations } from "./organizations.js";
 
 export interface ProjectMetadata {
+  removeCalderBranding?: boolean;
   environment?: "production" | "staging" | "development";
   useCases?: string[];
   monthlyVolume?: string;

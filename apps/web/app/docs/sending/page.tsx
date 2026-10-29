@@ -16,6 +16,16 @@ export default function Sending() {
         queueing, retries, events, happens on our side.
       </p>
 
+      <h2>Email branding</h2>
+      <p>
+        Free plan emails and emails from projects without a verified domain include a small “Sent
+        with Calder” footer with an abuse report link. It is added to each HTML and text body at
+        delivery time, before the provider sends it. This applies to API, broadcasts, and templates.
+        The same policy applies to any future SMTP gateway; SMTP is not currently available. Paid
+        plans with a verified domain can use “Remove Calder branding” in project settings;
+        eligibility is checked again at delivery.
+      </p>
+
       <h2>The request</h2>
       <p>
         <span className="mono">POST /v1/emails</span> with <span className="mono">from</span>,{" "}

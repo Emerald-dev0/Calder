@@ -82,12 +82,20 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
     users,
     emails,
     usageRecords,
+    templates,
+    templateVersions,
+    senderIdentities,
+    audiences,
+    audienceContacts,
+    contacts,
+    broadcasts,
     cleanupSuiteOrg,
   } = await import("@calder/db");
   const { eq, and, count } = await import("drizzle-orm");
   const { createApp } = await import("../app.js");
   const { registerDevKey } = await import("../middleware/auth.js");
   const { drainPendingEmails } = await import("../lib/drain.js");
+  const { sendBroadcast } = await import("../services/broadcast-service.js");
 
   // ── Local SESv2 endpoint (REST-JSON, the protocol the SDK speaks) ──
   interface CapturedRequest {
@@ -345,9 +353,126 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
     expect(payload.FromEmailAddress).toBe(from);
     expect(payload.Destination.ToAddresses).toEqual([winningTo]);
     expect(payload.Content.Simple.Subject.Data).toBe(`Live proof ${suffix}`);
-    expect(payload.Content.Simple.Body.Html?.Data).toBe("<p>live</p>");
-    expect(payload.Content.Simple.Body.Text?.Data).toBe("live");
+    expect(payload.Content.Simple.Body.Html?.Data).toContain("<p>live</p><div");
+    expect(payload.Content.Simple.Body.Html?.Data).toContain('href="https://calder.click"');
+    expect(payload.Content.Simple.Body.Html?.Data).toContain('href="https://calder.click/abuse"');
+    expect(payload.Content.Simple.Body.Text?.Data).toBe(
+      "live\n\n\n--\nSent with Calder · https://calder.click\nReport abuse: https://calder.click/abuse"
+    );
     expect(payload.Content.Simple.Headers).toEqual([{ Name: "X-Campaign", Value: "live-path" }]);
+  });
+
+  it("brands a rendered template send on the SES wire", async () => {
+    const db = getDb();
+    const templateId = `tpl_${suffix}`;
+    await db
+      .insert(templates)
+      .values({ id: templateId, projectId: projId, name: "Welcome", alias: "welcome" });
+    await db.insert(templateVersions).values({
+      id: `tv_${suffix}`,
+      templateId,
+      version: "v1",
+      subject: "Welcome",
+      html: "<p>Hello {{name}}</p>",
+      text: "Hello {{name}}",
+    });
+    const to = `template-${suffix}@example.test`;
+    const res = await post({ from, to, template: "welcome", variables: { name: "Ada" } });
+    expect(res.status).toBe(202);
+    const id = ((await res.json()) as { id: string }).id;
+    await drainPendingEmails(db, { batch: 20 });
+    expect((await waitSettled(id))?.status).toBe("sent");
+    const request = captured.find((c) =>
+      (c.body as { Destination?: { ToAddresses?: string[] } }).Destination?.ToAddresses?.includes(
+        to
+      )
+    );
+    const body = (
+      request!.body as {
+        Content: { Simple: { Body: { Html: { Data: string }; Text: { Data: string } } } };
+      }
+    ).Content.Simple.Body;
+    expect(body.Html.Data).toContain("<p>Hello Ada</p>");
+    expect(body.Html.Data).toContain('href="https://calder.click/abuse"');
+    expect(body.Text.Data).toContain("Hello Ada\n\n\n--\nSent with Calder · https://calder.click");
+  });
+
+  it("brands a broadcast recipient on the SES wire", async () => {
+    const db = getDb();
+    const senderId = `sender_bc_${suffix}`,
+      audienceId = `aud_${suffix}`,
+      contactId = `ct_${suffix}`,
+      broadcastId = `bc_${suffix}`;
+    const to = `broadcast-${suffix}@example.test`;
+    await db.insert(senderIdentities).values({
+      id: senderId,
+      projectId: projId,
+      displayName: "Test",
+      email: `broadcast-${suffix}@test.test`,
+      type: "domain",
+      status: "verified",
+    });
+    await db
+      .insert(audiences)
+      .values({ id: audienceId, organizationId: orgId, projectId: projId, name: "Test audience" });
+    await db.insert(contacts).values({
+      id: contactId,
+      organizationId: orgId,
+      projectId: projId,
+      email: to,
+      firstName: "Ada",
+      consentSource: "api",
+      consentAt: new Date(),
+    });
+    await db.insert(audienceContacts).values({ audienceId, contactId });
+    await db.insert(broadcasts).values({
+      id: broadcastId,
+      organizationId: orgId,
+      projectId: projId,
+      name: "Test",
+      senderId,
+      audienceId,
+      subject: "Hi",
+      html: "<p>Hello {{first_name}}</p>",
+      text: "Hello {{first_name}}",
+      trackingClicks: false,
+    });
+    try {
+      // The route selects test mode in this harness; call the same service with
+      // live mode so the real SES protocol payload can be observed.
+      const result = await sendBroadcast(db, {
+        broadcastId,
+        projectId: projId,
+        organizationId: orgId,
+        env: "live",
+        requestId: `broadcast-${suffix}`,
+      });
+      expect(result.queued).toBe(1);
+      await drainPendingEmails(db, { batch: 20 });
+      const [row] = await db
+        .select()
+        .from(emails)
+        .where(and(eq(emails.projectId, projId), eq(emails.to, to)));
+      expect(row).toBeTruthy();
+      expect((await waitSettled(row!.id))?.status).toBe("sent");
+      const request = captured.find((c) =>
+        (c.body as { Destination?: { ToAddresses?: string[] } }).Destination?.ToAddresses?.includes(
+          to
+        )
+      );
+      const body = (
+        request!.body as {
+          Content: { Simple: { Body: { Html: { Data: string }; Text: { Data: string } } } };
+        }
+      ).Content.Simple.Body;
+      expect(body.Html.Data).toContain("<p>Hello Ada</p>");
+      expect(body.Html.Data).toContain('href="https://calder.click/abuse"');
+      expect(body.Text.Data).toContain(
+        "Hello Ada\n\n\n--\nSent with Calder · https://calder.click"
+      );
+    } finally {
+      await db.delete(broadcasts).where(eq(broadcasts.id, broadcastId));
+    }
   });
 
   it("meters a live delivery exactly once, in the usage ledger", async () => {

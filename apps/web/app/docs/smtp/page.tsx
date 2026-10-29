@@ -3,8 +3,7 @@ import { CodeBlock } from "../../../components/code";
 
 export const metadata: Metadata = {
   title: "SMTP, Calder Docs",
-  description:
-    "Send through Calder with any SMTP client: host, port, credentials, and copy-paste examples.",
+  description: "SMTP gateway design examples. A public SMTP service is not available.",
 };
 
 const NODemailer = `import nodemailer from "nodemailer";
@@ -45,8 +44,8 @@ export default function SmtpGuide() {
     <>
       <h1>SMTP</h1>
       <p className="docs-lede">
-        Already speak SMTP? Keep your libraries. Point them at Calder and get the same pipeline,
-        queue, retries, events, webhooks, as the REST API.
+        SMTP is not available as a public service. Use the REST API for sending; the examples below
+        describe a proposed gateway, not a working setup.
       </p>
 
       <div className="docs-note">

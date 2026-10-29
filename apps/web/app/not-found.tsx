@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Logo } from "../components/logo";
 
 const ROUTES: Array<{ label: string; href: string; detail: string }> = [
-  { label: "Documentation", href: "/docs", detail: "Quickstarts, API reference, SMTP setup" },
+  { label: "Documentation", href: "/docs", detail: "Quickstarts and API reference" },
   { label: "Pricing", href: "/pricing", detail: "Four plans, free to start" },
   { label: "Status", href: "/status", detail: "Every component, and its history" },
   { label: "Changelog", href: "/changelog", detail: "What shipped, and when" },

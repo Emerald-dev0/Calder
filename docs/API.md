@@ -277,3 +277,7 @@ value: "calder-verification=cvt_…", expiresAt}`. 409 if another
 - `DELETE /v1/domains/:id`.
 - `GET /v1/domains` → secret-free projections (challenge visible only while
   pending/failed).
+
+### Outbound branding
+
+Free plan and no-domain project emails include a Calder footer and abuse report link, added to the outgoing HTML and text at delivery. Paid projects with a verified domain can remove it in dashboard settings. This applies to all send paths, including templates, broadcasts and SMTP.

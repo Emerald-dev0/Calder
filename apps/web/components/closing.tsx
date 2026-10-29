@@ -84,7 +84,7 @@ const COLUMNS: Array<{ title: string; links: Array<{ label: string; href: string
       { label: "Documentation", href: "/docs" },
       { label: "Quickstart", href: "/docs/quickstart" },
       { label: "API reference", href: "/docs/api-reference" },
-      { label: "SMTP setup", href: "/docs/smtp" },
+      { label: "Service availability", href: "/docs/availability" },
       { label: "Switch to Calder", href: "/migrate" },
       { label: "Status", href: "/status" },
     ],

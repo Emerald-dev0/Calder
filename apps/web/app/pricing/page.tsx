@@ -52,6 +52,12 @@ export default function PricingPage() {
             </>
           }
         />
+        <div className="wrap">
+          <p className="lede">
+            Free plan emails include a small “Sent with Calder” footer. Paid plans with a verified
+            domain can remove it. Paid billing and self-service upgrades are not available yet.
+          </p>
+        </div>
         <div style={{ paddingBottom: "2rem" }}>
           <Pricing />
         </div>

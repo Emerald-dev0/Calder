@@ -27,7 +27,7 @@ export const TERMS: GlossaryTerm[] = [
       "Simple Mail Transfer Protocol: the standard (RFC 5321) for submitting and relaying email. Clients connect (usually port 587 with STARTTLS, or 465 implicit TLS), authenticate, then issue MAIL FROM, RCPT TO, and DATA commands carrying a MIME message.",
       "Modern providers also expose SMTP relays so legacy stacks, WordPress, Laravel, Django, Nodemailer, can send without code changes. SMTP has no native idempotency or structured errors, which is why APIs exist alongside it.",
     ],
-    calderLink: { href: "/docs/smtp", label: "Sending with Calder SMTP" },
+    calderLink: { href: "/docs/smtp", label: "SMTP gateway availability" },
     related: ["email-api", "transactional-email", "deliverability"],
   },
   {

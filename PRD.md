@@ -68,6 +68,8 @@ Calder exposes **REST API** (modern applications, SDKs) and **SMTP** (`smtp.cald
 
 ## 11. Pricing (locked for launch, 2026-09-14)
 
+Free plan and no-domain project emails carry a “Sent with Calder” footer and abuse reporting link. Paid projects with a verified domain may remove it in settings; eligibility is checked at delivery.
+
 | Plan     | USD    | NGN     | Emails / month | Projects | Domains | Team   | Environments               | Logs    | Support   |
 | -------- | ------ | ------- | -------------- | -------- | ------- | ------ | -------------------------- | ------- | --------- |
 | Beginner | $0     | ₦0      | 5,000          | 3        | 2       | 1      | Development                | 7 days  | Community |

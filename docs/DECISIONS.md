@@ -1106,3 +1106,7 @@ launch status and the placeholder changelog with evidence-linked main history.
 access does not grant paid tiers automatically. PR #87 automatic delivery remains
 under review until hosted validation, not declared fixed because local tests pass.
 The pricing catalogue remains planning/configuration, not checkout availability.
+
+## ADR-051: Calder email footer
+
+Free plan and no-domain project emails carry a small Calder footer and abuse reporting link. Paid projects with a verified domain may remove it in settings. This is permanent product policy, not an experiment. The shared outbound email service adds it to the provider-bound copy before signing; eligibility is checked at delivery on both worker and drain paths.
