@@ -22,6 +22,7 @@ import {
   type DeliveryEventHealth,
 } from "@calder/observability";
 import { createQueue } from "@calder/queue";
+import { scheduleDeliveryDrain } from "../send/wake-drain";
 import { canManageProject } from "@calder/auth";
 import { assertDashboardAdmissionAllowed } from "../sending-eligibility";
 
@@ -949,6 +950,7 @@ export async function dispatchTestEmail(
     maxAttempts: 5,
   });
   await queue.enqueue("send-email", { emailId, projectId: sender.projectId });
+  scheduleDeliveryDrain();
 
   await db
     .update(senderIdentities)

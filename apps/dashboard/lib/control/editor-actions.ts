@@ -14,6 +14,7 @@ import {
 import { getDb } from "@calder/db";
 import { brandEmail } from "@calder/email";
 import { createQueue } from "@calder/queue";
+import { scheduleDeliveryDrain } from "../send/wake-drain";
 import { requireControl } from "./guard";
 import { READ_ONLY_ROLES } from "./roles";
 
@@ -293,6 +294,7 @@ export async function sendTestEmail(input: {
     maxAttempts: 5,
   });
   await queue.enqueue("send-email", { emailId, projectId: INTERNAL_PROJECT });
+  scheduleDeliveryDrain();
 
   // REQ-074: test sends never touch waitlist_signups or analytics_events.
   await audit(ctx.user.userId, "confirmation_email.send_test", { to, emailId });

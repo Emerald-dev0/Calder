@@ -176,3 +176,13 @@ packages/billing, natural second candidate (different consistency needs)
 ## 16. Deployment & CLI tooling
 
 Deployments to preview and production environments go through the `vercel` CLI where applicable, and repo/PR operations go through `gh` (GitHub CLI), see `AGENTS.md` § "CLI-first tooling." This keeps the deployment and review trail scriptable and auditable rather than dependent on manual dashboard steps.
+
+### Serverless queue wake-up lifecycle
+
+Accepted API sends and dashboard transactional/test sends nudge the existing
+authenticated API drain after durable enqueue. Dashboard requests use Next.js
+`after()`; API requests use their host execution context or Vercel `waitUntil()`.
+The shared HTTP helper lives in `@calder/queue`; it does not execute delivery or
+replace queue/lease/retry semantics. Both projects require matching server-only
+`CRON_SECRET` and explicit `API_URL`. The daily cron remains a recovery backstop,
+not a latency guarantee. See ADR-049 and deployment operations for validation.
