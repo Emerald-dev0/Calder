@@ -231,24 +231,20 @@ gate("worker live delivery path against a real SES-protocol endpoint", async () 
       .values({ id: `plan_starter_${suffix}`, tier: "starter", name: "Starter" })
       .onConflictDoNothing();
     const [starter] = await db.select().from(plans).where(eq(plans.tier, "starter")).limit(1);
-    await db
-      .insert(subscriptions)
-      .values({
-        id: `sub_${suffix}`,
-        organizationId: orgId,
-        planId: starter!.id,
-        status: "active",
-      });
+    await db.insert(subscriptions).values({
+      id: `sub_${suffix}`,
+      organizationId: orgId,
+      planId: starter!.id,
+      status: "active",
+    });
     // A paid project without a verified domain is still branded.
     expect((await sendAndBody()).Html.Data).toContain('href="https://calder.click/abuse"');
-    await db
-      .insert(domains)
-      .values({
-        id: `dom_${suffix}`,
-        projectId: projId,
-        domain: `wk-${suffix}.test`,
-        status: "verified",
-      });
+    await db.insert(domains).values({
+      id: `dom_${suffix}`,
+      projectId: projId,
+      domain: `wk-${suffix}.test`,
+      status: "verified",
+    });
     const unbranded = await sendAndBody();
     expect(unbranded.Text.Data).toBe("worker live body");
     expect(unbranded.Html.Data).toBe("<html><body><p>worker live body</p></body></html>");

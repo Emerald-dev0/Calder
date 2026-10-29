@@ -368,16 +368,14 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
     await db
       .insert(templates)
       .values({ id: templateId, projectId: projId, name: "Welcome", alias: "welcome" });
-    await db
-      .insert(templateVersions)
-      .values({
-        id: `tv_${suffix}`,
-        templateId,
-        version: "v1",
-        subject: "Welcome",
-        html: "<p>Hello {{name}}</p>",
-        text: "Hello {{name}}",
-      });
+    await db.insert(templateVersions).values({
+      id: `tv_${suffix}`,
+      templateId,
+      version: "v1",
+      subject: "Welcome",
+      html: "<p>Hello {{name}}</p>",
+      text: "Hello {{name}}",
+    });
     const to = `template-${suffix}@example.test`;
     const res = await post({ from, to, template: "welcome", variables: { name: "Ada" } });
     expect(res.status).toBe(202);
@@ -406,45 +404,39 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
       contactId = `ct_${suffix}`,
       broadcastId = `bc_${suffix}`;
     const to = `broadcast-${suffix}@example.test`;
-    await db
-      .insert(senderIdentities)
-      .values({
-        id: senderId,
-        projectId: projId,
-        displayName: "Test",
-        email: `broadcast-${suffix}@test.test`,
-        type: "domain",
-        status: "verified",
-      });
+    await db.insert(senderIdentities).values({
+      id: senderId,
+      projectId: projId,
+      displayName: "Test",
+      email: `broadcast-${suffix}@test.test`,
+      type: "domain",
+      status: "verified",
+    });
     await db
       .insert(audiences)
       .values({ id: audienceId, organizationId: orgId, projectId: projId, name: "Test audience" });
-    await db
-      .insert(contacts)
-      .values({
-        id: contactId,
-        organizationId: orgId,
-        projectId: projId,
-        email: to,
-        firstName: "Ada",
-        consentSource: "api",
-        consentAt: new Date(),
-      });
+    await db.insert(contacts).values({
+      id: contactId,
+      organizationId: orgId,
+      projectId: projId,
+      email: to,
+      firstName: "Ada",
+      consentSource: "api",
+      consentAt: new Date(),
+    });
     await db.insert(audienceContacts).values({ audienceId, contactId });
-    await db
-      .insert(broadcasts)
-      .values({
-        id: broadcastId,
-        organizationId: orgId,
-        projectId: projId,
-        name: "Test",
-        senderId,
-        audienceId,
-        subject: "Hi",
-        html: "<p>Hello {{first_name}}</p>",
-        text: "Hello {{first_name}}",
-        trackingClicks: false,
-      });
+    await db.insert(broadcasts).values({
+      id: broadcastId,
+      organizationId: orgId,
+      projectId: projId,
+      name: "Test",
+      senderId,
+      audienceId,
+      subject: "Hi",
+      html: "<p>Hello {{first_name}}</p>",
+      text: "Hello {{first_name}}",
+      trackingClicks: false,
+    });
     try {
       // The route selects test mode in this harness; call the same service with
       // live mode so the real SES protocol payload can be observed.
