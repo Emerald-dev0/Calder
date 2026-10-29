@@ -22,3 +22,4 @@ export * from "./transports.js";
 export * from "./senders.js";
 export * from "./invitations.js";
 export * from "./company-emails.js";
+export * from "./control-incidents.js";

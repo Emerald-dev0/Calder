@@ -15,6 +15,7 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const canManageSafety = ["founder", "platform_admin", "security"].includes(control.role);
   const safetyActionIdempotencyKey = randomUUID();
+  const planActionIdempotencyKey = randomUUID();
   const data = await orgDetail(id);
   if (!data) notFound();
   const {
@@ -72,14 +73,14 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
           value={plan?.name ?? planDisplayName(null)}
           hint={
             activeSubscription && activeSubscription.currentPeriodEnd
-              ? `renews ${fmtDate(new Date(activeSubscription.currentPeriodEnd))}`
+              ? `ends ${fmtDate(new Date(activeSubscription.currentPeriodEnd))}`
               : "no active subscription"
           }
         />
         <Stat
-          label="MRR"
+          label="Catalogue list price"
           value={monthlyCents ? fmtMoney(monthlyCents) : "₦0"}
-          hint="NGN list price"
+          hint="NGN list price, not revenue or payment"
         />
         <Stat label="Members" value={fmtInt(members.length)} />
         <Stat
@@ -283,7 +284,7 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
       <div className="cp-grid cp-grid-2">
         <Panel
           title="Plan control"
-          caption="founder-only (M6.2) — cancels the active subscription and opens a new one; the reason lands in the audit log"
+          caption="Manual entitlement record, not checkout or a payment. Founder-only; grant and audit commit together."
         >
           <form
             action={async (formData: FormData) => {
@@ -292,7 +293,8 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
                 org.id,
                 String(formData.get("tier") ?? "free"),
                 Number(formData.get("months") ?? 1),
-                String(formData.get("reason") ?? "")
+                String(formData.get("reason") ?? ""),
+                planActionIdempotencyKey
               );
               if (!outcome.ok) {
                 // Form-action failure surfaces via the error boundary with the

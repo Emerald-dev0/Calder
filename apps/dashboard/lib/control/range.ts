@@ -50,8 +50,7 @@ export interface DateWindow {
 }
 
 export function utcDayStart(offsetDays = 0, now: Date = new Date()): Date {
-  const d = now.getUTCFullYear() * 10000 + (now.getUTCMonth() + 1) * 100 + now.getUTCDate();
-  return new Date(d.toString().replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3T00:00:00.000Z"));
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + offsetDays));
 }
 
 function startOfMonth(offsetMonths: number, now: Date): Date {
@@ -68,7 +67,7 @@ export function parseRange(
   const key = (isRangeKey(range) ? range : "30d") as RangeKey;
   const today = utcDayStart(0, now);
 
-  const windowOf = (start: Date | null, end: Date | null, label: string): DateWindow => {
+  const windowOf = (start: Date | null, end: Date | null, _label: string): DateWindow => {
     if (start && end) {
       const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / DAY_MS));
       return {

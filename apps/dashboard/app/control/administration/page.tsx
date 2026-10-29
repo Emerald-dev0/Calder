@@ -91,50 +91,42 @@ export default async function AdministratorsPage({
           {candidates.length === 0 ? (
             <Empty title={q ? "No users match" : "Search to promote or manage"} />
           ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table className="cp-table">
-                <thead>
-                  <tr>
-                    <th>User</th>
-                    <th>Current role</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {candidates.map((u) => (
-                    <tr key={u.id}>
-                      <td>
-                        <Link href={`/control/customers/users/${u.id}`}>{u.name ?? "—"}</Link>{" "}
-                        <span className="mono" style={{ fontSize: 12, color: "var(--cp-muted)" }}>
-                          {u.email}
-                        </span>
-                      </td>
-                      <td>
-                        {u.platformRole ? (
-                          <Badge tone={u.platformRole === "founder" ? "ok" : "accent"}>
-                            {CONTROL_ROLE_LABEL[u.platformRole]}
-                          </Badge>
-                        ) : (
-                          <span style={{ color: "var(--cp-faint)" }}>customer</span>
-                        )}
-                      </td>
-                      <td>
-                        {u.platformRole === "founder" ? (
-                          <span style={{ color: "var(--cp-faint)", fontSize: 12.5 }}>
-                            managed out-of-band
-                          </span>
-                        ) : (
-                          <RoleControls
-                            userId={u.id}
-                            current={(u.platformRole as PlatformRole | null) ?? null}
-                            assignable={ASSIGNABLE}
-                          />
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="cp-role-candidates">
+              {candidates.map((u) => (
+                <article key={u.id} className="cp-role-candidate">
+                  <div>
+                    <p className="cp-eyebrow">User</p>
+                    <Link href={`/control/customers/users/${u.id}`}>{u.name ?? "—"}</Link>{" "}
+                    <span className="mono" style={{ fontSize: 12, color: "var(--cp-muted)" }}>
+                      {u.email}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="cp-eyebrow">Current role</p>
+                    {u.platformRole ? (
+                      <Badge tone={u.platformRole === "founder" ? "ok" : "accent"}>
+                        {CONTROL_ROLE_LABEL[u.platformRole]}
+                      </Badge>
+                    ) : (
+                      <span style={{ color: "var(--cp-faint)" }}>customer</span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="cp-eyebrow">Change access</p>
+                    {u.platformRole === "founder" ? (
+                      <span style={{ color: "var(--cp-faint)", fontSize: 12.5 }}>
+                        managed out-of-band
+                      </span>
+                    ) : (
+                      <RoleControls
+                        userId={u.id}
+                        current={(u.platformRole as PlatformRole | null) ?? null}
+                        assignable={ASSIGNABLE}
+                      />
+                    )}
+                  </div>
+                </article>
+              ))}
             </div>
           )}
         </Panel>

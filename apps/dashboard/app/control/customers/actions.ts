@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import {
   auditLogs,
@@ -29,7 +29,7 @@ export async function setOrganizationSafetyStatus(
   if (!ORGANIZATION_SAFETY_ROLES.has(ctx.role)) {
     return { ok: false, error: "Founder or security/platform admin only." };
   }
-  const trimmed = reason.trim();
+  const trimmed = typeof reason === "string" ? reason.trim() : "";
   if (trimmed.length < 6 || trimmed.length > 500) {
     return { ok: false, error: "A reason between 6 and 500 characters is required." };
   }
@@ -75,7 +75,8 @@ export async function setSubscription(
   orgId: string,
   planTier: string,
   months: number,
-  reason: string
+  reason: string,
+  idempotencyKey: string
 ): Promise<{ ok: boolean; error?: string }> {
   const ctx = await requireControl();
   // M6.2: plan grants manufacture revenue-side state → founder-only, and
@@ -83,8 +84,8 @@ export async function setSubscription(
   if (!isFounderRole(ctx.role)) {
     return { ok: false, error: "Founder only." };
   }
-  const trimmed = reason.trim();
-  if (trimmed.length < 6) {
+  const trimmed = typeof reason === "string" ? reason.trim() : "";
+  if (trimmed.length < 6 || trimmed.length > 500) {
     return {
       ok: false,
       error: "A reason (≥ 6 characters) is required — it lands in the audit log.",
@@ -94,49 +95,79 @@ export async function setSubscription(
     return { ok: false, error: "Unknown plan tier." };
   }
   const m = Math.floor(months);
-  if (!Number.isFinite(m) || m < 1 || m > 36) {
+  if (!Number.isInteger(months) || m < 1 || m > 36) {
     return { ok: false, error: "Duration must be 1-36 months." };
   }
 
+  if (typeof idempotencyKey !== "string" || !idempotencyKey.trim() || idempotencyKey.length > 255) {
+    return { ok: false, error: "A valid plan-grant action key is required." };
+  }
   const db = getDb();
-  const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
-  if (!org) return { ok: false, error: "Organization not found." };
-  const [plan] = await db
-    .select()
-    .from(plans)
-    .where(eq(plans.tier, planTier as (typeof TIERS)[number]))
-    .limit(1);
-  if (!plan) return { ok: false, error: "Plan tier not seeded. Run db:seed." };
+  const result = await db.transaction(async (tx) => {
+    const [org] = await tx
+      .select()
+      .from(organizations)
+      .where(eq(organizations.id, orgId))
+      .limit(1)
+      .for("update");
+    if (!org) return { ok: false, error: "Organization not found." };
+    const [prior] = await tx
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.organizationId, orgId),
+          eq(auditLogs.action, "subscription.set"),
+          sql`${auditLogs.metadata}->>'idempotencyKey' = ${idempotencyKey}`
+        )
+      )
+      .limit(1);
+    if (prior) {
+      const metadata = prior.metadata as Record<string, unknown> | null;
+      if (
+        prior.actorUserId !== ctx.user.userId ||
+        metadata?.plan !== planTier ||
+        metadata?.months !== m ||
+        metadata?.reason !== trimmed
+      )
+        return { ok: false, error: "Action key was already used for a different plan grant." };
+      return { ok: true };
+    }
+    const [plan] = await tx
+      .select()
+      .from(plans)
+      .where(eq(plans.tier, planTier as (typeof TIERS)[number]))
+      .limit(1);
+    if (!plan) return { ok: false, error: "Plan tier not seeded. Run db:seed." };
 
-  await db
-    .update(subscriptions)
-    .set({ status: "canceled", updatedAt: new Date() })
-    .where(and(eq(subscriptions.organizationId, orgId), eq(subscriptions.status, "active")));
-  const start = new Date();
-  const end = new Date(start);
-  end.setMonth(end.getMonth() + m);
-  const id = `sub_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
-  await db.insert(subscriptions).values({
-    id,
-    organizationId: orgId,
-    planId: plan.id,
-    status: "active",
-    currentPeriodStart: start,
-    currentPeriodEnd: end,
-  });
-  try {
-    await db.insert(auditLogs).values({
+    await tx
+      .update(subscriptions)
+      .set({ status: "canceled", updatedAt: new Date() })
+      .where(and(eq(subscriptions.organizationId, orgId), eq(subscriptions.status, "active")));
+    const start = new Date();
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + m);
+    const id = `sub_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
+    await tx.insert(subscriptions).values({
+      id,
+      organizationId: orgId,
+      planId: plan.id,
+      status: "active",
+      currentPeriodStart: start,
+      currentPeriodEnd: end,
+    });
+    await tx.insert(auditLogs).values({
       id: `audit_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
       organizationId: orgId,
       actorUserId: ctx.user.userId,
       action: "subscription.set",
       targetType: "subscription",
       targetId: id,
-      metadata: { plan: planTier, months: m, reason: trimmed },
+      metadata: { plan: planTier, months: m, reason: trimmed, idempotencyKey },
     });
-  } catch {
-    // Audit must never break the operation it records.
-  }
+    return { ok: true };
+  });
+  if (!result.ok) return result;
   revalidatePath("/control");
   revalidatePath("/control/billing");
   revalidatePath("/control/customers/organizations");

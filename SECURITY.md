@@ -181,3 +181,31 @@ belong in the §11 audit log event set once implemented.
   **Owner:** repository security maintainer/founder. **Review expires:**
   2026-11-05. Track the major-version adapter upgrade and rerun route/protocol
   tests; this note is not a high/critical exception or evidence of zero risk.
+
+## Founder operational mutations (2026-10-29)
+
+- Platform-role changes, manual plan grants and Gmail reactivation must commit
+  their audit record in the same transaction as the mutation. Audit failure rolls
+  back the mutation; it is not swallowed. Target rows are locked while applying
+  the change. Founder/self protections and server-side role checks remain.
+- Role changes and plan grants require request keys. Replaying a recorded grant
+  cannot resurrect a role revoked later or duplicate subscription records.
+  Mismatched key reuse is rejected. Do not purge these audit keys without a
+  deliberate replacement replay-protection policy.
+- Gmail appeals require an audit reason; they apply only to suspended Gmail
+  transports, never revoked grants or another transport type. Repeating an
+  already-active reactivation is a no-op, not credential restoration.
+- Incident records are private operator data. Founder/platform-admin/
+  infrastructure can mutate; other roles that can access observability may read.
+  Actor, state change and revision are retained. No notification/publication is
+  triggered by incident creation. Operators must not paste secrets or message
+  bodies into incident notes. Native Next server-action origin checks remain;
+  no permissive action-origin allowlist or authentication bypass is added.
+- Confirmation UI and an audit reason are not MFA or step-up authentication.
+  Platform-wide maintenance switches remain unavailable until their actual
+  enforcement and re-authentication are implemented and tested.
+
+The dashboard permits `unsafe-eval` only when `NODE_ENV=development`, because
+Next.js development hydration requires it. Test/production CSP does not permit
+it; the dashboard test command includes environment-specific header regression checks.
+This is not a production CSP relaxation.

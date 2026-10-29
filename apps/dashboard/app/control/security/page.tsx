@@ -231,7 +231,24 @@ export default async function AbusePage() {
                     </td>
                     <td>
                       {g.status === "suspended" ? (
-                        <form action={reactivateGmailTransport.bind(null, g.id)}>
+                        <form
+                          action={async (formData: FormData) => {
+                            "use server";
+                            await reactivateGmailTransport(
+                              g.id,
+                              String(formData.get("reason") ?? "")
+                            );
+                          }}
+                        >
+                          <input
+                            className="cp-input"
+                            name="reason"
+                            aria-label="Reason for Gmail reactivation"
+                            placeholder="Review reason"
+                            minLength={6}
+                            maxLength={500}
+                            required
+                          />
                           <button
                             type="submit"
                             style={{

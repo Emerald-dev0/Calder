@@ -8,8 +8,8 @@ Developer-first communication infrastructure. Transactional email is the first p
 
 Transactional email API, dashboard, durable queue/drain/worker and SES integration
 are implemented. The operator confirmed production API liveness and two manually
-drained inbox deliveries on October 28, 2026. Automatic wake-up recovery is under
-review in PR #87 and is not yet verified in Production.
+drained inbox deliveries on October 28, 2026. Automatic wake-up recovery from PR #87 is merged, but its production rollout
+and no-manual-drain behavior are not yet verified.
 
 Paid billing is not configured. SDK source exists, but official registry
 publication is not verified; use the direct HTTP quickstarts. SMTP is specified,
@@ -19,6 +19,16 @@ separate production validation.
 See [launch availability](docs/LAUNCH-STATUS.md) for evidence and remaining checks,
 [CHANGELOG.md](CHANGELOG.md) for merged history, and `PRD.md`, `ARCHITECTURE.md`,
 `SECURITY.md` for intended scope, architecture and security requirements.
+
+Founder control-plane work is in open PR #88, not deployed: audited/replay-safe
+role, manual-plan and Gmail-retry changes; private incident workflows; scoped
+email metrics; activation prerequisites; deliberate read-only support search; and
+billing/operational reporting corrections. Signup remains open. Incident routes
+require migration `0032_special_logan` before rollout. See the
+[rebuild ledger](docs/CONTROL-PLANE-REBUILD.md) and
+[authenticated visual QA](docs/visual-qa/founder-workflows-2026-10-29/README.md).
+Shared maintenance enforcement, step-up auth, alert notifications and hosted
+provider verification are still outstanding; this is not an all-features-complete claim.
 
 ## Documentation map
 

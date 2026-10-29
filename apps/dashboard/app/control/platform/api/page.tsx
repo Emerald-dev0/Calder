@@ -36,7 +36,7 @@ export default async function PlatformApiPage() {
 
       <Panel title="API surface" caption="what exists today">
         <KV k="REST API" v="/v1 · Hono · versioned from first release" mono />
-        <KV k="SMTP gateway" v="smtp.calder.com:587 · same pipeline" mono />
+        <KV k="SMTP gateway" v="Not implemented; specification only" mono />
         <KV k="Idempotency" v="Idempotency-Key on mutating sends" mono />
         <KV k="Rate limiting" v="per IP / key / project / org / endpoint (Redis-backed)" mono />
         <KV k="Health" v="/health · /ready (dependency-inclusive)" mono />

@@ -148,3 +148,9 @@ validate acquisition, activation, customer and delivery analytics end-to-end,
 reusing existing services. Operational controls must be enforced, authorized and
 audited, not decorative toggles. Foundation work is not full launch certification.
 Scope/acceptance: [founder rebuild](docs/CONTROL-PLANE-REBUILD.md).
+
+Founder continuation adds private incident records with audited lifecycle updates,
+read-only support investigation and organization-cohort activation reporting.
+Metrics separates live/test email states; manual plan grants are not proof of
+payment and must not be presented as revenue. These features do not enable
+billing, public status publication, paging or platform-wide maintenance switches.

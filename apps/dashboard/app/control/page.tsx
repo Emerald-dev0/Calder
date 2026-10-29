@@ -1,6 +1,6 @@
 import Link from "next/link";
 import nextDynamic from "next/dynamic";
-import { fmtAgo, fmtInt, fmtMoney, fmtPct } from "@/lib/control/format";
+import { fmtAgo, fmtInt, fmtPct } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
 import {
   billingOverview,
@@ -203,7 +203,7 @@ export default async function CommandCenter({
         customFrom={query.from}
         customTo={query.to}
       />
-      <main className="cp-content">
+      <div className="cp-command-center">
         <header className="cp-head">
           <p className="cp-eyebrow">Command Center</p>
           <h1 className="cp-title">Calder at a glance</h1>
@@ -214,7 +214,7 @@ export default async function CommandCenter({
             Everything important happening across the platform ·{" "}
             {issueCount === 0 ? (
               <>
-                <Dot tone="ok" /> All systems operational
+                <Dot tone="info" /> No current rule alerts; full service health not certified
               </>
             ) : (
               <Link
@@ -312,15 +312,11 @@ export default async function CommandCenter({
 
         <SectionLabel>Business</SectionLabel>
         <div className="cp-stats">
+          <Stat label="Billing" value="Not configured" hint="Revenue metrics unavailable" />
           <Stat
-            label="MRR"
-            value={billing ? fmtMoney(billing.mrrCents) : "—"}
-            hint="active subscriptions"
-          />
-          <Stat
-            label="Customers"
+            label="Active plan records"
             value={billing ? fmtInt(billing.activeCount) : "—"}
-            hint="paying organizations"
+            hint="Not proof of payment"
           />
           <Stat
             label="Organizations"
@@ -630,7 +626,7 @@ export default async function CommandCenter({
           Every number on this page is a live query; dashes mean the data does not exist yet, never
           a fabricated value. Comparisons are {window.compareLabel.replace("vs ", "")}.
         </p>
-      </main>
+      </div>
     </>
   );
 }

@@ -1136,3 +1136,23 @@ work and acceptance gates in `docs/CONTROL-PLANE-REBUILD.md`.
 impersonation is added in this foundation. Maintenance requires real backend
 and durable queue enforcement before an operator switch can be exposed. This
 supersedes any blanket "built and verified live" claim, not prior security rules.
+
+## ADR-053: Atomic founder actions and private incident tracking (2026-10-29)
+
+**Context:** continued founder audit found swallowed audit failures on role/plan
+changes, non-atomic Gmail appeal handling, simulated/live reporting mixed by
+default, and incident/support routes that were only plans.
+
+**Decision:** commit privileged changes and audit together under target-row locks;
+use request keys for role/plan grants and reject mismatched replay. Use an inline
+role-change form with a reason/acknowledgment, not browser prompts. Add private,
+revisioned incident records with attributed updates and explicit state transitions
+through the existing dashboard and database. Keep manual incident tracking separate
+from sending enforcement, automatic paging and public status publication. Expose a
+measured organization-creation activation cohort, explicit live/test email report
+filters and read-only support lookup. Do not infer revenue from entitlement rows.
+
+**Consequence:** forward migration 0032 is required before deploying the new
+incident views. No paid billing, public incident feed, notification integration,
+MFA, global maintenance switch or impersonation is introduced. Actual auth/page
+and transaction tests, not fixture screenshots alone, are acceptance evidence.

@@ -186,3 +186,19 @@ The shared HTTP helper lives in `@calder/queue`; it does not execute delivery or
 replace queue/lease/retry semantics. Both projects require matching server-only
 `CRON_SECRET` and explicit `API_URL`. The daily cron remains a recovery backstop,
 not a latency guarantee. See ADR-049 and deployment operations for validation.
+
+## Founder incident records (2026-10-29)
+
+The dashboard's `/control/observability/incidents` uses private Postgres
+`control_incidents` and `control_incident_updates` records, added by forward
+migration `0032_special_logan`. No service or second queue is introduced. Reads
+require the observability section; writes require founder, platform-admin or
+infrastructure role. Creation/update and the corresponding `platform.internal.*`
+audit event commit in one transaction. Incident row locks and revision checks
+reject stale edits; immutable request/update IDs make retries safe. Resolved
+records cannot be reopened; recurrence creates another incident.
+
+These records do not drive sending, public status, alerts or notifications.
+Customer/public APIs do not expose them. Global sending maintenance remains a
+separate design requiring shared durable enforcement and step-up authentication;
+an incident status is never a queue kill switch.

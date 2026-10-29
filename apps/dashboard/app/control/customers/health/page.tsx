@@ -44,15 +44,15 @@ export default async function CustomerHealthPage() {
 
       <div className="cp-stats">
         <Stat
-          label="Paying customers"
+          label="Non-free plan records"
           value={fmtInt(paying.length)}
-          hint="active paid subscriptions"
+          hint="Not evidence of payment; sampled directory"
         />
-        <Stat label="Active (have projects)" value={fmtInt(withActivity.length)} />
+        <Stat label="Have projects" value={fmtInt(withActivity.length)} />
         <Stat
           label="Dormant (no projects)"
           value={fmtInt(dormant.length)}
-          hint="onboarding never finished"
+          hint="No project exists; not proof of inactivity"
         />
         <Stat
           label="Delivery health (30d)"

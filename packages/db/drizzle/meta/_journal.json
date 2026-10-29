@@ -225,6 +225,13 @@
       "when": 1793184393504,
       "tag": "0031_delivery_event_ingress_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1793269347587,
+      "tag": "0032_special_logan",
+      "breakpoints": true
     }
   ]
 }

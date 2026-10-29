@@ -1,3 +1,4 @@
+import type { ReportingEnvironment } from "./environment";
 import "../server-only"; // M6: build-time guard — control queries may never enter a client bundle
 import {
   and,
@@ -370,16 +371,7 @@ export async function userDetail(userId: string) {
         .where(eq(projects.organizationId, m.organization.id)),
     }))
   );
-  const [sends, lastSeen] = await Promise.all([
-    scalar(
-      db
-        .select({ value: count() })
-        .from(emails)
-        .where(sql`false`)
-    ),
-    Promise.resolve(null as Date | null),
-  ]);
-  return { user, memberships, sends, lastSeen };
+  return { user, memberships };
 }
 
 export interface OrgSummary {
@@ -678,8 +670,8 @@ export interface EmailTotals {
   complained: number;
   queued: number;
   sending: number;
-  opened: number;
-  clicked: number;
+  opened: null;
+  clicked: null;
   deliveryRate: number | null;
 }
 
@@ -710,8 +702,8 @@ export async function emailTotals(days: number | null): Promise<EmailTotals> {
     complained: s("complained"),
     queued: s("queued"),
     sending: s("sending"),
-    opened: 0,
-    clicked: 0,
+    opened: null,
+    clicked: null,
     deliveryRate: terminal > 0 ? (delivered / terminal) * 100 : null,
   };
 }
@@ -791,13 +783,26 @@ export interface DeliveryOutcomeSummary {
  * against TERMINAL sends only — in-flight messages are not failures, and
  * counting "sent" as delivered (the old page cheat) overstates health.
  */
-export async function deliveryOutcomeSummary(days = 30): Promise<DeliveryOutcomeSummary> {
+function emailReportScope(environment: ReportingEnvironment, organizationId?: string) {
+  return and(
+    environment === "all" ? undefined : eq(emails.env, environment),
+    organizationId
+      ? sql`exists (select 1 from ${projects} where ${projects.id} = ${emails.projectId} and ${projects.organizationId} = ${organizationId})`
+      : undefined
+  );
+}
+
+export async function deliveryOutcomeSummary(
+  days = 30,
+  environment: ReportingEnvironment = "all",
+  organizationId?: string
+): Promise<DeliveryOutcomeSummary> {
   const db = getDb();
   const since = new Date(utcDayStart().getTime() - (days - 1) * DAY_MS);
   const rows = await db
     .select({ status: emails.status, value: count() })
     .from(emails)
-    .where(gte(emails.createdAt, since))
+    .where(and(gte(emails.createdAt, since), emailReportScope(environment, organizationId)))
     .groupBy(emails.status);
   const s = (name: string) => Number(rows.find((r) => r.status === name)?.value ?? 0);
   const delivered = s("delivered");
@@ -944,10 +949,11 @@ export async function redisHealth(): Promise<RedisHealth> {
     });
     client.on("error", () => {});
     await client.connect();
-    const [infoServer, infoMemory, infoStats] = await Promise.all([
+    const [infoServer, infoMemory, infoStats, infoClients] = await Promise.all([
       client.info("server"),
       client.info("memory"),
       client.info("stats"),
+      client.info("clients"),
     ]);
     const pick = (section: string, key: string) => {
       const line = section.split("\r\n").find((l: string) => l.startsWith(`${key}:`));
@@ -965,9 +971,7 @@ export async function redisHealth(): Promise<RedisHealth> {
           ?.split(":")[1] ?? null,
       usedMemoryBytes: pick(infoMemory, "used_memory"),
       maxMemoryBytes: pick(infoMemory, "maxmemory"),
-      connectedClients: pick(infoMemory, "maxmemory_human")
-        ? pick(infoStats, "connected_clients")
-        : pick(infoStats, "connected_clients"),
+      connectedClients: pick(infoClients, "connected_clients"),
       opsPerSec: pick(infoStats, "instantaneous_ops_per_sec"),
       hitRate: hits + misses > 0 ? (hits / (hits + misses)) * 100 : null,
       evictedKeys: pick(infoStats, "evicted_keys"),
@@ -996,14 +1000,22 @@ export async function redisHealth(): Promise<RedisHealth> {
  * BullMQ's live counters need Redis; when Redis is down this is the honest,
  * always-available view of what is actually waiting.
  */
-export async function queueDerived() {
+export async function queueDerived(
+  environment: ReportingEnvironment = "all",
+  organizationId?: string
+) {
   const db = getDb();
   const [inFlight, failedRecent, oldest] = await Promise.all([
     scalar(
       db
         .select({ value: count() })
         .from(emails)
-        .where(inArray(emails.status, ["created", "queued", "sending"]))
+        .where(
+          and(
+            inArray(emails.status, ["created", "queued", "sending"]),
+            emailReportScope(environment, organizationId)
+          )
+        )
     ),
     scalar(
       db
@@ -1012,6 +1024,7 @@ export async function queueDerived() {
         .where(
           and(
             inArray(emails.status, ["failed", "bounced"]),
+            emailReportScope(environment, organizationId),
             gte(emails.updatedAt, new Date(Date.now() - DAY_MS))
           )
         )
@@ -1019,7 +1032,12 @@ export async function queueDerived() {
     db
       .select({ createdAt: emails.createdAt })
       .from(emails)
-      .where(inArray(emails.status, ["created", "queued"]))
+      .where(
+        and(
+          inArray(emails.status, ["created", "queued"]),
+          emailReportScope(environment, organizationId)
+        )
+      )
       .orderBy(asc(emails.createdAt))
       .limit(1),
   ]);
@@ -1286,7 +1304,7 @@ export async function evaluateAlerts(): Promise<ControlAlert[]> {
       severity: "warning",
       title: "Redis unreachable",
       detail:
-        "Queue, rate limiting, and cache operate on Redis. Delivery falls back but retries and rate caps degrade.",
+        "Hosted queueing and rate limits require Redis. Inspect the dependency failure; there is no supported in-memory production fallback.",
       metric: "PING failed",
       href: "/control/infrastructure/redis",
     });
@@ -1472,7 +1490,7 @@ export async function systemAudiences(): Promise<AudienceCount[]> {
                 select 1 from ${sessions}
                 where ${sessions.userId} = ${users.id}
                   and ${sessions.lastSeenAt} is not null
-                  and ${sessions.lastSeenAt} >= ${d30}
+                  and ${sessions.lastSeenAt} >= ${d30.toISOString()}::timestamptz
               )`
         )
     ),
@@ -1542,7 +1560,7 @@ export async function systemAudiences(): Promise<AudienceCount[]> {
     },
     {
       key: "sent_email",
-      label: "Users who sent an email",
+      label: "Users with send attempts",
       description: "Member of an org with at least one send attempted",
       count: usersWhoSent,
       href: "/control/customers",
@@ -1557,13 +1575,13 @@ export async function systemAudiences(): Promise<AudienceCount[]> {
     {
       key: "waitlist",
       label: "Waitlist",
-      description: "Signed up, no account yet",
+      description: "All waitlist records, including converted accounts",
       count: waitlist,
       href: "/control/growth/waitlist",
     },
     {
       key: "approaching",
-      label: "Metered orgs this week",
+      label: "Email usage rows (7d)",
       description: "Organization usage rows recorded in the last 7 days",
       count: overdueUsageRows,
       href: "/control/platform/usage",

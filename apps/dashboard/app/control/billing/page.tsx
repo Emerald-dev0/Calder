@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { fmtInt, fmtMoney, fmtPct } from "@/lib/control/format";
+import { fmtInt, fmtMoney } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
-import { billingOverview, customerTotals } from "@/lib/control/queries";
+import { billingOverview } from "@/lib/control/queries";
 import { BarsChart } from "@/control/_components/charts";
 import { Badge, BarList, PageHeader, Panel, Stat } from "@/control/_components/ui";
 import { BillingSoon } from "./_components/soon";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function BillingOverviewPage() {
   await requireSection("billing");
-  const [billing, customers] = await Promise.all([billingOverview(), customerTotals()]);
+  const billing = await billingOverview();
 
   return (
     <>
@@ -22,32 +22,27 @@ export default async function BillingOverviewPage() {
       />
 
       <div className="cp-stats">
-        <Stat label="MRR" value={fmtMoney(billing.mrrCents)} hint="NGN · active subscriptions" />
-        <Stat label="ARR (run-rate)" value={fmtMoney(billing.mrrCents * 12)} hint="MRR × 12" />
+        <Stat label="MRR" value="—" hint="Billing not configured; no verified revenue feed" />
+        <Stat label="ARR" value="—" hint="Unavailable without verified revenue" />
         <Stat
-          label="Paying customers"
+          label="Active plan records"
           value={fmtInt(billing.activeCount)}
-          hint={
-            customers.orgs
-              ? `${fmtPct((billing.activeCount / customers.orgs) * 100)} of organizations`
-              : undefined
-          }
+          hint="Includes manual grants, not paying customers"
         />
-        <Stat
-          label="ARPU"
-          value={billing.arpuCents !== null ? fmtMoney(billing.arpuCents) : "—"}
-          hint="monthly, per paying org"
-        />
+        <Stat label="ARPU" value="—" hint="Not inferred from catalogue prices" />
         <Stat
           label="Past due"
           value={fmtInt(billing.pastDueCount)}
-          hint={billing.pastDueCount > 0 ? "needs collection" : "clean"}
+          hint="Recorded status only; payment collection is not configured"
         />
         <Stat label="Canceled" value={fmtInt(billing.canceledCount)} hint="historical" />
       </div>
 
       <div className="cp-grid cp-grid-2">
-        <Panel title="New subscriptions per month" caption="when customers commit">
+        <Panel
+          title="New subscriptions per month"
+          caption="Records created, including manual grants; not purchases"
+        >
           <BarsChart
             data={billing.newSubsByMonth.map((m) => ({ label: `${m.month}-01`, value: m.count }))}
             caption="new subscriptions / month"
@@ -62,7 +57,7 @@ export default async function BillingOverviewPage() {
             }))}
           />
           <p className="cp-panel-caption" style={{ padding: "8px 16px 6px" }}>
-            Bars show organization counts; labels show monthly revenue per tier (NGN).
+            Bars show organization counts; labels show catalogue price estimates per tier (NGN).
           </p>
         </Panel>
       </div>

@@ -32,15 +32,15 @@ export default async function OrganizationsPage({
 
       <div className="cp-stats">
         <Stat label="Organizations" value={fmtInt(all.length)} />
-        <Stat label="On a paid plan" value={fmtInt(paying.length)} />
+        <Stat label="Non-free plan records" value={fmtInt(paying.length)} />
         <Stat
           label="Free tier"
           value={fmtInt(filtered.filter((o) => !o.plan || o.plan === "free").length)}
         />
         <Stat
-          label="MRR (filtered)"
+          label="Catalogue estimate (filtered)"
           value={fmtMoney(paying.reduce((n, o) => n + (o.monthlyCents ?? 0), 0))}
-          hint="NGN, active subscriptions"
+          hint="NGN list prices, not revenue or payments"
         />
       </div>
 
@@ -92,7 +92,7 @@ export default async function OrganizationsPage({
                   <th>Projects</th>
                   <th>Plan</th>
                   <th>Period ends</th>
-                  <th>MRR</th>
+                  <th>List price</th>
                   <th>Joined</th>
                   <th></th>
                 </tr>

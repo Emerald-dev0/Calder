@@ -1,14 +1,9 @@
 "use client";
-
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { PlatformRole } from "@calder/db";
 import { setPlatformRole } from "./actions";
 
-/**
- * M6.2: role grants/revokes require a typed reason (prompt) — the reason is
- * validated server-side and lands in the audit record with the change.
- */
 export function RoleControls({
   userId,
   current,
@@ -19,57 +14,77 @@ export function RoleControls({
   assignable: ReadonlyArray<{ readonly role: PlatformRole; readonly label: string }>;
 }) {
   const router = useRouter();
-  const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
-  async function run(role: PlatformRole | null, label: string) {
-    const suggested = role ? `Grant ${label}` : "Revoke role";
-    const reason = window.prompt(
-      `${suggested} — why?\n(Required; recorded in the audit log. Min 6 characters.)`,
-      ""
-    );
-    if (reason === null) return;
+  const [busy, setBusy] = React.useState(false),
+    [error, setError] = React.useState<string | null>(null);
+  const request = React.useRef<{ signature: string; key: string } | null>(null);
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+    const form = new FormData(event.currentTarget);
+    const selected = String(form.get("role") ?? "");
+    const role = selected === "__revoke" ? null : (selected as PlatformRole);
+    const reason = String(form.get("reason") ?? "").trim();
+    if (!selected) return;
+    const signature = JSON.stringify([userId, role, reason]);
+    if (request.current?.signature !== signature)
+      request.current = { signature, key: crypto.randomUUID() };
     setBusy(true);
     setError(null);
-    const outcome = await setPlatformRole(userId, role, reason);
-    setBusy(false);
-    if (!outcome.ok) {
-      setError(outcome.error ?? "Action rejected.");
-      return;
+    try {
+      const outcome = await setPlatformRole(userId, role, reason, request.current.key);
+      if (!outcome.ok) {
+        setError(outcome.error ?? "Action rejected.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError(
+        "The change could not be confirmed. Retry the same request or refresh to inspect current access."
+      );
+    } finally {
+      setBusy(false);
     }
-    router.refresh();
   }
-
   return (
-    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-      {assignable.map((a) => (
-        <button
-          key={a.role}
-          className="cp-btn"
-          type="button"
-          disabled={busy || current === a.role}
-          onClick={() => void run(a.role, a.label)}
-          style={{ fontSize: 12, padding: "4px 10px", minHeight: 28 }}
-        >
-          {current === a.role ? `is ${a.label}` : `→ ${a.label}`}
-        </button>
-      ))}
-      {current ? (
-        <button
-          className="cp-btn danger"
-          type="button"
+    <form onSubmit={submit} className="cp-role-form">
+      <label>
+        Access change
+        <select name="role" className="cp-select" defaultValue="" required disabled={busy}>
+          <option value="" disabled>
+            Select a role
+          </option>
+          {assignable.map((item) => (
+            <option key={item.role} value={item.role} disabled={current === item.role}>
+              {item.label}
+            </option>
+          ))}
+          {current ? <option value="__revoke">Revoke platform access</option> : null}
+        </select>
+      </label>
+      <label>
+        Audit reason
+        <input
+          name="reason"
+          className="cp-input"
+          required
+          minLength={6}
+          maxLength={500}
           disabled={busy}
-          onClick={() => void run(null, "revocation")}
-          style={{ fontSize: 12, padding: "4px 10px", minHeight: 28 }}
-        >
-          Revoke
-        </button>
-      ) : null}
-      {error && (
-        <span role="alert" style={{ color: "#DC2626", fontSize: 12 }}>
+          placeholder="Why is this access needed?"
+        />
+      </label>
+      <label className="cp-role-confirm">
+        <input name="confirm" type="checkbox" required disabled={busy} />I reviewed this account and
+        access change.
+      </label>
+      <button className="cp-btn" type="submit" disabled={busy}>
+        {busy ? "Applying…" : "Apply access change"}
+      </button>
+      {error ? (
+        <p role="alert" className="cp-role-error">
           {error}
-        </span>
-      )}
-    </div>
+        </p>
+      ) : null}
+    </form>
   );
 }
