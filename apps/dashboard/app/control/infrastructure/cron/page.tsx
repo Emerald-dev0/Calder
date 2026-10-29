@@ -1,4 +1,4 @@
-import { desc } from "drizzle-orm";
+import { desc, isNotNull } from "drizzle-orm";
 import { emails } from "@calder/db";
 import { getDb } from "@calder/db";
 import { requireSection } from "@/lib/control/guard";
@@ -16,9 +16,9 @@ export default async function CronPage() {
       id: emails.id,
       scheduledFor: emails.scheduledFor,
       status: emails.status,
-      subject: emails.subject,
     })
     .from(emails)
+    .where(isNotNull(emails.scheduledFor))
     .orderBy(desc(emails.scheduledFor))
     .limit(10);
 
@@ -40,7 +40,7 @@ export default async function CronPage() {
             <table className="cp-table">
               <thead>
                 <tr>
-                  <th>Subject</th>
+                  <th>Message ID</th>
                   <th>Scheduled for</th>
                   <th>Status</th>
                 </tr>
@@ -50,7 +50,7 @@ export default async function CronPage() {
                   .filter((s) => s.scheduledFor)
                   .map((s) => (
                     <tr key={s.id}>
-                      <td>{s.subject}</td>
+                      <td className="mono">{s.id}</td>
                       <td className="mono" style={{ fontSize: 12.5 }}>
                         {new Date(s.scheduledFor as Date)
                           .toISOString()

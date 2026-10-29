@@ -673,3 +673,11 @@ navigation, explicit data states and durable-record operational metrics. Remaini
 safety controls, activation instrumentation, page-by-page redesign and hosted
 validation are tracked in [CONTROL-PLANE-REBUILD.md](CONTROL-PLANE-REBUILD.md);
 none is declared complete by the foundation pass.
+
+### Founder continuation delivered in source
+
+Atomic audited role/plan/Gmail actions, replay-safe role/plan grants, private
+revisioned incident records (migration 0032), organization activation snapshots,
+Metrics email-environment filters and read-only support lookup are implemented.
+No inferred payment revenue, notification integration, public incident feed or
+runtime maintenance switch. Remaining gates stay in the rebuild ledger.

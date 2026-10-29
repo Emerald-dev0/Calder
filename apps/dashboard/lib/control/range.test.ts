@@ -130,3 +130,13 @@ describe("denseDailyFromWindow", () => {
     expect(dense[dense.length - 1]?.day).toBe("2026-09-15");
   });
 });
+
+it("offsets UTC day boundaries across months and leap days", async () => {
+  const { utcDayStart } = await import("./range");
+  expect(utcDayStart(1, new Date("2026-12-31T23:59:00Z")).toISOString()).toBe(
+    "2027-01-01T00:00:00.000Z"
+  );
+  expect(utcDayStart(-1, new Date("2024-03-01T12:00:00Z")).toISOString()).toBe(
+    "2024-02-29T00:00:00.000Z"
+  );
+});

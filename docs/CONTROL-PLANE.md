@@ -234,3 +234,14 @@ Audit Logs (actor/action/target/time/metadata, filterable), Settings
 - Status page is internal-first; public one-click publishing comes with the
   incidents work.
 - ⌘K command search is designed, not yet implemented.
+
+## October 29 continuation: actual operational workflows
+
+See [the rebuild ledger](CONTROL-PLANE-REBUILD.md) for current evidence. Private
+incident creation/update, measured organization activation, live/test Metrics
+filtering and deliberate read-only support lookup now have implementations.
+Privileged role/plan/Gmail changes have atomic audits; role/plan changes have
+request replay protection. The old revenue/paying-customer labels were not proof
+of payment and have been corrected. Migration 0032 is required for incidents.
+Global maintenance, automatic paging, public incident publishing and step-up/MFA
+are still not implemented by this continuation.

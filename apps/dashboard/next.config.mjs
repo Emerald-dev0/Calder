@@ -2,7 +2,9 @@
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@calder/ui"],
-  serverExternalPackages: ["ioredis"],
+  // Keep Pino transport workers outside webpack: their runtime file paths
+  // must resolve from the installed observability package, not .next chunks.
+  serverExternalPackages: ["ioredis", "@calder/observability"],
   poweredByHeader: false,
   async headers() {
     const headers = [
@@ -13,8 +15,7 @@ const nextConfig = {
       { key: "X-DNS-Prefetch-Control", value: "off" },
       {
         key: "Content-Security-Policy",
-        value:
-          "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.calder.click https://api.calder.build; frame-src 'self';",
+        value: `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""} https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.calder.click https://api.calder.build; frame-src 'self';`,
       },
       { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
     ];

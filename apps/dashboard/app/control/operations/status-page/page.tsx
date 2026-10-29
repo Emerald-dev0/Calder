@@ -14,7 +14,7 @@ export default async function StatusPagePage() {
       />
       <Panel
         title="Status"
-        caption="the public page exists; incident publication is one click away"
+        caption="Public page exists; live incident publication is not implemented"
       >
         <Planned
           title="Status publishing"

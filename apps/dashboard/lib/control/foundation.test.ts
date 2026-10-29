@@ -17,6 +17,7 @@ vi.mock("@/lib/control/queries", () => ({
   queueDerived: state.queue,
   webhookStats: state.hooks,
 }));
+vi.mock("@/lib/control/environment", () => import("./environment"));
 vi.mock("@/lib/control/format", () => import("./format"));
 vi.mock("@/control/_components/ui", () => import("../../app/control/_components/ui"));
 import MetricsPage from "../../app/control/observability/metrics/page";
@@ -68,10 +69,10 @@ it("renders the actual scoped founder shell and one active navigation link", () 
   expect(html).not.toContain("Support Admin · Owner");
 });
 it("renders durable metrics with their actual scopes and no fabricated percentiles", async () => {
-  const page = await MetricsPage();
+  const page = await MetricsPage({});
   const html = renderToStaticMarkup(page);
   expect(state.guard).toHaveBeenCalledWith("observability");
-  expect(state.outcomes).toHaveBeenCalledWith(30);
+  expect(state.outcomes).toHaveBeenCalledWith(30, "live");
   expect(html).toContain("18 min");
   expect(html).toContain("not BullMQ counters");
   expect(html).toContain("75.0%");
@@ -103,7 +104,7 @@ it("renders durable metrics with their actual scopes and no fabricated percentil
 });
 it("does not fetch platform data if the section guard denies access", async () => {
   state.guard.mockRejectedValueOnce(new Error("Access denied"));
-  await expect(MetricsPage()).rejects.toThrow("Access denied");
+  await expect(MetricsPage({})).rejects.toThrow("Access denied");
   expect(state.outcomes).not.toHaveBeenCalled();
   expect(state.queue).not.toHaveBeenCalled();
 });
@@ -119,7 +120,7 @@ it("shows unknown rates and empty queues honestly", async () => {
     suppressed: 0,
   });
   state.queue.mockResolvedValue({ inFlight: 0, oldestAgeMinutes: null, failedRecent: 0 });
-  const html = renderToStaticMarkup(await MetricsPage());
+  const html = renderToStaticMarkup(await MetricsPage({}));
   expect(html).toContain("No waiting messages");
   expect(html).toContain("—");
   expect(html).not.toContain("NaN");
@@ -136,4 +137,14 @@ it("does not expose raw errors or represent a failed query as zero", async () =>
   expect(html).toContain('role="alert"');
   expect(html).toContain("unavailable, not zero");
   expect(html).not.toContain("SECRET_DATABASE_CONNECTION");
+});
+
+it("passes explicit test/all selection and defaults invalid environment state to live", async () => {
+  await MetricsPage({ searchParams: Promise.resolve({ env: "test" }) });
+  expect(state.outcomes).toHaveBeenLastCalledWith(30, "test");
+  expect(state.queue).toHaveBeenLastCalledWith("test");
+  await MetricsPage({ searchParams: Promise.resolve({ env: "all" }) });
+  expect(state.outcomes).toHaveBeenLastCalledWith(30, "all");
+  await MetricsPage({ searchParams: Promise.resolve({ env: "not-an-environment" }) });
+  expect(state.outcomes).toHaveBeenLastCalledWith(30, "live");
 });

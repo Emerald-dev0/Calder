@@ -5,7 +5,18 @@ Selected changes reconstructed from the GitHub `main` commit history through
 not a claim that every implemented feature is configured or available in production.
 No release tags or semantic versions are invented. See [launch availability](docs/LAUNCH-STATUS.md).
 
-## Unreleased — this PR (#87)
+## Unreleased — founder workflows (PR #88, not deployed)
+
+- Keep public signup open; rebuild founder navigation, responsive workspace and honest analytics/reporting states.
+- Add atomic audit logging and durable replay protection for platform-role, manual-plan and Gmail-retry changes. Add inline role reasons and explicit review controls.
+- Add private incident creation, investigation/status updates, resolution and immutable audited timelines. Requires new migration `0032_special_logan` before rollout; no public publishing or notifications.
+- Add live/test/all email-outcome and backlog filters, current organization activation prerequisites, and deliberate paginated read-only support lookup.
+- Stop representing manual plan grants as payment revenue. Correct Redis client/cron reporting, unmeasured opens/clicks and planned SMTP wording.
+- Repair a raw timestamp binding error in Communications/Audiences and cover it with a PostgreSQL regression test. Correct audience labels for send attempts, converted waitlist records and usage rows.
+- Fix development CSP hydration without adding evaluation permission in production; externalize the observability package so Pino workers resolve correctly in Next.js.
+- These changes do not implement shared global pause, step-up auth, alert routing, historical latency telemetry or hosted no-manual-drain proof.
+
+## 2026-10-29 — automatic wake-up lifecycle (PR #87, merged)
 
 - Fix dashboard/API automatic drain wake-up lifecycle. Requires API and dashboard
   configuration, redeployment and a hosted no-manual-drain delivery test.

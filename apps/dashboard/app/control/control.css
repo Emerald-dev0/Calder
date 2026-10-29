@@ -1641,3 +1641,83 @@
   font-size: 13px;
   line-height: 1.55;
 }
+
+.cp-incident-form {
+  display: grid;
+  gap: 16px;
+  max-width: 640px;
+}
+.cp-incident-form label {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--cp-muted);
+}
+.cp-incident-form :is(input, select, textarea) {
+  width: 100%;
+  min-width: 0;
+}
+.cp-incident-form textarea {
+  resize: vertical;
+  min-height: 100px;
+  color: var(--cp-text);
+  background: var(--cp-panel);
+}
+.cp-incident-form button {
+  justify-self: start;
+}
+.cp-incident-update {
+  border-bottom: 1px solid var(--cp-border);
+  padding: 14px 0;
+}
+.cp-role-form {
+  display: grid;
+  gap: 10px;
+  min-width: 240px;
+  max-width: 440px;
+}
+.cp-role-form label {
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+}
+.cp-role-form .cp-role-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.cp-role-error {
+  color: var(--cp-bad);
+  font-size: 12px;
+}
+.cp-filters > label {
+  font-size: 12px;
+  color: var(--cp-muted);
+}
+.cp-panel-body.cp-flush > .cp-filters {
+  padding: 12px 16px 0;
+}
+.cp-role-candidate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.45fr) minmax(240px, 1fr);
+  gap: 20px;
+  padding: 20px 16px;
+  border-top: 1px solid var(--cp-border);
+}
+.cp-role-candidate > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cp-role-candidate .cp-eyebrow {
+  margin-bottom: 10px;
+}
+@media (max-width: 900px) {
+  .cp-role-candidate {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .cp-role-form {
+    min-width: 0;
+    max-width: none;
+  }
+}

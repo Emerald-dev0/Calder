@@ -81,10 +81,81 @@ mutation, billing, external notification or production rollout is certified here
 
 See [visual QA](visual-qa/founder-foundation-2026-10-29/README.md).
 
-### Reporting scope follow-up
+## Continued implementation — 2026-10-29
 
-The reused operational aggregates currently include both live and test rows.
-The new Metrics view labels this explicitly and reports current statuses rather
-than cumulative provider acceptance. Add tested live/test environment filters
-before using these totals as a production deliverability/reputation report.
-Webhook totals are all-time states, not scoped to the email 30-day cohort.
+- **Atomic privileged actions:** role changes, manual entitlement grants and
+  Gmail reactivation commit with their audits. Failure injection against real
+  Postgres proves rollback. Role/plan request keys prevent duplicate effects;
+  replaying a previously completed role grant after revocation does not restore
+  access. Target-row locks serialize concurrent changes. Reasons are bounded;
+  Gmail appeals reject revoked and non-Gmail transports.
+- **Private incident log:** list/filter/paginate, create, attributed notes,
+  investigating → identified → monitoring → resolved, and optimistic revisions.
+  Resolved records are immutable. Creates/updates are audited atomically and
+  idempotent. Founder/platform-admin/infrastructure may write; others with
+  observability access are read-only. No public publication or automatic paging.
+- **Activation:** organizations-created cohort with nested verified-owner,
+  project, current ready sender (verified/connected, not archived), and live
+  SES/Gmail provider-ID milestones. Excludes mock/test activation; current-state
+  readiness can change, so this is not a timestamped historical conversion funnel.
+- **Environment selection:** Metrics defaults to live, with test/all URL filters
+  applied to email outcomes and database-derived backlog. Webhook totals remain
+  explicitly all environments/all time. Other legacy reports retain their existing
+  scopes pending audit; do not imply they all gained these filters.
+- **Support:** deliberate, paginated read-only account lookup leading to existing
+  customer/org drilldowns. No automatic disclosure of the directory on entry,
+  impersonation, notes/ticket system, credit issuance or on-behalf resend.
+- **Honest financials:** Command Center and Billing no longer infer MRR/ARR/ARPU
+  or paying customers from manual plan records. Other list-price estimates are
+  labeled catalogue values, not payments. Manual grant is not a checkout feature.
+- **Additional audit repairs:** acquisition empty totals stay zero; missing
+  open/click aggregates are null; unused fabricated user-send/last-seen values
+  removed. Cron filters scheduled rows before limiting and shows IDs, not message
+  subjects. Redis client count uses INFO clients, and missing Redis no longer
+  claims a supported production fallback. API SMTP and status-publishing captions
+  no longer pretend planned services are operational. Command Center no longer
+  certifies all systems operational just because no current rules fired.
+
+### Deployment and remaining gates
+
+Apply migration `0032_special_logan` through `@calder/db db:migrate` before
+rolling out incident routes. Existing migration timestamps are untouched. The
+local isolated database has all 33 migrations applied and schema drift passes.
+The incident system is deliberately private; no customer/public schema endpoint
+was added. Audit keys are durable replay protection, not disposable diagnostics.
+
+Still outstanding: shared global maintenance enforcement and step-up auth;
+automatic alert notification routing/acknowledgment and public incident publishing;
+measured worker heartbeats and historical request/queue latency; true event-order
+activation attribution; detailed all-page redesign; production/hosted provider
+and no-manual-drain verification. Signup remains open. Do not merge/deploy this as
+proof the entire founder programme is finished.
+
+### Final local verification of this continuation
+
+- Dashboard: **304 Vitest tests passed, zero skipped**, with
+  `RUN_INTEGRATION_TESTS=1`, an isolated PostgreSQL database and local Redis;
+  **3 additional Node security-header tests passed** through the dashboard test command.
+- API organization-safety integration: **2 passed** against Postgres.
+- Public web/changelog: **13 passed**. Dashboard typecheck and production build passed;
+  control-plane ESLint has no warnings/errors; repository formatting and diff checks pass.
+  Build still reports the existing BullMQ dynamic dependency warning and two
+  unrelated unused-variable warnings outside the control plane.
+- Optimized Next production build: **55/55 static control routes** returned 200
+  with real headings and no error-boundary view. This surfaced/fixed an additional
+  raw timestamp binding error in Communications/Audiences, now covered by Postgres.
+- Actual authenticated Next incident creation → identified → monitoring → resolved,
+  persisted founder role change, GET environment filter, support allow/deny,
+  cross-origin auth rejection and unauthenticated redirect passed. Final action
+  checks await settled POST/RSC transitions; updates return to the authoritative detail view.
+- **18 authenticated screenshots**, nine views at 1440/390, with no document overflow
+  or browser page errors. Mobile role candidates were redesigned from a wide
+  action table to stacked identity/role/action cards after reviewing the first capture.
+  Supplementary earlier SSR fixtures are explicitly not action/auth proof.
+- Local schema: **33/33 migrations applied**, no pending migrations, drift matches.
+  No production migration/deployment occurred. Password login, hosted providers,
+  hosted Redis failover, and the remaining programme gates above are not certified.
+
+Evidence: [workflow QA](visual-qa/founder-workflows-2026-10-29/README.md),
+including sanitized route results and actual screenshots. Local session cookies,
+auth secrets, databases and test harness scratch files are excluded from Git.
