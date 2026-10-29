@@ -453,7 +453,8 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
         .select()
         .from(emails)
         .where(and(eq(emails.projectId, projId), eq(emails.to, to)));
-      expect(row?.status).toBe("sent");
+      expect(row).toBeTruthy();
+      expect((await waitSettled(row!.id))?.status).toBe("sent");
       const request = captured.find((c) =>
         (c.body as { Destination?: { ToAddresses?: string[] } }).Destination?.ToAddresses?.includes(
           to
