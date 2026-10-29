@@ -24,7 +24,10 @@ export default async function MaintenancePage() {
           v="read-only banner before shutdown; customers never learn state from a 500"
         />
       </Panel>
-      <Panel title="Status" caption="founder-only switches, wired to real infrastructure">
+      <Panel
+        title="Status"
+        caption="Not implemented — no platform-wide pause or maintenance switch is available here"
+      >
         <Planned
           title="Maintenance controls"
           bullets={[

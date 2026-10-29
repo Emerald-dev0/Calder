@@ -1119,3 +1119,20 @@ availability caveats remain intact.
 
 **Consequence:** customers see readable updates while maintainers retain the
 underlying evidence. No feature availability or deployment claim changes.
+
+## ADR-052: Rebuild founder controls incrementally with evidence (2026-10-29)
+
+**Context:** the owner requests a founder redesign and validation/wiring of all
+analytics and controls while leaving public signup open. The old control-plane
+status overstates readiness; several routes remain planned.
+
+**Decision:** preserve signup access and platform authorization. Restore the
+scoped founder theme, group/search navigation, reuse authoritative reporting and
+explicitly mark instrumentation/runtime-control gaps. Validate queries with an
+isolated migrated Postgres, not only fixture screenshots. Track the remaining
+work and acceptance gates in `docs/CONTROL-PLANE-REBUILD.md`.
+
+**Consequence:** no schema change, runtime kill-switch, billing or implicit
+impersonation is added in this foundation. Maintenance requires real backend
+and durable queue enforcement before an operator switch can be exposed. This
+supersedes any blanket "built and verified live" claim, not prior security rules.

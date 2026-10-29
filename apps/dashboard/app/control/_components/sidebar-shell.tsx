@@ -1,14 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import type { NavGroup } from "./nav";
-
-function isActive(pathname: string, href: string, exact?: boolean): boolean {
-  if (exact) return pathname === href;
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
+import { SidebarNav, type NavGroup } from "./nav";
 
 const COLLAPSE_KEY = "cp-sidebar-collapsed";
 
@@ -36,7 +30,6 @@ export function SidebarShell({
   exitHref?: string;
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const popRef = useRef<HTMLDivElement | null>(null);
@@ -78,7 +71,7 @@ export function SidebarShell({
     .toUpperCase();
 
   return (
-    <div className="cp-shell">
+    <div className="cp cp-shell">
       <aside className="cp-sidebar" data-collapsed={collapsed}>
         <div className="cp-sidebar-inner">
           <div className="cp-brand">
@@ -116,7 +109,7 @@ export function SidebarShell({
             </button>
           </div>
 
-          <SidebarNav groups={groups} pathname={pathname} />
+          <SidebarNav groups={groups} collapsed={collapsed} />
 
           <div className="cp-nav-spacer" />
 
@@ -143,7 +136,7 @@ export function SidebarShell({
               <span style={{ minWidth: 0 }}>
                 <span className="cp-profile-name">{name}</span>
                 <span className="cp-profile-role" style={{ display: "block" }}>
-                  {roleLabel} · Owner
+                  {roleLabel}
                 </span>
               </span>
             </button>
@@ -166,32 +159,5 @@ export function SidebarShell({
       </aside>
       <div className="cp-main">{children}</div>
     </div>
-  );
-}
-
-function SidebarNav({ groups, pathname }: { groups: NavGroup[]; pathname: string }) {
-  return (
-    <nav aria-label="Control Plane" style={{ display: "block" }}>
-      {groups.map((group) => (
-        <div key={group.heading}>
-          <div className="cp-nav-group">{group.heading}</div>
-          {group.items.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="cp-nav-link"
-              data-active={isActive(pathname, item.href, item.exact)}
-              title={item.label}
-            >
-              <span className="cp-mark" aria-hidden>
-                {group.heading.slice(0, 2).toUpperCase()}
-              </span>
-              <span>{item.label}</span>
-              {item.badge ? <span className="cp-nav-badge mono">{item.badge}</span> : null}
-            </Link>
-          ))}
-        </div>
-      ))}
-    </nav>
   );
 }

@@ -1512,3 +1512,132 @@
   margin: 0;
   max-width: 84ch;
 }
+
+/* Founder foundation: scoped theme, compact workspaces, keyboard-native navigation. */
+.cp {
+  color-scheme: light;
+  --cp-accent: #1e3a8a;
+}
+.cp *,
+.cp *::before,
+.cp *::after {
+  box-sizing: border-box;
+}
+.cp-sidebar {
+  width: 248px;
+  background: var(--cp-panel-2);
+}
+.cp-nav-search {
+  display: block;
+  margin: 24px 4px 18px;
+  font-size: 11px;
+  color: var(--cp-muted);
+}
+.cp-nav-search input {
+  width: 100%;
+  margin-top: 7px;
+  padding: 9px 10px;
+  border: 1px solid var(--cp-border);
+  border-radius: 5px;
+  background: var(--cp-panel);
+  color: var(--cp-text);
+  font: inherit;
+}
+.cp-nav-section {
+  border-bottom: 1px solid var(--cp-border-soft);
+  padding: 6px 0;
+}
+.cp-nav-section > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 10px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cp-muted);
+  list-style: none;
+}
+.cp-nav-section > summary::-webkit-details-marker {
+  display: none;
+}
+.cp-nav-section > summary::before {
+  content: "+";
+  width: 12px;
+  font-family: monospace;
+}
+.cp-nav-section[open] > summary::before {
+  content: "−";
+}
+.cp-nav-count {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 400;
+}
+.cp-nav-empty {
+  color: var(--cp-muted);
+  padding: 12px 8px;
+  font-size: 12px;
+}
+.cp-nav-link {
+  justify-content: flex-start;
+  padding: 9px 12px;
+  border-radius: 4px;
+}
+.cp-nav-link .cp-nav-badge {
+  margin-left: auto;
+}
+.cp-sidebar:not([data-collapsed="true"]) .cp-mark {
+  display: none;
+}
+.cp-nav-link[data-active="true"] {
+  background: var(--color-accent-muted);
+}
+.cp :is(a, button, summary, input):focus-visible {
+  outline: 2px solid var(--cp-accent);
+  outline-offset: 3px;
+}
+.cp-mobilemenu {
+  display: none;
+}
+@media (max-width: 900px) {
+  .cp-mobilemenu {
+    display: block;
+    border-bottom: 1px solid var(--cp-border);
+    padding: 12px 16px;
+  }
+  .cp-mobilemenu > summary {
+    cursor: pointer;
+    font-size: 13px;
+    padding: 6px 0;
+  }
+  .cp-mobilemenu > summary span {
+    color: var(--cp-muted);
+    margin-left: 8px;
+  }
+  .cp-mobilemenu nav {
+    max-height: 65vh;
+    overflow-y: auto;
+    padding-bottom: 12px;
+  }
+}
+
+/* Two-column workspaces must not silently become three columns on wide screens. */
+.cp .cp-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 1100px) {
+  .cp .cp-grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Metadata remains readable on both Paper and white panels. */
+.cp {
+  --cp-muted: #686b73;
+  --cp-faint: var(--cp-muted);
+}
+.cp-panel-body {
+  font-size: 13px;
+  line-height: 1.55;
+}
