@@ -47,6 +47,7 @@
   ],
   "pnpm": {
     "overrides": {
+      "@vercel/cli-config>zod": "4.6.7",
       "embedded-postgres@17.4.0-beta.15>pg": "-",
       "postcss": "8.5.28",
       "brace-expansion@^1.1.0": "1.1.21",

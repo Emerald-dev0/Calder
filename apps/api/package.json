@@ -32,6 +32,7 @@
     "@calder/rate-limit": "workspace:*",
     "@calder/validation": "workspace:*",
     "@hono/node-server": "^1.13.0",
+    "@vercel/functions": "^3.10.4",
     "arctic": "^3.7.0",
     "bullmq": "^6.3.4",
     "drizzle-orm": "^0.45.2",

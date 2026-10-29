@@ -1,45 +1,46 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { planPrice, planSummary } from "../../../lib/plans";
 
 export const metadata: Metadata = {
-  title: "Usage & Billing, Calder Docs",
-  description:
-    "How usage is metered, what counts against your plan, and pricing in naira and dollars.",
+  title: "Usage & Billing Status, Calder Docs",
+  description: "Current usage limits and billing availability for the initial public launch.",
 };
 
 export default function UsageBilling() {
   return (
     <>
-      <h1>Usage &amp; Billing</h1>
+      <h1>Usage &amp; Billing Status</h1>
       <p className="docs-lede">
-        One accepted send is one unit. Everything else, webhooks, reads, retries, test traffic, is
-        free forever.
+        Paid checkout, subscriptions, and self-service upgrades are not available yet. Current
+        sending and resource limits still apply; this is not unlimited sending.
       </p>
-
-      <h2>How usage is metered</h2>
+      <h2>What the counters mean</h2>
+      <ul>
+        <li>
+          Accepted live sends count toward the current period’s sending cap, including queued mail.
+        </li>
+        <li>
+          Provider-accepted sends are recorded in the usage ledger. Provider acceptance is not inbox
+          delivery.
+        </li>
+        <li>
+          Test-key sends are excluded from live-send metering. Idempotent replays and delivery
+          retries do not create a new chargeable send.
+        </li>
+      </ul>
+      <p>Usage counters are not an invoice, and a 202 response is not confirmation of delivery.</p>
+      <h2>When you reach a limit</h2>
       <p>
-        A <span className="mono">202 Accepted</span> from{" "}
-        <span className="mono">POST /v1/emails</span> is the billable moment. Usage is aggregated
-        from durable email and event records on a schedule, never from frontend counters, never
-        estimated. Idempotent replays and provider retries don&rsquo;t double-count.
+        The API can return <code>plan_limit_reached</code> with limit and period details. Check your
+        organization’s current Usage page. Wait for the period reset or contact
+        support@calder.click; do not rely on an upgrade checkout being available.
       </p>
-
-      <h2>Plans</h2>
+      <h2>Sending verification</h2>
       <p>
-        Beginner is free: {planSummary("beginner")}. Pro is {planPrice("pro", "USD")} or{" "}
-        {planPrice("pro", "NGN")} for 50,000 sends. Premium is {planPrice("premium", "USD")} or{" "}
-        {planPrice("premium", "NGN")} for 250,000. Scale is custom volume and pricing. Naira and
-        dollar prices are set separately, not converted from one another, full detail on the{" "}
-        <Link href="/pricing">pricing page</Link>.
-      </p>
-
-      <h2>Limits, not overages</h2>
-      <p>
-        Hitting your quota pauses sending with a clear{" "}
-        <span className="mono">PLAN_LIMIT_REACHED</span> error that names your limit, your usage and
-        when it resets, never a surprise line item. Upgrade or wait for the cycle reset; the
-        dashboard shows exactly where you stand at all times.
+        Live sends require an eligible sender and configured delivery infrastructure. See the{" "}
+        <Link href="/docs/domains">domain guide</Link> and{" "}
+        <Link href="/docs/sending">sending guide</Link>. Delivery events, where configured, provide
+        outcomes beyond queue/provider acceptance.
       </p>
     </>
   );

@@ -50,9 +50,9 @@ export default function SmtpGuide() {
       </p>
 
       <div className="docs-note">
-        <strong>Status: specified, rolling out.</strong> The gateway spec below is final;
-        availability follows the phases in our engineering plan. Test keys will work over SMTP from
-        day one of the rollout.
+        <strong>Not available as a public service at launch.</strong> These are design examples, not
+        a working connection guide. This repository has no SMTP gateway app, and the public host,
+        credentials and TLS service have not been verified. Use the REST API now.
       </div>
 
       <h2>Settings</h2>

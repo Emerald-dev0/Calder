@@ -33,3 +33,4 @@ export {
   type HeartbeatReadResult,
   type QueueHealth,
 } from "./health.js";
+export { wakeDeliveryDrain } from "./wake-drain.js";

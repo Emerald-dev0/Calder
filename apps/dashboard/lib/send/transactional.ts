@@ -11,6 +11,7 @@ import {
 } from "@calder/db";
 import { sendEmailSchema } from "@calder/validation";
 import { createQueue } from "@calder/queue";
+import { scheduleDeliveryDrain } from "./wake-drain";
 import { assertDashboardAdmissionAllowed } from "../sending-eligibility";
 
 /**
@@ -184,6 +185,7 @@ export async function sendTransactional(
     maxAttempts: 5,
   });
   await queue.enqueue("send-email", { emailId, projectId: input.projectId });
+  scheduleDeliveryDrain();
 
   await db
     .update(senderIdentities)

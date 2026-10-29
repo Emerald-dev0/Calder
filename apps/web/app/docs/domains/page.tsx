@@ -63,6 +63,11 @@ export default function DomainsGuide() {
         provider, knowingly.
       </p>
 
+      <p>
+        DKIM CNAMEs must be DNS-only when using a proxying DNS provider. A TXT SPF policy alone does
+        not configure aligned SES custom MAIL FROM; do not add a second SPF policy at the same name.
+        Verify DKIM/DMARC on a real received message.
+      </p>
       <CodeBlock title="full flow, REST" copyText={FLOW}>
         {FLOW}
       </CodeBlock>
@@ -71,9 +76,9 @@ export default function DomainsGuide() {
       <p>
         A domain can only be <em>verified</em> by one workspace: if another organization proves it
         first, registration and verification both return 409 — DNS is the arbiter, not first-come
-        registration. Ownership and branding are separate gates on purpose: unverified domains keep
-        sending through shared infrastructure, and verified-but-undelivered-DKIM keeps sending
-        unbranded. Nothing blocks on cosmetics.
+        registration. Ownership verification and provider identity/DKIM status are separate. A
+        verified ownership TXT record does not guarantee SES permits sending. Live sending must pass
+        Calder’s sender eligibility checks and the provider’s identity rules.
       </p>
       <p>
         The dashboard's <Link href="/domains">Domains</Link> page runs this same flow as a wizard

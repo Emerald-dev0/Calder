@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { pageMeta, pricingJsonLd } from "../../lib/seo";
+import { pageMeta } from "../../lib/seo";
 import { Navigation } from "../../components/navigation";
 import { Pricing } from "../../components/pricing";
 import { PlanComparison } from "../../components/pricing-table";
@@ -7,16 +7,12 @@ import { Streams } from "../../components/streams";
 import { FinalCta, Footer } from "../../components/closing";
 import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
-import { PLANS, PRICING_FAQS, planPrice, planSummary } from "../../lib/plans";
+import { PRICING_FAQS } from "../../lib/plans";
 
 export const metadata: Metadata = pageMeta({
   title: "Pricing",
-  description: [
-    `Beginner is free: ${planSummary("beginner")}.`,
-    `Pro is ${planPrice("pro", "USD")} or ${planPrice("pro", "NGN")} for 50,000 emails and production environments.`,
-    `Premium is ${planPrice("premium", "USD")} or ${planPrice("premium", "NGN")} for 250,000.`,
-    "Naira and dollar prices are separate decisions, not conversions.",
-  ].join(" "),
+  description:
+    "Planned pricing catalogue. Paid billing and self-service upgrades are not available yet; current account limits still apply.",
   path: "/pricing",
 });
 
@@ -39,10 +35,6 @@ const LIMITS = [
 export default function PricingPage() {
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd(PLANS)) }}
-      />
       <Navigation />
       <main>
         <PageHero

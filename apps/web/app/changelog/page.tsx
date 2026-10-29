@@ -3,33 +3,12 @@ import { Navigation } from "../../components/navigation";
 import { Footer } from "../../components/closing";
 import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
+import { CHANGELOG } from "../../lib/changelog";
 
 export const metadata: Metadata = {
   title: "Changelog, Calder",
   description: "What shipped at Calder, in order. No hype, just the work.",
 };
-
-const ENTRIES = [
-  {
-    date: "Sep 2026",
-    title: "A new home for Calder",
-    points: [
-      "Rebuilt the public site around the core idea: communication infrastructure for applications",
-      "New visual identity, interactive delivery lifecycle, and updated documentation",
-      "Pricing locked in ₦ and $ separately, with honest growth paths",
-    ],
-  },
-  {
-    date: "Sep 2026",
-    title: "Calder is live",
-    points: [
-      "REST API for sending email with asynchronous delivery pipeline",
-      "Safe retries, idempotency, and full event history on every message",
-      "Signed webhooks, SMTP support, and sending domain verification",
-      "Projects, API keys, and usage tracking",
-    ],
-  },
-];
 
 export default function ChangelogPage() {
   return (
@@ -39,11 +18,11 @@ export default function ChangelogPage() {
         <PageHero
           eyebrow="The Calder build log"
           title="Changelog"
-          lede="A running record of what we&rsquo;re shipping, improving, and learning as Calder grows. No hype. Just the work."
+          lede="Selected changes from merged GitHub history. Implementation does not imply production configuration or package publication."
         />
         <section className="section" style={{ paddingTop: 0 }}>
           <div className="wrap">
-            {ENTRIES.map((e) => (
+            {CHANGELOG.map((e) => (
               <Reveal key={e.title}>
                 <div className="change-entry">
                   <span className="change-date">{e.date}</span>
@@ -54,6 +33,15 @@ export default function ChangelogPage() {
                         <li key={p}>{p}</li>
                       ))}
                     </ul>
+                    <p className="caption">
+                      Commit evidence:{" "}
+                      {e.commits.map((sha, i) => (
+                        <span key={sha}>
+                          {i > 0 ? " · " : ""}
+                          <a href={`https://github.com/Emerald-dev0/Calder/commit/${sha}`}>{sha}</a>
+                        </span>
+                      ))}
+                    </p>
                   </div>
                 </div>
               </Reveal>

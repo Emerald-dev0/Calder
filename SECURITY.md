@@ -166,3 +166,18 @@ Connected Gmail accounts are user credentials held in trust, stricter rules appl
 
 SMTP credential lifecycle events (`smtp_credential.created`, `.rotated`, `.revoked`)
 belong in the §11 audit log event set once implemented.
+
+## Dependency review — 2026-10-29
+
+- **Remediated:** high advisory 1243066 (Zod collection-validation memory
+  exhaustion). `@vercel/functions → @vercel/oidc → @vercel/cli-config` pinned
+  vulnerable Zod 4.1.11. A scoped pnpm override uses patched 4.6.7; the audit
+  gate remains unchanged and rejects high/critical findings.
+- **Below-threshold finding:** advisory 1243661, `@hono/node-server` 1.19.17,
+  moderate static-path middleware bypass via double decoding in `serveStatic`.
+  Patched upstream in >=2.1.3. The API and e2e use the Node adapter, but no
+  `serveStatic` call/import exists in `apps/` or `packages/` in this review.
+  Do not add static serving through that adapter before upgrading/reviewing.
+  **Owner:** repository security maintainer/founder. **Review expires:**
+  2026-11-05. Track the major-version adapter upgrade and rerun route/protocol
+  tests; this note is not a high/critical exception or evidence of zero risk.

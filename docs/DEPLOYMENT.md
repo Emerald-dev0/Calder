@@ -207,7 +207,7 @@ pnpm launch-check          # exits non-zero when the path is not launch-ready
 | `CALDER_ENV`               |     |           | optional | optional |
 | `SENTRY_DSN`               |     |           | optional | optional |
 | `WORKER_EXPECTED`          |     |           | optional | required |
-| `CRON_SECRET`              |     |           | required |          |
+| `CRON_SECRET`              |     | required  | required |          |
 | `ADMIN_API_KEY`            |     |           | required |          |
 | `ALLOWED_ORIGINS`          |     |           | required |          |
 | `API_URL`                  |     | required  | required |          |
@@ -216,13 +216,13 @@ pnpm launch-check          # exits non-zero when the path is not launch-ready
 
 Nothing issues this value — you invent it. It is one shared password for the
 `/v1/cron/*` endpoints (`drain`, `alerts`, `aggregate-usage`) and for the
-wake-up the API sends itself after a `202`. Any long random string works:
+wake-up sent after API acceptance or dashboard enqueue. Any long random string works:
 
 ```bash
 openssl rand -hex 32        # 64 characters; the output is the secret
 ```
 
-Set it on the **calder-api** project only (Settings → Environment Variables →
+Set the same value on the **calder-api** and **calder-dashboard** projects (Settings → Environment Variables →
 `CRON_SECRET`, Production, and Preview if you want preview crons), then
 redeploy. Once the variable exists, Vercel attaches
 `Authorization: Bearer $CRON_SECRET` to every scheduled cron invocation
@@ -235,7 +235,7 @@ What silently breaks without it, worst first:
    authentication (it is forgeable from anywhere). The drain cron runs once a
    day (`0 0 * * *`), so accepted mail then waits for the next midnight — at
    best.
-2. **The post-send wake-up does nothing.** `kickDrain()` logs one warning and
+2. **The post-send wake-up does nothing.** The wake-up helper logs a safe failure category and
    returns, so a `202` no longer leaves immediately.
 3. **Alerting stays quiet.** `GET /v1/cron/alerts` is the endpoint that returns
    503 when something critical is firing, precisely so an uptime monitor can
@@ -243,7 +243,7 @@ What silently breaks without it, worst first:
 
 Two variables travel with it:
 
-- `API_URL` must be set on the API project (`https://api.calder.click`). The
+- `API_URL` must be set on both the API and dashboard projects (`https://api.calder.click`). The
   wake-up POSTs to `$API_URL/v1/cron/drain`; with the secret set and `API_URL`
   unset, the log says so and nothing gets faster.
 - `WORKER_EXPECTED=false` when the serverless drain is the delivery path, so
@@ -261,7 +261,7 @@ In development a bare `x-vercel-cron: 1` header is accepted while `NODE_ENV` is
 not `production` — convenient, and the reason a deployment that forgot
 `NODE_ENV=production` looks fine until something relies on the check. Do not
 reuse `AUTH_SECRET` or `ADMIN_API_KEY` here: both the cron handler and the
-wake-up read this per request, so rotating it is one env change and a redeploy.
+wake-up read this per request, so rotating it requires updating both projects and redeploying both.
 
 ### Phase 1 abuse/sending configuration
 
@@ -556,3 +556,25 @@ its bundle into an isolated directory (with installed external packages), and
 check `/health` and the complete `/v1/openapi.json` response without source files.
 This checks packaging, not hosted Redis/database readiness; verify the production
 `/health` and `/ready` endpoints after deploying.
+
+### Automatic delivery wake-up lifecycle
+
+Dashboard compose/resend, sender tests and control-editor tests schedule the
+shared authenticated drain wake-up with Next.js `after()`. API enqueue routes
+register it with Hono's host execution context when available, otherwise with
+`@vercel/functions` `waitUntil()`. A detached fetch is not reliable after a
+serverless response. The helper requires explicit `API_URL` (never `APP_URL`),
+refuses redirects, bounds the request, and logs only safe failure categories and
+HTTP status codes. No secret or response body is logged.
+
+There is no time-based debounce: an enqueue after the previous drain selected
+its rows needs its own wake-up. Existing database leases prevent overlapping
+drains from claiming the same rows. This is best-effort notification, not a
+replacement for the durable queue, worker or scheduled retry drain. A missing
+secret, failed request or backlog can still leave mail queued; no immediate
+inbox-delivery guarantee is implied.
+
+Deploy both applications after configuring matching production `CRON_SECRET`
+and `API_URL=https://api.calder.click`. Test one new dashboard email and one API
+send without manually invoking the drain. Inspect wake-up logs for 401, missing
+configuration or request failure; verify sent/delivery events separately.

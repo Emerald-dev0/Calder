@@ -1068,3 +1068,41 @@ source JSON and compare the served document to the source of truth.
 **Consequence:** no runtime file tracing or relative-path fallback is required
 for this document. Liveness/readiness semantics and hosted queue boot assertions
 remain unchanged. No new dependency is introduced.
+
+## ADR-049: Keep queue wake-ups alive after serverless responses (2026-10-29)
+
+**Context:** manual drain sends reached inboxes, but dashboard compose/resend
+could remain queued. Those paths never triggered a drain wake-up. API wake-ups
+used a detached fetch when Hono lacked an execution context; Vercel could freeze
+the function after response. A process-wide 1.5-second debounce could also drop
+an enqueue that arrived after the prior drain selected its batch.
+
+**Decision:** share the authenticated HTTP nudge in `@calder/queue`; register it
+with Next.js `after()` for dashboard compose/resend and local test-send paths,
+and the host execution context or Vercel `waitUntil()` for API sends. Remove the
+time debounce. Add `@vercel/functions` because Hono alone does not expose the
+Vercel post-response lifetime contract. Keep delivery inside the existing drain.
+
+**Consequence:** API and dashboard production projects need matching server-only
+cron secrets and an explicit API URL; rotate/redeploy both together. Wake-up
+failures are safe, observable categories, with no credentials logged. Scheduled
+drains and workers remain the backstop; this does not promise inbox delivery or
+solve arbitrary backlogs/delayed-job latency. No new service is introduced.
+
+## ADR-050: Public launch copy reflects configured capabilities (2026-10-29)
+
+**Context:** the owner intends to open Calder before billing is configured.
+Usage advertised prices/upgrades and described provider acceptance as delivered;
+SDK source existence was being presented as official package availability.
+
+**Decision:** hide the Usage paid-plan catalogue and upgrade CTAs, retain real
+usage/quota enforcement, label acceptance accurately, and show billing as not
+available. Keep direct HTTP examples; hide SDK install tabs until publication,
+provenance and install-to-live checks are verified. Document SMTP/Gmail/marketing
+as implemented/specification versus production-verified separately. Replace stale
+launch status and the placeholder changelog with evidence-linked main history.
+
+**Consequence:** no billing implementation or quota bypass is added. Free launch
+access does not grant paid tiers automatically. PR #87 automatic delivery remains
+under review until hosted validation, not declared fixed because local tests pass.
+The pricing catalogue remains planning/configuration, not checkout availability.

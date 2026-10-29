@@ -1,6 +1,10 @@
 # Calder, Product Requirements Document (v0.2)
 
-Status: Pre-launch. Rebrand (Avenor → Calder) + transport architecture adopted.
+Status: Initial public-launch preparation (2026-10-29). Requirements below are
+product scope, not proof of deployment. Paid billing is not configured; Usage
+must not present purchasable paid tiers or functioning upgrades. Existing quotas
+remain enforced. Official SDK distribution, public SMTP and Gmail production
+setup are not launch-certified. See `docs/LAUNCH-STATUS.md` for current evidence.
 Category: Developer infrastructure / application communication
 Primitives: Transactional email (live) + marketing email (in development)
 
