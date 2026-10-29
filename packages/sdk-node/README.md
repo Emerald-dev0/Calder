@@ -2,7 +2,13 @@
 
 Transactional email with durable delivery and honest outcomes. Zero dependencies, Node ≥ 18.17.
 
+> Launch status: source is implemented; official registry publication and
+> package provenance have not been verified. The install/import example below
+> is for a future verified release, not launch installation guidance. Use the
+> [HTTP quickstart](https://calder.click/docs/quickstart/nodejs) now.
+
 ```bash
+# Only after official publication/provenance is verified:
 npm install calder
 ```
 

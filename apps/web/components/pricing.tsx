@@ -5,8 +5,8 @@ import { Reveal } from "./reveal";
 import { PLANS, PROGRESSION, type Currency } from "../lib/plans";
 
 /**
- * Plan cards. Four plans, two real currencies, no asterisks: every figure
- * shown is the price someone actually pays (see lib/plans.ts).
+ * Planned plan catalogue, not a purchasable offer; billing is not configured.
+ * Limits remain sourced from configuration (see lib/plans.ts).
  */
 /**
  * How many bullets fit on a card. Five plans share one row, so each card is
@@ -40,8 +40,9 @@ export function Pricing() {
             <span className="pricing-soon-tag">Coming soon</span>
             <p>
               Calder is not taking money yet. Card checkout and invoicing are still being built, so
-              every plan is free while they are. The prices below are the published catalogue, not a
-              bill.
+              the prices below are planned catalogue figures, not purchasable subscriptions or an
+              invoice. Launch accounts retain their assigned limits; paid-tier allowances are not
+              automatically granted.
             </p>
           </div>
         </Reveal>
@@ -61,7 +62,7 @@ export function Pricing() {
               ))}
             </div>
             <p className="caption" style={{ marginTop: "0.6rem" }}>
-              Two real prices per plan. Changing the display never changes what you pay.
+              Planned NGN and USD prices. No paid checkout is available.
             </p>
           </div>
         </Reveal>

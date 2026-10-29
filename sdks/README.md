@@ -1,6 +1,6 @@
-# Calder SDKs
+# Calder SDK source — distribution not launch-verified
 
-Official clients for `https://api.calder.click/v1`. Every SDK shares one
+Client source targeting `https://api.calder.click/v1`. Every SDK shares one
 behavior contract — same error taxonomy, same retry policy, same idempotency
 rules (tested identically in Node and Python):
 
@@ -12,12 +12,22 @@ rules (tested identically in Node and Python):
 | Timeouts     | 10 s per attempt by default, configurable.                                                                                                                                                                    |
 | Dependencies | Zero, in every language (fetch / urllib / net/http / ext-curl).                                                                                                                                               |
 
+## Launch status (2026-10-29)
+
+Source and repository tests are not proof of a published, official package.
+Registry ownership, artifact contents and install-to-live behavior have not been
+verified in this review. Use direct HTTP examples at `https://calder.click/docs`
+for launch. Do not run a registry install solely because a package is named
+`calder`; an unrelated package may exist under that name. Dashboard SDK install
+tabs are hidden pending publication/provenance verification. The table below
+records source status, not an availability guarantee.
+
 ## Libraries
 
 | Language             | Location            | Status                                       | Install                                     |
 | -------------------- | ------------------- | -------------------------------------------- | ------------------------------------------- |
-| Node.js / TypeScript | `packages/sdk-node` | ✅ tested in-repo (13 tests)                 | `npm install calder` after registry publish |
-| Python               | `sdks/python`       | ✅ tested in-repo (14 tests)                 | `pip install calder` after PyPI publish     |
+| Node.js / TypeScript | `packages/sdk-node` | ✅ tested in-repo (source tests)             | `npm install calder` after registry publish |
+| Python               | `sdks/python`       | ✅ tested in-repo (source tests)             | `pip install calder` after PyPI publish     |
 | Ruby                 | `sdks/ruby`         | authored; runtime-unverified in this sandbox | vendor `lib/calder.rb` (gem pending)        |
 | PHP                  | `sdks/php`          | authored; runtime-unverified in this sandbox | vendor `src/Calder.php` (Packagist pending) |
 

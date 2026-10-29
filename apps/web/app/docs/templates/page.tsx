@@ -1,26 +1,28 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Templates, Calder Docs",
-  description: "Versioned email templates (in development). Send any HTML today.",
+  description: "Implemented template endpoints, versioned content and sending options.",
 };
-
 export default function TemplatesDoc() {
   return (
     <>
       <h1>Templates</h1>
-      <div className="docs-note">
-        <strong>In development.</strong> Templates come after the delivery core. Nothing below is
-        available today, and sending rendered HTML now keeps working after they ship.
-      </div>
       <p className="docs-lede">
-        The planned shape: versioned templates with variables and previews.
+        Template management and versioned content are implemented in the API and dashboard.
       </p>
-      <h2>Planned behaviour</h2>
       <p>
-        Named variables with defaults, previews against sample data, published versions, and sends
-        that reference the template and version they used, so a rollback is a click. Test sends go
-        to yourself before anything reaches a customer.
+        The API includes project-scoped template creation, reads, deletion and version listing under{" "}
+        <code>/v1/templates</code>. The send service can resolve a template alias and render
+        variables; read the <Link href="/docs/api-reference">API reference</Link> for the exact
+        request schema rather than relying on planned examples.
+      </p>
+      <p>
+        You can also send raw HTML or text. A template does not bypass sender eligibility,
+        suppression, usage limits or the queue. Test keys simulate sends rather than delivering a
+        template preview to a real inbox. Production template journeys still need validation in your
+        account before relying on them.
       </p>
     </>
   );

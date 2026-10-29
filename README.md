@@ -6,7 +6,19 @@ Developer-first communication infrastructure. Transactional email is the first p
 
 ## Status
 
-Foundation scaffold complete (v0.1). API → queue → worker → provider → event vertical slice implemented with mock provider. See `PRD.md` for product scope, `docs/DECISIONS.md` for why things are built the way they are, `docs/DESIGN.md` for visual direction, `docs/CONTROL-PLANE.md` for the founder/admin Control Plane.
+Transactional email API, dashboard, durable queue/drain/worker and SES integration
+are implemented. The operator confirmed production API liveness and two manually
+drained inbox deliveries on October 28, 2026. Automatic wake-up recovery is under
+review in PR #87 and is not yet verified in Production.
+
+Paid billing is not configured. SDK source exists, but official registry
+publication is not verified; use the direct HTTP quickstarts. SMTP is specified,
+not deployed from this repository. Gmail and provider event configuration require
+separate production validation.
+
+See [launch availability](docs/LAUNCH-STATUS.md) for evidence and remaining checks,
+[CHANGELOG.md](CHANGELOG.md) for merged history, and `PRD.md`, `ARCHITECTURE.md`,
+`SECURITY.md` for intended scope, architecture and security requirements.
 
 ## Documentation map
 

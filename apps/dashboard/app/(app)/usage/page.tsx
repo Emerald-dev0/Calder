@@ -1,9 +1,8 @@
 import { desc, inArray } from "drizzle-orm";
 import { getDb, usageSummaries, orgUsageSnapshot } from "@calder/db";
-import { PLAN_ORDER, formatPlanPrice, planDisplayName, planEmailsLimit } from "@calder/config";
+import { planEmailsLimit } from "@calder/config";
 import { getTenantContext } from "../../../lib/auth";
-import { pricingUrl } from "../../../lib/pricing";
-import { Gauge, Sparkles, ExternalLink, CheckCircle2 } from "lucide-react";
+import { Gauge } from "lucide-react";
 import {
   DsPageHeader,
   StatusPill,
@@ -41,18 +40,7 @@ export default async function UsagePage() {
         icon={<Gauge size={18} />}
         title="Usage & Quotas"
         badge={<StatusPill status="active" label="Live Ledger" />}
-        description="Metered directly from durable delivery records—your invoice always matches this ledger."
-        actions={
-          <a
-            href={pricingUrl()}
-            className="ds-btn ds-btn-primary"
-            style={{ textDecoration: "none" }}
-          >
-            <Sparkles size={14} />
-            <span>Compare Plans</span>
-            <ExternalLink size={13} />
-          </a>
-        }
+        description="Accepted live sends, provider-accepted usage, and your current limits."
       />
 
       <div className="ds-grid-3" style={{ marginBottom: 20 }}>
@@ -63,13 +51,12 @@ export default async function UsagePage() {
           sub="Live production API & Composer sends"
         />
         <StatCard
-          label="Metered Delivered"
+          label="Provider-Accepted Sends"
           value={meteredThisMonth.toLocaleString()}
-          status="delivered"
-          sub="Confirmed remote MX 250 OK"
+          sub="Provider acceptance is not inbox delivery"
         />
         <StatCard
-          label="Historical Billing Periods"
+          label="Recorded Usage Summaries"
           value={aggregated.length.toLocaleString()}
           sub="Test-key sends are never metered"
         />
@@ -106,7 +93,7 @@ export default async function UsagePage() {
                 {exhausted ? "Limit reached — sends return plan_limit_reached · " : ""}
                 {snap.acceptedLive.toLocaleString()} /{" "}
                 {limit === null ? "custom" : limit.toLocaleString()} emails (
-                {snap.metered.toLocaleString()} delivered)
+                {snap.metered.toLocaleString()} provider-accepted)
               </div>
             </div>
 
@@ -139,86 +126,25 @@ export default async function UsagePage() {
               <p style={{ fontSize: 12, color: "var(--color-muted)", margin: "10px 0 0" }}>
                 Period {snap.period.start.toISOString().slice(0, 10)} →{" "}
                 {snap.period.end.toISOString().slice(0, 10)} · test-key sends are never metered ·{" "}
-                {exhausted ? (
-                  <>
-                    <a
-                      href={pricingUrl()}
-                      style={{ color: "var(--color-danger)", fontWeight: 600 }}
-                    >
-                      Upgrade to keep sending
-                    </a>{" "}
-                    or wait for the period reset.
-                  </>
-                ) : (
-                  <>
-                    upgrade anytime on the{" "}
-                    <a
-                      href={pricingUrl()}
-                      style={{ color: "var(--color-ink)", fontWeight: 600 }}
-                    >
-                      pricing page
-                    </a>
-                    .
-                  </>
-                )}
+                {exhausted
+                  ? "Sending is paused at your current limit. Wait for the period reset or contact support@calder.click."
+                  : "Current limits still apply. Paid checkout and self-service upgrades are not available yet."}
               </p>
             </div>
           </section>
         );
       })}
 
-      <div className="ds-card" style={{ marginBottom: 20 }}>
-        <div className="ds-card-header">
-          <div>
-            <h2 className="ds-card-title">Available Plans & Monthly Quotas</h2>
-            <p className="ds-card-subtitle">
-              Predictable volume tiers in NGN and USD with hard-cap protection
-            </p>
-          </div>
-        </div>
+      <section className="ds-card" style={{ marginBottom: 20 }} aria-label="Billing availability">
         <div className="ds-card-body">
-          <div className="ds-grid-4">
-            {PLAN_ORDER.map((tier) => {
-              const quota = planEmailsLimit(tier);
-              return (
-                <div
-                  key={tier}
-                  style={{
-                    background: "var(--color-surface-elevated)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "var(--radius-lg)",
-                    padding: 16,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: 8,
-                    }}
-                  >
-                    <span style={{ fontWeight: 700, fontSize: 14 }}>{planDisplayName(tier)}</span>
-                    <CheckCircle2 size={14} style={{ color: "var(--color-success)" }} />
-                  </div>
-                  <p
-                    className="mono tabular-nums"
-                    style={{ fontSize: 15, fontWeight: 700, margin: "0 0 6px" }}
-                  >
-                    {formatPlanPrice(tier, "NGN")} · {formatPlanPrice(tier, "USD")}
-                  </p>
-                  <p style={{ fontSize: 12, color: "var(--color-muted)", margin: 0 }}>
-                    {quota === null
-                      ? "Custom emails/mo"
-                      : `${quota.toLocaleString("en-US")} emails/mo`}
-                    {quota === null ? "" : " · hard limit enforced"}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
+          <h2 className="ds-card-title">Billing is not available yet</h2>
+          <p style={{ color: "var(--color-muted)", fontSize: 13 }}>
+            Paid checkout, subscriptions, and self-service upgrades are not available during
+            the initial public launch. Your organization’s current sending and resource limits
+            still apply. Usage shown here is not an invoice.
+          </p>
         </div>
-      </div>
+      </section>
 
       {aggregated.length > 0 && (
         <div className="ds-table-shell">

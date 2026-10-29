@@ -7,7 +7,7 @@ import { SdkHub } from "./client";
 import { Code2, KeyRound } from "lucide-react";
 import { DsPageHeader, StatusPill } from "../../../components/design-system";
 
-export const metadata = { title: "Calder — SDKs" };
+export const metadata = { title: "Calder — HTTP Quickstarts" };
 
 export default async function SdksPage({
   searchParams,
@@ -23,7 +23,7 @@ export default async function SdksPage({
       <div>
         <DsPageHeader
           icon={<Code2 size={18} />}
-          title="SDKs & Quickstarts"
+          title="HTTP Quickstarts"
           description="Create a project and integration snippets will appear here."
         />
         <EmptyState
@@ -41,8 +41,8 @@ export default async function SdksPage({
     <div>
       <DsPageHeader
         icon={<Code2 size={18} />}
-        title="SDKs & Integration Quickstarts"
-        badge={<StatusPill status="active" label="REST v1 + Official SDKs" />}
+        title="HTTP Integration Quickstarts"
+        badge={<StatusPill status="active" label="REST v1 · HTTP examples" />}
         description="Copy-ready snippets for Node.js, Python, Go, Ruby, PHP, and cURL with built-in Idempotency-Key headers."
         actions={
           <Link

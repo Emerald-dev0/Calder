@@ -1088,3 +1088,21 @@ cron secrets and an explicit API URL; rotate/redeploy both together. Wake-up
 failures are safe, observable categories, with no credentials logged. Scheduled
 drains and workers remain the backstop; this does not promise inbox delivery or
 solve arbitrary backlogs/delayed-job latency. No new service is introduced.
+
+## ADR-050: Public launch copy reflects configured capabilities (2026-10-29)
+
+**Context:** the owner intends to open Calder before billing is configured.
+Usage advertised prices/upgrades and described provider acceptance as delivered;
+SDK source existence was being presented as official package availability.
+
+**Decision:** hide the Usage paid-plan catalogue and upgrade CTAs, retain real
+usage/quota enforcement, label acceptance accurately, and show billing as not
+available. Keep direct HTTP examples; hide SDK install tabs until publication,
+provenance and install-to-live checks are verified. Document SMTP/Gmail/marketing
+as implemented/specification versus production-verified separately. Replace stale
+launch status and the placeholder changelog with evidence-linked main history.
+
+**Consequence:** no billing implementation or quota bypass is added. Free launch
+access does not grant paid tiers automatically. PR #87 automatic delivery remains
+under review until hosted validation, not declared fixed because local tests pass.
+The pricing catalogue remains planning/configuration, not checkout availability.

@@ -24,7 +24,7 @@ const res = await fetch("https://api.calder.click/v1/emails", {
  }),
 });
 console.log(res.status); // 202, queued
-// SDKs (npm install calder) land with v1; this API is stable now.`;
+// Direct HTTP example; official SDK publication is not launch-verified.`;
 
 export default function GmailQuickstart() {
   return (
@@ -35,6 +35,12 @@ export default function GmailQuickstart() {
         same API, logs and events as anyone on a verified domain.
       </p>
 
+      <div className="docs-note">
+        <strong>Production availability not verified.</strong> OAuth/transport source exists, but
+        Google approval, production credentials and an end-to-end Gmail send have not been confirmed
+        for this launch. The steps below describe the implemented flow when configured, not a
+        guarantee that every new account can connect today.
+      </div>
       <h2>1. Connect Gmail</h2>
       <p>
         In the project dashboard, choose <b>Connect Gmail</b>. Google asks for a single permission,

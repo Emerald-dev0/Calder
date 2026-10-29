@@ -1,5 +1,9 @@
 # Calder SMTP Gateway, Protocol & Implementation Spec
 
+> Launch status (2026-10-29): design/specification only. No SMTP gateway app
+> is present in this checkout, and a public SMTP service has not been verified.
+> Do not use this document as evidence that smtp.calder.click is operational.
+
 Status: specified, not yet implemented. Architecture: `ARCHITECTURE.md` §5b.
 Security: `SECURITY.md` §14. Operations: `docs/OPERATIONS.md` (SMTP sections).
 Decision record: ADR-014.

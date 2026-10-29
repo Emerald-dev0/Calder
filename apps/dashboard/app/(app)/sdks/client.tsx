@@ -126,41 +126,7 @@ res, _ := (&http.Client{Timeout: 10 * time.Second}).Do(req)`,
   -d '{"from":"app@yourdomain.com","to":"you@example.com",
        "subject":"Hello from Calder","text":"It works."}'`,
   },
-  {
-    id: "node-sdk",
-    label: "Node SDK",
-    filename: "send-sdk.mjs",
-    code: (key) => `// npm install calder
-import Calder from "calder";
 
-const calder = new Calder({ apiKey: "${key}" });
-
-const { id, status } = await calder.emails.send({
-  from: "app@yourdomain.com",
-  to: "you@example.com",
-  subject: "Hello from Calder",
-  text: "It works.",
-  // Idempotent by default; bind to your entity for restart-safe retries:
-  idempotencyKey: "my-first-send",
-});`,
-  },
-  {
-    id: "python-sdk",
-    label: "Python SDK",
-    filename: "send_sdk.py",
-    code: (key) => `# pip install calder
-from calder import Calder
-
-calder = Calder(api_key="${key}")
-
-result = calder.emails.send(
-    from_="app@yourdomain.com",
-    to="you@example.com",
-    subject="Hello from Calder",
-    text="It works.",
-    idempotency_key="my-first-send",
-)`,
-  },
 ];
 
 export function SdkHub({ projectId, hasKeys }: { projectId: string; hasKeys: boolean }) {
@@ -255,7 +221,7 @@ export function SdkHub({ projectId, hasKeys }: { projectId: string; hasKeys: boo
       >
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
           <span>
-            Official Node & Python SDKs send idempotently by default and support automatic retry backoff.
+            These examples use HTTP directly. SDK source exists in the repository, but official package distribution is not verified for launch.
           </span>
         </span>
         <div style={{ display: "inline-flex", gap: 14 }}>

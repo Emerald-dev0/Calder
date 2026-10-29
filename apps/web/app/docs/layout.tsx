@@ -8,6 +8,7 @@ const SECTIONS: Array<{ title: string; links: Array<{ label: string; href: strin
     title: "Start",
     links: [
       { label: "Documentation", href: "/docs" },
+      { label: "Launch availability", href: "/docs/availability" },
       { label: "Quickstart: Node.js", href: "/docs/quickstart/nodejs" },
       { label: "Quickstart: Python", href: "/docs/quickstart/python" },
       { label: "Quickstart: Go", href: "/docs/quickstart/go" },
@@ -29,7 +30,7 @@ const SECTIONS: Array<{ title: string; links: Array<{ label: string; href: strin
       { label: "Idempotency", href: "/docs/idempotency" },
       { label: "Suppression", href: "/docs/suppression" },
       { label: "Usage & Billing", href: "/docs/usage-billing" },
-      { label: "Templates (soon)", href: "/docs/templates" },
+      { label: "Templates", href: "/docs/templates" },
       { label: "OTP (soon)", href: "/docs/otp" },
       { label: "Core concepts", href: "/docs/concepts" },
     ],

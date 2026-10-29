@@ -1,5 +1,11 @@
 # API Conventions
 
+> Launch availability (2026-10-29): this reference describes implemented API
+> behavior, not proof every provider/integration is configured in Production.
+> Use [LAUNCH-STATUS.md](LAUNCH-STATUS.md) for current evidence. SDK packages and
+> paid billing are not launch-certified; HTTP examples are the supported starting
+> point. Queued and provider-accepted states do not mean inbox delivery.
+
 Conventions only, endpoint-level detail lives in generated docs/SDK types, which are the source of truth.
 
 ## Versioning

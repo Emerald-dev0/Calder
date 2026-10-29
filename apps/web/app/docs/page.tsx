@@ -24,7 +24,12 @@ const EXPLORE = [
   { icon: "✓", title: "Domains", desc: "Verify and monitor.", href: "/docs/domains" },
   { icon: "↯", title: "Webhooks", desc: "Events, signed.", href: "/docs/webhooks" },
   { icon: "◈", title: "API Keys", desc: "Test vs live.", href: "/docs/api-keys" },
-  { icon: "◔", title: "Usage & Billing", desc: "Metered, NGN/USD.", href: "/docs/usage-billing" },
+  {
+    icon: "◔",
+    title: "Usage & Billing",
+    desc: "Current limits; billing not available yet.",
+    href: "/docs/usage-billing",
+  },
 ] as const;
 
 export default function DocsIndex() {
@@ -33,7 +38,8 @@ export default function DocsIndex() {
       <h1>Documentation</h1>
       <p className="docs-lede">
         Calder sends email for applications: verification codes, password resets, receipts and
-        alerts through one API or an SMTP relay, with a record of what happened to every message.
+        alerts through the REST API, with queue and message-status records. SMTP gateway deployment
+        is not verified for this launch.
       </p>
 
       <h2>Before you start</h2>
@@ -54,6 +60,12 @@ export default function DocsIndex() {
         </li>
       </ol>
 
+      <div className="docs-note">
+        <strong>Launch scope.</strong> Use the REST API and direct HTTP examples below. SDK source
+        is available in the repository, but official package publication has not been verified. Paid
+        billing, a public SMTP gateway, and production Gmail OAuth setup are not confirmed as
+        available. See <Link href="/docs/availability">availability</Link>.
+      </div>
       <h2>Quickstart</h2>
       <div className="docs-cards">
         {QUICKSTARTS.map((c) => (

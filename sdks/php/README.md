@@ -1,5 +1,8 @@
 # calder (PHP) — official SDK
 
+> Launch note: source only; official registry distribution and production
+> compatibility are not verified. Use the direct HTTP quickstarts for launch.
+
 ```php
 <?php
 require_once __DIR__ . "/calder/src/Calder.php";   // or your PSR-4 autoload

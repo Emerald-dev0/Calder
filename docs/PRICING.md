@@ -1,5 +1,11 @@
 # Calder Pricing, Architecture & Unit Economics Gate
 
+> Launch status (2026-10-29): paid billing is not configured. The catalogue below
+> is planning/configuration, not an offer of working checkout or invoices. Usage
+> hides the paid comparison and upgrade CTAs while preserving actual limits.
+> Free launch access does not automatically grant paid-tier quotas. See
+> [LAUNCH-STATUS.md](LAUNCH-STATUS.md).
+
 Status: **revised 2026-10-22** (five-tier catalogue). The catalogue itself lives
 in `packages/config/src/plan-limits.ts` — limits, prices and display names — and
 every surface reads from there: the dashboard, the API's quota errors, the
