@@ -543,7 +543,9 @@ export async function drainPendingEmails(
           break;
         }
         attemptedLegs.push(leg.transport);
-        const r = await leg.service.send(payload as never);
+        const { mayRemoveCalderBranding } = await import("@calder/db");
+        const removeCalderBranding = await mayRemoveCalderBranding(db, row.projectId);
+        const r = await leg.service.send(payload as never, { removeCalderBranding });
         result = r;
         transportName = leg.transport;
         break;

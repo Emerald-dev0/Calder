@@ -105,7 +105,7 @@ export const PLANS: Plan[] = [
     support: "Community",
     highlights: [
       "Transactional email",
-      "REST API + SMTP relay",
+      "REST API",
       "Idempotency",
       "Signed webhooks",
       `${count(catalogue("beginner").domains)} sending domains`,
@@ -349,7 +349,6 @@ export const COMPARISON: ComparisonGroup[] = [
         values: [YES, YES, YES, YES, YES],
         note: "/v1, with a live OpenAPI document at api.calder.click/v1/openapi.json.",
       },
-      { label: "SMTP relay", values: [YES, YES, YES, YES, YES] },
       { label: "Test and live API keys", values: [YES, YES, YES, YES, YES] },
       { label: "Scoped API keys", values: [NO, YES, YES, YES, YES] },
       { label: "Idempotency keys", values: [YES, YES, YES, YES, YES] },

@@ -17,7 +17,7 @@ import { SIGNUP_URL } from "../../lib/site";
 export const metadata: Metadata = pageMeta({
   title: "What is Calder",
   description:
-    "Calder is communication infrastructure for applications: transactional email, and a separate marketing stream, through one API or SMTP relay, observable from queued to delivered. Free for 5,000 emails a month.",
+    "Calder is communication infrastructure for applications: transactional email, and a separate marketing stream, through an API, observable from queued to delivered. Free for 5,000 emails a month.",
   path: "/what-is-calder",
 });
 
@@ -25,7 +25,7 @@ const FACTS: Array<[string, string]> = [
   ["What", "Communication infrastructure for applications. Email is the first primitive."],
   [
     "Does",
-    "Transactional mail: verification codes, password resets, receipts, invoices, security alerts, order updates. Through a versioned REST API or an SMTP relay, both landing in the same pipeline.",
+    "Transactional mail: verification codes, password resets, receipts, invoices, security alerts, order updates. Through a versioned REST API.",
   ],
   [
     "Also does",
@@ -37,17 +37,17 @@ const FACTS: Array<[string, string]> = [
   ],
   [
     "Pricing",
-    `Beginner is free: ${planSummary("beginner")}. Pro is ${planPrice("pro", "USD")} or ${planPrice("pro", "NGN")} for 50,000. Premium is ${planPrice("premium", "USD")} or ${planPrice("premium", "NGN")} for 250,000. Naira and dollar prices are set separately, not converted.`,
+    `Beginner is free: ${planSummary("beginner")}. Pro is ${planPrice("pro", "USD")} or ${planPrice("pro", "NGN")} for 50,000. Premium is ${planPrice("premium", "USD")} or ${planPrice("premium", "NGN")} for 250,000. These are planned prices; paid checkout is not available yet. Naira and dollar prices are set separately, not converted.`,
   ],
   [
     "Evidence",
     "Every response carries a request ID. Every email carries a timeline from queued to delivered, bounced or failed. Logs are retained 7 to 90 days depending on plan.",
   ],
+  ["Where", "Nigeria-first, with planned local pricing and the same API for developers elsewhere."],
   [
-    "Where",
-    "Nigeria-first, with local pricing and payment rails, and the same API, latency and reliability bar anywhere else.",
+    "Status",
+    "Availability depends on production configuration. See the availability and status pages for current information.",
   ],
-  ["Status", "Public. Accounts are open, the API is live, and the status page is quiet."],
 ];
 
 export default function WhatIsCalder() {

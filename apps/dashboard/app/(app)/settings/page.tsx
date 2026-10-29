@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { getDb, domains, resolveOrgTier } from "@calder/db";
+import { eq } from "drizzle-orm";
 import { getTenantContext } from "../../../lib/auth";
-import { getTeam, listMySessions, requestDataExport } from "./actions";
+import { getTeam, listMySessions, requestDataExport, setCalderBranding } from "./actions";
 import { InviteForm, MemberRow, RevokeInviteButton } from "./team";
 import { NewOrgForm, NewProjectForm } from "./workspace-forms";
 import { SessionsCard } from "./sessions";
@@ -58,6 +60,23 @@ export default async function SettingsPage({
       </div>
     );
   }
+  const orgProjects = ctx.memberships.find((m) => m.organization.id === orgId)?.projects ?? [];
+  const db = getDb();
+  const tier = await resolveOrgTier(db, orgId);
+  const paid = ["starter", "pro", "premium", "scale"].includes(tier);
+  const verifiedProjectIds = new Set(
+    (
+      await Promise.all(
+        orgProjects.map(async (project) => {
+          const rows = await db
+            .select({ status: domains.status })
+            .from(domains)
+            .where(eq(domains.projectId, project.id));
+          return rows.some((row) => row.status === "verified") ? project.id : null;
+        })
+      )
+    ).filter((id): id is string => id !== null)
+  );
   const canManage = team.callerRole === "owner" || team.callerRole === "admin";
   const canAdminister = team.callerRole === "owner";
   const pending = team.invites.filter((i) => !i.acceptedAt && !i.expired);
@@ -82,6 +101,63 @@ export default async function SettingsPage({
           </Link>
         }
       />
+
+      <div className="ds-card" style={{ marginBottom: 20 }}>
+        <div className="ds-card-header">
+          <div>
+            <h2 className="ds-card-title">Email branding</h2>
+            <p className="ds-card-subtitle">
+              Free plan and no-domain project emails include a small “Sent with Calder” footer and
+              an abuse report link. Paid plans with a verified domain can remove it.
+            </p>
+          </div>
+        </div>
+        <div className="ds-card-body">
+          {orgProjects.map((project) => (
+            <form
+              key={project.id}
+              action={setCalderBranding}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
+                marginBottom: 12,
+              }}
+            >
+              <strong>{project.name}</strong>
+              <span>
+                {project.metadata?.removeCalderBranding
+                  ? "Removal requested (eligibility checked at send time)"
+                  : "Footer on"}
+              </span>
+              <input type="hidden" name="projectId" value={project.id} />
+              <input
+                type="hidden"
+                name="remove"
+                value={project.metadata?.removeCalderBranding ? "false" : "true"}
+              />
+              {!paid || !verifiedProjectIds.has(project.id) ? (
+                <span>Requires a paid plan and verified domain</span>
+              ) : null}
+              {canManage && (
+                <button
+                  className="ds-btn ds-btn-secondary"
+                  type="submit"
+                  disabled={
+                    !project.metadata?.removeCalderBranding &&
+                    (!paid || !verifiedProjectIds.has(project.id))
+                  }
+                >
+                  {project.metadata?.removeCalderBranding
+                    ? "Restore Calder branding"
+                    : "Remove Calder branding"}
+                </button>
+              )}
+            </form>
+          ))}
+        </div>
+      </div>
 
       {/* Sub-navigation bar */}
       <div

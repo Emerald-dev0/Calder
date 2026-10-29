@@ -26,11 +26,11 @@ export function Pipeline() {
             <div className="step-content">
               <h3>Your application</h3>
               <p>
-                <strong>Make one request.</strong> Send through the API or use SMTP. Add an
-                idempotency key when you need guaranteed retry behavior.
+                <strong>Make one request.</strong> Send through the API. Add an idempotency key when
+                you need guaranteed retry behavior.
               </p>
               <div className="step-meta">
-                API or SMTP &middot; <code>Idempotency-Key</code> supported
+                REST API &middot; <code>Idempotency-Key</code> supported
               </div>
             </div>
           </Reveal>

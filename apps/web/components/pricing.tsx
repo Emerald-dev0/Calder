@@ -80,7 +80,7 @@ export function Pricing() {
             >
               <div className="price-head">
                 <div className="price-tier">{plan.name}</div>
-                {plan.popular && <span className="price-flag">Most teams start here</span>}
+                {plan.popular && <span className="price-flag">Planned</span>}
               </div>
               <div className="price-amount">
                 {plan.price[currency]}
@@ -99,12 +99,13 @@ export function Pricing() {
                   <span aria-hidden="true"> ↓</span>
                 </a>
               )}
-              <a
-                className={`btn ${plan.popular ? "btn-paper" : "btn-secondary"}`}
-                href={plan.ctaHref}
-              >
-                {plan.cta}
-              </a>
+              {plan.id === "beginner" ? (
+                <a className="btn btn-secondary" href={plan.ctaHref}>
+                  {plan.cta}
+                </a>
+              ) : (
+                <span className="caption">Planned · not available yet</span>
+              )}
             </Reveal>
           ))}
         </div>

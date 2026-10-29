@@ -41,6 +41,9 @@ gate("worker live delivery path against a real SES-protocol endpoint", async () 
     users,
     emails,
     usageRecords,
+    plans,
+    subscriptions,
+    domains,
     cleanupSuiteOrg,
   } = await import("@calder/db");
   const { eq, count } = await import("drizzle-orm");
@@ -86,6 +89,7 @@ gate("worker live delivery path against a real SES-protocol endpoint", async () 
         to: over.to ?? `to-${suffix}@example.test`,
         subject: "worker live",
         text: "worker live body",
+        html: "<html><body><p>worker live body</p></body></html>",
         status: "queued",
         attemptCount: 0,
         env: over.env ?? "live",
@@ -179,12 +183,24 @@ gate("worker live delivery path against a real SES-protocol endpoint", async () 
     const payload = sent[sent.length - 1]!.body as {
       FromEmailAddress: string;
       Destination: { ToAddresses: string[] };
-      Content: { Simple: { Subject: { Data: string }; Body: { Text?: { Data: string } } } };
+      Content: {
+        Simple: {
+          Subject: { Data: string };
+          Body: { Text?: { Data: string }; Html?: { Data: string } };
+        };
+      };
     };
     expect(payload.FromEmailAddress).toBe(from);
     expect(payload.Destination.ToAddresses).toEqual([`to-${suffix}@example.test`]);
     expect(payload.Content.Simple.Subject.Data).toBe("worker live");
-    expect(payload.Content.Simple.Body.Text?.Data).toBe("worker live body");
+    expect(payload.Content.Simple.Body.Text?.Data).toBe(
+      "worker live body\n\n\n--\nSent with Calder · https://calder.click\nReport abuse: https://calder.click/abuse"
+    );
+    expect(payload.Content.Simple.Body.Html?.Data).toContain("<p>worker live body</p><div");
+    expect(payload.Content.Simple.Body.Html?.Data).toContain('href="https://calder.click/abuse"');
+    expect(payload.Content.Simple.Body.Html?.Data).toContain("</div></body>");
+    expect(row?.html).toBe("<html><body><p>worker live body</p></body></html>");
+    expect(row?.text).toBe("worker live body");
 
     // Metered exactly once, like the serverless drain.
     const ledger = await getDb()
@@ -192,6 +208,65 @@ gate("worker live delivery path against a real SES-protocol endpoint", async () 
       .from(usageRecords)
       .where(eq(usageRecords.id, `ur_${emailId}`));
     expect(Number(ledger[0]?.value ?? 0)).toBe(1);
+  });
+
+  it("enforces removal eligibility at delivery, including downgrade and domain loss", async () => {
+    const db = getDb();
+    await db
+      .update(projects)
+      .set({ metadata: { removeCalderBranding: true } })
+      .where(eq(projects.id, projId));
+    async function sendAndBody() {
+      const id = await seedQueued({ to: `${randomBytes(4).toString("hex")}@example.test` });
+      expect(await processEmailJob(job(id))).toBe("sent");
+      const payload = captured.at(-1)!.body as {
+        Content: { Simple: { Body: { Text: { Data: string }; Html: { Data: string } } } };
+      };
+      return payload.Content.Simple.Body;
+    }
+    // Forged/stale opt-out on free plans must not work.
+    expect((await sendAndBody()).Text.Data).toContain("Report abuse: https://calder.click/abuse");
+    await db
+      .insert(plans)
+      .values({ id: `plan_starter_${suffix}`, tier: "starter", name: "Starter" })
+      .onConflictDoNothing();
+    const [starter] = await db.select().from(plans).where(eq(plans.tier, "starter")).limit(1);
+    await db
+      .insert(subscriptions)
+      .values({
+        id: `sub_${suffix}`,
+        organizationId: orgId,
+        planId: starter!.id,
+        status: "active",
+      });
+    // A paid project without a verified domain is still branded.
+    expect((await sendAndBody()).Html.Data).toContain('href="https://calder.click/abuse"');
+    await db
+      .insert(domains)
+      .values({
+        id: `dom_${suffix}`,
+        projectId: projId,
+        domain: `wk-${suffix}.test`,
+        status: "verified",
+      });
+    const unbranded = await sendAndBody();
+    expect(unbranded.Text.Data).toBe("worker live body");
+    expect(unbranded.Html.Data).toBe("<html><body><p>worker live body</p></body></html>");
+    await db
+      .update(domains)
+      .set({ status: "pending" })
+      .where(eq(domains.id, `dom_${suffix}`));
+    expect((await sendAndBody()).Text.Data).toContain("Report abuse: https://calder.click/abuse");
+    await db
+      .update(domains)
+      .set({ status: "verified" })
+      .where(eq(domains.id, `dom_${suffix}`));
+    await db
+      .update(subscriptions)
+      .set({ status: "canceled" })
+      .where(eq(subscriptions.id, `sub_${suffix}`));
+    expect((await sendAndBody()).Html.Data).toContain('href="https://calder.click/abuse"');
+    await db.update(projects).set({ metadata: null }).where(eq(projects.id, projId));
   });
 
   it("treats a throttled live send as retryable: throws for the queue, never fails the mail", async () => {

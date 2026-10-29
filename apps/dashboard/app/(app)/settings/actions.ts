@@ -594,3 +594,35 @@ export async function requestDataExport() {
 
   redirect("/settings?dataExport=sent");
 }
+
+/** Branding is a project setting; delivery independently rechecks entitlement. */
+export async function setCalderBranding(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "");
+  const ctx = await getTenantContext();
+  const membership = ctx.memberships.find((m) => m.projects.some((p) => p.id === projectId));
+  if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+    throw new Error("Only organization owners or admins can change branding.");
+  }
+  const { projects, domains, resolveOrgTier } = await import("@calder/db");
+  const db = getDb();
+  const remove = formData.get("remove") === "true";
+  if (remove) {
+    const tier = await resolveOrgTier(db, membership.organization.id);
+    const [domain] = await db
+      .select({ id: domains.id })
+      .from(domains)
+      .where(and(eq(domains.projectId, projectId), eq(domains.status, "verified")))
+      .limit(1);
+    if (!["starter", "pro", "premium", "scale"].includes(tier) || !domain) {
+      throw new Error("A paid plan and a verified domain are required to remove branding.");
+    }
+  }
+  const project = membership.projects.find((p) => p.id === projectId)!;
+  await db
+    .update(projects)
+    .set({ metadata: { ...project.metadata, removeCalderBranding: remove }, updatedAt: new Date() })
+    .where(
+      and(eq(projects.id, projectId), eq(projects.organizationId, membership.organization.id))
+    );
+  redirect(`/settings?org=${encodeURIComponent(membership.organization.id)}`);
+}

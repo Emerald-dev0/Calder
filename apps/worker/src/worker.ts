@@ -430,7 +430,9 @@ export async function processEmailJob(job: QueueJob<EmailJobData>): Promise<Proc
         const leg = chain[i]!;
         try {
           await assertOrganizationMayDeliver(projectId, email.env);
-          result = await leg.service.send(payload);
+          const { getDb, mayRemoveCalderBranding } = await import("@calder/db");
+          const removeCalderBranding = await mayRemoveCalderBranding(getDb(), projectId);
+          result = await leg.service.send(payload, { removeCalderBranding });
           transportName = leg.transport;
           if (i > 0) jobLogger.info({ transport: transportName }, "Failover leg delivered");
           break;
