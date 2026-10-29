@@ -17,3 +17,13 @@ it("states billing and SDK publication limits on the public availability page", 
   expect(source).toContain("distribution: not verified");
   expect(source).toContain("PR #87");
 });
+
+it("keeps commit evidence out of the customer-facing changelog", () => {
+  const source = readFileSync(new URL("../app/changelog/page.tsx", import.meta.url), "utf8");
+  expect(source).not.toContain("Commit evidence");
+  expect(source).not.toContain("e.commits");
+  expect(source).not.toContain("/commit/");
+  expect(source).toContain("{e.date}");
+  expect(source).toContain("{e.title}");
+  expect(source).toContain("e.points.map");
+});

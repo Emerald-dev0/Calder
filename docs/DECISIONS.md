@@ -1106,3 +1106,16 @@ launch status and the placeholder changelog with evidence-linked main history.
 access does not grant paid tiers automatically. PR #87 automatic delivery remains
 under review until hosted validation, not declared fixed because local tests pass.
 The pricing catalogue remains planning/configuration, not checkout availability.
+
+## ADR-051: Keep commit evidence in repository history, not public release notes (2026-10-29)
+
+**Context:** the public changelog exposed lists of commit hashes intended for
+internal traceability rather than customers.
+
+**Decision:** show dates, update titles and descriptions on the public changelog,
+without commit-evidence rows. Keep commit references in the repository changelog
+and source data. This refines ADR-050's evidence-linked history presentation;
+availability caveats remain intact.
+
+**Consequence:** customers see readable updates while maintainers retain the
+underlying evidence. No feature availability or deployment claim changes.

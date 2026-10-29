@@ -18,7 +18,7 @@ export default function ChangelogPage() {
         <PageHero
           eyebrow="The Calder build log"
           title="Changelog"
-          lede="Selected changes from merged GitHub history. Implementation does not imply production configuration or package publication."
+          lede="Product updates, fixes and improvements. Feature availability is noted in each update."
         />
         <section className="section" style={{ paddingTop: 0 }}>
           <div className="wrap">
@@ -33,15 +33,6 @@ export default function ChangelogPage() {
                         <li key={p}>{p}</li>
                       ))}
                     </ul>
-                    <p className="caption">
-                      Commit evidence:{" "}
-                      {e.commits.map((sha, i) => (
-                        <span key={sha}>
-                          {i > 0 ? " · " : ""}
-                          <a href={`https://github.com/Emerald-dev0/Calder/commit/${sha}`}>{sha}</a>
-                        </span>
-                      ))}
-                    </p>
                   </div>
                 </div>
               </Reveal>
