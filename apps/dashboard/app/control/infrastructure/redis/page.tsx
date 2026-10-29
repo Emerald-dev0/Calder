@@ -64,11 +64,11 @@ export default async function RedisPage() {
           </Panel>
         </>
       ) : (
-        <Panel title="Redis unreachable" caption="PING failed — degraded but not fatal">
+        <Panel title="Redis unreachable" caption="Required hosted dependency unavailable">
           <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: "0 0 10px" }}>
-            Delivery falls back to the durable Postgres pipeline state; retries, rate limiting, and
-            caching degrade to conservative defaults. This state is alertable — see Observability →
-            Alerts.
+            Hosted environments require Redis-backed queueing and rate limits. There is no supported
+            in-memory production fallback. Stored Postgres messages remain records, not evidence
+            that workers or retries are running. Investigate before treating sending as healthy.
           </p>
           <Badge tone="warn">REDIS_URL: {process.env.REDIS_URL ? "configured" : "unset"}</Badge>
         </Panel>

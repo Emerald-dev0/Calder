@@ -1,4 +1,4 @@
-import { and, count, desc, gte, sql } from "drizzle-orm";
+import { count, desc, gte, sql } from "drizzle-orm";
 import { companyEmails, emailPreferences, getDb } from "@calder/db";
 import {
   COMPANY_EMAILS,

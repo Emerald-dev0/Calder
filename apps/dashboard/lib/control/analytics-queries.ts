@@ -56,7 +56,7 @@ export async function trafficTotals(w: DateWindow): Promise<TrafficTotals> {
         sessions: sql<number>`count(distinct ${analyticsEvents.sessionId})`,
       })
       .from(analyticsEvents)
-      .where(cur),
+      .where(and(eq(analyticsEvents.type, "pageview"), cur)),
     db
       .select({ value: sql<number>`count(distinct ${analyticsEvents.visitorId})` })
       .from(analyticsEvents)
@@ -77,7 +77,7 @@ export async function trafficTotals(w: DateWindow): Promise<TrafficTotals> {
           sql`not exists (
             select 1 from ${analyticsEvents} prior
             where prior.visitor_id = ${analyticsEvents.visitorId}
-              and prior.created_at < ${w.start ?? new Date(0)}
+              and prior.created_at < ${(w.start ?? new Date(0)).toISOString()}::timestamptz
           )`
         )
       ),

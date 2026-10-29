@@ -1,8 +1,10 @@
 # CALDER FOUNDER/ADMIN CONTROL PLANE
 
-Status: **Built and verified live** (2026-09-14). This document is the product
-spec for the Control Plane and the authoritative map of what exists, what is
-stubbed, and what comes next.
+Status: **Partial implementation; founder rebuild in progress** (2026-10-29).
+The September descriptions below are a historical implementation inventory, not
+a current hosted certification. Several routes remain planned or partially wired.
+See [rebuild audit and acceptance gates](CONTROL-PLANE-REBUILD.md) for current scope,
+validated changes and outstanding work.
 
 The Control Plane is the operational layer of Calder — the screen the founder
 (and eventually the internal team) uses to run the business: answer "is the
@@ -11,8 +13,9 @@ the waitlist, support customers, manage billing entitlements, watch the
 infrastructure, and act with a full audit trail.
 
 It is a separate operational layer from the customer dashboard, sharing the
-same login and the same database. No data is duplicated; every panel is a live
-query.
+same login and the same database. Implemented reporting uses authoritative records;
+planned panels are not live functionality. Source existence does not prove hosted
+configuration, complete instrumentation or verified actions.
 
 ---
 
@@ -231,3 +234,14 @@ Audit Logs (actor/action/target/time/metadata, filterable), Settings
 - Status page is internal-first; public one-click publishing comes with the
   incidents work.
 - ⌘K command search is designed, not yet implemented.
+
+## October 29 continuation: actual operational workflows
+
+See [the rebuild ledger](CONTROL-PLANE-REBUILD.md) for current evidence. Private
+incident creation/update, measured organization activation, live/test Metrics
+filtering and deliberate read-only support lookup now have implementations.
+Privileged role/plan/Gmail changes have atomic audits; role/plan changes have
+request replay protection. The old revenue/paying-customer labels were not proof
+of payment and have been corrected. Migration 0032 is required for incidents.
+Global maintenance, automatic paging, public incident publishing and step-up/MFA
+are still not implemented by this continuation.

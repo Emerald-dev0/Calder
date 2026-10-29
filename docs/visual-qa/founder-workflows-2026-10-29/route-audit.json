@@ -1,0 +1,332 @@
+[
+  {
+    "route": "/control/administration/audit-logs",
+    "status": 200,
+    "error": false,
+    "title": "Audit Logs"
+  },
+  {
+    "route": "/control/administration",
+    "status": 200,
+    "error": false,
+    "title": "Administrators"
+  },
+  {
+    "route": "/control/administration/roles",
+    "status": 200,
+    "error": false,
+    "title": "Roles"
+  },
+  {
+    "route": "/control/administration/settings",
+    "status": 200,
+    "error": false,
+    "title": "Settings"
+  },
+  {
+    "route": "/control/billing/coupons",
+    "status": 200,
+    "error": false,
+    "title": "Coupons"
+  },
+  {
+    "route": "/control/billing/credits",
+    "status": 200,
+    "error": false,
+    "title": "Credits"
+  },
+  {
+    "route": "/control/billing/entitlements",
+    "status": 200,
+    "error": false,
+    "title": "Entitlements"
+  },
+  {
+    "route": "/control/billing/invoices",
+    "status": 200,
+    "error": false,
+    "title": "Invoices"
+  },
+  {
+    "route": "/control/billing",
+    "status": 200,
+    "error": false,
+    "title": "Overview"
+  },
+  {
+    "route": "/control/billing/plans",
+    "status": 200,
+    "error": false,
+    "title": "Plans"
+  },
+  {
+    "route": "/control/billing/subscriptions",
+    "status": 200,
+    "error": false,
+    "title": "Subscriptions"
+  },
+  {
+    "route": "/control/communications/audiences",
+    "status": 200,
+    "error": false,
+    "title": "Audiences"
+  },
+  {
+    "route": "/control/communications/automations",
+    "status": 200,
+    "error": false,
+    "title": "Automations"
+  },
+  {
+    "route": "/control/communications/campaigns",
+    "status": 200,
+    "error": false,
+    "title": "Campaigns & the Gmail rule"
+  },
+  {
+    "route": "/control/communications/company",
+    "status": 200,
+    "error": false,
+    "title": "Company email"
+  },
+  {
+    "route": "/control/communications/delivery",
+    "status": 200,
+    "error": false,
+    "title": "Delivery"
+  },
+  {
+    "route": "/control/communications",
+    "status": 200,
+    "error": false,
+    "title": "Broadcasts"
+  },
+  {
+    "route": "/control/communications/templates",
+    "status": 200,
+    "error": false,
+    "title": "Templates"
+  },
+  {
+    "route": "/control/customers/health",
+    "status": 200,
+    "error": false,
+    "title": "Customer Health"
+  },
+  {
+    "route": "/control/customers/organizations",
+    "status": 200,
+    "error": false,
+    "title": "Organizations"
+  },
+  {
+    "route": "/control/customers",
+    "status": 200,
+    "error": false,
+    "title": "Users"
+  },
+  {
+    "route": "/control/customers/projects",
+    "status": 200,
+    "error": false,
+    "title": "Projects"
+  },
+  {
+    "route": "/control/customers/support",
+    "status": 200,
+    "error": false,
+    "title": "Support workspace"
+  },
+  {
+    "route": "/control/email-editor",
+    "status": 200,
+    "error": false,
+    "title": "Confirmation email"
+  },
+  {
+    "route": "/control/growth/acquisition",
+    "status": 200,
+    "error": false,
+    "title": "Acquisition"
+  },
+  {
+    "route": "/control/growth/activation",
+    "status": 200,
+    "error": false,
+    "title": "Organization activation"
+  },
+  {
+    "route": "/control/growth",
+    "status": 200,
+    "error": false,
+    "title": "How Calder is growing"
+  },
+  {
+    "route": "/control/growth/referrals",
+    "status": 200,
+    "error": false,
+    "title": "Referrals"
+  },
+  {
+    "route": "/control/growth/waitlist",
+    "status": 200,
+    "error": false,
+    "title": "Waitlist"
+  },
+  {
+    "route": "/control/infrastructure/cron",
+    "status": 200,
+    "error": false,
+    "title": "Cron"
+  },
+  {
+    "route": "/control/infrastructure/database",
+    "status": 200,
+    "error": false,
+    "title": "Database"
+  },
+  {
+    "route": "/control/infrastructure/networking",
+    "status": 200,
+    "error": false,
+    "title": "Networking"
+  },
+  {
+    "route": "/control/infrastructure",
+    "status": 200,
+    "error": false,
+    "title": "Overview"
+  },
+  {
+    "route": "/control/infrastructure/providers",
+    "status": 200,
+    "error": false,
+    "title": "Providers"
+  },
+  {
+    "route": "/control/infrastructure/queues",
+    "status": 200,
+    "error": false,
+    "title": "Queues"
+  },
+  {
+    "route": "/control/infrastructure/redis",
+    "status": 200,
+    "error": false,
+    "title": "Redis"
+  },
+  {
+    "route": "/control/infrastructure/storage",
+    "status": 200,
+    "error": false,
+    "title": "Storage"
+  },
+  {
+    "route": "/control/infrastructure/workers",
+    "status": 200,
+    "error": false,
+    "title": "Workers"
+  },
+  {
+    "route": "/control/observability/alerts",
+    "status": 200,
+    "error": false,
+    "title": "Alerts"
+  },
+  {
+    "route": "/control/observability/incidents",
+    "status": 200,
+    "error": false,
+    "title": "Incident log"
+  },
+  {
+    "route": "/control/observability/metrics",
+    "status": 200,
+    "error": false,
+    "title": "Operational metrics"
+  },
+  {
+    "route": "/control/observability",
+    "status": 200,
+    "error": false,
+    "title": "Logs"
+  },
+  {
+    "route": "/control/operations/maintenance",
+    "status": 200,
+    "error": false,
+    "title": "Maintenance"
+  },
+  {
+    "route": "/control/operations",
+    "status": 200,
+    "error": false,
+    "title": "Feature Flags"
+  },
+  {
+    "route": "/control/operations/status-page",
+    "status": 200,
+    "error": false,
+    "title": "Status Page"
+  },
+  {
+    "route": "/control",
+    "status": 200,
+    "error": false,
+    "title": "Calder at a glance"
+  },
+  {
+    "route": "/control/platform/api",
+    "status": 200,
+    "error": false,
+    "title": "API"
+  },
+  {
+    "route": "/control/platform/deliverability",
+    "status": 200,
+    "error": false,
+    "title": "Deliverability"
+  },
+  {
+    "route": "/control/platform",
+    "status": 200,
+    "error": false,
+    "title": "Email"
+  },
+  {
+    "route": "/control/platform/usage",
+    "status": 200,
+    "error": false,
+    "title": "Usage"
+  },
+  {
+    "route": "/control/platform/webhooks",
+    "status": 200,
+    "error": false,
+    "title": "Webhooks"
+  },
+  {
+    "route": "/control/security/admin-access",
+    "status": 200,
+    "error": false,
+    "title": "Admin Access"
+  },
+  {
+    "route": "/control/security/events",
+    "status": 200,
+    "error": false,
+    "title": "Security Events"
+  },
+  {
+    "route": "/control/security",
+    "status": 200,
+    "error": false,
+    "title": "Abuse"
+  },
+  {
+    "route": "/control/security/restrictions",
+    "status": 200,
+    "error": false,
+    "title": "Restrictions"
+  }
+]

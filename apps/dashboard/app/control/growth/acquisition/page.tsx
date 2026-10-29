@@ -11,7 +11,7 @@ export default async function AcquisitionPage() {
   await requireSection("growth");
   const [sources, overview] = await Promise.all([waitlistSources(), waitlistOverview()]);
   const sorted = [...sources].sort((a, b) => b.count - a.count);
-  const total = sorted.reduce((n, s) => n + s.count, 0) || 1;
+  const total = sorted.reduce((n, s) => n + s.count, 0);
 
   return (
     <>
@@ -26,12 +26,16 @@ export default async function AcquisitionPage() {
         <Stat label="Total attributed" value={fmtInt(total)} hint="all waitlist signups" />
         <Stat
           label="Referral share"
-          value={fmtPct((overview.referred / total) * 100)}
+          value={total ? fmtPct((overview.referred / total) * 100) : "—"}
           hint="referred by another person"
         />
         <Stat
           label="Direct share"
-          value={fmtPct(((sorted.find((s) => s.label === "direct")?.count ?? 0) / total) * 100)}
+          value={
+            total
+              ? fmtPct(((sorted.find((s) => s.label === "direct")?.count ?? 0) / total) * 100)
+              : "—"
+          }
           hint="no source captured"
         />
       </div>
@@ -46,7 +50,7 @@ export default async function AcquisitionPage() {
         <Panel title="Share by source" caption="percentage of total signups">
           <BarList
             items={sorted.map((s) => ({
-              label: `${s.label} · ${fmtPct((s.count / total) * 100, 0)}`,
+              label: `${s.label} · ${total ? fmtPct((s.count / total) * 100, 0) : "—"}`,
               count: s.count,
               href: `/control/growth/waitlist?source=${encodeURIComponent(s.label === "direct" ? "__direct__" : s.label)}`,
             }))}

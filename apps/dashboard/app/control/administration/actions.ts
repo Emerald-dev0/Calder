@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auditLogs, users, type PlatformRole } from "@calder/db";
 import { getDb } from "@calder/db";
@@ -26,14 +26,15 @@ const ASSIGNABLE: PlatformRole[] = [
 export async function setPlatformRole(
   userId: string,
   role: PlatformRole | null,
-  reason: string
+  reason: string,
+  idempotencyKey: string
 ): Promise<{ ok: boolean; error?: string }> {
   const ctx = await requireControl();
   if (!isFounderRole(ctx.role)) {
     return { ok: false, error: "Founder only." };
   }
-  const trimmed = reason.trim();
-  if (trimmed.length < 6) {
+  const trimmed = typeof reason === "string" ? reason.trim() : "";
+  if (trimmed.length < 6 || trimmed.length > 500) {
     return {
       ok: false,
       error: "A reason (≥ 6 characters) is required — it lands in the audit log.",
@@ -42,25 +43,61 @@ export async function setPlatformRole(
   if (userId === ctx.user.userId) {
     return { ok: false, error: "You cannot change your own role." };
   }
+  if (typeof idempotencyKey !== "string" || !idempotencyKey.trim() || idempotencyKey.length > 255)
+    return { ok: false, error: "A valid role-action key is required." };
+  const actionKey = idempotencyKey.trim();
   const db = getDb();
-  const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-  if (!target) return { ok: false, error: "User not found." };
-  if (isFounderRole(target.platformRole ?? null)) {
-    return { ok: false, error: "Founder accounts are managed out-of-band." };
-  }
-  if (role !== null && !ASSIGNABLE.includes(role)) {
-    return { ok: false, error: "Role is not assignable through the UI." };
-  }
+  const result = await db.transaction(async (tx) => {
+    const [target] = await tx
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+      .for("update");
+    if (!target) return { ok: false, error: "User not found." };
+    if (isFounderRole(target.platformRole ?? null)) {
+      return { ok: false, error: "Founder accounts are managed out-of-band." };
+    }
+    if (role !== null && !ASSIGNABLE.includes(role)) {
+      return { ok: false, error: "Role is not assignable through the UI." };
+    }
 
-  await db
-    .update(users)
-    .set({ platformRole: role, updatedAt: new Date() })
-    .where(eq(users.id, userId));
-  try {
-    await db.insert(auditLogs).values({
+    const [prior] = await tx
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.targetType, "user"),
+          eq(auditLogs.targetId, userId),
+          sql`${auditLogs.metadata}->>'idempotencyKey' = ${actionKey}`
+        )
+      )
+      .limit(1);
+    if (prior) {
+      const metadata = prior.metadata as Record<string, unknown> | null;
+      if (
+        prior.actorUserId !== ctx.user.userId ||
+        metadata?.to !== role ||
+        metadata?.reason !== trimmed
+      )
+        return { ok: false, error: "Action key was already used for a different role change." };
+      return { ok: true };
+    }
+
+    if (target.platformRole !== role)
+      await tx
+        .update(users)
+        .set({ platformRole: role, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+    await tx.insert(auditLogs).values({
       id: `audit_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
       actorUserId: ctx.user.userId,
-      action: role ? "platform_role.grant" : "platform_role.revoke",
+      action:
+        target.platformRole === role
+          ? "platform_role.noop"
+          : role
+            ? "platform_role.grant"
+            : "platform_role.revoke",
       targetType: "user",
       targetId: userId,
       metadata: {
@@ -69,11 +106,12 @@ export async function setPlatformRole(
         to: role,
         roleLabel: role ? CONTROL_ROLE_LABEL[role] : null,
         reason: trimmed,
+        idempotencyKey: actionKey,
       },
     });
-  } catch {
-    // Audit must never break the operation it records.
-  }
+    return { ok: true };
+  });
+  if (!result.ok) return result;
   revalidatePath("/control/administration");
   revalidatePath("/control/security/admin-access");
   return { ok: true };

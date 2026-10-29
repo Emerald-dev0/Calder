@@ -1106,3 +1106,53 @@ launch status and the placeholder changelog with evidence-linked main history.
 access does not grant paid tiers automatically. PR #87 automatic delivery remains
 under review until hosted validation, not declared fixed because local tests pass.
 The pricing catalogue remains planning/configuration, not checkout availability.
+
+## ADR-051: Keep commit evidence in repository history, not public release notes (2026-10-29)
+
+**Context:** the public changelog exposed lists of commit hashes intended for
+internal traceability rather than customers.
+
+**Decision:** show dates, update titles and descriptions on the public changelog,
+without commit-evidence rows. Keep commit references in the repository changelog
+and source data. This refines ADR-050's evidence-linked history presentation;
+availability caveats remain intact.
+
+**Consequence:** customers see readable updates while maintainers retain the
+underlying evidence. No feature availability or deployment claim changes.
+
+## ADR-052: Rebuild founder controls incrementally with evidence (2026-10-29)
+
+**Context:** the owner requests a founder redesign and validation/wiring of all
+analytics and controls while leaving public signup open. The old control-plane
+status overstates readiness; several routes remain planned.
+
+**Decision:** preserve signup access and platform authorization. Restore the
+scoped founder theme, group/search navigation, reuse authoritative reporting and
+explicitly mark instrumentation/runtime-control gaps. Validate queries with an
+isolated migrated Postgres, not only fixture screenshots. Track the remaining
+work and acceptance gates in `docs/CONTROL-PLANE-REBUILD.md`.
+
+**Consequence:** no schema change, runtime kill-switch, billing or implicit
+impersonation is added in this foundation. Maintenance requires real backend
+and durable queue enforcement before an operator switch can be exposed. This
+supersedes any blanket "built and verified live" claim, not prior security rules.
+
+## ADR-053: Atomic founder actions and private incident tracking (2026-10-29)
+
+**Context:** continued founder audit found swallowed audit failures on role/plan
+changes, non-atomic Gmail appeal handling, simulated/live reporting mixed by
+default, and incident/support routes that were only plans.
+
+**Decision:** commit privileged changes and audit together under target-row locks;
+use request keys for role/plan grants and reject mismatched replay. Use an inline
+role-change form with a reason/acknowledgment, not browser prompts. Add private,
+revisioned incident records with attributed updates and explicit state transitions
+through the existing dashboard and database. Keep manual incident tracking separate
+from sending enforcement, automatic paging and public status publication. Expose a
+measured organization-creation activation cohort, explicit live/test email report
+filters and read-only support lookup. Do not infer revenue from entitlement rows.
+
+**Consequence:** forward migration 0032 is required before deploying the new
+incident views. No paid billing, public incident feed, notification integration,
+MFA, global maintenance switch or impersonation is introduced. Actual auth/page
+and transaction tests, not fixture screenshots alone, are acceptance evidence.

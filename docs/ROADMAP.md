@@ -664,3 +664,20 @@ Backend-owned sequencing (scheduled sends + idempotency + webhooks) keeps workin
 ### I.6 Exit criteria (definition of done, when scheduled)
 
 Sample automation (welcome day 0/1/3 + purchase-exit branch) runs end-to-end on staging: event → run → delayed sends land on schedule across a deploy restart → purchase mid-sequence exits honestly → unsubscribe mid-sequence suppresses → funnel + timelines render → runs meter against marketing allowance → failure matrix green (duplicate event, provider fail mid-run, unpublished mid-flight, payload missing field). Security: event-auth (key-scoped), payload size caps, per-project run-rate limits, no cross-project run leakage (tenant tests per read).
+
+## Founder rebuild gate — 2026-10-29
+
+Owner requests full founder redesign and validation/wiring of existing analytics
+while signup stays open. Foundation restores scoped styling, searchable grouped
+navigation, explicit data states and durable-record operational metrics. Remaining
+safety controls, activation instrumentation, page-by-page redesign and hosted
+validation are tracked in [CONTROL-PLANE-REBUILD.md](CONTROL-PLANE-REBUILD.md);
+none is declared complete by the foundation pass.
+
+### Founder continuation delivered in source
+
+Atomic audited role/plan/Gmail actions, replay-safe role/plan grants, private
+revisioned incident records (migration 0032), organization activation snapshots,
+Metrics email-environment filters and read-only support lookup are implemented.
+No inferred payment revenue, notification integration, public incident feed or
+runtime maintenance switch. Remaining gates stay in the rebuild ledger.

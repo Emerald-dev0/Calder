@@ -27,7 +27,7 @@ History is summarized in [CHANGELOG.md](../CHANGELOG.md); it is not an SLA.
 ## Not launch-certified
 
 - **Automatic prompt sending:** PR #87 fixes missing dashboard wake-ups and the API
-  background lifecycle. It is under review, not a confirmed production rollout.
+  background lifecycle. It is merged, not a confirmed production rollout.
   API and dashboard both need matching `CRON_SECRET`, explicit `API_URL`, redeploys
   and a new send without manual drain. Daily cron is a backstop, not a latency SLA.
 - **Billing:** owner confirms payments are not set up. Billing adapters/schema and

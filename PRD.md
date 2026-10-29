@@ -140,3 +140,17 @@ Immediately: build microservices everywhere, support every email provider, build
 **Not yet locked:** primary domain, final hosting providers, queue/Redis provider, final Bachs integration, final pricing (see `docs/PRICING.md` gate), exact Vercel verification mechanism, first SDK release date, OTP in-MVP-or-not, exact failover strategy, SMTP gateway deploy topology (see ADR-014), managed TCP-LB provider, attachment caps, `X-Calder-*` header set, port 465 on day one.
 
 **Explicitly not the product:** automating personal Gmail SMTP accounts outside our OAuth flow; bulk campaigns through Gmail; "Resend, but cheaper" as an identity (useful internally, never the headline).
+
+## Founder control-plane rebuild (2026-10-29)
+
+Public signup stays open per owner direction. Rebuild the founder workspace and
+validate acquisition, activation, customer and delivery analytics end-to-end,
+reusing existing services. Operational controls must be enforced, authorized and
+audited, not decorative toggles. Foundation work is not full launch certification.
+Scope/acceptance: [founder rebuild](docs/CONTROL-PLANE-REBUILD.md).
+
+Founder continuation adds private incident records with audited lifecycle updates,
+read-only support investigation and organization-cohort activation reporting.
+Metrics separates live/test email states; manual plan grants are not proof of
+payment and must not be presented as revenue. These features do not enable
+billing, public status publication, paging or platform-wide maintenance switches.

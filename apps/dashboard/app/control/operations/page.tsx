@@ -11,10 +11,14 @@ export const dynamic = "force-dynamic";
 const FLAGS: Array<{ name: string; state: "on" | "off" | "rollout" | "internal"; note: string }> = [
   {
     name: "Gmail Transport",
-    state: "on",
-    note: "OAuth quickstart, capped daily, graduates to domains",
+    state: "internal",
+    note: "Adapter implemented; production OAuth setup and live send not verified",
   },
-  { name: "SMTP Gateway", state: "on", note: "same pipeline, project-scoped credentials" },
+  {
+    name: "SMTP Gateway",
+    state: "off",
+    note: "Specification only; no gateway implementation in this checkout",
+  },
   { name: "Inbound Email", state: "off", note: "specified post-MVP (user → Calder → app webhook)" },
   {
     name: "Marketing Campaigns",
@@ -25,7 +29,7 @@ const FLAGS: Array<{ name: string; state: "on" | "off" | "rollout" | "internal";
   {
     name: "Advanced Analytics",
     state: "rollout",
-    note: "plan-gated (Pro+) in the customer dashboard",
+    note: "Existing reporting surfaces; full instrumentation and hosted verification pending",
   },
   { name: "OTP Infrastructure", state: "off", note: "MVP vs post-MVP still undecided (PRD §9)" },
   {
@@ -44,12 +48,12 @@ export default async function FeatureFlagsPage() {
       <PageHeader
         eyebrow="Operations"
         title="Feature Flags"
-        subtitle="What is live, what is dark, and what is rolling. Targeting (user / org / plan / percentage) arrives with the flag service."
+        subtitle="Implementation inventory, not runtime controls or proof of production availability. No switches on this page change platform behavior."
       />
 
       <Panel
         title="Capability registry"
-        caption="honest state, from how things actually ship"
+        caption="Code/configuration inventory · not a deployment health check"
         flush
       >
         <div style={{ overflowX: "auto" }}>
@@ -72,8 +76,8 @@ export default async function FeatureFlagsPage() {
                         : f.state === "off"
                           ? "OFF"
                           : f.state === "rollout"
-                            ? "PLAN-GATED"
-                            : "INTERNAL"}
+                            ? "PARTIAL"
+                            : "UNVERIFIED"}
                     </Badge>
                   </td>
                   <td style={{ color: "var(--cp-muted)" }}>{f.note}</td>
