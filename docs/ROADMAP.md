@@ -1,5 +1,11 @@
 # CALDER ROADMAP TO PRODUCTION
 
+> Historical audit below: many entries describe September snapshots, not current
+> production status. For the October 29 launch evidence and remaining checks,
+> use [LAUNCH-STATUS.md](LAUNCH-STATUS.md) and [CHANGELOG.md](../CHANGELOG.md).
+> Billing activation, verified SDK publication and hosted automatic-delivery
+> validation remain launch work; source implementation alone does not close them.
+
 _The single guide from current state to production. Replaces all prior roadmap content (2026-09-19). Part A = full evidence audit. Part B = phased build order with milestones, exit criteria, and the Gmail protection track. Rules: no phase starts until prior milestones meet exit criteria; every milestone ends BUILD → UNIT → INTEGRATION → E2E → MANUAL → FAILURE → SECURITY → UI → PROD-LIKE → DONE; not done unless CI is green._
 
 _Categories: **A** Intended · **B** Implemented · **C** Partial · **D** Broken · **E** Missing · **F** Obsolete · **G** Unclear. Status: NOT STARTED · PARTIAL · IMPLEMENTED · BROKEN · UNVERIFIED · PRODUCTION READY · OBSOLETE._

@@ -23,3 +23,6 @@ packages/db/.schema-drift-*/
 # python sdks
 __pycache__/
 *.pyc
+
+# Local test/visual QA scratch (screenshots selected for review live in docs/visual-qa).
+/.cache/

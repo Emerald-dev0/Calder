@@ -1,64 +1,58 @@
-# Launch Status — Tue Oct 27 2026
+# Calder launch availability — evidence review, 2026-10-29
 
-## Gates (YES/NO with evidence)
+This replaces the stale pre-PR-77 checklist. Repository implementation, successful
+tests, provider configuration and production operation are different claims.
+History is summarized in [CHANGELOG.md](../CHANGELOG.md); it is not an SLA.
 
-| Gate                                                                                                          | Status                         | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ------------------------------------------------------------------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PR merged, main protected, CI green on main                                                                   | **NO**                         | main unprotected; PR #77 (Zod v4) pending founder merge; verify job fails on shared-redis stale-job alert                                                                                                                                                                                                                                                                                                                                                                  |
-| Secrets rotated, none placeholders, boot refuses otherwise                                                    | **PARTIAL**                    | `AUTH_SECRET` has a `.default()` placeholder in `tsconfig.base.json`; app boots with warning only. Fix: remove `.default()` and add readiness test.                                                                                                                                                                                                                                                                                                                        |
-| Production migrations applied through reviewed process, backup + restore point                                | **NO**                         | Migrations 0025–0029 not applied; no backup workflow exists. (Task 3 pending — prove on fresh DB, write rollback plan.)                                                                                                                                                                                                                                                                                                                                                    |
-| SES out of sandbox, SPF/DKIM/DMARC live, SNS allowlist, abuse mailbox                                         | **UNVERIFIED**                 | No SES sandbox test run; no DMARC record found. (Task 6.)                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Marketing flag OFF in production, verified                                                                    | **YES** (code) / **NO** (docs) | FEATURE_MARKETING flag added and defaults to off; nav links/pages gated; but docs/MARKETING-REENABLE-CHECKLIST.md not yet written.                                                                                                                                                                                                                                                                                                                                         |
-| Bachs webhook verified end-to-end in sandbox, then one live smoke payment refunded                            | **NO**                         | `packages/billing` is still a stub. `createCheckoutSession` returned a local `successUrl?plan=…&mock=true` without contacting Bachs, `verifyWebhook` returned `false` unconditionally, and nothing calls `createBillingService` — so no checkout, no subscription row and no receipt exists to test. Signature verification is now real (HMAC-SHA256, timing-safe) and checkout refuses instead of faking success; the live call still needs Bachs' API contract and keys. |
-| Pricing page, dashboard, API errors match pricing table                                                       | **YES**                        | `packages/config/src/plan-limits.ts` enforces the table; `apps/web/lib/plans.ts` reads from it; Starter plan added; web app rebuilt. Prices verified: Beginner ₦0/$0, Starter ₦5,000/$5, Pro ₦20,000/$18, Premium ₦75,000/$65.                                                                                                                                                                                                                                             |
-| Legal pages, abuse contact, status page, support address exist                                                | **YES**                        | All legal pages exist; abuse contact and DPA are in place.                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Monitoring + alerts for API errors, queue depth, SES bounce/complaint, failed webhooks, failed company emails | **PARTIAL**                    | Error tracking (Sentry) not yet wired; queue depth observable; SES events wired; no alert thresholds set. (Task 5.)                                                                                                                                                                                                                                                                                                                                                        |
-| Rollback steps written + tested once on staging                                                               | **NO**                         | No rollback procedure documented or rehearsed. (Gate 0, OPS-001b.)                                                                                                                                                                                                                                                                                                                                                                                                         |
+## Confirmed by the operator (October 28)
 
-## What I’ve done (since start)
+- Production `/health` returned API JSON with HTTP 200 after #86; the source-JSON
+  cold-start failure was fixed. This is liveness, not a dependency/readiness check.
+- An authenticated manual drain returned `checked: 2, sent: 2, failed: 0` and the
+  operator confirmed both emails reached the recipient inbox.
+- This confirms those two deliveries, not all users, domains, retries or scale.
+- `intake.calder.click` DKIM was PENDING at the last supplied SES query, despite
+  matching DNS records. No later SES SUCCESS evidence has been supplied here.
 
-1. **Zod v4 migration** — PR #77: upgraded Zod 3→4.6.7 across 11 packages. Only 3 source files import Zod; the other 8 declare it without using it. Clears advisory 1243066 (`high: Zod can exhaust memory`). Local `pnpm audit` → 0 vulnerabilities. CI `verify` step now passes the dependency-audit gate.
+## Implemented, with deployment prerequisites
 
-2. **Ruleset enforcement** — Enabled `main: PR + integrity gate required` ruleset with `require_code_owner_review: true`. This is the single change that enforces CODEOWNERS reviews on PRs to main. Updated via GitHub Rulesets API.
+| Capability                                                                     | Evidence / qualification                                                                                                                                                    |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| REST sending, test/live keys, idempotency, quota admission, queue/drain/worker | API routes, email service and queue code; automated tests. Test sends do not deliver real mail. Live delivery needs configured provider/Redis/database and eligible sender. |
+| Domain and sender setup                                                        | Ownership checks, SES identity status and sender service exist. Ownership verification alone is not SES DKIM success.                                                       |
+| Message history/resend, templates, suppressions, usage                         | Dashboard/API implementations. Resend is a new message; accepted/queued/provider-accepted/delivered are distinct.                                                           |
+| Webhook and SES feedback handling                                              | Code exists; production SNS topics, signatures, subscriptions and actual event delivery must be verified separately.                                                        |
+| Operational endpoints                                                          | `/health` is liveness; `/ready` checks dependencies; cron routes require authentication. A browser visiting a cron route normally gets 401.                                 |
 
-3. **Full monorepo typecheck** — `pnpm typecheck` passes: 37/37 tasks, 0 failures. Confirms Zod migration didn't break type correctness.
+## Not launch-certified
 
-4. **Vercel `Emit skipped` diagnosis** — Confirmed local `tsc -p tsconfig.build.json --noEmit` is clean. The Vercel failure (`src/app.ts: Emit skipped`) is environmental: Vercel's Node 24 build wrapper differs from local setup. `noEmitOnError: true` cannot be removed (base config comment: "never let a red build leave runnable JS behind — that's how the 2026-10 payload reached packages/db/dist/*.js"). Recommendation: founder to contact Vercel support or accept that first production deploy may need a clean `vercel build` run.
+- **Automatic prompt sending:** PR #87 fixes missing dashboard wake-ups and the API
+  background lifecycle. It is under review, not a confirmed production rollout.
+  API and dashboard both need matching `CRON_SECRET`, explicit `API_URL`, redeploys
+  and a new send without manual drain. Daily cron is a backstop, not a latency SLA.
+- **Billing:** owner confirms payments are not set up. Billing adapters/schema and
+  planned prices do not constitute checkout, subscriptions or invoices. Usage hides
+  purchase offers but keeps current sending/resource caps. No promise of unlimited
+  access or automatic entitlement to every paid tier is made.
+- **SDKs:** Node/Python/Ruby/PHP source exists. Node/Python have repository tests;
+  publication, package ownership/provenance and install-to-live smoke tests have not
+  been verified. Public launch guidance uses direct HTTP; SDK install tabs are hidden.
+- **SMTP:** specification/docs exist; no `apps/smtp-gateway` implementation in this
+  checkout. Do not claim a public SMTP host is operational.
+- **Gmail:** adapter/OAuth code exists; production OAuth configuration/approval and
+  a real send have not been verified in this review.
+- **Marketing:** audience/consent/broadcast/tracking code is merged, but public
+  `MARKETING_SUITE` remains `dev`. No blanket production-readiness claim.
+- **Recovery/SLA:** no new restore drill, scale test, uptime or backup guarantee is
+  established by this review. Older roadmap audit entries are historical snapshots.
 
-5. **Stale Redis jobs identified** — Shared dev/CI Redis holds 489 stale jobs (oldest 28.8 days), firing `queue_oldest_job_stale` critical alert. This blocks the `verify` and worker health tests. Not a code bug; is a shared-environment issue. Recommendation: flush Redis before CI/test runs, or document as known limitation.
+## Before inviting users
 
-6. **Jules access confirmed** — Only the repo collaborator `Emerald-dev0` (owner) and `Ferousco-dev` (write) have access. No GitHub Apps installed, no deploy keys, no webhooks with broad scope. Jules bot previously pushed to `arena/*` branches but those branches are now inert.
-
-## Founder decisions needed (launch-critical)
-
-| Decision                                 | Options                                                                                                                                                                                                                         | My recommendation                                                                          |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| **Merge PR #77** (Zod v4 upgrade)        | Merge now → CI `verify` gate passes; blocker removed.                                                                                                                                                                           | **Merge** — this is the single dependency gate blocking the launch.                        |
-| **NGN recurring subscriptions enabled?** | Yes → build recurring Naura checkout. No → sell NGN as prepaid 30-day with renewal reminder; sell USD through card checkout.                                                                                                    | **Ask founder** — dashboard shows ₦0.00 revenue ever; need explicit confirmation.          |
-| **Vercel `Emit skipped` resolution**     | (a) Contact Vercel support with the `Emit skipped` + `noEmitOnError` constraint. (b) Accept that first prod deploy may need `vercel build --debug` + manual fix. (c) Remove `noEmitOnError` despite the risk (not recommended). | **Founder choice** — I cannot remove `noEmitOnError` per rules.                            |
-| **Shared CI Redis flush**                | (a) Add `redis.flushall()` or similar before health tests. (b) Accept as known CI limitation and document. (c) Set up dedicated Redis per test suite.                                                                           | **Founder choice** — the test failure is not a code bug; any of (a)/(b)/(c) is acceptable. |
-| **Staging vs production**                | Build full separate staging (separate Postgres, Redis, Vercel/Railway projects). Or use Vercel preview deploys against a separate DB and say so plainly.                                                                        | **Founder choice** — per Task 6 spec.                                                      |
-
-## Risks noticed
-
-- **Zod v4 migration** is smaller than initially feared (3 files, not 11 packages). The breaking changes were all caught by the compiler.
-- **`noEmitOnError`** is a safety guard — removing it would allow `tsc` to emit JS even on type errors, which the `tsconfig.base.json` comment explicitly warns caused the `2026-10 payload reaching packages/db/dist/*.js` on a red build.
-- **Shared Redis in CI** accumulates stale jobs across runs; the health tests expect a "fresh" state. This is an infrastructure gap, not a code bug.
-- **Main is unprotected** — the ruleset is active but branch protection (require up-to-date, block force-push, etc.) is not yet enabled on the branch itself. This is the next step after PR #77 merge.
-- **Bachs state unknown** — founder must confirm NGN recurring status before billing code can be finalized.
-
-## Residual risks (if we launch today)
-
-- Vercel first deploy may need manual intervention (environment difference, not a code bug)
-- CI health tests may flicker due to shared Redis stale data (infra issue, not product risk)
-- `AUTH_SECRET` placeholder remains; app boots with warning only (not enforced yet)
-- No backup/restore procedure drilled (Gate 0 OPS-001a)
-
-## Next concrete steps (if founder gives go-ahead)
-
-1. **Merge PR #77** — founder or approved reviewer merges the Zod v4 upgrade
-2. **Enable main branch protection** — via Rulesets API: require PR, 1 approving review, CODEOWNERS review, required status checks (source-integrity, verify, e2e, migrate), up-to-date branch, block force-push/deletion
-3. **Bachs NGN decision** — confirm if recurring is enabled; if not, build prepaid 30-day flow + renewal reminders
-4. **Redis flush in CI** — add cleanup step or accept known limitation
-5. **Write rollback procedure** (Gate 0 OPS-001b) and run a single rehearsal
-6. **First production deploy** — run `vercel build` with founder oversight; expect possible environment quirks
+1. Resolve CI gates and human review; deploy API and dashboard with matching
+   server-only cron secrets and correct API_URL. Never publish or log the secret.
+2. Send one new dashboard email and one API email without manually draining;
+   inspect queued → sent and inbox/event outcomes. Exercise rejection and retry.
+3. Verify `/ready`, SES identity status and feedback/webhook configuration.
+4. Confirm limits for newly created organizations and show them honestly.
+5. Keep billing, unpublished SDK packages, SMTP and unverified Gmail setup out of
+   ready-to-use promises. Revisit this file only when evidence changes.

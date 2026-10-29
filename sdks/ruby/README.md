@@ -1,5 +1,8 @@
 # calder (Ruby) — official SDK
 
+> Launch note: source only; official registry distribution and production
+> compatibility are not verified. Use the direct HTTP quickstarts for launch.
+
 ```ruby
 require_relative "path/to/calder"
 calder = Calder::Client.new   # or Calder::Client.new(api_key: "calder_sk_live_…")
