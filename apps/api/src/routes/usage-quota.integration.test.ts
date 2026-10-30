@@ -362,17 +362,15 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
     // Use a dedicated org with no queue deliveries: global drains can settle
     // org B's earlier live email between the two aggregation runs.
     const emailId = rid("em_aggregation");
-    await db
-      .insert(emails)
-      .values({
-        id: emailId,
-        projectId: projD,
-        from: "m@test.test",
-        to: "r@test.test",
-        subject: "meter",
-        text: "x",
-        status: "sent",
-      });
+    await db.insert(emails).values({
+      id: emailId,
+      projectId: projD,
+      from: "m@test.test",
+      to: "r@test.test",
+      subject: "meter",
+      text: "x",
+      status: "sent",
+    });
     await recordSendUsage(db, { emailId, projectId: projD, env: "live" });
     // Read OUR org's rollup across the two runs. The aggregate is global (it
     // folds every org with ledger entries), and turbo runs packages against
