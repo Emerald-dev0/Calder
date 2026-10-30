@@ -1,31 +1,28 @@
-# Calder, email infrastructure for applications
+# Calder — transactional email infrastructure
 
-Calder sends email for applications: transactional mail (verification codes,
-password resets, receipts, invoices, security alerts, order updates) through a
-versioned REST API or an SMTP relay, and marketing mail (newsletters, launches,
-promotions, lifecycle) on a separate stream with its own audiences, consent,
-suppression and reputation. Both run over one pipeline: one API, one event log,
-one webhook system, one usage meter.
+Calder provides an HTTP API for application emails such as verification codes,
+password resets, receipts and notifications. A 202 response means the request
+was queued, not that it was delivered. Test keys simulate sending. Live sending
+requires an eligible sender and correctly configured delivery infrastructure.
 
-Free to start: 5,000 emails a month, 3 projects, 2 sending domains, no card.
-Pro is $15 or ₦25,000 for 50,000 emails with development, staging and production
-environments. Premium is $49 or ₦75,000 for 250,000. Scale is custom volume and
-pricing. Naira and dollar prices are separate local price points, not currency
-conversions. Hard limits, never surprise overages.
+The free plan has a 5,000-email monthly allowance and includes a small Calder
+footer on outgoing messages. See pricing for current limits. Paid checkout is
+not available. SMTP is not a public service. Gmail OAuth integration exists in
+source, but production approval, configuration and availability are not verified.
+Marketing functionality is in development. Official SDK package publication
+has not been verified; use the direct HTTP quickstarts.
 
-- Homepage: https://calder.click/
-- What is Calder: https://calder.click/what-is-calder
-- Pricing: https://calder.click/pricing
-- Developers: https://calder.click/developers
+- Overview: https://calder.click/what-is-calder
+- Current availability: https://calder.click/docs/availability
+- Pricing and limits: https://calder.click/pricing
 - Documentation: https://calder.click/docs
+- Transactional email guide: https://calder.click/docs/transactional-email
+- Delivery troubleshooting: https://calder.click/docs/email-delivery-troubleshooting
+- cURL quickstart: https://calder.click/docs/quickstart/curl
 - API reference: https://calder.click/docs/api-reference
-- Gmail Quickstart (no domain needed): https://calder.click/docs/gmail-quickstart
-- SMTP: https://calder.click/docs/smtp
+- Idempotency: https://calder.click/docs/idempotency
+- Domains: https://calder.click/docs/domains
 - Webhooks: https://calder.click/docs/webhooks
-- Deliverability: https://calder.click/docs/deliverability
-- Switch to Calder: https://calder.click/migrate
-- Glossary: https://calder.click/resources/glossary
-- Status: https://calder.click/status
-- Changelog: https://calder.click/changelog
 - Security: https://calder.click/security
-- Blog: https://calder.click/blog
+- Support: https://calder.click/support
+- Source: https://github.com/Emerald-dev0/Calder

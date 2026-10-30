@@ -6,6 +6,7 @@ import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/support" },
   title: "Support, Calder",
   description: "Get help with Calder: docs, status, and how to reach a human.",
 };

@@ -17,19 +17,20 @@ export function BeginnerSection() {
           </h2>
           <p className="lede" style={{ marginTop: "1.2rem" }}>
             Maybe you&rsquo;re building your first Next.js app. Maybe you&rsquo;re testing an idea
-            this weekend. Maybe you haven&rsquo;t bought a domain yet. That&rsquo;s fine. Connect a
-            Gmail account through Google&rsquo;s authorization, start building, and move to a
-            verified sending domain when you&rsquo;re ready.{" "}
-            <strong>Same Calder API. Same project. Same logs. Same code.</strong>
+            this weekend. Maybe you haven&rsquo;t bought a domain yet. That&rsquo;s fine. Test with
+            a Calder API key without a domain, then move to a verified sending domain when
+            you&rsquo;re ready. Gmail OAuth is implemented but its production availability is not
+            yet verified. <strong>Same Calder API. Same project. Same logs. Same code.</strong>
           </p>
         </Reveal>
         <div className="dev-grid">
           <Reveal>
             <div className="pipeline" style={{ marginTop: 0, height: "100%" }}>
-              <p className="eyebrow">Connect Gmail</p>
-              <h3>Start building immediately.</h3>
+              <p className="eyebrow">Gmail connection · availability unverified</p>
+              <h3>Start without a domain.</h3>
               <p className="caption" style={{ marginTop: "0.5rem" }}>
-                OAuth-based connection with development limits.
+                Designed for OAuth-based sending with development limits; Google approval and
+                production setup are not yet confirmed.
               </p>
               <div className="minilog" style={{ marginTop: "1.5rem" }}>
                 <div className="minilog-row">
@@ -68,8 +69,8 @@ export function BeginnerSection() {
             <p className="eyebrow">Keep building</p>
             <h3 style={{ fontSize: "1.1rem", fontWeight: 700 }}>No rewrite required.</h3>
             <p className="caption" style={{ marginTop: "0.4rem" }}>
-              Change the transport without rebuilding your integration. One click in the dashboard,
-              your API keys and code remain exactly the same.
+              The same API is designed to work across supported transports. Check current
+              availability before choosing a sender.
             </p>
           </div>
         </Reveal>

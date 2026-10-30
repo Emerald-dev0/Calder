@@ -4,6 +4,7 @@ import { Footer } from "../../../components/closing";
 import { PageHero } from "../../../components/page-hero";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/legal/terms" },
   title: "Terms of Service, Calder",
   description: "The terms governing your use of Calder.",
 };
@@ -20,7 +21,7 @@ export default function TermsPage() {
               Fair terms, <em>plainly stated.</em>
             </>
           }
-          lede="The short version: send mail people asked for, pay for what you use, and we'll tell you plainly what happened to every message. Last updated September 2026."
+          lede="The short version: send mail people asked for, respect sending limits, and use Calder responsibly. Last updated October 2026."
         />
         <section className="section" style={{ paddingTop: 0 }}>
           <div className="wrap docs-main" style={{ maxWidth: 720 }}>
@@ -41,10 +42,10 @@ export default function TermsPage() {
             </p>
             <h2>Plans and billing</h2>
             <p>
-              Quotas are hard limits, not overage traps: when you hit yours, sends pause with a
-              clear error until you upgrade or the cycle resets. Usage is metered from durable
-              records, if an invoice ever disagrees with your dashboard, the invoice is wrong and
-              we&rsquo;ll fix it.
+              Sending and account limits apply and may change as the service develops. Gmail
+              connections have a separate allowance shown in the dashboard. Paid checkout and
+              upgrades are not currently promised; any future fees and payment terms will be
+              communicated before purchase.
             </p>
             <h2>Uptime and liability</h2>
             <p>

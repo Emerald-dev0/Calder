@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CodeBlock } from "../../../../components/code";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/docs/quickstart/nodejs" },
   title: "Quickstart: Node.js, Calder Docs",
   description: "Send your first Calder email from Node.js with fetch. No SDK required.",
 };

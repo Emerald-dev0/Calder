@@ -6,6 +6,7 @@ import { Reveal } from "../../components/reveal";
 import { CHANGELOG } from "../../lib/changelog";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/changelog" },
   title: "Changelog, Calder",
   description: "What shipped at Calder, in order. No hype, just the work.",
 };

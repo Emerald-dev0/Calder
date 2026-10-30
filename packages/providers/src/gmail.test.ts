@@ -91,7 +91,7 @@ describe("GmailTransport", () => {
     );
     const transport = new GmailTransport({ refreshToken: "rt", senderEmail: "dev@gmail.com" }, 400);
     const result = await transport.send({
-      from: "ignored-spoof@gmail.com",
+      from: "dev@gmail.com",
       to: "b@example.com",
       subject: "Hi",
       text: "Hi",
@@ -101,6 +101,32 @@ describe("GmailTransport", () => {
     expect(result.accepted).toBe(true);
   });
 
+  it("rejects a mismatched From address before contacting Google", async () => {
+    const spy = vi.fn();
+    vi.stubGlobal("fetch", spy);
+    const transport = new GmailTransport({ refreshToken: "rt", senderEmail: "dev@gmail.com" });
+    await expect(
+      transport.send({ from: "other@gmail.com", to: "b@example.com", subject: "s", text: "t" })
+    ).rejects.toMatchObject({ code: "gmail_validation" });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("refuses marketing mail before contacting Google", async () => {
+    const spy = vi.fn();
+    vi.stubGlobal("fetch", spy);
+    const transport = new GmailTransport({ refreshToken: "rt", senderEmail: "dev@gmail.com" });
+    await expect(
+      transport.send({
+        from: "dev@gmail.com",
+        to: "b@example.com",
+        subject: "s",
+        text: "t",
+        stream: "marketing",
+      })
+    ).rejects.toMatchObject({ code: "gmail_validation" });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
   it("maps revocation to a permanent, explainable error", async () => {
     vi.stubGlobal(
       "fetch",
@@ -108,7 +134,7 @@ describe("GmailTransport", () => {
     );
     const transport = new GmailTransport({ refreshToken: "dead", senderEmail: "dev@gmail.com" });
     await expect(
-      transport.send({ from: "x", to: "y", subject: "s", text: "t" })
+      transport.send({ from: "dev@gmail.com", to: "y", subject: "s", text: "t" })
     ).rejects.toMatchObject({ code: "gmail_revoked", transient: false });
   });
 
@@ -125,7 +151,7 @@ describe("GmailTransport", () => {
   it("advertises conservative capabilities", () => {
     const transport = new GmailTransport({ refreshToken: "rt", senderEmail: "dev@gmail.com" });
     const caps = transport.getCapabilities();
-    expect(caps.dailyLimit).toBe(400);
+    expect(caps.dailyLimit).toBe(100);
     expect(caps.supportsTemplates).toBe(false);
     expect(caps.notes.length).toBeGreaterThan(0);
   });

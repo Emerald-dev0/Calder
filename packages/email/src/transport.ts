@@ -39,7 +39,7 @@ export interface EmailTransport extends EmailProvider {
 
 /** Conservative Gmail caps: free accounts allow 500/day, Workspace 2000/day.
  * We stay well under both, Gmail is the on-ramp, not bulk infrastructure. */
-export const GMAIL_FREE_DAILY_CAP = 400;
+export const GMAIL_FREE_DAILY_CAP = 100;
 export const GMAIL_WORKSPACE_DAILY_CAP = 1500;
 
 /** Minimal shape the worker needs to route. Mirrors project_transports rows. */

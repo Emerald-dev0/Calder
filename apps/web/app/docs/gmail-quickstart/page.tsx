@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CodeBlock } from "../../../components/code";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/docs/gmail-quickstart" },
   title: "Gmail Quickstart, Calder Docs",
   description:
     "Send your first Calder email with no domain: connect Gmail via OAuth and use the same API as everyone else.",
@@ -12,7 +13,7 @@ const CODE = `// Node 18+, no dependencies
 const res = await fetch("https://api.calder.click/v1/emails", {
  method: "POST",
  headers: {
- Authorization: "Bearer calder_sk_test_…",
+ Authorization: "Bearer calder_sk_live_…",
  "Idempotency-Key": crypto.randomUUID(),
  "Content-Type": "application/json",
  },
@@ -43,10 +44,10 @@ export default function GmailQuickstart() {
       </div>
       <h2>1. Connect Gmail</h2>
       <p>
-        In the project dashboard, choose <b>Connect Gmail</b>. Google asks for a single permission,
-        sending mail as you, and nothing else. Calder never sees or stores your Google password; the
-        OAuth token is encrypted at rest and can be revoked from the dashboard or from your Google
-        account, whichever you reach first.
+        In the project dashboard, choose <b>Connect Gmail</b>. Google asks for your verified email
+        identity and permission to send mail as you, not permission to read your inbox. Calder never
+        sees or stores your Google password; the refresh token is encrypted at rest. You can revoke
+        Calder’s access from your Google account.
       </p>
 
       <h2>2. Send exactly like everyone else</h2>
@@ -83,11 +84,15 @@ export default function GmailQuickstart() {
         <span className="tok-dim">{"// 202, queued. SDKs land with v1."}</span>
       </CodeBlock>
 
+      <p>
+        Use a live API key to send a real message. Test keys use a mock transport and do not deliver
+        Gmail.
+      </p>
       <h2>3. Know the limits (they&rsquo;re the point)</h2>
       <p>
         Gmail sending is capped daily and rate-limited on purpose, it&rsquo;s the on-ramp, not bulk
-        infrastructure. Your dashboard always shows usage against the cap before you hit it. Hitting
-        it regularly is the signal to graduate:
+        infrastructure. When configured, the Senders page shows the account allowance. Hitting it
+        regularly is the signal to graduate:
       </p>
       <div className="docs-note">
         <strong>The graduation path.</strong> Buy any domain →{" "}
@@ -102,7 +107,7 @@ export default function GmailQuickstart() {
         <li>
           Transactional mail only. Newsletters and bulk sends will get throttled, then suspended.
         </li>
-        <li>Revoking in Google or in Calder takes effect immediately.</li>
+        <li>Revoke access from your Google account when you no longer want Calder to send.</li>
       </ul>
     </>
   );

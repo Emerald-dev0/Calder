@@ -10,10 +10,10 @@ export default function IntegrationsPage() {
       name: "Gmail Transport",
       category: "Sending On-Ramp",
       status: "active" as const,
-      statusLabel: "Available",
+      statusLabel: "Setup required",
       icon: <Mail size={18} />,
       description:
-        "Connect a Gmail account via OAuth 2.0 to dispatch prototype and low-volume emails without configuring custom DNS records. Strictly isolated from Google Sign-In.",
+        "Connect a Gmail account via OAuth 2.0 to dispatch prototype and low-volume emails without configuring custom DNS records. Connection requires Google OAuth configuration and approval.",
       href: "/senders",
       cta: "Connect Gmail",
     },
@@ -136,7 +136,7 @@ export default function IntegrationsPage() {
       >
         <ShieldCheck size={16} style={{ color: "var(--color-success)", flexShrink: 0 }} />
         <span>
-          Google Sign-In authenticates your operator session. Gmail transport connection authorizes outbound sending—they are cryptographically separate and OAuth scopes never mix.
+          Google Sign-In authenticates your operator session. The separate Gmail connection asks for permission to send on your behalf. Availability depends on Google OAuth configuration and approval.
         </span>
       </div>
     </div>

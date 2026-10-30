@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { UserCheck, Globe, ArrowRight, Radio, MailCheck } from "lucide-react";
-import { checkOrganizationResource, getDb } from "@calder/db";
+import { checkOrganizationResource, getDb, gmailAllowanceForTransport } from "@calder/db";
 import { planDisplayName } from "@calder/config";
 import { getTenantContext, resolveProject } from "../../../lib/auth";
 import { pricingUrl } from "../../../lib/pricing";
@@ -67,6 +67,12 @@ export default async function SendersPage({
     senderHealth(projectId),
     senderCreationOptions(projectId),
   ]);
+  const gmailAllowances = await Promise.all(
+    options.gmailTransports.map(async (transport) => ({
+      ...transport,
+      allowance: await gmailAllowanceForTransport(getDb(), projectId, transport.id),
+    }))
+  );
   const activeSenders = allSenders.filter((s) => !s.archivedAt);
   const archivedSenders = allSenders.filter((s) => s.archivedAt);
 
@@ -119,6 +125,48 @@ export default async function SendersPage({
           </Link>
         }
       />
+
+      {gmailAllowances.length > 0 && (
+        <section
+          className="ds-card"
+          style={{ marginTop: 16, marginBottom: 20 }}
+          aria-label="Gmail sending allowance"
+        >
+          <div className="ds-card-header">
+            <div>
+              <h2 className="ds-card-title">Gmail sending allowance</h2>
+              <p className="ds-card-subtitle">
+                Per connected account across projects. Attempts count, including retries and failed
+                provider calls. Organization, abuse and Google limits may also apply.
+              </p>
+            </div>
+          </div>
+          <div className="ds-card-body">
+            {gmailAllowances.map(
+              ({ id, label, allowance }) =>
+                allowance && (
+                  <div
+                    key={id}
+                    style={{ padding: "10px 0", borderBottom: "1px solid var(--color-border)" }}
+                  >
+                    <strong>{label}</strong>
+                    <p style={{ margin: "6px 0", color: "var(--color-ink-secondary)" }}>
+                      <strong>{allowance.remaining} remaining</strong> · {allowance.used} of{" "}
+                      {allowance.limit} used
+                    </p>
+                    <p className="ds-card-subtitle">
+                      {!allowance.firstSendAt
+                        ? "First 24 hours: 20 attempts, starting with the first send attempt. After that: 100 per UTC day."
+                        : allowance.warmupEndsAt && new Date() < allowance.warmupEndsAt
+                          ? `First 24-hour allowance ends ${allowance.warmupEndsAt.toUTCString()}. After that: up to 100 per UTC day.`
+                          : `Daily allowance resets ${allowance.dailyResetAt.toUTCString()}.`}
+                    </p>
+                  </div>
+                )
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Tabs: Senders | Broadcasts. Broadcasts is deliberately inert: sending
           campaigns is a later phase, so it states the fact instead of querying. */}

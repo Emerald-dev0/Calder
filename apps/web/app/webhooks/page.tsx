@@ -6,6 +6,7 @@ import { CodeBlock } from "../../components/code";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/webhooks" },
   title: "Webhooks, Calder",
   description:
     "Signed, retried, inspectable webhook deliveries for every email event. Attempt history, replay, and verification.",

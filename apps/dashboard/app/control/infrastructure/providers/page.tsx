@@ -84,15 +84,15 @@ export default async function ProvidersPage() {
                 <tr>
                   <th>Transport</th>
                   <th>Status</th>
-                  <th>Sent today</th>
-                  <th>Daily cap</th>
+                  <th>Allowance used</th>
+                  <th>Current limit</th>
                   <th>Utilization</th>
                 </tr>
               </thead>
               <tbody>
                 {gmail.map((g) => {
-                  const cap = g.dailyCap ?? 400;
-                  const pct = Math.min(100, (g.sentToday / cap) * 100);
+                  const cap = g.allowanceLimit;
+                  const pct = cap > 0 ? Math.min(100, (g.allowanceUsed / cap) * 100) : 0;
                   return (
                     <tr key={g.label}>
                       <td className="mono" style={{ fontSize: 12.5 }}>
@@ -101,7 +101,7 @@ export default async function ProvidersPage() {
                       <td>
                         <Badge tone={g.status === "active" ? "ok" : "warn"}>{g.status}</Badge>
                       </td>
-                      <td className="cp-num">{fmtInt(g.sentToday)}</td>
+                      <td className="cp-num">{fmtInt(g.allowanceUsed)}</td>
                       <td className="cp-num">{fmtInt(cap)}</td>
                       <td>
                         <div className="cp-bartrack" style={{ width: 140 }}>

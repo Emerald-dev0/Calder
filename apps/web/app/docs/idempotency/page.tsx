@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/docs/idempotency" },
   title: "Idempotency, Calder Docs",
   description: "How Idempotency-Key works, when to use it, and how long keys are honored.",
 };

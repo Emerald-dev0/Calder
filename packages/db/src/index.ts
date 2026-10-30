@@ -22,3 +22,5 @@ export * from "./migration-status.js";
 export * from "./schema-drift.js";
 
 export * from "./branding.js";
+
+export * from "./gmail-allowance.js";

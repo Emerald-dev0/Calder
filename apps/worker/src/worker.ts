@@ -1,7 +1,7 @@
 import { createQueue, type QueueJob } from "@calder/queue";
 import { isProduction } from "@calder/config";
 import { isTransientError, getRetryDelay } from "@calder/queue";
-import { pickDefaultTransport, GMAIL_FREE_DAILY_CAP } from "@calder/email";
+import { pickDefaultTransport } from "@calder/email";
 import {
   createEmailService,
   isProviderError,
@@ -37,7 +37,12 @@ function safeDeliveryError(err: unknown): string {
 function isCapError(err: unknown): boolean {
   const code = err instanceof Error ? (err as { code?: string }).code : undefined;
   // gmail_cap + abuse-watch verdicts must surface, not silently fall back.
-  return code === "gmail_cap" || code === "gmail_velocity_limit" || code === "gmail_suspended";
+  return (
+    code === "gmail_cap" ||
+    code === "gmail_velocity_limit" ||
+    code === "gmail_suspended" ||
+    code === "gmail_quota_unavailable"
+  );
 }
 
 /**
@@ -51,10 +56,6 @@ async function resolveServiceChain(
   senderIdentityId: string | null,
   jobLogger: Logger
 ): Promise<TransportCandidate[]> {
-  const fallback: TransportCandidate = {
-    service: createEmailService(getProvider()),
-    transport: "default",
-  };
   const chain: TransportCandidate[] = [];
   try {
     const { getDb, projectTransports, senderIdentities } = await import("@calder/db");
@@ -78,6 +79,14 @@ async function resolveServiceChain(
       }))
     );
 
+    const suspendedDefault = rows.find(
+      (r) => r.isDefault && r.type === "gmail" && r.status === "suspended"
+    );
+    if (suspendedDefault) {
+      const { refuseSuspendedGmail } = await import("@calder/db");
+      await refuseSuspendedGmail(db, projectId);
+    }
+
     // Sender preference: the identity's own transport, when it is usable.
     // A disabled sender mid-flight fails closed, never silently reroutes.
     if (senderIdentityId) {
@@ -100,6 +109,19 @@ async function resolveServiceChain(
           );
         }
         const linked = sender.transportId ? byId.get(sender.transportId) : undefined;
+        if (
+          sender.type === "gmail" &&
+          (!linked ||
+            linked.type !== "gmail" ||
+            linked.status !== "active" ||
+            !linked.encryptedCredentials)
+        ) {
+          throw Object.assign(new Error("Connected Gmail sender is unavailable; reconnect it."), {
+            code: "sender_not_ready",
+            transient: false,
+            statusCode: 422,
+          });
+        }
         if (linked && linked.status === "active" && (!def || linked.id !== def.id)) {
           if (linked.type === "gmail") {
             chain.push(await buildGmailService(db, projectId, linked, jobLogger));
@@ -110,7 +132,9 @@ async function resolveServiceChain(
       }
     }
 
-    if (def && def.status === "active" && def.encryptedCredentials) {
+    // A Gmail sender must never silently change identity on provider failure.
+    if (chain.some((leg) => leg.transport === "gmail")) return chain;
+    if (def && def.status === "active" && (def.type === "gmail" || def.encryptedCredentials)) {
       if (def.type === "gmail") {
         const built = await buildGmailService(db, projectId, def, jobLogger);
         chain.push(built);
@@ -140,7 +164,9 @@ async function resolveServiceChain(
     }
     jobLogger.warn("Transport resolution unavailable; using development fallback provider");
   }
-  chain.push(fallback);
+  if (!chain.some((leg) => leg.transport === "gmail")) {
+    chain.push({ service: createEmailService(getProvider()), transport: "default" });
+  }
   return chain;
 }
 
@@ -160,32 +186,12 @@ async function buildGmailService(
   // they bubble up as cap-class errors, never silently degrade to SES.
   const { enforceGmailVelocity } = await import("@calder/db");
   await enforceGmailVelocity(db, projectId, { id: chosen.id, dailyCap: chosen.dailyCap });
-  // Daily cap: EXACT accounting — only sends that actually went through
-  // Gmail count toward the Gmail cap (was: every transport, letting SES
-  // volume exhaust a Gmail quota).
-  const cap = chosen.dailyCap ?? GMAIL_FREE_DAILY_CAP;
-  const { emails } = await import("@calder/db");
-  const { gte, and, count, eq } = await import("drizzle-orm");
-  const dayStart = new Date();
-  dayStart.setUTCHours(0, 0, 0, 0);
-  const sent = await db
-    .select({ value: count() })
-    .from(emails)
-    .where(
-      and(
-        eq(emails.projectId, projectId),
-        eq(emails.transport, "gmail"),
-        gte(emails.createdAt, dayStart)
-      )
-    );
-  const today = (sent[0] as { value: number } | undefined)?.value ?? 0;
-  if (today >= cap) {
-    throw Object.assign(
-      new Error(
-        `Gmail daily cap reached (${today}/${cap}). Add a domain to graduate to production infrastructure.`
-      ),
-      { code: "gmail_cap", transient: false, statusCode: 429 }
-    );
+  if (chosen.dailyCap !== null && chosen.dailyCap <= 0) {
+    throw Object.assign(new Error("Gmail allowance is disabled."), {
+      code: "gmail_cap",
+      transient: false,
+      statusCode: 429,
+    });
   }
   if (!chosen.encryptedCredentials) {
     throw Object.assign(new Error("Gmail credentials missing for transport."), {
@@ -194,8 +200,24 @@ async function buildGmailService(
       statusCode: 422,
     });
   }
-  const refreshToken = getGmailRefreshToken(chosen.encryptedCredentials);
-  const gmail = new GmailTransport({ refreshToken, senderEmail: chosen.label }, chosen.dailyCap);
+  let refreshToken: string;
+  try {
+    refreshToken = getGmailRefreshToken(chosen.encryptedCredentials);
+  } catch {
+    throw Object.assign(new Error("Gmail credentials are unavailable; reconnect the account."), {
+      code: "sender_not_ready",
+      transient: false,
+      statusCode: 422,
+    });
+  }
+  const gmail = new GmailTransport(
+    { refreshToken, senderEmail: chosen.label },
+    chosen.dailyCap,
+    async () => {
+      const { enforceGmailAllowance } = await import("@calder/db");
+      await enforceGmailAllowance(db, projectId, chosen.id);
+    }
+  );
   jobLogger.info({ transport: "gmail", transportId: chosen.id }, "Routing via Gmail transport");
   return { service: createEmailService(gmail), transport: "gmail", transportId: chosen.id };
 }

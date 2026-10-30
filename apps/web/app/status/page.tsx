@@ -5,6 +5,7 @@ import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/status" },
   title: "Status, Calder",
   description:
     "Calder's operational status page: what is monitored today and where incident history is published.",

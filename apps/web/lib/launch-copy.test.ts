@@ -17,3 +17,16 @@ it("states billing and SDK publication limits on the public availability page", 
   expect(source).toContain("distribution: not verified");
   expect(source).toContain("PR #87");
 });
+it("keeps machine-readable summaries honest about service availability", () => {
+  for (const path of [
+    "../public/llms.txt",
+    "../public/docs/llms.txt",
+    "../public/docs/llms-full.txt",
+  ]) {
+    const text = readFileSync(new URL(path, import.meta.url), "utf8").replace(/\s+/g, " ");
+    expect(text).toMatch(/Paid checkout (is )?not available/i);
+    expect(text).toMatch(/SMTP (is |are )?not (a public service|available)/i);
+    expect(text).toMatch(/Gmail OAuth/i);
+    expect(text).toMatch(/not (yet )?(been )?verified/i);
+  }
+});

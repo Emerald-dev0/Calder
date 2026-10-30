@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/docs/security" },
   title: "Security, Calder Docs",
   description: "How Calder handles keys, secrets, and webhook signatures. Developer's-eye view.",
 };

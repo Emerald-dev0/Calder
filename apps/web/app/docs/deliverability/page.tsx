@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/docs/deliverability" },
   title: "Deliverability, Calder Docs",
   description:
     "Bounce-rate chains, suppression lists, and domain authentication — the mechanics Calder enforces, and what stays on you.",

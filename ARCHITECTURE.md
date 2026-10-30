@@ -186,3 +186,14 @@ The shared HTTP helper lives in `@calder/queue`; it does not execute delivery or
 replace queue/lease/retry semantics. Both projects require matching server-only
 `CRON_SECRET` and explicit `API_URL`. The daily cron remains a recovery backstop,
 not a latency guarantee. See ADR-049 and deployment operations for validation.
+
+### Gmail allowance and OAuth
+
+Gmail OAuth requests Google identity and `gmail.send` scopes, exchanges the
+code with PKCE, obtains the verified email from Google UserInfo and stores the
+refresh token encrypted. The worker and API drain reserve against a shared
+account-keyed Postgres ledger immediately before the Gmail API call; the first
+24-hour period has 20 attempts and subsequent UTC days 100. Attempts count even
+if provider delivery is ambiguous; failed token refreshes do not. Project and
+abuse controls remain independent. See ADR-052 and the Google verification
+checklist; local fixtures do not establish production Google approval or delivery.

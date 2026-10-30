@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 
 // Gate: needs a live Postgres (local docker). CI-safe skip otherwise.
 process.env.RUN_INTEGRATION_TESTS ??= "";
@@ -422,68 +422,93 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
     await db.delete(subscriptions).where(eq(subscriptions.organizationId, orgB));
   });
 
-  it("gmail daily cap counts only gmail-transported sends (exact accounting)", async () => {
+  it("drains Gmail through the API, respects the shared cap, and ignores SES history", async () => {
     const db = getDb();
-    // Cap 3; today this project already sent 2 via Gmail and 4 via SES.
-    // Old (buggy) accounting saw 6 and tripped the cap; exact accounting
-    // sees 2 < 3 and must NOT raise it.
+    const { encryptSecret } = await import("@calder/auth");
+    const { resetConfig } = await import("@calder/config");
+    const { gmailAllowanceForTransport, gmailSendAttempts, senderIdentities } =
+      await import("@calder/db");
+    const { createHash } = await import("node:crypto");
+    const address = `gmail-${suffix}@gmail.com`;
+    const transportId = rid("ptr");
+    const [iv, ciphertext, tag] = encryptSecret(
+      JSON.stringify({ refreshToken: "fixture-refresh" }),
+      "gmail"
+    ).split(":");
     await db.insert(projectTransports).values({
-      id: rid("ptr"),
+      id: transportId,
       projectId: projC,
       type: "gmail",
-      label: "gmail@test.test",
+      label: address,
       status: "active",
       isDefault: true,
-      // Structurally valid envelope, cryptographically garbage: construction
-      // fails distinctly from the cap refusal, which is what we assert on.
-      encryptedCredentials: { iv: "AA==", ciphertext: "AA==", tag: "AA==" },
-      dailyCap: 3,
+      encryptedCredentials: { iv: iv!, ciphertext: ciphertext!, tag: tag! },
+      dailyCap: 2,
     });
-    for (const [transport, n] of [
-      ["gmail", 2],
-      ["ses", 4],
-    ] as const) {
-      await db.execute(sql`
-        INSERT INTO emails (id, project_id, "from", "to", subject, text, status, transport)
-        SELECT ${rid("em_gm")} || '_' || g, ${projC}, 'g@test.test', 'r@test.test', 'hist', 'x', 'sent', ${transport}
-        FROM generate_series(1, ${n}) AS g
-      `);
+    const senderId = rid("sender");
+    await db.insert(senderIdentities).values({
+      id: senderId,
+      projectId: projC,
+      email: address,
+      displayName: "Gmail Test",
+      type: "gmail",
+      status: "connected",
+      transportId,
+    });
+    await db.execute(sql`INSERT INTO emails (id, project_id, "from", "to", subject, text, status, transport)
+      SELECT ${rid("em_ses")} || '_' || g, ${projC}, ${address}, 'r@test.test', 'hist', 'x', 'sent', 'ses' FROM generate_series(1, 4) AS g`);
+    vi.stubEnv("GOOGLE_CLIENT_ID", "test-client");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "test-secret");
+    resetConfig();
+    let providerSends = 0;
+    const messages: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input);
+        if (url === "https://oauth2.googleapis.com/token")
+          return Response.json({ access_token: "test-token", expires_in: 3600 });
+        if (url === "https://gmail.googleapis.com/gmail/v1/users/me/messages/send") {
+          providerSends++;
+          const body = JSON.parse(String(init?.body)) as { raw: string };
+          messages.push(Buffer.from(body.raw, "base64url").toString());
+          return Response.json({ id: `msg-${providerSends}` });
+        }
+        throw new Error(`Unexpected request: ${url}`);
+      })
+    );
+    try {
+      for (let i = 0; i < 3; i++) {
+        const res = await postEmails(liveKeyC, {
+          from: address,
+          to: "r@test.test",
+          subject: "gmail probe",
+          text: "hello",
+        });
+        expect(res.status).toBe(202);
+        const id = ((await res.json()) as { id: string }).id;
+        await drainPendingEmails(db, { batch: 50 });
+        const row = await waitSettled(id);
+        expect(row?.status).toBe(i < 2 ? "sent" : "failed");
+        if (i === 2) expect(row?.lastError).toBe("gmail_cap");
+      }
+      expect(providerSends).toBe(2);
+      expect(messages[0]).toContain(`From: ${address}`);
+      expect(messages[0]).toContain("hello");
+      expect(messages[0]).toMatch(/calder/i);
+      expect(await gmailAllowanceForTransport(db, projC, transportId)).toMatchObject({
+        used: 2,
+        remaining: 0,
+        limit: 2,
+      });
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+      resetConfig();
+      const hash = createHash("sha256").update(address).digest("hex");
+      await db.delete(gmailSendAttempts).where(eq(gmailSendAttempts.accountHash, hash));
+      await db.delete(senderIdentities).where(eq(senderIdentities.id, senderId));
+      await db.delete(projectTransports).where(eq(projectTransports.id, transportId));
     }
-
-    const res1 = await postEmails(liveKeyC, {
-      from: `c-${suffix}@test.test`,
-      to: "r@test.test",
-      subject: "cap probe 1",
-      text: "x",
-    });
-    expect(res1.status).toBe(202);
-    const id1 = ((await res1.json()) as { id: string }).id;
-    // The route auto-drains; drive an explicit drain too in case the kick
-    // hasn't run yet, then wait for the row to settle.
-    await drainPendingEmails(getDb(), { batch: 50 }).catch(() => {});
-    const after1 = await waitSettled(id1);
-    expect(after1?.status).not.toBe("queued");
-    expect(after1?.lastError ?? "").not.toMatch(/daily cap/i);
-
-    // At the real cap (2 of 2): the NEXT send must hit exactly this
-    // refusal — proof the cap still fires when truly exhausted.
-    await db
-      .update(projectTransports)
-      .set({ dailyCap: 2 })
-      .where(eq(projectTransports.projectId, projC));
-    const res2 = await postEmails(liveKeyC, {
-      from: `c-${suffix}@test.test`,
-      to: "r@test.test",
-      subject: "cap probe 2",
-      text: "x",
-    });
-    expect(res2.status).toBe(202);
-    const id2 = ((await res2.json()) as { id: string }).id;
-    await drainPendingEmails(getDb(), { batch: 50 }).catch(() => {});
-    const after2 = await waitSettled(id2);
-    // Durable reason is the allowlisted code; the human remedy lives on the
-    // thrown Error and in the logs.
-    expect(after2?.lastError).toBe("gmail_cap");
-    await db.delete(projectTransports).where(eq(projectTransports.projectId, projC));
   }, 60_000);
 });

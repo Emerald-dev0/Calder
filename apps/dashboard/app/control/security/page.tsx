@@ -25,7 +25,7 @@ export default async function AbusePage() {
     gmailCapUsage(),
     gmailWatchEvents(16),
   ]);
-  const nearCap = gmail.filter((g) => g.sentToday >= (g.dailyCap ?? 400) * 0.8);
+  const nearCap = gmail.filter((g) => g.allowanceUsed >= g.allowanceLimit * 0.8);
 
   return (
     <>
@@ -161,14 +161,14 @@ export default async function AbusePage() {
         >
           <BarList
             items={nearCap.map((g) => ({
-              label: `${g.label} · ${g.sentToday}/${g.dailyCap ?? 400}`,
-              count: g.sentToday,
+              label: `${g.label} · ${g.allowanceUsed}/${g.allowanceLimit}`,
+              count: g.allowanceUsed,
             }))}
-            max={Math.max(1, ...gmail.map((g) => g.dailyCap ?? 400))}
+            max={Math.max(1, ...gmail.map((g) => g.allowanceLimit))}
           />
           {nearCap.length === 0 ? (
             <p className="cp-panel-caption" style={{ padding: "10px 16px 0" }}>
-              No transport is above 80% of its daily cap.
+              No transport is above 80% of its current allowance.
             </p>
           ) : null}
           <p className="cp-panel-caption" style={{ padding: "10px 16px 0" }}>
@@ -196,7 +196,7 @@ export default async function AbusePage() {
                   <th>Account</th>
                   <th>Org / Project</th>
                   <th>Last hour</th>
-                  <th>Today / Cap</th>
+                  <th>Allowance used / limit</th>
                   <th>Status</th>
                   <th>Last used</th>
                   <th></th>
@@ -215,7 +215,7 @@ export default async function AbusePage() {
                     </td>
                     <td className="cp-num">{fmtInt(g.sentLastHour)}</td>
                     <td className="cp-num">
-                      {fmtInt(g.sentToday)} / {fmtInt(g.dailyCap ?? 400)}
+                      {fmtInt(g.allowanceUsed)} / {fmtInt(g.allowanceLimit)}
                     </td>
                     <td>
                       <Badge

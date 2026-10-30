@@ -6,6 +6,7 @@ import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/brand" },
   title: "Brand, Calder",
   description: "The Calder visual identity: logo, colors, typography, and usage.",
 };

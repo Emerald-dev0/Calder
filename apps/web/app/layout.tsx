@@ -1,11 +1,19 @@
 import type { Metadata } from "next";
 import AnalyticsCollector from "../components/analytics-collector";
 import { SmoothScroll } from "../components/smooth";
-import { SITE_URL, OG_IMAGE, orgJsonLd, websiteJsonLd, founderJsonLd } from "../lib/seo";
+import {
+  SITE_URL,
+  OG_IMAGE,
+  orgJsonLd,
+  websiteJsonLd,
+  founderJsonLd,
+  VERIFICATION,
+} from "../lib/seo";
 import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
+  verification: VERIFICATION,
   title: "Calder, email infrastructure for applications",
   description:
     "Developer-first transactional email infrastructure. OTP, verification, receipts, and notifications through one API, observable from queued to delivered.",
@@ -17,7 +25,6 @@ export const metadata: Metadata = {
     title: "Calder, email infrastructure for applications",
     description:
       "Transactional email for modern applications. One API, predictable delivery, every event observable.",
-    url: SITE_URL,
     siteName: "Calder",
     type: "website",
     images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: "Calder" }],

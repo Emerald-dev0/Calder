@@ -4,6 +4,7 @@ import { Footer } from "../../components/closing";
 import { PageHero } from "../../components/page-hero";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/abuse" },
   title: "Report abuse, Calder",
   description: "Report an unwanted email sent through Calder.",
 };

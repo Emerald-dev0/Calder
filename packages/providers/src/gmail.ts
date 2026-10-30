@@ -157,7 +157,8 @@ export class GmailTransport implements EmailTransport {
 
   constructor(
     private readonly credentials: GmailCredentials,
-    private readonly dailyCap: number | null = GMAIL_FREE_DAILY_CAP
+    private readonly dailyCap: number | null = GMAIL_FREE_DAILY_CAP,
+    private readonly beforeSend?: () => Promise<void>
   ) {
     this.refreshToken = credentials.refreshToken;
   }
@@ -227,6 +228,16 @@ export class GmailTransport implements EmailTransport {
   }
 
   async send(message: EmailMessage): Promise<ProviderSendResult> {
+    if (message.stream === "marketing") {
+      throw providerError(
+        "Gmail cannot be used for marketing or bulk mail.",
+        400,
+        "gmail_validation"
+      );
+    }
+    if (message.from.trim().toLowerCase() !== this.credentials.senderEmail.trim().toLowerCase()) {
+      throw providerError("From must match the connected Gmail account.", 400, "gmail_validation");
+    }
     if (!message.html && !message.text) {
       throw providerError("Message needs html or text content.", 400, "gmail_validation");
     }
@@ -237,6 +248,9 @@ export class GmailTransport implements EmailTransport {
         from: this.credentials.senderEmail,
       })
     );
+    // Reserve immediately before Google may accept the message, after local
+    // validation and token refresh. A network timeout is still ambiguous.
+    await this.beforeSend?.();
     const res = await fetch(GMAIL_API, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -252,9 +266,10 @@ export class GmailTransport implements EmailTransport {
           "gmail_revoked"
         );
       }
-      const body = await res.text().catch(() => "");
+      // Provider responses may contain user data; keep error logs bounded and
+      // do not propagate the response body into observability or job errors.
       throw providerError(
-        `Gmail rejected the message (HTTP ${res.status}). ${body.slice(0, 200)}`,
+        `Gmail rejected the message (HTTP ${res.status}).`,
         res.status,
         "gmail_rejected"
       );

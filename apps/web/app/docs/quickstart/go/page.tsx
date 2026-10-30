@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CodeBlock } from "../../../../components/code";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/docs/quickstart/go" },
   title: "Quickstart: Go, Calder Docs",
   description: "Send your first Calder email from Go with the standard library. Zero dependencies.",
 };
