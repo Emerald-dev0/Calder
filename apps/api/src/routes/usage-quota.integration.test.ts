@@ -69,9 +69,11 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
   const orgA = `org_qa_${suffix}`;
   const orgB = `org_qb_${suffix}`;
   const orgC = `org_qc_${suffix}`;
+  const orgD = `org_qd_${suffix}`;
   const projA = `proj_qa_${suffix}`;
   const projB = `proj_qb_${suffix}`;
   const projC = `proj_qc_${suffix}`;
+  const projD = `proj_qd_${suffix}`;
   const userId = `usr_qty_${suffix}`;
   // Resolved in beforeAll: the catalog row for tier "free" either already
   // exists (a seeded, production-like database — `pnpm --filter @calder/db
@@ -141,6 +143,7 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
       [orgA, projA, "At Limit"],
       [orgB, projB, "Clean"],
       [orgC, projC, "Gmail"],
+      [orgD, projD, "Aggregation"],
     ] as const) {
       await db
         .insert(organizations)
@@ -193,7 +196,7 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
     const db = getDb();
     // Quiescent cleanup per org (see drain.integration.test.ts): never pull
     // claimed rows out from under a parallel drain.
-    for (const orgId of [orgA, orgB, orgC]) {
+    for (const orgId of [orgA, orgB, orgC, orgD]) {
       await cleanupSuiteOrg(db, orgId);
     }
     await db.delete(subscriptions).where(eq(subscriptions.organizationId, orgB));
@@ -356,23 +359,38 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
 
   it("aggregation is idempotent: re-running converges to the same summary", async () => {
     const db = getDb();
+    // Use a dedicated org with no queue deliveries: global drains can settle
+    // org B's earlier live email between the two aggregation runs.
+    const emailId = rid("em_aggregation");
+    await db
+      .insert(emails)
+      .values({
+        id: emailId,
+        projectId: projD,
+        from: "m@test.test",
+        to: "r@test.test",
+        subject: "meter",
+        text: "x",
+        status: "sent",
+      });
+    await recordSendUsage(db, { emailId, projectId: projD, env: "live" });
     // Read OUR org's rollup across the two runs. The aggregate is global (it
     // folds every org with ledger entries), and turbo runs packages against
     // one database concurrently, so the global {orgs, rows} counters move with
     // whatever else is running — they are not a convergence signal.
-    const orgBQuantity = async () => {
+    const orgDQuantity = async () => {
       const [s] = await getDb()
         .select({ quantity: usageSummaries.quantity })
         .from(usageSummaries)
-        .where(and(eq(usageSummaries.organizationId, orgB)))
+        .where(and(eq(usageSummaries.organizationId, orgD)))
         .limit(1);
       return s?.quantity ?? null;
     };
 
     const n1 = await aggregateUsageNow(db);
-    const q1 = await orgBQuantity();
+    const q1 = await orgDQuantity();
     const n2 = await aggregateUsageNow(getDb());
-    const q2 = await orgBQuantity();
+    const q2 = await orgDQuantity();
 
     // Contract consumed by POST /cron/aggregate-usage: { orgs, rows }.
     expect(n1.rows).toBeGreaterThanOrEqual(1);
@@ -380,24 +398,22 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
     // Convergence: re-running folds the same ledger into the same rollup, and
     // never loses an org that was already folded.
     expect(q2).toBe(q1);
-    expect(n2.rows).toBeGreaterThanOrEqual(n1.rows);
+    expect(n2.rows).toBeGreaterThanOrEqual(1);
 
     const rows1 = await db
       .select()
       .from(usageSummaries)
-      .where(and(eq(usageSummaries.organizationId, orgB)));
+      .where(and(eq(usageSummaries.organizationId, orgD)));
     const rows2 = await getDb()
       .select()
       .from(usageSummaries)
-      .where(and(eq(usageSummaries.organizationId, orgB)));
+      .where(and(eq(usageSummaries.organizationId, orgD)));
     expect(rows2).toEqual(rows1);
-    // The rollup must equal the ledger sum for the period — org B metered
-    // every live delivery it accepted (the under-limit send plus the explicit
-    // meter row), and nothing else.
+    // The rollup must equal the dedicated org's stable ledger sum.
     const [ledgerSum] = await db
       .select({ value: sql<number>`coalesce(sum(${usageRecords.quantity}), 0)` })
       .from(usageRecords)
-      .where(eq(usageRecords.organizationId, orgB));
+      .where(eq(usageRecords.organizationId, orgD));
     expect(rows1[0]?.quantity).toBe(Number(ledgerSum?.value ?? 0));
     expect(rows1[0]?.quantity).toBeGreaterThanOrEqual(1);
   });
