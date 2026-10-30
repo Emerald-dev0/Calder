@@ -8,6 +8,7 @@ import { Reveal } from "../../components/reveal";
 import { SIGNUP_URL } from "../../lib/site";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/developers" },
   title: "Developers, Calder",
   description:
     "The Calder developer platform: versioned REST API, SDKs, idempotency, test keys, predictable errors, and rate limits.",

@@ -37,16 +37,25 @@ for (const p of pages) {
  const rel = p.replace(appDir, "app");
  if (rel === "app/page.tsx") continue;
  const src = readFileSync(p, "utf8");
- if (!/generateMetadata|export const metadata/.test(src)) {
+ if (!/generateMetadata|export const metadata|\bredirect\(/.test(src)) {
  failures.push(`missing metadata: ${rel}`);
  }
+}
+
+// Every static, indexable page must define its own canonical; inheriting the
+// root canonical silently tells search engines every page is the homepage.
+for (const p of pages) {
+ const rel = p.replace(appDir, "app");
+ const src = readFileSync(p, "utf8");
+ if (rel === "app/page.tsx" || rel.includes("[") || /\bredirect\(/.test(src)) continue;
+ if (!/canonical|pageMeta\(/.test(src)) failures.push(`missing page canonical: ${rel}`);
 }
 
 // 2. Sitemap covers on-disk routes (excluding dynamic + non-indexable).
 const sitemapSrc = readFileSync(join(appDir, "sitemap.ts"), "utf8");
 const toRoute = (p) => p.replace(appDir, "").replace(/\/page\.(tsx|mdx)$/, "");
 const routePaths = pages.map(toRoute).filter(Boolean);
-const skipPrefixes = ["/login", "/invite", "/api", "/docs/quickstart"];
+const skipPrefixes = ["/login", "/invite", "/api", "/docs/quickstart", "/waitlist"];
 // Dynamic patterns (e.g. /resources/glossary/[term]) match concrete sitemap paths.
 const dynamicPatterns = routePaths
  .filter((r) => r.includes("["))

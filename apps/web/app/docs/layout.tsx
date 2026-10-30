@@ -23,6 +23,8 @@ const SECTIONS: Array<{ title: string; links: Array<{ label: string; href: strin
     title: "Learn",
     links: [
       { label: "Sending", href: "/docs/sending" },
+      { label: "Transactional email guide", href: "/docs/transactional-email" },
+      { label: "Delivery troubleshooting", href: "/docs/email-delivery-troubleshooting" },
       { label: "SMTP", href: "/docs/smtp" },
       { label: "Domains", href: "/docs/domains" },
       { label: "API Keys", href: "/docs/api-keys" },

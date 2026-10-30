@@ -61,3 +61,23 @@ live in `lib/seo.ts` (`verification` field), paste tokens, never commit secrets.
 
 Single `sitemap.xml` until ~500 URLs, then split: pages/docs/blog/guides/
 glossary/tools. Only canonical, indexable, public URLs.
+
+## Measurement and current upgrade (2026-10-30)
+
+The site now includes route-specific canonical URLs, linked transactional-email
+and delivery-troubleshooting guides, and corrected machine-readable summaries.
+The summaries are optional discovery aids, not a Google indexing or AI citation
+requirement. Structured data must reflect visible, currently available offers;
+never mark planned paid prices as purchasable.
+
+To establish a baseline, verify the domain in Google Search Console and Bing
+Webmaster Tools. Optional public verification values can be supplied at build
+time using `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` and
+`NEXT_PUBLIC_BING_SITE_VERIFICATION`; these are public verification strings,
+not API credentials. Submit `https://calder.click/sitemap.xml`, inspect the
+homepage, pricing, guides, and quickstarts, and check indexing/canonical status.
+Track search queries, impressions, clicks and conversion to signup weekly; log
+answer-engine prompts, region, date, result and cited sources monthly. Changes
+here do not prove indexing, rankings, conversions or AI recommendations.
+
+Google's guidance: https://developers.google.com/search/docs/appearance/ai-features

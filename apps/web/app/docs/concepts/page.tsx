@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/docs/concepts" },
   title: "Core concepts, Calder Docs",
   description:
     "The ideas behind Calder: lifecycle, async delivery, idempotency, events, and suppression.",

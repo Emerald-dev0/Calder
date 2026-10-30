@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { CodeBlock } from "../../../components/code";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/docs/webhooks" },
   title: "Webhooks, Calder Docs",
   description:
     "Receive Calder lifecycle events: signed (Stripe-style t,v1 HMAC), retried on a 7-step ladder up to a dead-letter, and replayable from the dashboard.",

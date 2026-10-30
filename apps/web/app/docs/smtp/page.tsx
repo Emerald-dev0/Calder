@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { CodeBlock } from "../../../components/code";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/docs/smtp" },
   title: "SMTP, Calder Docs",
   description: "SMTP gateway design examples. A public SMTP service is not available.",
 };

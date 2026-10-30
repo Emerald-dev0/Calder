@@ -34,7 +34,7 @@ import {
   webhookDeliveries,
   webhooks,
 } from "@calder/db";
-import { getDb } from "@calder/db";
+import { getDb, gmailAllowanceForTransport } from "@calder/db";
 
 /**
  * Control Plane data access. Every function here is a live query — the
@@ -1094,11 +1094,18 @@ export async function gmailCapUsage() {
     .where(eq(projectTransports.type, "gmail"))
     .orderBy(desc(projectTransports.lastUsedAt))
     .limit(50);
-  return rows.map((r) => ({
-    ...r,
-    sentToday: Number(r.sentToday),
-    sentLastHour: Number(r.sentLastHour),
-  }));
+  return Promise.all(
+    rows.map(async (r) => {
+      const allowance = await gmailAllowanceForTransport(db, r.projectId, r.id);
+      return {
+        ...r,
+        sentToday: Number(r.sentToday),
+        sentLastHour: Number(r.sentLastHour),
+        allowanceUsed: allowance?.used ?? 0,
+        allowanceLimit: allowance?.limit ?? 0,
+      };
+    })
+  );
 }
 
 /** Recent Gmail watch / revocation / appeal actions from the audit trail. */

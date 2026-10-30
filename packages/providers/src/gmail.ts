@@ -157,7 +157,11 @@ export class GmailTransport implements EmailTransport {
 
   constructor(
     private readonly credentials: GmailCredentials,
-    private readonly dailyCap: number | null = GMAIL_FREE_DAILY_CAP
+    private readonly dailyCap: number | null = GMAIL_FREE_DAILY_CAP,
+    private readonly beforeSend?: () => Promise<{
+      accepted: () => Promise<void>;
+      rejected: () => Promise<void>;
+    }>
   ) {
     this.refreshToken = credentials.refreshToken;
   }
@@ -227,6 +231,16 @@ export class GmailTransport implements EmailTransport {
   }
 
   async send(message: EmailMessage): Promise<ProviderSendResult> {
+    if (message.stream === "marketing") {
+      throw providerError(
+        "Gmail cannot be used for marketing or bulk mail.",
+        400,
+        "gmail_validation"
+      );
+    }
+    if (message.from.trim().toLowerCase() !== this.credentials.senderEmail.trim().toLowerCase()) {
+      throw providerError("From must match the connected Gmail account.", 400, "gmail_validation");
+    }
     if (!message.html && !message.text) {
       throw providerError("Message needs html or text content.", 400, "gmail_validation");
     }
@@ -237,12 +251,20 @@ export class GmailTransport implements EmailTransport {
         from: this.credentials.senderEmail,
       })
     );
+    // Reserve immediately before Google may accept the message, after local
+    // validation and token refresh. A network timeout is still ambiguous.
+    const reservation = await this.beforeSend?.();
     const res = await fetch(GMAIL_API, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ raw }),
     });
     if (!res.ok) {
+      // A definite client rejection didn't send. 408, 5xx and network errors
+      // remain reserved: Google may have accepted the message.
+      if (res.status >= 400 && res.status < 500 && res.status !== 408) {
+        await reservation?.rejected();
+      }
       if (res.status === 401) {
         // Token may have been revoked mid-flight, drop cache, surface clearly.
         this.accessToken = null;
@@ -252,14 +274,31 @@ export class GmailTransport implements EmailTransport {
           "gmail_revoked"
         );
       }
-      const body = await res.text().catch(() => "");
+      // Provider responses may contain user data; keep error logs bounded and
+      // do not propagate the response body into observability or job errors.
       throw providerError(
-        `Gmail rejected the message (HTTP ${res.status}). ${body.slice(0, 200)}`,
+        `Gmail rejected the message (HTTP ${res.status}).`,
         res.status,
         "gmail_rejected"
       );
     }
-    const data = (await res.json()) as { id?: string };
+    // Gmail accepted the send. Record the clock before parsing the response.
+    // If persistence fails, do not retry a message Google may have sent.
+    try {
+      await reservation?.accepted();
+    } catch {
+      throw Object.assign(
+        new Error(
+          "Gmail accepted the message but allowance confirmation failed; do not retry automatically."
+        ),
+        {
+          code: "gmail_confirmation_unknown",
+          transient: false,
+          statusCode: 500,
+        }
+      );
+    }
+    const data = (await res.json().catch(() => ({}))) as { id?: string };
     return transportResult(data.id ?? `gmail_${Date.now()}`, this.name);
   }
 }

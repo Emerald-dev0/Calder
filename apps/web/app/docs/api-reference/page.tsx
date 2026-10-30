@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/docs/api-reference" },
   title: "API reference, Calder Docs",
   description:
     "Endpoints, authentication, idempotency, errors, and rate limits for the Calder v1 API.",

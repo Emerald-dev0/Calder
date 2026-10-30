@@ -91,7 +91,7 @@ describe("GmailTransport", () => {
     );
     const transport = new GmailTransport({ refreshToken: "rt", senderEmail: "dev@gmail.com" }, 400);
     const result = await transport.send({
-      from: "ignored-spoof@gmail.com",
+      from: "dev@gmail.com",
       to: "b@example.com",
       subject: "Hi",
       text: "Hi",
@@ -101,6 +101,88 @@ describe("GmailTransport", () => {
     expect(result.accepted).toBe(true);
   });
 
+  it("settles acceptance, releases definite rejections, and retains ambiguous outcomes", async () => {
+    const accepted = vi.fn(async () => {});
+    const rejected = vi.fn(async () => {});
+    const reserve = vi.fn(async () => ({ accepted, rejected }));
+    let response = 400;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string | URL | Request) => {
+        if (String(url).includes("oauth2.googleapis.com"))
+          return new Response(JSON.stringify({ access_token: "tok", expires_in: 3600 }), {
+            status: 200,
+          });
+        return new Response(JSON.stringify({ id: "ok" }), { status: response });
+      })
+    );
+    const transport = new GmailTransport(
+      { refreshToken: "rt", senderEmail: "dev@gmail.com" },
+      100,
+      reserve
+    );
+    const message = { from: "dev@gmail.com", to: "b@example.com", subject: "s", text: "t" };
+    await expect(transport.send(message)).rejects.toBeDefined();
+    expect(rejected).toHaveBeenCalledTimes(1);
+    response = 500;
+    await expect(transport.send(message)).rejects.toBeDefined();
+    expect(rejected).toHaveBeenCalledTimes(1);
+    expect(accepted).not.toHaveBeenCalled();
+    response = 200;
+    await transport.send(message);
+    expect(accepted).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not automatically retry when Google accepted but ledger confirmation fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string | URL | Request) =>
+        String(url).includes("oauth2.googleapis.com")
+          ? new Response(JSON.stringify({ access_token: "tok", expires_in: 3600 }), { status: 200 })
+          : new Response(JSON.stringify({ id: "ok" }), { status: 200 })
+      )
+    );
+    const transport = new GmailTransport(
+      { refreshToken: "rt", senderEmail: "dev@gmail.com" },
+      100,
+      async () => ({
+        accepted: async () => {
+          throw new Error("db down");
+        },
+        rejected: async () => {},
+      })
+    );
+    await expect(
+      transport.send({ from: "dev@gmail.com", to: "b@example.com", subject: "s", text: "t" })
+    ).rejects.toMatchObject({ code: "gmail_confirmation_unknown", transient: false });
+  });
+
+  it("rejects a mismatched From address before contacting Google", async () => {
+    const spy = vi.fn();
+    vi.stubGlobal("fetch", spy);
+    const transport = new GmailTransport({ refreshToken: "rt", senderEmail: "dev@gmail.com" });
+    await expect(
+      transport.send({ from: "other@gmail.com", to: "b@example.com", subject: "s", text: "t" })
+    ).rejects.toMatchObject({ code: "gmail_validation" });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("refuses marketing mail before contacting Google", async () => {
+    const spy = vi.fn();
+    vi.stubGlobal("fetch", spy);
+    const transport = new GmailTransport({ refreshToken: "rt", senderEmail: "dev@gmail.com" });
+    await expect(
+      transport.send({
+        from: "dev@gmail.com",
+        to: "b@example.com",
+        subject: "s",
+        text: "t",
+        stream: "marketing",
+      })
+    ).rejects.toMatchObject({ code: "gmail_validation" });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
   it("maps revocation to a permanent, explainable error", async () => {
     vi.stubGlobal(
       "fetch",
@@ -108,7 +190,7 @@ describe("GmailTransport", () => {
     );
     const transport = new GmailTransport({ refreshToken: "dead", senderEmail: "dev@gmail.com" });
     await expect(
-      transport.send({ from: "x", to: "y", subject: "s", text: "t" })
+      transport.send({ from: "dev@gmail.com", to: "y", subject: "s", text: "t" })
     ).rejects.toMatchObject({ code: "gmail_revoked", transient: false });
   });
 
@@ -125,7 +207,7 @@ describe("GmailTransport", () => {
   it("advertises conservative capabilities", () => {
     const transport = new GmailTransport({ refreshToken: "rt", senderEmail: "dev@gmail.com" });
     const caps = transport.getCapabilities();
-    expect(caps.dailyLimit).toBe(400);
+    expect(caps.dailyLimit).toBe(100);
     expect(caps.supportsTemplates).toBe(false);
     expect(caps.notes.length).toBeGreaterThan(0);
   });

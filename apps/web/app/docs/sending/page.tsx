@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CodeBlock } from "../../../components/code";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/docs/sending" },
   title: "Sending, Calder Docs",
   description: "How the Calder email API works end to end: request, response, and idempotency.",
 };
@@ -24,6 +25,13 @@ export default function Sending() {
         The same policy applies to any future SMTP gateway; SMTP is not currently available. Paid
         plans with a verified domain can use “Remove Calder branding” in project settings;
         eligibility is checked again at delivery.
+      </p>
+
+      <p>
+        New to application email? Start with the{" "}
+        <Link href="/docs/transactional-email">transactional email guide</Link>, or use the{" "}
+        <Link href="/docs/email-delivery-troubleshooting">delivery troubleshooting guide</Link> when
+        a message does not arrive.
       </p>
 
       <h2>The request</h2>

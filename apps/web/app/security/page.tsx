@@ -5,6 +5,7 @@ import { PageHero } from "../../components/page-hero";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/security" },
   title: "Security, Calder",
   description:
     "How Calder protects your data: hashed keys, tenant isolation at the data layer, signed webhooks, and an honest view of certification status.",

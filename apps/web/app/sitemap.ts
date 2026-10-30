@@ -21,7 +21,6 @@ const STATIC: Entry[] = [
   { path: "/templates", lastmod: "2026-09-14", changeFrequency: "monthly", priority: 0.7 },
   { path: "/webhooks", lastmod: "2026-09-14", changeFrequency: "monthly", priority: 0.7 },
   { path: "/domains", lastmod: "2026-09-14", changeFrequency: "monthly", priority: 0.7 },
-  { path: "/waitlist", lastmod: "2026-09-14", changeFrequency: "monthly", priority: 0.8 },
   { path: "/about", lastmod: "2026-09-14", changeFrequency: "yearly", priority: 0.6 },
   { path: "/what-is-calder", lastmod: "2026-09-14", changeFrequency: "monthly", priority: 0.8 },
   { path: "/blog", lastmod: "2026-09-06", changeFrequency: "weekly", priority: 0.7 },
@@ -32,6 +31,20 @@ const STATIC: Entry[] = [
   { path: "/brand", lastmod: "2026-09-06", changeFrequency: "yearly", priority: 0.4 },
   { path: "/migrate", lastmod: "2026-09-14", changeFrequency: "monthly", priority: 0.6 },
   { path: "/resources/glossary", lastmod: "2026-09-08", changeFrequency: "monthly", priority: 0.6 },
+  { path: "/abuse", lastmod: "2026-10-30", changeFrequency: "yearly", priority: 0.4 },
+  {
+    path: "/docs/transactional-email",
+    lastmod: "2026-10-30",
+    changeFrequency: "monthly",
+    priority: 0.8,
+  },
+  {
+    path: "/docs/email-delivery-troubleshooting",
+    lastmod: "2026-10-30",
+    changeFrequency: "monthly",
+    priority: 0.8,
+  },
+  { path: "/docs/availability", lastmod: "2026-10-30", changeFrequency: "monthly", priority: 0.8 },
   { path: "/docs", lastmod: "2026-09-14", changeFrequency: "weekly", priority: 0.8 },
   {
     path: "/docs/quickstart/nodejs",
@@ -139,7 +152,7 @@ const STATIC: Entry[] = [
 export default function sitemap(): MetadataRoute.Sitemap {
   const blog = POSTS.map((p) => ({
     url: `${SITE_URL}/blog/${p.slug}`,
-    lastModified: new Date("2026-09-06"),
+    lastModified: new Date(p.published),
     changeFrequency: "monthly" as const,
     priority: 0.6,
   }));

@@ -111,6 +111,6 @@ describe("marketing plans match the catalogue", () => {
       expect(offer.price, offer.name).toMatch(/^\d+(\.\d+)?$/);
       expect(offer.priceCurrency, offer.name).toMatch(/^(NGN|USD)$/);
     }
-    expect(data.offers.some((o) => o.name.startsWith("Scale"))).toBe(false);
+    expect(data.offers.every((o) => o.name.startsWith("Beginner"))).toBe(true);
   });
 });

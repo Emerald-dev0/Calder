@@ -7,6 +7,7 @@ import { CodeBlock } from "../../components/code";
 import { Reveal } from "../../components/reveal";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/templates" },
   title: "Templates, Calder",
   description:
     "Versioned email templates with variables, previews, and safe publishing. In development now, send any HTML today.",

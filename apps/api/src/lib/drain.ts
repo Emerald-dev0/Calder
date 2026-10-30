@@ -22,7 +22,6 @@ import { isProduction } from "@calder/config";
 import {
   createEmailService,
   pickDefaultTransport,
-  GMAIL_FREE_DAILY_CAP,
   isProviderError,
   MockEmailProvider,
 } from "@calder/email";
@@ -130,6 +129,7 @@ export type ClaimedEmail = {
   projectId: string;
   /** Stamped at ingest from the API key's environment: "live" | "test". */
   env: string;
+  stream: string;
   from: string;
   to: string;
   subject: string;
@@ -172,33 +172,12 @@ async function buildGmail(
   // leg — they must surface like the cap, never silently degrade to SES.
   const { enforceGmailVelocity } = await import("@calder/db");
   await enforceGmailVelocity(db, projectId, { id: chosen.id, dailyCap: chosen.dailyCap });
-  const cap = chosen.dailyCap ?? GMAIL_FREE_DAILY_CAP;
-  const { count, gte } = await import("drizzle-orm");
-  const dayStart = new Date();
-  dayStart.setUTCHours(0, 0, 0, 0);
-  // EXACT accounting: only sends that actually went through Gmail count
-  // toward the Gmail cap (was: every transport, which let SES volume
-  // exhaust a Gmail quota — the "overcounts" bug flagged in the audit).
-  const sent = await db
-    .select({ value: count() })
-    .from(emails)
-    .where(
-      and(
-        eq(emails.projectId, projectId),
-        eq(emails.transport, "gmail"),
-        gte(emails.createdAt, dayStart)
-      )
-    );
-  const today = (sent[0] as { value: number } | undefined)?.value ?? 0;
-  if (today >= cap) {
-    throw Object.assign(
-      new Error(`Gmail daily cap reached (${today}/${cap}). Add a domain to graduate.`),
-      {
-        code: "gmail_cap",
-        transient: false,
-        statusCode: 429,
-      }
-    );
+  if (chosen.dailyCap !== null && chosen.dailyCap <= 0) {
+    throw Object.assign(new Error("Gmail allowance is disabled."), {
+      code: "gmail_cap",
+      transient: false,
+      statusCode: 429,
+    });
   }
   if (!chosen.encryptedCredentials) {
     throw Object.assign(new Error("Gmail credentials missing."), {
@@ -207,10 +186,26 @@ async function buildGmail(
       statusCode: 422,
     });
   }
-  const refreshToken = getGmailRefreshToken(chosen.encryptedCredentials as never);
+  let refreshToken: string;
+  try {
+    refreshToken = getGmailRefreshToken(chosen.encryptedCredentials);
+  } catch {
+    throw Object.assign(new Error("Gmail credentials are unavailable; reconnect the account."), {
+      code: "sender_not_ready",
+      transient: false,
+      statusCode: 422,
+    });
+  }
   return {
     service: createEmailService(
-      new GmailTransport({ refreshToken, senderEmail: chosen.label }, chosen.dailyCap)
+      new GmailTransport({ refreshToken, senderEmail: chosen.label }, chosen.dailyCap, async () => {
+        const { enforceGmailAllowance, settleGmailAttempt } = await import("@calder/db");
+        const id = await enforceGmailAllowance(db, projectId, chosen.id);
+        return {
+          accepted: () => settleGmailAttempt(db, id, "accepted"),
+          rejected: () => settleGmailAttempt(db, id, "rejected"),
+        };
+      })
     ),
     transport: "gmail",
     transportId: chosen.id,
@@ -218,8 +213,11 @@ async function buildGmail(
 }
 
 async function resolveChain(db: DbClient, projectId: string, senderIdentityId: string | null) {
-  const fallback = { service: createEmailService(getProvider()), transport: "default" };
-  const chain: Array<{ service: ReturnType<typeof createEmailService>; transport: string }> = [];
+  const chain: Array<{
+    service: ReturnType<typeof createEmailService>;
+    transport: string;
+    transportId?: string;
+  }> = [];
   try {
     const rows = await db
       .select()
@@ -276,6 +274,19 @@ async function resolveChain(db: DbClient, projectId: string, senderIdentityId: s
           );
         }
         const linked = sender.transportId ? byId.get(sender.transportId) : undefined;
+        if (
+          sender.type === "gmail" &&
+          (!linked ||
+            linked.type !== "gmail" ||
+            linked.status !== "active" ||
+            !linked.encryptedCredentials)
+        ) {
+          throw Object.assign(new Error("Connected Gmail sender is unavailable; reconnect it."), {
+            code: "sender_not_ready",
+            transient: false,
+            statusCode: 422,
+          });
+        }
         // Same rule for the sender's pinned leg: suspended refuses (no silent
         // hop to another identity's transport); revoked/error legs stay
         // skippable so recovery/failover keeps working.
@@ -289,7 +300,9 @@ async function resolveChain(db: DbClient, projectId: string, senderIdentityId: s
         }
       }
     }
-    if (def && def.status === "active" && def.encryptedCredentials) {
+    // A Gmail sender must never silently change identity on provider failure.
+    if (chain.some((leg) => leg.transport === "gmail")) return chain;
+    if (def && def.status === "active" && (def.type === "gmail" || def.encryptedCredentials)) {
       if (def.type === "gmail") chain.push(await buildGmail(db, projectId, def as never));
       else chain.push({ service: createEmailService(getProvider()), transport: def.type });
     }
@@ -316,7 +329,9 @@ async function resolveChain(db: DbClient, projectId: string, senderIdentityId: s
     }
     logger.warn("drain: transport resolution unavailable; using development fallback");
   }
-  chain.push(fallback);
+  if (!chain.some((leg) => leg.transport === "gmail")) {
+    chain.push({ service: createEmailService(getProvider()), transport: "default" });
+  }
   return chain;
 }
 
@@ -347,6 +362,7 @@ export async function claimDrainBatch(
       id,
       project_id AS "projectId",
       env,
+      stream,
       "from",
       "to",
       subject,
@@ -455,6 +471,7 @@ export async function drainPendingEmails(
       from: row.from,
       to: row.to,
       subject: row.subject,
+      stream: row.stream === "marketing" ? ("marketing" as const) : ("transactional" as const),
       html: row.html ?? undefined,
       text: row.text ?? undefined,
       headers: Object.keys(headers).length > 0 ? headers : undefined,
@@ -555,6 +572,8 @@ export async function drainPendingEmails(
           isCap = true;
           break;
         }
+        if (err instanceof Error && (err as { code?: string }).code === "gmail_quota_unavailable")
+          break;
         if (err instanceof Error && (err as { code?: string }).code === "sender_not_ready") {
           senderNotReady = true;
           break;

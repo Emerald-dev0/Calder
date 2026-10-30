@@ -16,7 +16,7 @@ function cookie(name: string, value: string): string {
  * Project-scoped + owner/admin enforced inside saveGmailTransport; the start
  * step additionally requires membership (assertProjectAccess). Google
  * redirect URI must be registered in the OAuth console:
- * {DASHBOARD_URL}/api/auth/callback/gmail-connect
+ * {DASHBOARD_URL}/api/auth/gmail/callback
  */
 export async function GET(req: Request): Promise<Response> {
   const url = new URL(req.url);

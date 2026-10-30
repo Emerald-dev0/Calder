@@ -168,11 +168,10 @@ export function AddSender({
           >
             {gmailTransports.length === 0 ? (
               <p style={{ fontSize: 13, color: "var(--color-muted)", margin: 0 }}>
-                No Gmail account connected to this project yet. Connect it during onboarding or in{" "}
-                <a href="/integrations" style={{ color: "var(--color-accent)", fontWeight: 600 }}>
-                  Integrations
-                </a>{" "}
-                first.
+                No Gmail account connected to this project yet. {" "}
+                <a href={`/api/auth/gmail/connect?project=${encodeURIComponent(projectId)}`} style={{ color: "var(--color-accent)", fontWeight: 600 }}>
+                  Connect Gmail with Google
+                </a>. Only workspace owners and admins can connect an account.
               </p>
             ) : (
               <div style={{ maxWidth: 480, display: "flex", flexDirection: "column", gap: 12 }}>

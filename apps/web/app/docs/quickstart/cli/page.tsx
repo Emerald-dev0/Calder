@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CodeBlock } from "../../../../components/code";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/docs/quickstart/cli" },
   title: "Quickstart: Shell scripting, Calder Docs",
   description: "Script the Calder API from bash: send, poll status, and automate with curl.",
 };

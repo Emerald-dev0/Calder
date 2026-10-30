@@ -51,12 +51,12 @@ export interface GmailWatchThresholds {
 export const DEFAULT_GMAIL_WATCH: GmailWatchThresholds = {
   // Google Workspace individual-account practical ceilings: ~2,000/day,
   // realistic safe-rate a few dozen/hour. Calder's default daily cap is
-  // lower (GMAIL_FREE_DAILY_CAP = 400); hourly lines sit well under that.
+  // the account-level allowance is enforced separately before Gmail delivery.
   warnPerHour: Number(process.env.GMAIL_WATCH_WARN_PER_HOUR ?? 40),
   limitPerHour: Number(process.env.GMAIL_WATCH_LIMIT_PER_HOUR ?? 120),
   suspendPerHour: Number(process.env.GMAIL_WATCH_SUSPEND_PER_HOUR ?? 600),
   graduateDailyAvg: Number(process.env.GMAIL_WATCH_GRADUATE_DAILY ?? 100),
-  dailyCap: Number(process.env.GMAIL_FREE_DAILY_CAP ?? 400),
+  dailyCap: Number(process.env.GMAIL_FREE_DAILY_CAP ?? 100),
 };
 
 /** The policy, as a table. Pure — every branch gets a unit test. */

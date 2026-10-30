@@ -1110,3 +1110,16 @@ The pricing catalogue remains planning/configuration, not checkout availability.
 ## ADR-051: Calder email footer
 
 Free plan and no-domain project emails carry a small Calder footer and abuse reporting link. Paid projects with a verified domain may remove it in settings. This is permanent product policy, not an experiment. The shared outbound email service adds it to the provider-bound copy before signing; eligibility is checked at delivery on both worker and drain paths.
+
+## ADR-052: Account-scoped Gmail on-ramp allowance
+
+Gmail is a transactional on-ramp, not bulk infrastructure. Reserve a send
+attempt atomically under a PostgreSQL advisory lock keyed to the normalized
+Google email, shared across projects and retained across reconnects. The first
+confirmed Gmail acceptance starts a 24-hour window capped at 20; afterward use 100
+per UTC calendar day. In-flight attempts reserve capacity before the request;
+definite client rejections release it. Ambiguous outcomes remain reserved
+because a network failure cannot prove Google did not accept the message. Fail closed if allowance storage
+is unavailable; retain existing abuse watch and organization limits. Historical
+backfill is conservative where account attribution is absent. No pricing or
+production availability is implied. See `docs/GMAIL-QUICKSTART-DISCUSSION.md`.

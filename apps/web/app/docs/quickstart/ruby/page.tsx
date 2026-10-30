@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CodeBlock } from "../../../../components/code";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/docs/quickstart/ruby" },
   title: "Quickstart: Ruby, Calder Docs",
   description: "Send your first Calder email from Ruby with net/http from the standard library.",
 };

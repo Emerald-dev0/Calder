@@ -29,7 +29,7 @@ function newId(prefix: string): string {
 
 function connectRedirectURI(): string {
   const base = getConfig().DASHBOARD_URL.replace(/\/$/, "");
-  return `${base}/api/auth/callback/gmail-connect`;
+  return `${base}/api/auth/gmail/callback`;
 }
 
 function gmailClient(): Google | null {
@@ -73,6 +73,8 @@ export function startGmailConnect(): GmailConnectStart {
   const state = generateState();
   const codeVerifier = generateCodeVerifier();
   const url = client.createAuthorizationURL(state, codeVerifier, [...GMAIL_CONNECT_SCOPES]);
+  url.searchParams.set("access_type", "offline");
+  url.searchParams.set("prompt", "consent");
   return { url: url.toString(), state, codeVerifier };
 }
 
@@ -92,27 +94,29 @@ export async function completeGmailConnect(
 ): Promise<GmailConnectTokens> {
   const client = gmailClient();
   if (!client) throw new Error("Gmail connect is not configured.");
-  const tokens = (await client.validateAuthorizationCode(code, codeVerifier)) as unknown as {
-    accessToken: () => string;
-    refresh_token?: string;
-  };
-  const accessToken = tokens.accessToken();
-  if (!accessToken) throw new Error("Gmail did not return an access token.");
-
-  const meRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!meRes.ok) {
-    throw new Error("Could not read the Gmail address (gmail.send scope required).");
+  const tokens = await client.validateAuthorizationCode(code, codeVerifier);
+  if (
+    !tokens.hasScopes() ||
+    !tokens.scopes().includes("https://www.googleapis.com/auth/gmail.send")
+  ) {
+    throw new Error("Gmail sending permission was not granted.");
   }
-  const me = (await meRes.json()) as { emailAddress?: string };
-  if (!me.emailAddress) throw new Error("Gmail profile has no address.");
-  if (!tokens.refresh_token) {
+  if (!tokens.hasRefreshToken()) {
     throw new Error(
       "Google did not return a refresh token, reconnect with consent (prompt=consent)."
     );
   }
-  return { senderEmail: me.emailAddress.toLowerCase(), refreshToken: tokens.refresh_token };
+  // Gmail users.getProfile requires a restricted mailbox scope. UserInfo uses
+  // only the separately requested identity scope and is returned by Google
+  // for this access token, not supplied by the browser.
+  const meRes = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
+    headers: { Authorization: `Bearer ${tokens.accessToken()}` },
+  });
+  if (!meRes.ok) throw new Error("Could not read the connected Google identity.");
+  const me = (await meRes.json()) as { email?: string; email_verified?: boolean };
+  if (!me.email || me.email_verified !== true)
+    throw new Error("Google account has no verified email address.");
+  return { senderEmail: me.email.toLowerCase(), refreshToken: tokens.refreshToken() };
 }
 
 /**
@@ -188,7 +192,7 @@ export async function saveGmailTransport(input: {
         status: "active",
         label: input.senderEmail,
         encryptedCredentials: creds,
-        dailyCap: 400,
+        dailyCap: 100,
         isDefault: existing.length === 0,
       });
     }

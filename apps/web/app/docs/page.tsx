@@ -21,6 +21,18 @@ const QUICKSTARTS = [
 
 const EXPLORE = [
   { icon: "✉", title: "Emails", desc: "Send and track.", href: "/docs/sending" },
+  {
+    icon: "→",
+    title: "Transactional email guide",
+    desc: "From first request to delivery.",
+    href: "/docs/transactional-email",
+  },
+  {
+    icon: "?",
+    title: "Delivery troubleshooting",
+    desc: "Understand message states.",
+    href: "/docs/email-delivery-troubleshooting",
+  },
   { icon: "✓", title: "Domains", desc: "Verify and monitor.", href: "/docs/domains" },
   { icon: "↯", title: "Webhooks", desc: "Events, signed.", href: "/docs/webhooks" },
   { icon: "◈", title: "API Keys", desc: "Test vs live.", href: "/docs/api-keys" },

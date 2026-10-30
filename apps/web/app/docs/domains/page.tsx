@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CodeBlock } from "../../../components/code";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/docs/domains" },
   title: "Domains, Calder Docs",
   description:
     "Verify domain ownership with a DNS TXT challenge, then enable DKIM-signed branded sending via SES. Honest, two-step, propagation-tolerant.",

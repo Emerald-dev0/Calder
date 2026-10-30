@@ -1,75 +1,31 @@
-Calder, full documentation for LLMs. Mirrors /docs. Regenerate by hand when docs change.
+# Calder documentation summary
 
-WHAT CALDER IS
-Transactional email infrastructure: one endpoint in, delivered events out.
-Base URL: https://api.calder.click. Versioned: /v1/….
+This summary is not the authoritative API contract. For current details, see
+https://calder.click/docs and https://calder.click/docs/availability.
 
-QUICKSTART (all languages, same call)
-POST /v1/emails, headers Authorization: Bearer calder_sk_test_… and
-Idempotency-Key: <uuid>, JSON body {from, to, subject, html|text}.
-Response 202: {id, status: "queued"}. Test keys simulate; live keys deliver.
-Node: fetch. Python: requests (pip install requests). Go: net/http stdlib
-(+ github.com/google/uuid). PHP: cURL extension. Ruby: net/http stdlib.
-cURL: raw flags. Shell: curl + poll loop; dated keys for cron (deploy-X-$(date +%F)).
+Calder is transactional email infrastructure for application-generated
+messages. The API accepts a send request, persists and queues it for delivery,
+and returns a message ID. HTTP 202 means queued, not delivered. A test key
+simulates the pipeline without sending real email; a live key requires an
+eligible sender and configured provider. Delivery events depend on provider
+feedback being configured and are not a guarantee of inbox placement.
 
-SENDING
-202 Accepted = queued, not delivered. Track by id in logs/timeline/webhooks.
-Always send Idempotency-Key.
+Use an idempotency key when retrying the same logical operation. Review
+https://calder.click/docs/idempotency for the current behavior. Suppression
+checks apply before delivery: https://calder.click/docs/suppression.
 
-DOMAINS
-POST /v1/domains {domain} → token + records. Create SPF/DKIM/DMARC TXT records,
-POST /v1/domains/:id/verify (polls with backoff, specific failure reasons).
-Continuous re-verification. Hosted (Vercel etc.) verification maps to an
-Calder-managed subdomain, project ownership, not DNS control.
+The free plan has a 5,000-email monthly allowance and outgoing messages include
+a Calder footer and abuse-report link. See https://calder.click/pricing and
+https://calder.click/docs/usage-billing for current limits and billing status.
+Paid checkout is not available. Public SMTP is not available. Gmail OAuth code
+exists but its production approval and configuration are not verified.
+Marketing is in development. Official SDK package publication is not verified.
+Use direct HTTP examples: https://calder.click/docs/quickstart/curl.
 
-API KEYS
-calder_sk_test_… (simulate, unmetered) vs calder_sk_live_… (deliver, metered).
-Scoped per project+env, hashed at rest, shown once. Rotate by overlap;
-revoke → immediate fail-closed.
-
-WEBHOOKS
-Events: email.queued/.sent/.delivered/.bounced/.complained/.failed/.opened/.clicked.
-Register URL + event list → signing secret (shown once). Verify HMAC-SHA256
-with timingSafeEqual. Dedupe on event ID. 200 fast, work async. Retries with
-backoff; attempt history + manual replay in dashboard.
-
-IDEMPOTENCY
-Idempotency-Key required on POST /v1/emails. First request stores result per
-project; repeats within 24h return it with 200. UUID per operation; dated keys
-for cron. No double-send, no double-meter.
-
-SUPPRESSION
-Bounces/complaints/unsubscribes auto-suppress with logged reason. Sends to
-suppressed addresses return a "suppressed" error naming reason + event. Manual
-entries supported, reversible, audited.
-
-USAGE & BILLING
-Billable = one 202. Webhooks/reads/retries/test traffic free. Aggregated from
-durable records. Plans: Free 3, 000/mo; Starter ₦5, 000/$7 25, 000; Pro
-₦12, 000/$15 100, 000; Scale ₦45, 000/$50 500, 000. Hard limits, no overages.
-
-TEMPLATES (soon) / OTP (soon)
-Not shipped. Templates: versioned, variables, previews (planned). OTP: managed
-challenges (planned). Today: send rendered HTML; generate/verify codes yourself
-(short TTL, 5-attempt cap).
-
-ERRORS
-Always {error: {code, message, request_id}}. Codes: validation_error,
-authentication_error, authorization_error, domain_not_verified, suppressed,
-rate_limit_error, not_found, provider_error. Quote request_id for support.
-
-RATE LIMITS
-Sending 100/min, verification 10/min, auth 20/min, OTP 5/min. 429s carry
-limit/remaining/reset/Retry-After.
-
-MIGRATION (/migrate)
-Same concepts, mechanical steps: provider.emails.send() → POST /v1/emails
-(same fields, 202 + {id, status} instead of 200 + {id}); add Idempotency-Key
-on the move; re-register webhook endpoints + secrets; export suppression lists
-and re-import; run both providers in parallel, flip per project, then cancel.
-Broadcast suites have no equivalent, transactional only, by design.
-
-SECURITY (developer summary)
-Env/secret-manager keys, never client/git. Test/live cryptographically distinct.
-HMAC-verify webhooks. Full policy: SECURITY.md; posture: /security.
-Report: support@calder.click, subject "security".
+- Guide: https://calder.click/docs/transactional-email
+- Delivery troubleshooting: https://calder.click/docs/email-delivery-troubleshooting
+- API reference: https://calder.click/docs/api-reference
+- Domain setup: https://calder.click/docs/domains
+- Webhooks: https://calder.click/docs/webhooks
+- Security: https://calder.click/security
+- Support: https://calder.click/support

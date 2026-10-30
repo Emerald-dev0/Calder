@@ -1,6 +1,11 @@
 import Link from "next/link";
 
-export const metadata = { title: "Launch Availability, Calder Docs" };
+export const metadata = {
+  alternates: { canonical: "https://calder.click/docs/availability" },
+  title: "Launch Availability, Calder Docs",
+  description:
+    "Current Calder service availability and launch limitations for sending, Gmail, SMTP, SDKs and billing.",
+};
 
 export default function Availability() {
   return (
@@ -46,11 +51,12 @@ export default function Availability() {
       </ul>
       <h2>Automatic delivery is a separate check</h2>
       <p>
-        Queued means accepted, not sent. The automatic wake-up fix is under review in{" "}
-        <a href="https://github.com/Emerald-dev0/Calder/pull/87">PR #87</a>. It requires matching
-        server-only CRON_SECRET and the API_URL on the API and dashboard, followed by deployment and
-        a new send without a manual drain. Until that succeeds, immediate automatic sending is not
-        verified. The configured fallback cron is daily, not a prompt-delivery guarantee.
+        Queued means accepted, not sent. The automatic wake-up fix was merged in{" "}
+        <a href="https://github.com/Emerald-dev0/Calder/pull/87">PR #87</a>. Production deployment
+        still requires matching server-only CRON_SECRET and the API_URL on the API and dashboard,
+        followed by deployment and a new send without a manual drain. Until that succeeds, immediate
+        automatic sending is not verified. The configured fallback cron is daily, not a
+        prompt-delivery guarantee.
       </p>
       <p>
         Webhook delivery and bounce/complaint reporting require their own provider event

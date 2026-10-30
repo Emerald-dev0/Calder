@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CodeBlock } from "../../../components/code";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/docs/examples" },
   title: "Examples, Calder Docs",
   description: "Real integration examples: Next.js, Express, Hono, and Remix patterns.",
 };

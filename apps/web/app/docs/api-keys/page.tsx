@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://calder.click/docs/api-keys" },
   title: "API Keys, Calder Docs",
   description: "Test vs live keys, creation, rotation, and revocation.",
 };
