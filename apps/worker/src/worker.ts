@@ -214,8 +214,12 @@ async function buildGmailService(
     { refreshToken, senderEmail: chosen.label },
     chosen.dailyCap,
     async () => {
-      const { enforceGmailAllowance } = await import("@calder/db");
-      await enforceGmailAllowance(db, projectId, chosen.id);
+      const { enforceGmailAllowance, settleGmailAttempt } = await import("@calder/db");
+      const id = await enforceGmailAllowance(db, projectId, chosen.id);
+      return {
+        accepted: () => settleGmailAttempt(db, id, "accepted"),
+        rejected: () => settleGmailAttempt(db, id, "rejected"),
+      };
     }
   );
   jobLogger.info({ transport: "gmail", transportId: chosen.id }, "Routing via Gmail transport");

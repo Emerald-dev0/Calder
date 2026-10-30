@@ -8,24 +8,21 @@ configuration and a real Gmail delivery remain unverified; see
 
 ## Allowance and delivery behavior
 
-The implementation reserves an account-level allowance atomically immediately
-before calling Gmail's send endpoint. The first 24-hour period starts with the
-first provider-bound send attempt, not connection: 20 attempts in that period,
-then 100 per UTC calendar day. Attempts reaching Google count even if the call
-fails or times out: Google may have accepted a timed-out message. A failure before
-the Gmail request (e.g. token refresh) does not start the clock. This is a
-conservative approximation of “first email sent”: an explicit Gmail rejection
-can still start the clock. The Senders page shows the remaining allowance; other
-organization/abuse/Google restrictions can apply, and the API's 202 means queued,
-not necessarily sent. A cap rejection is recorded as a failed delivery.
+The first 24-hour period starts when Gmail first confirms acceptance of a
+message: up to 20 sends in that period, then 100 per UTC calendar day. Google
+acceptance is not proof the message reached the inbox. Capacity is reserved
+before each provider call to enforce caps under concurrency. A definite client
+rejection releases its reservation; network errors, 408s, 5xx responses or a
+process crash can be ambiguous and remain reserved, potentially requiring
+operator investigation. They cannot start the clock without confirmed acceptance.
+The dashboard shows remaining capacity, including reservations. Other
+organization/abuse/Google limits may apply, and API 202 means queued.
 
-The ledger is shared across projects for the same normalized Google email,
-survives reconnects/project deletion, and counts each provider attempt including
-retries. Google identity email changes are not linked across addresses. Account
-hashes are retained for enforcement and may be linkable to an email address.
-The historical backfill uses available sender/project attribution and message
-creation time as an approximation, including all project Gmail transports when
-there is no unique sender; deleted history cannot be reconstructed.
+The ledger is shared across projects for the same normalized Google email and
+survives reconnects/project deletion. A changed Google identity email is not
+linked across addresses. Hashes are retained for enforcement and may be linkable
+to an email address. Historical backfill uses available attribution and message
+creation time as an approximation; deleted history cannot be reconstructed.
 
 Gmail uses only `gmail.send` and Google identity scopes, rejects marketing-stream
 mail, and never collects passwords. The same account's token is encrypted at rest.

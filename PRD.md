@@ -102,7 +102,7 @@ Local-first, not local-only: NGN via Nigerian rails first, USD/international nex
 
 Sending flows through per-project **transports** (`project_transports`): Gmail (OAuth-connected, capped, for development and small apps), SES, and future managed infrastructure. The API, keys, logs, templates, and events never change when the transport does, switching is configuration, not reintegration.
 
-**Gmail Quickstart:** no domain required. OAuth (`gmail.send` plus Google identity scopes, never passwords), encrypted tokens, 20 provider-bound attempts during the first 24 hours from the first attempt, then 100 per UTC day per account; attempts and remaining allowance surfaced transparently. Provider errors and retries count when they reach the Gmail request. When the app grows, Calder prompts domain verification and graduates the project to production infrastructure.
+**Gmail Quickstart:** no domain required. OAuth (`gmail.send` plus Google identity scopes, never passwords), encrypted tokens, 20 sends during the first 24 hours from the first Gmail acceptance, then 100 per UTC day per account; reservations and remaining allowance surfaced transparently. Unknown outcomes count conservatively. When the app grows, Calder prompts domain verification and graduates the project to production infrastructure.
 
 **Campaigns vs transactional (two streams, one pipeline):** transactional (OTP, receipts, resets, notifications) is live. Marketing (audiences, consent, unsubscribe, scheduling, batching, analytics) is in development on the same pipeline with its own suppression, consent, rate limits and contact allowance, never "one send × 10,000", and never sharing reputation with application mail. No bulk mail through Gmail, ever. See ADR-025.
 

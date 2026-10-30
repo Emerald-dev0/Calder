@@ -6,7 +6,11 @@ import { organizations } from "./schema/organizations.js";
 import { projects } from "./schema/projects.js";
 import { projectTransports } from "./schema/transports.js";
 import { gmailSendAttempts } from "./schema/gmail-allowance.js";
-import { gmailAllowanceForTransport, reserveGmailAttempt } from "./gmail-allowance.js";
+import {
+  gmailAllowanceForTransport,
+  reserveGmailAttempt,
+  settleGmailAttempt,
+} from "./gmail-allowance.js";
 
 const gate = process.env.RUN_INTEGRATION_TESTS === "1" ? describe : describe.skip;
 gate("Gmail account allowance (Postgres)", () => {
@@ -43,7 +47,12 @@ gate("Gmail account allowance (Postgres)", () => {
     );
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(20);
     expect(results.filter((r) => r.status === "rejected")).toHaveLength(10);
+    expect((await gmailAllowanceForTransport(db, p2, t2))?.firstSendAt).toBeNull();
+    const first = results.find((r) => r.status === "fulfilled");
+    if (!first || first.status !== "fulfilled") throw new Error("missing reservation");
+    await settleGmailAttempt(db, first.value, "accepted");
     const snapshot = await gmailAllowanceForTransport(db, p2, t2);
+    expect(snapshot?.firstSendAt).toBeInstanceOf(Date);
     expect(snapshot).toMatchObject({ used: 20, remaining: 0, limit: 20 });
     await db.delete(projectTransports).where(eq(projectTransports.id, t1));
     await db
@@ -51,12 +60,31 @@ gate("Gmail account allowance (Postgres)", () => {
       .values({ id: t1, projectId: p1, type: "gmail", label: address });
     await expect(reserveGmailAttempt(db, p1, t1)).rejects.toMatchObject({ code: "gmail_cap" });
   }, 30000);
+  it("does not start the clock for definite rejection, and retains unknown outcomes", async () => {
+    await db.delete(gmailSendAttempts).where(eq(gmailSendAttempts.accountHash, hash));
+    const rejected = await reserveGmailAttempt(db, p1, t1);
+    await settleGmailAttempt(db, rejected, "rejected");
+    expect(await gmailAllowanceForTransport(db, p1, t1)).toMatchObject({
+      firstSendAt: null,
+      used: 0,
+    });
+    await reserveGmailAttempt(db, p1, t1); // unknown: conservatively held
+    expect(await gmailAllowanceForTransport(db, p1, t1)).toMatchObject({
+      firstSendAt: null,
+      used: 1,
+    });
+    const success = await reserveGmailAttempt(db, p1, t1);
+    await settleGmailAttempt(db, success, "accepted");
+    expect(await gmailAllowanceForTransport(db, p1, t1)).toMatchObject({ used: 2, remaining: 18 });
+    expect((await gmailAllowanceForTransport(db, p1, t1))?.firstSendAt).toBeInstanceOf(Date);
+  });
   it("switches to a UTC daily allowance after 24 hours", async () => {
     await db.delete(gmailSendAttempts).where(eq(gmailSendAttempts.accountHash, hash));
     await db.insert(gmailSendAttempts).values({
       id: randomUUID(),
       accountHash: hash,
       attemptedAt: new Date(Date.now() - 25 * 60 * 60 * 1000),
+      confirmedAt: new Date(Date.now() - 25 * 60 * 60 * 1000),
     });
     const allowance = await gmailAllowanceForTransport(db, p1, t1);
     expect(allowance).toMatchObject({ limit: 100, used: 0, remaining: 100 });
@@ -69,6 +97,7 @@ gate("Gmail account allowance (Postgres)", () => {
       id: randomUUID(),
       accountHash: hash,
       attemptedAt: new Date(Date.now() - 49 * 60 * 60 * 1000),
+      confirmedAt: new Date(Date.now() - 49 * 60 * 60 * 1000),
     });
     const results = await Promise.allSettled(
       Array.from({ length: 110 }, (_, i) =>

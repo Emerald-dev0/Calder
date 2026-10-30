@@ -1116,10 +1116,10 @@ Free plan and no-domain project emails carry a small Calder footer and abuse rep
 Gmail is a transactional on-ramp, not bulk infrastructure. Reserve a send
 attempt atomically under a PostgreSQL advisory lock keyed to the normalized
 Google email, shared across projects and retained across reconnects. The first
-provider-bound attempt starts a 24-hour window capped at 20; afterward use 100
-per UTC calendar day. The attempt counts before the Gmail request because a
-network failure cannot prove Google did not accept it. A definite provider
-rejection can therefore start the clock too. Fail closed if allowance storage
+confirmed Gmail acceptance starts a 24-hour window capped at 20; afterward use 100
+per UTC calendar day. In-flight attempts reserve capacity before the request;
+definite client rejections release it. Ambiguous outcomes remain reserved
+because a network failure cannot prove Google did not accept the message. Fail closed if allowance storage
 is unavailable; retain existing abuse watch and organization limits. Historical
 backfill is conservative where account attribution is absent. No pricing or
 production availability is implied. See `docs/GMAIL-QUICKSTART-DISCUSSION.md`.

@@ -158,7 +158,10 @@ export class GmailTransport implements EmailTransport {
   constructor(
     private readonly credentials: GmailCredentials,
     private readonly dailyCap: number | null = GMAIL_FREE_DAILY_CAP,
-    private readonly beforeSend?: () => Promise<void>
+    private readonly beforeSend?: () => Promise<{
+      accepted: () => Promise<void>;
+      rejected: () => Promise<void>;
+    }>
   ) {
     this.refreshToken = credentials.refreshToken;
   }
@@ -250,13 +253,18 @@ export class GmailTransport implements EmailTransport {
     );
     // Reserve immediately before Google may accept the message, after local
     // validation and token refresh. A network timeout is still ambiguous.
-    await this.beforeSend?.();
+    const reservation = await this.beforeSend?.();
     const res = await fetch(GMAIL_API, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ raw }),
     });
     if (!res.ok) {
+      // A definite client rejection didn't send. 408, 5xx and network errors
+      // remain reserved: Google may have accepted the message.
+      if (res.status >= 400 && res.status < 500 && res.status !== 408) {
+        await reservation?.rejected();
+      }
       if (res.status === 401) {
         // Token may have been revoked mid-flight, drop cache, surface clearly.
         this.accessToken = null;
@@ -274,7 +282,23 @@ export class GmailTransport implements EmailTransport {
         "gmail_rejected"
       );
     }
-    const data = (await res.json()) as { id?: string };
+    // Gmail accepted the send. Record the clock before parsing the response.
+    // If persistence fails, do not retry a message Google may have sent.
+    try {
+      await reservation?.accepted();
+    } catch {
+      throw Object.assign(
+        new Error(
+          "Gmail accepted the message but allowance confirmation failed; do not retry automatically."
+        ),
+        {
+          code: "gmail_confirmation_unknown",
+          transient: false,
+          statusCode: 500,
+        }
+      );
+    }
+    const data = (await res.json().catch(() => ({}))) as { id?: string };
     return transportResult(data.id ?? `gmail_${Date.now()}`, this.name);
   }
 }

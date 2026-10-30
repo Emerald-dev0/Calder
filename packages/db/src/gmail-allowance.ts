@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, count, eq, gte, min, sql } from "drizzle-orm";
+import { and, count, eq, gte, isNull, min, or, sql } from "drizzle-orm";
 import type { DbClient } from "./client.js";
 import { projectTransports } from "./schema/transports.js";
 import { gmailSendAttempts } from "./schema/gmail-allowance.js";
@@ -21,14 +21,14 @@ export interface GmailAllowance {
   remaining: number;
 }
 
-/** A UTC calendar day; the first 24-hour period is anchored to first attempt. */
+/** A UTC calendar day; the first 24-hour period is anchored to first confirmed Google acceptance. */
 async function snapshot(
   db: Pick<DbClient, "select">,
   hash: string,
   now: Date
 ): Promise<GmailAllowance> {
   const [first] = await db
-    .select({ at: min(gmailSendAttempts.attemptedAt) })
+    .select({ at: min(gmailSendAttempts.confirmedAt) })
     .from(gmailSendAttempts)
     .where(eq(gmailSendAttempts.accountHash, hash));
   const firstSendAt = first?.at ? new Date(first.at) : null;
@@ -41,7 +41,10 @@ async function snapshot(
     .select({ value: count() })
     .from(gmailSendAttempts)
     .where(
-      and(eq(gmailSendAttempts.accountHash, hash), gte(gmailSendAttempts.attemptedAt, windowStart))
+      and(
+        eq(gmailSendAttempts.accountHash, hash),
+        or(isNull(gmailSendAttempts.confirmedAt), gte(gmailSendAttempts.confirmedAt, windowStart))
+      )
     );
   const used = Number(row?.value ?? 0);
   const limit = warmup ? GMAIL_FIRST_DAY_LIMIT : GMAIL_DAILY_LIMIT;
@@ -84,8 +87,8 @@ export async function reserveGmailAttempt(
   db: DbClient,
   projectId: string,
   transportId: string
-): Promise<void> {
-  await db.transaction(async (tx) => {
+): Promise<string> {
+  return db.transaction(async (tx) => {
     const [transport] = await tx
       .select({
         label: projectTransports.label,
@@ -118,9 +121,9 @@ export async function reserveGmailAttempt(
         transient: false,
         statusCode: 429,
       });
-    await tx
-      .insert(gmailSendAttempts)
-      .values({ id: randomUUID(), accountHash: hash, attemptedAt: now });
+    const id = randomUUID();
+    await tx.insert(gmailSendAttempts).values({ id, accountHash: hash, attemptedAt: now });
+    return id;
   });
 }
 
@@ -129,9 +132,9 @@ export async function enforceGmailAllowance(
   db: DbClient,
   projectId: string,
   transportId: string
-): Promise<void> {
+): Promise<string> {
   try {
-    await reserveGmailAttempt(db, projectId, transportId);
+    return await reserveGmailAttempt(db, projectId, transportId);
   } catch (err) {
     if (
       err instanceof Error &&
@@ -144,4 +147,28 @@ export async function enforceGmailAllowance(
       statusCode: 503,
     });
   }
+}
+
+/** Settle under the same account lock as reservations. Unknown outcomes remain
+ * reserved so an ambiguous send or process crash cannot bypass the cap. */
+export async function settleGmailAttempt(
+  db: DbClient,
+  id: string,
+  outcome: "accepted" | "rejected"
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [entry] = await tx.select().from(gmailSendAttempts).where(eq(gmailSendAttempts.id, id));
+    if (!entry) throw new Error("Gmail reservation missing.");
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${entry.accountHash}, 0))`);
+    if (outcome === "accepted") {
+      await tx
+        .update(gmailSendAttempts)
+        .set({ confirmedAt: sql`clock_timestamp()` })
+        .where(and(eq(gmailSendAttempts.id, id), isNull(gmailSendAttempts.confirmedAt)));
+    } else {
+      await tx
+        .delete(gmailSendAttempts)
+        .where(and(eq(gmailSendAttempts.id, id), isNull(gmailSendAttempts.confirmedAt)));
+    }
+  });
 }

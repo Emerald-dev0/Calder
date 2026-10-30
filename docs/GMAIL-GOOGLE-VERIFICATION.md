@@ -151,8 +151,8 @@ Suggested continuous sequence:
    the key held in an environment variable. Show the request body and 202, then
    the email log's eventual status, the received message, and the reduced
    allowance. A test-key/mock result is not a real Gmail demonstration.
-5. Explain that sending begins when the customer requests an email; the provider
-   attempt consumes allowance even if Google rejects it or the response is lost.
+5. Explain that the first 24-hour window starts when Gmail confirms acceptance;
+   in-flight and ambiguous requests reserve capacity, while definite rejections release it.
    Show where the user can revoke Calder's access in Google Account settings.
    Do not claim a dashboard disconnect feature unless it has been implemented.
 6. If the same OAuth project has additional clients or sensitive-scope flows,
@@ -204,7 +204,13 @@ interrupt sign-in and invalidate existing refresh tokens. Make a rollback plan,
 confirm the OAuth client and current sign-in callback, and preserve access to
 existing production settings without printing or sharing secrets.
 
-1. First create a separate staging setup with its own Google Cloud project,
+For a controlled production smoke test, the operator may instead test one owned
+Gmail account on production after backing up, migrating, configuring the existing
+production client and deploying. Do not switch an already-published sign-in app
+back to Testing. The steps below describe the safer isolated alternative; Google
+requires separate Cloud projects if maintaining distinct deployment tiers.
+
+1. To create an isolated staging setup, use its own Google Cloud project,
    OAuth client, test users, database and Redis. Give it a stable HTTPS dashboard
    URL you control and its own matching callback URI. Do **not** point a staging
    test at the production database. The production callback above is only for

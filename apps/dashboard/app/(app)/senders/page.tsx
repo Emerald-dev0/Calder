@@ -136,8 +136,9 @@ export default async function SendersPage({
             <div>
               <h2 className="ds-card-title">Gmail sending allowance</h2>
               <p className="ds-card-subtitle">
-                Per connected account across projects. Attempts count, including retries and failed
-                provider calls. Organization, abuse and Google limits may also apply.
+                Per connected account across projects. Successful sends and uncertain outcomes
+                count; in-flight sends reserve space. Organization, abuse and Google limits may also
+                apply.
               </p>
             </div>
           </div>
@@ -156,7 +157,7 @@ export default async function SendersPage({
                     </p>
                     <p className="ds-card-subtitle">
                       {!allowance.firstSendAt
-                        ? "First 24 hours: 20 attempts, starting with the first send attempt. After that: 100 per UTC day."
+                        ? "First 24 hours: up to 20 sends, starting when Gmail first accepts a message. After that: up to 100 per UTC day."
                         : allowance.warmupEndsAt && new Date() < allowance.warmupEndsAt
                           ? `First 24-hour allowance ends ${allowance.warmupEndsAt.toUTCString()}. After that: up to 100 per UTC day.`
                           : `Daily allowance resets ${allowance.dailyResetAt.toUTCString()}.`}

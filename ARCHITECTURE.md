@@ -193,7 +193,6 @@ Gmail OAuth requests Google identity and `gmail.send` scopes, exchanges the
 code with PKCE, obtains the verified email from Google UserInfo and stores the
 refresh token encrypted. The worker and API drain reserve against a shared
 account-keyed Postgres ledger immediately before the Gmail API call; the first
-24-hour period has 20 attempts and subsequent UTC days 100. Attempts count even
-if provider delivery is ambiguous; failed token refreshes do not. Project and
+24-hour period starts at first confirmed Gmail acceptance and has 20 sends; subsequent UTC days have 100. In-flight and ambiguous outcomes reserve capacity; definite rejections and failed token refreshes do not. Project and
 abuse controls remain independent. See ADR-052 and the Google verification
 checklist; local fixtures do not establish production Google approval or delivery.

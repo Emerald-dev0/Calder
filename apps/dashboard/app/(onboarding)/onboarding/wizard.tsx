@@ -1205,7 +1205,7 @@ export function OnboardingWizard({
                                       <div className="onb-kv-row">
                                         <span className="onb-kv-label mono">GMAIL OAUTH</span>
                                         <span className="onb-kv-status-ok mono">
-                                          ✓ Connected · 20 first-day attempts, then up to 100/day
+                                          ✓ Connected · 20 first-day sends, then up to 100/day
                                         </span>
                                       </div>
                                     ) : (
