@@ -41,7 +41,7 @@ calder/
 │ ├── api/ # public REST API
 │ └── worker/ # async job processing (email sending, retries, cron)
 ├── packages/
-│ ├── db/
+│ ├── db
 │ ├── auth/
 │ ├── config/
 │ ├── email/
