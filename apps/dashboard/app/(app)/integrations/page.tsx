@@ -9,13 +9,13 @@ export default function IntegrationsPage() {
     {
       name: "Gmail Transport",
       category: "Sending On-Ramp",
-      status: "active" as const,
-      statusLabel: "Setup required",
+      status: "queued" as const,
+      statusLabel: "Coming soon",
       icon: <Mail size={18} />,
       description:
-        "Connect a Gmail account via OAuth 2.0 to dispatch prototype and low-volume emails without configuring custom DNS records. Connection requires Google OAuth configuration and approval.",
-      href: "/senders",
-      cta: "Connect Gmail",
+        "Connect a Gmail account via OAuth 2.0 to dispatch prototype and low-volume emails without configuring custom DNS records. Gmail OAuth is implemented, but production approval and a verified send are not yet confirmed, so this on-ramp is marked coming soon.",
+      href: null,
+      cta: "Coming soon",
     },
     {
       name: "GitHub",

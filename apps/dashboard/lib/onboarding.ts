@@ -173,9 +173,9 @@ export const SENDING_MODE_OPTIONS: readonly SendingModeOption[] = [
   {
     id: "gmail",
     title: "Connect Gmail",
-    badge: "Google OAuth",
+    badge: "Coming soon",
     tradeoff:
-      "Use your existing Gmail address for low-volume transactional email. Calder stores only the authorized credentials it needs; never your Google password.",
+      "Gmail OAuth is implemented, but production approval and a verified send are not yet confirmed. Use the shared test sender or a verified domain for now.",
   },
   {
     id: "domain",
