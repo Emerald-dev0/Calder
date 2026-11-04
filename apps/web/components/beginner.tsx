@@ -26,7 +26,7 @@ export function BeginnerSection() {
         <div className="dev-grid">
           <Reveal>
             <div className="pipeline" style={{ marginTop: 0, height: "100%" }}>
-              <p className="eyebrow">Gmail connection · availability unverified</p>
+              <p className="eyebrow">Gmail connection · coming soon</p>
               <h3>Start without a domain.</h3>
               <p className="caption" style={{ marginTop: "0.5rem" }}>
                 Designed for OAuth-based sending with development limits; Google approval and

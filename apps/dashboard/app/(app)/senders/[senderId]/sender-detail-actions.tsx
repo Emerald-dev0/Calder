@@ -52,8 +52,6 @@ export interface KeyOption {
   keyPrefix: string;
 }
 
-const TERMINAL = new Set(["delivered", "bounced", "complained", "failed"]);
-
 /**
  * All sender mutations live here: defaults, Reply-To, allowed keys, enable /
  * disable, test send, archive. Every destructive action names its target in the
