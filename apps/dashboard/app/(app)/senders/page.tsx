@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { UserCheck, Globe, ArrowRight, Radio, MailCheck } from "lucide-react";
+import { UserCheck, Globe, ArrowRight, Radio } from "lucide-react";
 import { checkOrganizationResource, getDb, gmailAllowanceForTransport } from "@calder/db";
 import { planDisplayName } from "@calder/config";
 import { getTenantContext, resolveProject } from "../../../lib/auth";
