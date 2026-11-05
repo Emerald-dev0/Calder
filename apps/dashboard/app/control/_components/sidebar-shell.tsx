@@ -4,11 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { NavGroup } from "./nav";
-
-function isActive(pathname: string, href: string, exact?: boolean): boolean {
-  if (exact) return pathname === href;
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
+import { activeControlHref } from "@/lib/control/navigation";
 
 const COLLAPSE_KEY = "cp-sidebar-collapsed";
 
@@ -170,6 +166,10 @@ export function SidebarShell({
 }
 
 function SidebarNav({ groups, pathname }: { groups: NavGroup[]; pathname: string }) {
+  const activeHref = activeControlHref(
+    pathname,
+    groups.flatMap((group) => group.items)
+  );
   return (
     <nav aria-label="Control Plane" style={{ display: "block" }}>
       {groups.map((group) => (
@@ -180,7 +180,7 @@ function SidebarNav({ groups, pathname }: { groups: NavGroup[]; pathname: string
               key={item.href}
               href={item.href}
               className="cp-nav-link"
-              data-active={isActive(pathname, item.href, item.exact)}
+              data-active={activeHref === item.href}
               title={item.label}
             >
               <span className="cp-mark" aria-hidden>

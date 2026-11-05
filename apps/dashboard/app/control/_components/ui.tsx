@@ -56,7 +56,9 @@ export function Panel({
           {action ? <div style={{ flexShrink: 0 }}>{action}</div> : null}
         </div>
       ) : null}
-      <div className={`cp-panel-body${flush ? "cp-flush" : ""}`}>{children}</div>
+      <div className={["cp-panel-body", flush && "cp-flush"].filter(Boolean).join(" ")}>
+        {children}
+      </div>
     </section>
   );
 }
@@ -192,7 +194,7 @@ export function KV({
           <span style={{ color: "var(--cp-faint)", marginLeft: 6, fontSize: 11.5 }}>{hint}</span>
         ) : null}
       </span>
-      <span className={`v${mono ? "mono" : ""}`}>{v}</span>
+      <span className={["v", mono && "mono"].filter(Boolean).join(" ")}>{v}</span>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { activeControlHref } from "@/lib/control/navigation";
 
 export interface NavItem {
   label: string;
@@ -15,13 +16,12 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-function isActive(pathname: string, item: NavItem): boolean {
-  if (item.exact) return pathname === item.href;
-  return pathname === item.href || pathname.startsWith(`${item.href}/`);
-}
-
 export function SidebarNav({ groups }: { groups: NavGroup[] }) {
   const pathname = usePathname();
+  const activeHref = activeControlHref(
+    pathname,
+    groups.flatMap((group) => group.items)
+  );
   return (
     <nav aria-label="Control Plane" style={{ display: "block" }}>
       {groups.map((group) => (
@@ -32,7 +32,7 @@ export function SidebarNav({ groups }: { groups: NavGroup[] }) {
               key={item.href}
               href={item.href}
               className="cp-nav-link"
-              data-active={isActive(pathname, item)}
+              data-active={activeHref === item.href}
             >
               <span>{item.label}</span>
               {item.badge ? <span className="cp-nav-badge mono">{item.badge}</span> : null}
@@ -47,10 +47,11 @@ export function SidebarNav({ groups }: { groups: NavGroup[] }) {
 export function MobileNav({ groups }: { groups: NavGroup[] }) {
   const pathname = usePathname();
   const flat = groups.flatMap((g) => g.items);
+  const activeHref = activeControlHref(pathname, flat);
   return (
     <nav aria-label="Control Plane compact" className="cp-mobiletabs">
       {flat.map((item) => (
-        <Link key={item.href} href={item.href} data-active={isActive(pathname, item)}>
+        <Link key={item.href} href={item.href} data-active={activeHref === item.href}>
           {item.label}
         </Link>
       ))}

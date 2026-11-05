@@ -61,7 +61,11 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
             >
               sending: {org.sendingStatus.replace(/_/g, " ")}
             </Badge>
-            {plan ? <Badge tone="accent">{plan.name}</Badge> : <Badge>no active plan</Badge>}
+            {plan ? (
+              <Badge tone="accent">{plan.name}</Badge>
+            ) : (
+              <Badge>no active subscription</Badge>
+            )}
           </>
         }
       />
@@ -77,9 +81,9 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
           }
         />
         <Stat
-          label="MRR"
+          label="Monthly list price"
           value={monthlyCents ? fmtMoney(monthlyCents) : "₦0"}
-          hint="NGN list price"
+          hint="NGN · not collected revenue"
         />
         <Stat label="Members" value={fmtInt(members.length)} />
         <Stat
@@ -153,7 +157,9 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
                         </td>
                         <td>
                           {t.length === 0 ? (
-                            <span style={{ color: "var(--cp-faint)" }}>default provider</span>
+                            <span style={{ color: "var(--cp-muted)" }}>
+                              No project transport configured
+                            </span>
                           ) : (
                             t.map((tr) => (
                               <span
@@ -197,10 +203,11 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
       </div>
 
       <div className="cp-grid cp-grid-2">
-        <Panel
-          title="Sending safety"
-          caption="organization-wide gate; suspension revokes all API keys atomically, and resuming does not restore them"
-        >
+        <Panel title="Sending safety" caption="Affects all projects in this organization">
+          <p className="cp-safety-notice">
+            Suspending sending revokes all API keys. Resuming does not restore them; the customer
+            must create new keys.
+          </p>
           <KV
             k="Current status"
             v={
@@ -239,13 +246,7 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
                   throw new Error(outcome.error ?? "Organization safety action rejected.");
                 }
               }}
-              style={{
-                display: "flex",
-                gap: 8,
-                flexWrap: "wrap",
-                alignItems: "center",
-                marginTop: 12,
-              }}
+              className="cp-action-form"
             >
               <input type="hidden" name="idempotencyKey" value={safetyActionIdempotencyKey} />
               <select
@@ -283,8 +284,12 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
       <div className="cp-grid cp-grid-2">
         <Panel
           title="Plan control"
-          caption="founder-only (M6.2) — cancels the active subscription and opens a new one; the reason lands in the audit log"
+          caption="Founder-only manual action · reason recorded in the audit log"
         >
+          <p className="cp-safety-notice">
+            Applying a plan cancels the active subscription and creates a new one. This is an
+            internal action, not a customer checkout.
+          </p>
           <form
             action={async (formData: FormData) => {
               "use server";
@@ -300,7 +305,7 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
                 throw new Error(outcome.error ?? "Plan grant rejected.");
               }
             }}
-            style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
+            className="cp-action-form"
           >
             <select
               className="cp-select"

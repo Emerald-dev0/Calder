@@ -147,7 +147,7 @@ export const ONBOARDING_PHASES: readonly OnboardingPhase[] = [
     number: "03",
     title: "First send",
     shortTitle: "First send",
-    summary: "Dispatch a real message and watch delivery confirm live.",
+    summary: "Optionally try a simulated email and explore your dashboard.",
     steps: [5, 6],
   },
 ] as const;
@@ -168,7 +168,7 @@ export const SENDING_MODE_OPTIONS: readonly SendingModeOption[] = [
     title: "Shared test sender",
     badge: "No setup",
     tradeoff:
-      "Send from welcome@calder.click immediately while you verify your integration. You can switch transports anytime.",
+      "Try the test pipeline without sending a real email. You can configure a sender later.",
   },
   {
     id: "gmail",

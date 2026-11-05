@@ -1123,3 +1123,11 @@ because a network failure cannot prove Google did not accept the message. Fail c
 is unavailable; retain existing abuse watch and organization limits. Historical
 backfill is conservative where account attribution is absent. No pricing or
 production availability is implied. See `docs/GMAIL-QUICKSTART-DISCUSSION.md`.
+
+## ADR-053: Optional onboarding sending steps
+
+After profile, workspace and project setup, users may skip sending setup or the
+simulated first email and finish onboarding directly into their dashboard. The
+"set this up later" choice also completes onboarding. No sender, live email or
+domain verification is implied by a skip. Existing Save and exit remains a
+temporary pause. A simulated test is never described as inbox delivery.
