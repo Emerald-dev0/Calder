@@ -29,6 +29,7 @@ export interface OrganizationSendingDecision {
   organizationCreatedAt?: Date;
   windowEndsAt?: Date;
   acceptedInWindow?: number;
+  evaluatedAt?: Date;
   quota?: OrganizationQuotaDecision;
 }
 
@@ -120,12 +121,19 @@ async function evaluateEligibility(
     env: "test" | "live";
     phase: "ingest" | "delivery";
     incoming: number;
-    now: Date;
+    now?: Date;
   },
   lock: boolean
 ): Promise<OrganizationSendingDecision> {
   const organization = await readOrganization(db, input.organizationId, lock);
   if (!organization) return { allowed: false, reason: "organization_not_found" };
+  // Use the database clock after the organization lock, not transaction start:
+  // a request that waits across midnight belongs to the day it was admitted.
+  const clock =
+    lock && !input.now
+      ? await db.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)
+      : null;
+  const now = input.now ?? (clock ? new Date(clock[0]!.now) : new Date());
 
   if (input.projectId) {
     const [project] = await db
@@ -162,7 +170,7 @@ async function evaluateEligibility(
     input.organizationId,
     input.env,
     input.incoming,
-    input.now
+    now
   );
   if (!quota.allowed) {
     return {
@@ -180,7 +188,7 @@ async function evaluateEligibility(
   const acceptedInWindow =
     input.env === "live" &&
     input.organizationId !== INTERNAL_ORGANIZATION_ID &&
-    input.now.getTime() < windowEndsAt.getTime()
+    now.getTime() < windowEndsAt.getTime()
       ? await countLiveAcceptedDuringNewOrgWindow(
           db,
           input.organizationId,
@@ -191,7 +199,7 @@ async function evaluateEligibility(
   const dayOne = evaluateNewOrganizationSendLimit({
     organizationId: input.organizationId,
     organizationCreatedAt: organization.createdAt,
-    now: input.now,
+    now,
     acceptedInWindow,
     incoming: input.incoming,
     env: input.env,
@@ -211,6 +219,7 @@ async function evaluateEligibility(
     allowed: true,
     status: organization.sendingStatus,
     organizationCreatedAt: organization.createdAt,
+    evaluatedAt: now,
   };
 }
 
@@ -238,7 +247,7 @@ export function checkOrganizationSendingEligibility(
       env: input.env ?? "live",
       phase: input.phase ?? "delivery",
       incoming: input.incoming ?? 1,
-      now: input.now ?? new Date(),
+      now: input.now,
     },
     false
   );
@@ -259,7 +268,7 @@ export async function withOrganizationSendingEligibility<T>(
     incoming?: number;
     now?: Date;
   },
-  persist: (tx: DbTransaction, organization: Organization) => Promise<T>
+  persist: (tx: DbTransaction, organization: Organization, admittedAt: Date) => Promise<T>
 ): Promise<
   | { allowed: true; value: T; decision: OrganizationSendingDecision }
   | {
@@ -276,7 +285,7 @@ export async function withOrganizationSendingEligibility<T>(
         env: input.env,
         phase: "ingest",
         incoming: input.incoming ?? 1,
-        now: input.now ?? new Date(),
+        now: input.now,
       },
       true
     );
@@ -290,7 +299,7 @@ export async function withOrganizationSendingEligibility<T>(
         decision: { allowed: false, reason: "organization_not_found" },
       } as const;
     }
-    const value = await persist(tx, organization);
+    const value = await persist(tx, organization, decision.evaluatedAt!);
     return { allowed: true, value, decision } as const;
   });
 }
@@ -319,7 +328,7 @@ export async function checkProjectSendingEligibility(
 export async function withProjectSendingEligibility<T>(
   db: DbClient,
   input: { projectId: string; env: "test" | "live"; incoming?: number; now?: Date },
-  persist: (tx: DbTransaction, organizationId: string) => Promise<T>
+  persist: (tx: DbTransaction, organizationId: string, admittedAt: Date) => Promise<T>
 ): Promise<
   | { allowed: true; value: T; decision: OrganizationSendingDecision }
   | { allowed: false; decision: OrganizationSendingDecision }
@@ -344,12 +353,12 @@ export async function withProjectSendingEligibility<T>(
         env: input.env,
         phase: "ingest",
         incoming: input.incoming ?? 1,
-        now: input.now ?? new Date(),
+        now: input.now,
       },
       true
     );
     if (!decision.allowed) return { allowed: false, decision } as const;
-    const value = await persist(tx, project.organizationId);
+    const value = await persist(tx, project.organizationId, decision.evaluatedAt!);
     return { allowed: true, value, decision } as const;
   });
 }

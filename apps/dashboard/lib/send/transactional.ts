@@ -137,8 +137,9 @@ export async function sendTransactional(
   const admission = await withProjectSendingEligibility(
     db,
     { projectId: input.projectId, env: "live" },
-    async (tx) => {
+    async (tx, _organization, admittedAt) => {
       await tx.insert(emails).values({
+        createdAt: admittedAt,
         id: emailId,
         projectId: input.projectId,
         // A fresh key every time: a resend is a new message, not a replay.

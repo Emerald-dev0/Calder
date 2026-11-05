@@ -47,8 +47,10 @@ export default function PricingPage() {
               communication.
               <br />
               <br />
-              <strong>5,000 emails every month at ₦0.</strong> No credit card. No trial clock. No
-              surprise overages.
+              <strong>
+                5,000 emails every month at ₦0, with up to 500 accepted live sends per UTC day.
+              </strong>{" "}
+              No credit card. No trial clock. No surprise overages.
             </>
           }
         />

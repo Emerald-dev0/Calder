@@ -431,7 +431,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
     const admission = await withOrganizationSendingEligibility(
       db,
       { organizationId: params.organizationId, projectId, env },
-      async (tx) => {
+      async (tx, _organization, admittedAt) => {
         if (idempotencyKey) {
           const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
           const rows = await tx
@@ -453,6 +453,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
           if (rows.length === 0) return false;
           await tx.insert(emails).values({
             ...insertEmail,
+            createdAt: admittedAt,
             // Materialize the stream only after shared eligibility passes.
             stream: resolveEmailStream(input),
           });
@@ -467,6 +468,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
         }
         await tx.insert(emails).values({
           ...insertEmail,
+          createdAt: admittedAt,
           // Materialize the stream only after shared eligibility passes.
           stream: resolveEmailStream(input),
         });
@@ -485,7 +487,10 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
           };
         }
       }
-      if (admission.decision.reason === "plan_quota") {
+      if (
+        admission.decision.reason === "plan_quota" &&
+        admission.decision.quota?.window !== "daily"
+      ) {
         notifyAllowance(db, params.organizationId, admission.decision.quota, "exhausted");
       }
       const { assertOrganizationAdmissionAllowed } = await import("../lib/organization-sending.js");

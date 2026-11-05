@@ -18,6 +18,7 @@ import {
   currentUsagePeriod,
   METRIC_EMAILS_SENT,
   planEmailsLimit,
+  planFor,
   type UsagePeriod,
 } from "@calder/config";
 import type { DbClient, DbExecutor } from "./client.js";
@@ -91,6 +92,7 @@ export interface OrganizationQuotaDecision {
   limit: number | null;
   usage: number;
   period: UsagePeriod;
+  window?: "daily" | "billing_period";
   reason?: "test-env" | "internal-org" | "unlimited-tier";
 }
 
@@ -125,10 +127,34 @@ export async function checkOrganizationQuota(
     orgAcceptedLiveInPeriod(db, organizationId, period),
   ]);
   const limit = planEmailsLimit(tier);
-  if (limit === null) {
-    return { allowed: true, tier, limit: null, usage, period, reason: "unlimited-tier" };
+  if (limit !== null && usage + incoming > limit) {
+    return { allowed: false, tier, limit, usage, period, window: "billing_period" };
   }
-  return { allowed: usage + incoming <= limit, tier, limit, usage, period };
+  const dailyLimit = planFor(tier).dailySendCap;
+  if (dailyLimit !== null) {
+    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const dailyPeriod = { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000) };
+    const dailyUsage = await orgAcceptedLiveInPeriod(db, organizationId, dailyPeriod);
+    if (dailyUsage + incoming > dailyLimit) {
+      return {
+        allowed: false,
+        tier,
+        limit: dailyLimit,
+        usage: dailyUsage,
+        period: dailyPeriod,
+        window: "daily",
+      };
+    }
+  }
+  return {
+    allowed: true,
+    tier,
+    limit,
+    usage,
+    period,
+    window: "billing_period",
+    ...(limit === null ? { reason: "unlimited-tier" as const } : {}),
+  };
 }
 
 /**
@@ -226,9 +252,15 @@ export async function orgUsageSnapshot(
   now: Date = new Date()
 ) {
   const period = await orgUsagePeriod(db, organizationId, now);
-  const [tier, accepted, ledger, summary] = await Promise.all([
+  const dailyStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const dailyPeriod = {
+    start: dailyStart,
+    end: new Date(dailyStart.getTime() + 24 * 60 * 60 * 1000),
+  };
+  const [tier, accepted, dailyAccepted, ledger, summary] = await Promise.all([
     resolveOrgTier(db, organizationId),
     orgAcceptedLiveInPeriod(db, organizationId, period),
+    orgAcceptedLiveInPeriod(db, organizationId, dailyPeriod),
     db
       .select({ value: sql<number>`coalesce(sum(${usageRecords.quantity}), 0)` })
       .from(usageRecords)
@@ -257,6 +289,9 @@ export async function orgUsageSnapshot(
     tier,
     period,
     acceptedLive: accepted,
+    dailyAcceptedLive: dailyAccepted,
+    dailyPeriod,
+    dailyLimit: planFor(tier).dailySendCap,
     metered: Number(ledger?.value ?? 0),
     summaryQuantity: summary?.quantity ?? null,
   };

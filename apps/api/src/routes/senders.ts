@@ -456,8 +456,9 @@ senders.post("/:id/test", authMiddleware, async (c) => {
   const admission = await withOrganizationSendingEligibility(
     db,
     { organizationId: a.organizationId, projectId: a.projectId, env: a.env },
-    async (tx) => {
+    async (tx, _organization, admittedAt) => {
       await tx.insert(emails).values({
+        createdAt: admittedAt,
         id: emailId,
         projectId: a.projectId,
         from: sender.email,

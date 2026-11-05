@@ -98,6 +98,9 @@ export default async function UsagePage() {
             </div>
 
             <div className="ds-card-body">
+              {snap.dailyLimit !== null && (
+                <p>Daily live sends: {snap.dailyAcceptedLive.toLocaleString()} / {snap.dailyLimit.toLocaleString()} · resets {snap.dailyPeriod.end.toISOString()} (UTC). Queued and failed sends count once accepted; test-key sends do not.</p>
+              )}
               <div
                 style={{
                   height: 10,

@@ -19,6 +19,9 @@ vi.mock("@calder/db", () => ({
     tier: "beginner",
     acceptedLive: data.accepted,
     metered: data.metered,
+    dailyAcceptedLive: 12,
+    dailyLimit: 500,
+    dailyPeriod: { start: new Date("2026-10-01"), end: new Date("2026-10-02") },
     period: { start: new Date("2026-10-01"), end: new Date("2026-11-01") },
   }),
 }));
@@ -32,6 +35,8 @@ describe("launch Usage copy", () => {
     const html = renderToStaticMarkup(await UsagePage());
     expect(html).toContain("Provider-Accepted Sends");
     expect(html).toContain("12 / 5,000");
+    expect(html).toContain("Daily live sends:");
+    expect(html).toContain("500");
     expect(html).toContain("Billing is not available yet");
     expect(html).toContain("not an invoice");
     expect(html).not.toContain(">Delivered<");

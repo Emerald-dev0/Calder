@@ -36,15 +36,17 @@ never rendered in the Usage UI, not enforced.
 
 ### What is enforced, and when
 
-Only **projects, domains, sender identities and team seats** are enforced, and
-only when a resource is created. Existing resources are grandfathered: nothing
+**Projects, domains, sender identities and team seats** are enforced
+when a resource is created. Existing resources are grandfathered: nothing
 is deleted or disabled because a plan changed. A refusal carries
 `plan_limit_reached`, the limit, the current count and an upgrade pointer that
 skips any tier which would not actually raise that ceiling.
 
-Recorded but **not enforced yet**: log retention, Gmail sender allowance
-(2 everywhere) and Beginner's 500-email daily cap. They live in config so the
-phases that build them have one place to read.
+Beginner also has an enforced limit of 500 accepted live emails per organization
+per UTC day, alongside the 5,000-per-billing-period ceiling. Queued and failed
+emails count once accepted; test-key traffic does not. All projects and sending
+routes share this limit; connected Gmail has additional account-level limits.
+Recorded but not enforced: log retention and Gmail sender count.
 
 Usage warnings are computed from the allowance at 50% and 80% — 2,500 / 4,000
 on Beginner, 5,000 / 8,000 on Starter, 25,000 / 40,000 on Pro and 125,000 /
