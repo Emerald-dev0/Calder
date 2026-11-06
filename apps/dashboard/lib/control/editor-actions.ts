@@ -263,8 +263,9 @@ export async function sendTestEmail(input: {
   const admission = await withProjectSendingEligibility(
     db,
     { projectId: INTERNAL_PROJECT, env: "live" },
-    async (tx) => {
+    async (tx, _organization, admittedAt) => {
       await tx.insert(emails).values({
+        createdAt: admittedAt,
         id: emailId,
         projectId: INTERNAL_PROJECT,
         from: INTERNAL_FROM,

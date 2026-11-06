@@ -41,6 +41,8 @@ function makeSnsCert(): { certPem: string; keyPem: string } | null {
   }
 }
 
+// API test files run serially because drain claims are global and another suite
+// could deliver these rows using a different provider.
 // Gate: needs a live Postgres (local docker). CI-safe skip otherwise.
 process.env.RUN_INTEGRATION_TESTS ??= "";
 const ENABLED = process.env.RUN_INTEGRATION_TESTS === "1";

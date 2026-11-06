@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { CalderLockup } from "@calder/ui";
+import { finishOptionalOnboarding } from "../../../lib/optional-onboarding";
 import {
   checkUsernameAvailability,
   saveOnboardingStep,
@@ -455,10 +456,34 @@ export function OnboardingWizard({
   async function handleSendingContinue() {
     if (!projectId || !isStep4Valid || busy) return;
     await runAction(async () => {
+      if (sendingMode === "later") {
+        await finishOptional(true);
+        return;
+      }
       await saveSendingSetupStep({ projectId, mode: sendingMode });
       setDirection(1);
       setStep(5);
     });
+  }
+
+  async function finishOptional(deferSending: boolean) {
+    if (!projectId) return;
+    await finishOptionalOnboarding(projectId, {
+      deferSending,
+      saveDeferred: (id) => saveSendingSetupStep({ projectId: id, mode: "later" }),
+      complete: completeOnboarding,
+      openDashboard: (id) => { router.push(`/?project=${id}`); router.refresh(); },
+    });
+  }
+
+  async function handleSkipSendingSetup() {
+    if (!projectId || busy) return;
+    await runAction(() => finishOptional(true));
+  }
+
+  async function handleSkipFirstTest() {
+    if (!projectId || busy) return;
+    await runAction(() => finishOptional(false));
   }
 
   async function handleSendFirstEmail() {
@@ -1108,8 +1133,8 @@ export function OnboardingWizard({
                   How will you use Calder?
                 </motion.h1>
                 <motion.p variants={itemVariants} className="onb-subline">
-                  Pick the path that fits your project. You can change this any time; the first test
-                  send still uses Calder's shared sender so you can verify the pipeline.
+                  Pick a path now or skip this step. You can connect a sender or add a domain later
+                  from your dashboard. The optional first test is simulated; it does not reach an inbox.
                 </motion.p>
 
                 <motion.div
@@ -1373,6 +1398,9 @@ export function OnboardingWizard({
                   >
                     ← Back
                   </button>
+                  <button type="button" className="onb-btn-secondary" disabled={busy || !projectId} onClick={() => void handleSkipSendingSetup()}>
+                    Skip setup for now
+                  </button>
                   <motion.button
                     type="button"
                     whileTap={
@@ -1553,6 +1581,9 @@ export function OnboardingWizard({
                   >
                     ← Back
                   </button>
+                  <button type="button" className="onb-btn-secondary" disabled={busy || !projectId} onClick={() => void handleSkipFirstTest()}>
+                    Skip test and go to dashboard
+                  </button>
                   {!emailId ? (
                     <motion.button
                       type="button"
@@ -1612,11 +1643,11 @@ export function OnboardingWizard({
                   variants={itemVariants}
                   className="onb-headline"
                 >
-                  Your pipeline is live.
+                  Your workspace is ready.
                 </motion.h1>
                 <motion.p variants={itemVariants} className="onb-subline">
-                  First delivery confirmed end-to-end. Your workspace and project are ready for
-                  application traffic.
+                  Your test request exercised the simulated pipeline. No email was delivered to an
+                  inbox. Configure a sender and use a live API key when you are ready to send for real.
                 </motion.p>
 
                 {/* Restrained Editorial Infrastructure celebration card */}
@@ -1641,9 +1672,9 @@ export function OnboardingWizard({
                       </svg>
                     </div>
                     <div>
-                      <div className="onb-done-badge mono">FIRST DELIVERY · VERIFIED</div>
+                      <div className="onb-done-badge mono">TEST PIPELINE · SIMULATED</div>
                       <p className="onb-done-title">
-                        Validated, queued, dispatched, and delivered.
+                        Validated, queued, and dispatched in test mode.
                       </p>
                     </div>
                   </div>

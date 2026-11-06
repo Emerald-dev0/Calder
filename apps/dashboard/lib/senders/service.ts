@@ -919,8 +919,9 @@ export async function dispatchTestEmail(
   const admission = await withProjectSendingEligibility(
     db,
     { projectId: sender.projectId, env: "live" },
-    async (tx) => {
+    async (tx, _organization, admittedAt) => {
       await tx.insert(emails).values({
+        createdAt: admittedAt,
         id: emailId,
         projectId: sender.projectId,
         from: sender.email,

@@ -70,10 +70,12 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
   const orgB = `org_qb_${suffix}`;
   const orgC = `org_qc_${suffix}`;
   const orgD = `org_qd_${suffix}`;
+  const orgE = `org_qe_${suffix}`;
   const projA = `proj_qa_${suffix}`;
   const projB = `proj_qb_${suffix}`;
   const projC = `proj_qc_${suffix}`;
   const projD = `proj_qd_${suffix}`;
+  const projE = `proj_qe_${suffix}`;
   const userId = `usr_qty_${suffix}`;
   // Resolved in beforeAll: the catalog row for tier "free" either already
   // exists (a seeded, production-like database — `pnpm --filter @calder/db
@@ -85,6 +87,7 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
   const testKeyA = `calder_test_qty_a_${suffix}`;
   const liveKeyB = `calder_live_qty_b_${suffix}`;
   const liveKeyC = `calder_live_qty_c_${suffix}`;
+  const liveKeyE = `calder_live_qty_e_${suffix}`;
 
   const app = createApp();
   const postEmails = (key: string, body: unknown) =>
@@ -144,6 +147,7 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
       [orgB, projB, "Clean"],
       [orgC, projC, "Gmail"],
       [orgD, projD, "Aggregation"],
+      [orgE, projE, "Daily"],
     ] as const) {
       await db
         .insert(organizations)
@@ -181,6 +185,20 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
       env: "live",
     });
 
+    await db
+      .update(organizations)
+      .set({ createdAt: new Date(Date.now() - 72 * 60 * 60 * 1000) })
+      .where(eq(organizations.id, orgE));
+    registerDevKey(liveKeyE, {
+      apiKeyId: rid("key"),
+      projectId: projE,
+      organizationId: orgE,
+      env: "live",
+    });
+    await db.execute(sql`INSERT INTO emails (id, project_id, "from", "to", subject, text, status, env)
+      SELECT ${rid("em_daily")} || '_' || g, ${projE}, 'seed@test.test', 'r@test.test', 'seed', 'x', 'failed', 'live'
+      FROM generate_series(1, 499) AS g`);
+
     // Seed org A at the cap in ONE statement (not 5k round trips). Rows are
     // status 'sent' so the drain claims never touch them; acceptance-counts
     // count every live row in the period regardless of status.
@@ -196,12 +214,49 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
     const db = getDb();
     // Quiescent cleanup per org (see drain.integration.test.ts): never pull
     // claimed rows out from under a parallel drain.
-    for (const orgId of [orgA, orgB, orgC, orgD]) {
+    for (const orgId of [orgA, orgB, orgC, orgD, orgE]) {
       await cleanupSuiteOrg(db, orgId);
     }
     await db.delete(subscriptions).where(eq(subscriptions.organizationId, orgB));
     if (planCreatedBySuite) await db.delete(plans).where(eq(plans.id, planId));
     await db.delete(users).where(eq(users.id, userId));
+  });
+
+  it("enforces the daily cap on API sends and preserves an idempotent replay", async () => {
+    const payload = {
+      from: `daily-${suffix}@test.test`,
+      to: "r@test.test",
+      subject: "daily",
+      text: "x",
+    };
+    const send = (key: string) =>
+      app.request("/v1/emails", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${liveKeyE}`,
+          "idempotency-key": key,
+        },
+        body: JSON.stringify(payload),
+      });
+    const first = await send(`daily-${suffix}`);
+    expect(first.status).toBe(202);
+    const firstBody = await first.json();
+    const replay = await send(`daily-${suffix}`);
+    expect(replay.status).toBe(200);
+    expect(await replay.json()).toEqual(firstBody);
+    const blocked = await send(`daily-new-${suffix}`);
+    expect(blocked.status).toBe(402);
+    const body = (await blocked.json()) as {
+      error: { code: string; details: { limit: number; usage: number; window: string } };
+    };
+    expect(body.error.code).toBe("plan_limit_reached");
+    expect(body.error.details).toMatchObject({ limit: 500, usage: 500, window: "daily" });
+    const [row] = await getDb()
+      .select({ value: count() })
+      .from(emails)
+      .where(eq(emails.projectId, projE));
+    expect(Number(row?.value)).toBe(500);
   });
 
   it("live send at the plan limit is refused with plan_limit_reached and persists nothing", async () => {
@@ -223,7 +278,7 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
     expect(body.error.code).toBe("plan_limit_reached");
     expect(body.error.details?.limit).toBe(FREE_LIMIT);
     expect(body.error.details?.usage).toBe(FREE_LIMIT);
-    expect(body.error.fix ?? "").toMatch(/upgrade/i);
+    expect(body.error.fix ?? "").toMatch(/reset/i);
 
     // Nothing persisted for the refused send.
     const db = getDb();

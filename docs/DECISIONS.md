@@ -1123,3 +1123,15 @@ because a network failure cannot prove Google did not accept the message. Fail c
 is unavailable; retain existing abuse watch and organization limits. Historical
 backfill is conservative where account attribution is absent. No pricing or
 production availability is implied. See `docs/GMAIL-QUICKSTART-DISCUSSION.md`.
+
+## ADR-053: Optional onboarding sending steps
+
+After profile, workspace and project setup, users may skip sending setup or the
+simulated first email and finish onboarding directly into their dashboard. The
+"set this up later" choice also completes onboarding. No sender, live email or
+domain verification is implied by a skip. Existing Save and exit remains a
+temporary pause. A simulated test is never described as inbox delivery.
+
+## ADR-054: Beginner daily live-send ceiling
+
+Enforce 500 accepted live emails per organization per UTC calendar day in the shared, locked admission transaction across projects, API and dashboard; the monthly limit remains independent. Test keys and the internal organization are exempt. Queued and failed emails count; retries of accepted messages do not consume additional admissions and idempotent replays are not new sends. Gmail has its additional account-level limits. Reset at UTC midnight. Paid checkout remains unverified.

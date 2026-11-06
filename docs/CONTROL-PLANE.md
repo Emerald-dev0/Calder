@@ -16,6 +16,11 @@ query.
 
 ---
 
+The organization detail screen distinguishes list price from collected revenue,
+shows account-safety consequences before operator actions, and identifies a
+missing project transport without claiming the default provider is configured.
+These are presentation changes; billing and provider readiness are not implied.
+
 ## 1. Principles
 
 1. **Same identity, two worlds.** Emerald logs in once. The customer dashboard

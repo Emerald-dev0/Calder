@@ -52,6 +52,7 @@ export interface PlanLimit {
    */
   retentionDays: number | null;
   gmailSenders: number | null;
+  /** Maximum live sends accepted per organization per UTC day. */
   dailySendCap: number | null;
   /**
    * Draft marketing contact allowance. **Not approved, not enforced, and not
@@ -141,7 +142,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimit> = {
  * Recorded but deliberately not enforced in this phase. Anything that gates a
  * request must come from `LimitedResource` instead.
  */
-export const UNENFORCED_PLAN_LIMITS = ["retentionDays", "gmailSenders", "dailySendCap"] as const;
+export const UNENFORCED_PLAN_LIMITS = ["retentionDays", "gmailSenders"] as const;
 export type UnenforcedPlanLimit = (typeof UNENFORCED_PLAN_LIMITS)[number];
 
 /**

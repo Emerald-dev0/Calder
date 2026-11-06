@@ -70,7 +70,7 @@ describe("plan catalogue", () => {
       expect(PLAN_LIMITS[tier].gmailSenders).toBe(tier === "scale" ? null : 2);
     expect(PLAN_LIMITS.free.dailySendCap).toBe(500);
     expect(PLAN_LIMITS.premium.dailySendCap).toBeNull();
-    expect([...UNENFORCED_PLAN_LIMITS]).toEqual(["retentionDays", "gmailSenders", "dailySendCap"]);
+    expect([...UNENFORCED_PLAN_LIMITS]).toEqual(["retentionDays", "gmailSenders"]);
   });
 
   it("never approves the contacts allowance", () => {

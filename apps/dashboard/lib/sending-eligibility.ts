@@ -7,10 +7,15 @@ export function assertDashboardAdmissionAllowed(decision: OrganizationSendingDec
   if (decision.reason === "plan_quota" && decision.quota) {
     const { limit, usage, tier, period } = decision.quota;
     const display = planDisplayName(tier);
+    if (decision.quota.window === "daily") {
+      throw new Error(
+        `Daily limit reached: the ${display} plan allows ${limit!.toLocaleString("en-US")} accepted live emails per UTC day; ${usage.toLocaleString("en-US")} used. Resets ${period.end.toISOString()}.`
+      );
+    }
     throw new Error(
       `Plan limit reached: the ${display} plan allows ${limit!.toLocaleString("en-US")} emails ` +
         `per period; ${usage.toLocaleString("en-US")} used already. ` +
-        `Usage resets ${period.end.toISOString().slice(0, 10)} — upgrade on the Usage page to send now.`
+        `Usage resets ${period.end.toISOString().slice(0, 10)}.`
     );
   }
   throw new Error("Sending is currently unavailable for this organization.");

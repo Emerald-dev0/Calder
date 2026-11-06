@@ -2311,6 +2311,7 @@ body:has(.onb-root) {
 /* Footer actions & buttons */
 .onb-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;

@@ -687,8 +687,9 @@ export async function sendFirstEmail(input: {
     const admission = await withProjectSendingEligibility(
       db,
       { projectId: input.projectId, env: "test" },
-      async (tx) => {
+      async (tx, _organization, admittedAt) => {
         await tx.insert(emails).values({
+          createdAt: admittedAt,
           id: emailId!,
           projectId: input.projectId,
           from: "welcome@calder.click",

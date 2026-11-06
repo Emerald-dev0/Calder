@@ -38,6 +38,22 @@ export function assertQuotaAllowed(decision: QuotaDecision, incoming = 1): void 
   const { limit, usage, tier, period } = decision;
   // Display names come from the catalogue, never from the raw database value.
   const display = planDisplayName(tier);
+  if (decision.window === "daily") {
+    throw new AppError(
+      "plan_limit_reached",
+      `The ${display} plan allows ${limit!.toLocaleString("en-US")} accepted live emails per UTC day; ${usage.toLocaleString("en-US")} already accepted. Sending ${incoming} more would exceed the daily limit.`,
+      402,
+      {
+        limit,
+        usage,
+        tier,
+        window: "daily",
+        periodStart: period.start.toISOString(),
+        periodEnd: period.end.toISOString(),
+      },
+      `Wait until the daily reset at ${period.end.toISOString()}.`
+    );
+  }
   throw new AppError(
     "plan_limit_reached",
     `The ${display} plan allows ${limit!.toLocaleString("en-US")} emails per billing period; ` +
@@ -51,6 +67,6 @@ export function assertQuotaAllowed(decision: QuotaDecision, incoming = 1): void 
       periodStart: period.start.toISOString(),
       periodEnd: period.end.toISOString(),
     },
-    `Upgrade at ${process.env.DASHBOARD_URL ?? "https://app.calder.click"}/usage or wait for the period reset at ${period.end.toISOString()}.`
+    `Wait for the period reset at ${period.end.toISOString()}.`
   );
 }
