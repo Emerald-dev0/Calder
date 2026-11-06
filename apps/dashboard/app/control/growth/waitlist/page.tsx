@@ -90,7 +90,6 @@ export default async function WaitlistPage({
         customFrom={query.from}
         customTo={query.to}
       />
-      <main className="cp-content">
         <PageHeader
           eyebrow="Growth / Waitlist"
           title="Waitlist"
@@ -295,7 +294,6 @@ export default async function WaitlistPage({
           Statuses are the real lifecycle: waiting · invited · contacted · converted (has an
           account) · removed. "Confirmed" is not a stored state — conversion is derived live.
         </p>
-      </main>
     </>
   );
 }
