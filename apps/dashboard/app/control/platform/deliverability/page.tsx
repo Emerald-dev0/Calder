@@ -111,7 +111,7 @@ export default async function DeliverabilityPage() {
 
       <Panel
         title="Recent failures"
-        caption="every failure keeps its reason — diagnosable, not dropped"
+        caption="Diagnosable records — click an ID to inspect the event stream"
         flush
       >
         {failures.length === 0 ? (
@@ -125,6 +125,7 @@ export default async function DeliverabilityPage() {
               <thead>
                 <tr>
                   <th>Status</th>
+                  <th>Email ID</th>
                   <th>To</th>
                   <th>Subject</th>
                   <th>Reason</th>
@@ -139,10 +140,13 @@ export default async function DeliverabilityPage() {
                         <Dot tone={f.status === "complained" ? "warn" : "bad"} /> {f.status}
                       </span>
                     </td>
+                    <td className="mono" style={{ fontSize: 12 }}>
+                      <Link href={`/control/observability?q=${encodeURIComponent(f.id)}`}>{f.id}</Link>
+                    </td>
                     <td className="mono" style={{ fontSize: 12.5 }}>
                       {f.to}
                     </td>
-                    <td className="wrap" style={{ whiteSpace: "normal", maxWidth: 260 }}>
+                    <td className="wrap" style={{ whiteSpace: "normal", maxWidth: 220 }}>
                       {f.subject}
                     </td>
                     <td
@@ -151,7 +155,7 @@ export default async function DeliverabilityPage() {
                         fontSize: 12,
                         whiteSpace: "normal",
                         color: "var(--cp-muted)",
-                        maxWidth: 280,
+                        maxWidth: 260,
                       }}
                     >
                       {f.lastError?.slice(0, 120) ?? "—"}

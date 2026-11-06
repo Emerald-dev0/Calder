@@ -2,7 +2,7 @@ import Link from "next/link";
 import { fmtInt } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
 import { systemAudiences } from "@/lib/control/queries";
-import { PageHeader, Panel } from "@/control/_components/ui";
+import { PageHeader, Panel, Planned } from "@/control/_components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ export default async function AudiencesPage() {
       <PageHeader
         eyebrow="Communications"
         title="Audiences"
-        subtitle="System-generated audiences, computed live from platform state. When you send, these are the address books — no stale exports, no made-up counts."
+        subtitle="System-generated audiences computed live from platform state. Custom campaign segments remain gated."
       />
 
       <Panel
@@ -49,18 +49,17 @@ export default async function AudiencesPage() {
         </div>
       </Panel>
 
-      <Panel
-        title="Planned: customer-facing audiences"
-        caption="the marketing surface customers get, not the Control Plane"
-      >
-        <div className="cp-planned">
-          <b>Custom segments &amp; dynamic filters</b>
-          <p>
-            Customers get their own audience builder (country = Nigeria AND plan = Pro AND last
-            active &lt; 30 days). Internal audiences stay system-generated so operator mail can
-            never silently widen. Custom internal segments arrive with the campaign engine.
-          </p>
-        </div>
+      <Panel title="Gated capability" caption="Custom segments">
+        <Planned
+          state="gated"
+          title="Custom segments"
+          bullets={[
+            "Consent-aware filters and audience snapshots",
+            "No operator-created segments until campaign consent/suppression engine exists",
+          ]}
+        >
+          Operator broadcasts currently use defined internal/system paths with existing safeguards.
+        </Planned>
       </Panel>
     </>
   );

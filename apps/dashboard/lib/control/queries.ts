@@ -733,6 +733,7 @@ export async function recentFailures(limit = 20) {
       id: emails.id,
       subject: emails.subject,
       to: emails.to,
+      from: emails.from,
       status: emails.status,
       transport: emails.transport,
       lastError: emails.lastError,
@@ -1134,7 +1135,19 @@ export async function eventRows(opts: { type?: string; q?: string; page: number 
   const perPage = 60;
   const conditions = [];
   if (opts.type) conditions.push(eq(emailEvents.type, opts.type as "created"));
-  if (opts.q) conditions.push(ilike(emails.to, `%${opts.q}%`));
+  if (opts.q) {
+    const q = opts.q.trim();
+    const like = `%${q}%`;
+    const byId = /^em_[A-Za-z0-9_-]+$/.test(q) ? eq(emails.id, q) : undefined;
+    conditions.push(
+      or(
+        byId,
+        ilike(emails.to, like),
+        ilike(emails.subject, like),
+        ilike(emailEvents.emailId, like)
+      )
+    );
+  }
   const where = conditions.length ? and(...conditions) : undefined;
   const [total, rows, byType] = await Promise.all([
     scalar(
@@ -1147,6 +1160,7 @@ export async function eventRows(opts: { type?: string; q?: string; page: number 
     db
       .select({
         id: emailEvents.id,
+        emailId: emailEvents.emailId,
         type: emailEvents.type,
         createdAt: emailEvents.createdAt,
         data: emailEvents.data,

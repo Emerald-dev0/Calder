@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireSection } from "@/lib/control/guard";
 import { PageHeader, Panel, Planned } from "@/control/_components/ui";
 
@@ -10,21 +11,26 @@ export default async function IncidentsPage() {
       <PageHeader
         eyebrow="Observability"
         title="Incidents"
-        subtitle="Alert that pages a human → investigation → mitigation → resolution, with a timeline you can publish."
+        subtitle="Incident records are not yet backed by a durable incident system. Use live alerts and logs for current investigations."
       />
-      <Panel title="Status" caption="no incident system yet — alerts are the current surface">
+      <Panel title="Current operating surface" caption="Use real signals while incident records are gated">
+        <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: "0 0 12px", lineHeight: 1.6 }}>
+          No fabricated incident timeline is shown. Investigate active conditions through{" "}
+          <Link href="/control/observability/alerts">Alerts</Link>,{" "}
+          <Link href="/control/observability">Logs</Link>,{" "}
+          <Link href="/control/infrastructure/queues">Queues</Link>, and{" "}
+          <Link href="/control/platform/deliverability">Deliverability</Link>.
+        </p>
         <Planned
-          title="Incident command"
+          state="gated"
+          title="Incident records"
           bullets={[
-            "INC-XXXX records with severity (SEV-1..4) and status (investigating → identified → monitoring → resolved)",
-            "Timeline: alert triggered → investigation → mitigation → resolved, every entry attributed",
-            "One-click publish to the public status page",
-            "Post-incident review attached to the record",
+            "Durable incident IDs, severity, status, and attributed timeline entries",
+            "Link alerts, operators, mitigations, and post-incident review",
+            "Optional status-page publication only after records are real",
           ]}
         >
-          The escalation path today: an alert fires on the Command Center, you investigate through
-          the linked surface, and the fix lands. Formal incident records begin when there is more
-          than one operator to coordinate.
+          Incident command is deferred until records are durable, permissioned, and auditable.
         </Planned>
       </Panel>
     </>

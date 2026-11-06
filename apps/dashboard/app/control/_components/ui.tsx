@@ -208,17 +208,24 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
   );
 }
 
+/** Honest gate for capabilities that are specified but not operational in this deployment. */
 export function Planned({
   title,
   children,
   bullets,
+  state = "planned",
 }: {
   title: string;
   children: ReactNode;
   bullets?: string[];
+  state?: "planned" | "gated" | "disabled";
 }) {
+  const label = state === "gated" ? "Gated" : state === "disabled" ? "Disabled" : "Not enabled";
   return (
-    <div className="cp-planned">
+    <div className="cp-planned" data-state={state}>
+      <p className="cp-eyebrow" style={{ margin: "0 0 6px" }}>
+        {label}
+      </p>
       <b>{title}</b>
       <p>{children}</p>
       {bullets?.length ? (

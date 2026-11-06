@@ -84,17 +84,16 @@ export default async function ReferralsPage() {
         )}
       </Panel>
 
-      <Panel title="Planned: rewards" caption="designed, not built">
+      <Panel title="Referral data" caption="Live invite graph">
         <BarList
           items={[
-            { label: "Invite tracking", count: top.length, dim: true },
-            { label: "Reward tiers", count: 0, dim: true },
-            { label: "Automatic invites on milestone", count: 0, dim: true },
+            { label: "Referrers on leaderboard", count: top.length, dim: true },
+            { label: "Total referred signups", count: overview.referred, dim: true },
           ]}
         />
         <p className="cp-panel-caption" style={{ marginTop: 10 }}>
-          Rewards (skip-the-line, extra seats) are specified but deliberately unbuilt until the
-          waitlist proves the referral loop is working organically.
+          Referral relationships are derived from live waitlist data. Reward automation is not exposed
+          until implemented and audited.
         </p>
       </Panel>
     </>

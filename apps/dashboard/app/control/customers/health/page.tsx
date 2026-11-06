@@ -140,18 +140,14 @@ export default async function CustomerHealthPage() {
       </div>
 
       <Panel
-        title="Planned: health scoring"
-        caption="specified, built with usage metering maturity"
+        title="Current health signals"
+        caption="Derived from live delivery and account state; composite scoring is gated"
       >
-        <div className="cp-planned">
-          <b>Composite health score (0–100)</b>
-          <p>
-            Usage trend, delivery outcome, billing state, and error rates composed into a single
-            score per customer, with limit-approach and stoppage cohorts derived from the same live
-            components. Requires sustained usage metering history (Phase 2); the components above
-            are its seeds and remain the honest view until then.
-          </p>
-        </div>
+        <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: 0, lineHeight: 1.6 }}>
+          Use sender delivery outcomes, account status, usage, and queue/provider health for
+          operational decisions. A composite score is not shown until backed by reliable historical
+          metering and validation.
+        </p>
       </Panel>
     </>
   );

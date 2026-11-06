@@ -8,17 +8,15 @@ export default async function InvoicesPage() {
   await requireSection("billing");
   return (
     <>
-      <BillingSoon where="This invoice list" />
+      <BillingSoon where="This page" />
       <PageHeader
         eyebrow="Billing"
         title="Invoices"
-        subtitle="Payment documents issued through the billing provider, mirrored here for support and finance."
+        subtitle="Invoices are not available because live payment collection is not enabled. No placeholder invoice records are shown."
       />
-      <Panel title="Invoices" caption="provider-issued records" flush>
-        <Empty title="No invoices yet">
-          Calder&rsquo;s billing runs on local rails via the payment provider abstraction (Bachs
-          first). Invoices appear here once the integration issues the first real document — this
-          page will never fabricate one.
+      <Panel title="Invoices" caption="Provider-issued records only" flush>
+        <Empty title="No invoice source connected">
+          Connect and enable a billing provider before exposing invoice history to operators.
         </Empty>
       </Panel>
     </>

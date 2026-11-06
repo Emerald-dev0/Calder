@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { fmtInt } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
 import { queueDerived, workerThroughput } from "@/lib/control/queries";
@@ -17,43 +18,47 @@ export default async function WorkersPage() {
       <PageHeader
         eyebrow="Infrastructure"
         title="Workers"
-        subtitle="The drain on the queue: send execution, retries, webhook delivery, cron. Throughput and failure accounting first; heartbeats land with the observability pipeline."
+        subtitle="Throughput and queue backlog derived from durable email state. Per-process fleet metrics are gated until emitted and stored."
       />
 
       <div className="cp-stats">
         <Stat label="Processed (24h)" value={fmtInt(sent24h)} hint="sent + delivered" />
         <Stat label="Throughput" value={`${fmtInt(avgPerHour)}/h`} hint="average per active hour" />
-        <Stat label="Waiting" value={fmtInt(queue.inFlight)} hint="queue depth" />
+        <Stat label="Waiting" value={fmtInt(queue.inFlight)} hint="queue-derived backlog" />
         <Stat
           label="Failures (24h)"
           value={fmtInt(queue.failedRecent)}
           invertDelta
-          hint="needs a look if rising"
+          hint="inspect in Deliverability/Logs"
         />
       </div>
 
-      <Panel title="Processing rate" caption="messages moved to sent/delivered per hour · last 24h">
+      <Panel title="Processing rate" caption="Messages moved to sent/delivered per hour (24h)">
         <BarsChart
           data={throughput.map((t) => ({ label: t.hour, value: t.sent }))}
           caption="messages processed / hour"
         />
       </Panel>
 
-      <Panel
-        title="Planned: fleet instrumentation"
-        caption="per-worker CPU, memory, restarts, uptime"
-      >
+      <Panel title="Operational links" caption="Use real signals for incidents">
+        <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: 0, lineHeight: 1.6 }}>
+          Check <Link href="/control/infrastructure/queues">Queues</Link>,{" "}
+          <Link href="/control/platform/deliverability">Deliverability</Link>, and{" "}
+          <Link href="/control/observability/alerts">Alerts</Link> for worker/queue symptoms.
+        </p>
+      </Panel>
+
+      <Panel title="Gated capability" caption="Per-worker process telemetry not stored">
         <Planned
-          title="Worker fleet panel"
+          state="gated"
+          title="Worker fleet instrumentation"
           bullets={[
-            "Per-worker heartbeat with uptime and last job",
-            "CPU / memory per worker process",
-            "Jobs processed vs failed per worker",
-            "Concurrency and restart counters",
+            "Per-worker heartbeat, uptime, and last job",
+            "CPU/memory and restart counters",
+            "Per-worker processed/failed attribution",
           ]}
         >
-          Workers are separate deployables (apps/worker) with structured logs already; the fleet
-          panel lands with runtime metrics emission.
+          Worker fleet details remain gated until runtime metrics are emitted and queryable.
         </Planned>
       </Panel>
     </>
