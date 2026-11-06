@@ -281,7 +281,6 @@ export default async function GrowthOverviewPage({
         customFrom={query.from}
         customTo={query.to}
       />
-      <main className="cp-content">
         <PageHeader
           eyebrow="Growth"
           title="How Calder is growing"
@@ -635,7 +634,6 @@ export default async function GrowthOverviewPage({
           Comparisons are {window.compareLabel.replace("vs ", "")}. Dashes mean the metric does not
           exist yet — never a fabricated value.
         </p>
-      </main>
     </>
   );
 }
