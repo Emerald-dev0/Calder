@@ -43,9 +43,9 @@ export default async function LogsPage({
             className="cp-input"
             type="search"
             name="q"
-            placeholder="Filter by recipient…"
+            placeholder="Recipient, subject, or email ID (em_…)"
             defaultValue={query.q ?? ""}
-            style={{ minWidth: 220 }}
+            style={{ minWidth: 280 }}
           />
           <select
             className="cp-select"
@@ -78,6 +78,7 @@ export default async function LogsPage({
               <thead>
                 <tr>
                   <th>Event</th>
+                  <th>Email</th>
                   <th>To</th>
                   <th>Subject</th>
                   <th>Project</th>
@@ -95,10 +96,13 @@ export default async function LogsPage({
                         </span>
                       </span>
                     </td>
+                    <td className="mono" style={{ fontSize: 12 }}>
+                      {e.emailId}
+                    </td>
                     <td className="mono" style={{ fontSize: 12.5 }}>
                       {e.to}
                     </td>
-                    <td className="wrap" style={{ whiteSpace: "normal", maxWidth: 300 }}>
+                    <td className="wrap" style={{ whiteSpace: "normal", maxWidth: 280 }}>
                       {e.subject}
                     </td>
                     <td style={{ color: "var(--cp-muted)" }}>{e.projectName}</td>

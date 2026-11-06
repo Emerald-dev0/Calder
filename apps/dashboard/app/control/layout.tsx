@@ -49,24 +49,17 @@ const NAV: Array<{
       { label: "Company email", href: "/control/communications/company" },
       { label: "Audiences", href: "/control/communications/audiences" },
       { label: "Templates", href: "/control/communications/templates" },
-      { label: "Delivery", href: "/control/communications/delivery" },
-      { label: "Campaigns", href: "/control/communications/campaigns" },
-      { label: "Automations", href: "/control/communications/automations" },
+      { label: "Internal delivery", href: "/control/communications/delivery" },
     ],
   },
   {
     section: "billing",
     heading: "Billing",
     items: [
-      // Badge only on the section entry: seven "soon" chips would read as a
-      // different feature per screen, and they are one feature.
-      { label: "Overview", href: "/control/billing", badge: "Soon" },
+      { label: "Overview", href: "/control/billing" },
       { label: "Subscriptions", href: "/control/billing/subscriptions" },
       { label: "Plans", href: "/control/billing/plans" },
-      { label: "Coupons", href: "/control/billing/coupons" },
-      { label: "Credits", href: "/control/billing/credits" },
-      { label: "Invoices", href: "/control/billing/invoices" },
-      { label: "Entitlements", href: "/control/billing/entitlements" },
+      { label: "Usage records", href: "/control/platform/usage" },
     ],
   },
   {
@@ -119,9 +112,9 @@ const NAV: Array<{
     section: "operations",
     heading: "Operations",
     items: [
-      { label: "Feature Flags", href: "/control/operations" },
+      { label: "Capabilities", href: "/control/operations" },
       { label: "Maintenance", href: "/control/operations/maintenance" },
-      { label: "Status Page", href: "/control/operations/status-page" },
+      { label: "Status page", href: "/control/operations/status-page" },
     ],
   },
   {

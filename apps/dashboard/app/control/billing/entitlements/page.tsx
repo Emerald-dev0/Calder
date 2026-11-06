@@ -8,44 +8,24 @@ export default async function EntitlementsPage() {
   await requireSection("billing");
   return (
     <>
-      <BillingSoon where="This entitlement table" />
+      <BillingSoon where="This page" />
       <PageHeader
         eyebrow="Billing"
         title="Entitlements"
-        subtitle="Base plan × overrides = effective entitlements. Custom deals without custom plans."
+        subtitle="Plan entitlements are enforced through existing plan/subscription configuration. Custom overrides are not exposed until they are durable and audited."
       />
-      <Panel title="Model" caption="how the system works once metering matures">
-        <pre
-          className="mono"
-          style={{
-            background: "var(--cp-bg)",
-            border: "1px solid var(--cp-border)",
-            borderRadius: 10,
-            padding: "16px 18px",
-            fontSize: 12.5,
-            overflowX: "auto",
-            margin: "0 0 14px",
-          }}
-        >
-          {`Customer: Acme
-  Plan (base):    Pro
-    50,000 emails · 10 projects · 10 domains
-  Override:       +100,000 emails, +5 projects
-  ─────────────────────────────────────────
-  Effective:     150,000 emails · 15 projects · 10 domains`}
-        </pre>
+      <Panel title="Status" caption="Gated capability">
         <Planned
-          title="Override engine"
+          state="gated"
+          title="Entitlement overrides"
           bullets={[
-            "Per-organization additive overrides (+quota, +projects, +domains, +members)",
-            "Temporary promotions: grant Premium for 60 days → return to Beginner (beta testers, partners, hackathon winners)",
-            "Every override carries a reason and lands in the audit log",
-            "Enforced at the same dimension the usage meter checks",
+            "Base plan plus explicit per-organization overrides with reason",
+            "Audit record for every grant, expiry, and removal",
+            "Meter/quota enforcement uses the same authoritative source",
           ]}
         >
-          Overrides are the difference between pricing you can defend and pricing that bends
-          silently. The system is specified so custom deals never require inventing a new plan tier
-          at 11pm.
+          Temporary plan grants can be handled from the organization page with an audit reason.
+          Ad hoc entitlement overrides remain gated.
         </Planned>
       </Panel>
     </>

@@ -1,9 +1,10 @@
 import { desc, eq, inArray } from "drizzle-orm";
 import { organizationMembers, organizations, projectTransports, projects, users } from "@calder/db";
 import { getDb } from "@calder/db";
+import Link from "next/link";
 import { fmtAgo } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
-import { Badge, Dot, Empty, PageHeader, Panel, Planned } from "@/control/_components/ui";
+import { Dot, Empty, PageHeader, Panel, Planned } from "@/control/_components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -37,12 +38,12 @@ export default async function RestrictionsPage() {
       <PageHeader
         eyebrow="Security"
         title="Restrictions"
-        subtitle="Everything currently failing closed, and the ladder of controls available when something looks wrong."
+        subtitle="Active transport restrictions from durable state. Broader enforcement controls are gated until wired to real, audited actions."
       />
 
       <Panel
         title="Active restrictions"
-        caption="suspended or revoked transports — send through them fails closed"
+        caption="Suspended/revoked transports fail closed"
         flush
       >
         {restricted.length === 0 ? (
@@ -73,7 +74,11 @@ export default async function RestrictionsPage() {
                       {r.transport.type} · {r.transport.label}
                     </td>
                     <td>{r.project.name}</td>
-                    <td>{r.organization.name}</td>
+                    <td>
+                      <Link href={`/control/customers/organizations/${r.organization.id}`}>
+                        {r.organization.name}
+                      </Link>
+                    </td>
                     <td className="mono" style={{ fontSize: 12.5, color: "var(--cp-muted)" }}>
                       {ownerByOrg.get(r.organization.id) ?? "—"}
                     </td>
@@ -88,21 +93,18 @@ export default async function RestrictionsPage() {
         )}
       </Panel>
 
-      <Panel title="Planned: enforcement actions" caption="the controls, wired to audit">
+      <Panel title="Gated capability" caption="Operator enforcement UI">
         <Planned
+          state="gated"
           title="Restriction controls"
           bullets={[
-            "Warn (recorded, visible to the operator only)",
-            "Rate limit a project to a fixed ceiling",
-            "Require re-verification before further sends",
-            "Pause sending per project or organization",
-            "Suspend / restore with mandatory reason — all audit-logged with before/after",
+            "Per-project/org rate limits and pause actions with mandatory reason",
+            "Server-enforced permissions and audit log for every change",
+            "Clear before/after state and rollback/restore path",
           ]}
         >
-          Transport suspension and restoration already exist as states (the worker fails closed on
-          non-active transports); the operator UI to set them lands with the restrictions system so
-          no one edits state by hand.{" "}
-          <Badge tone="warn">Enforcement is code-level before it is UI-level.</Badge>
+          Gmail suspended transports can be reactivated from the Abuse page where authorized. Broader
+          restriction controls remain gated until fully implemented.
         </Planned>
       </Panel>
     </>

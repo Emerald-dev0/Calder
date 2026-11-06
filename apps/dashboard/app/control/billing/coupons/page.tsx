@@ -8,27 +8,24 @@ export default async function CouponsPage() {
   await requireSection("billing");
   return (
     <>
-      <BillingSoon where="This coupon list" />
+      <BillingSoon where="This page" />
       <PageHeader
         eyebrow="Billing"
         title="Coupons"
-        subtitle="Launch discounts, partner codes, and free periods — created, tracked, and audited."
+        subtitle="Coupon and discount operations are not enabled until the billing provider integration is production-ready and audited."
       />
-      <Panel title="Status" caption="designed; lands with the billing provider integration">
+      <Panel title="Status" caption="Gated capability">
         <Planned
+          state="gated"
           title="Coupon engine"
           bullets={[
-            "Percentage off (LAUNCH50: 50% off Pro, 3 months, 500 redemptions)",
-            "100% free periods (EARLYCALDER: Pro, 90 days)",
-            "Fixed amount off (₦5,000 off)",
-            "Per-coupon tracking: redemptions, conversions, revenue generated",
-            "Founder-only creation, every application audit-logged",
+            "Provider-backed coupon creation, redemption, and reconciliation",
+            "Founder-only controls with audit records for every change",
+            "Clear separation between list price, discount, and collected amount",
           ]}
         >
-          Coupons need a billing provider to discount against — the schema lands with the Bachs
-          integration so codes are real from day one rather than promises in a table. Until then,
-          custom deals are expressed through plan grants (temporary upgrades with an explicit return
-          date).
+          This page is intentionally not an active coupon manager. Exposing a fake coupon workflow
+          would create billing and support risk.
         </Planned>
       </Panel>
     </>
