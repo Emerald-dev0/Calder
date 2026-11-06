@@ -20,13 +20,20 @@ const SENDABLE = [
   { id: "updates.product_update", label: "Product update (changelog)" },
 ] as const;
 
-function fmtDate(value: Date | null): string {
-  if (!value) return "never";
+function toDate(value: Date | string | number | null | undefined): Date | null {
+  if (value == null) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function fmtDate(value: Date | string | number | null | undefined): string {
+  const d = toDate(value);
+  if (!d) return "never";
   return new Intl.DateTimeFormat("en-GB", {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: "UTC",
-  }).format(value);
+  }).format(d);
 }
 
 export default async function CompanyEmailPage({
@@ -57,7 +64,7 @@ export default async function CompanyEmailPage({
   const lastSent = await db
     .select({
       template: companyEmails.template,
-      at: sql<Date>`max(${companyEmails.createdAt})`,
+      at: sql<Date | string>`max(${companyEmails.createdAt})`,
       sent: sql<number>`count(*) filter (where ${companyEmails.status} = 'sent')`,
     })
     .from(companyEmails)

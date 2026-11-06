@@ -1493,7 +1493,7 @@ export async function systemAudiences(): Promise<AudienceCount[]> {
                 select 1 from ${sessions}
                 where ${sessions.userId} = ${users.id}
                   and ${sessions.lastSeenAt} is not null
-                  and ${sessions.lastSeenAt} >= ${d30}
+                  and ${sessions.lastSeenAt} >= ${d30.toISOString()}::timestamptz
               )`
         )
     ),
