@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 import { fmtDelta, fmtInt } from "@/lib/control/format";
 import { Sparkline } from "./charts";
 
-/* Shared Control Plane primitives — server-safe, zero client JS. */
+/* Control Plane primitives mapped onto the dashboard design system
+   (`ds-*`/shell classes) for a unified look. Server-safe, zero client JS. */
 
 export function PageHeader({
   eyebrow,
@@ -17,17 +18,29 @@ export function PageHeader({
   right?: ReactNode;
 }) {
   return (
-    <header className="cp-head cp-head-row">
-      <div style={{ minWidth: 0 }}>
-        <p className="cp-eyebrow">{eyebrow}</p>
-        <h1 className="cp-title">{title}</h1>
-        {subtitle ? <p className="cp-subtitle">{subtitle}</p> : null}
-      </div>
-      {right ? (
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          {right}
+    <header className="ds-page-header cp-page-header">
+      <div className="ds-page-header-left">
+        <div style={{ minWidth: 0 }}>
+          <div
+            className="mono"
+            style={{
+              fontSize: 10.5,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--color-muted)",
+              marginBottom: 6,
+            }}
+          >
+            {eyebrow}
+          </div>
+          <div className="ds-page-title-row">
+            <h1 className="ds-page-title">{title}</h1>
+          </div>
+          {subtitle ? <p className="ds-page-desc">{subtitle}</p> : null}
         </div>
-      ) : null}
+      </div>
+      {right ? <div className="ds-page-actions">{right}</div> : null}
     </header>
   );
 }
@@ -46,19 +59,17 @@ export function Panel({
   children: ReactNode;
 }) {
   return (
-    <section className="cp-panel">
+    <section className="ds-card cp-panel">
       {title ? (
-        <div className="cp-panel-head">
+        <div className="ds-card-header">
           <div>
-            <h2 className="cp-panel-title">{title}</h2>
-            {caption ? <p className="cp-panel-caption">{caption}</p> : null}
+            <h2 className="ds-card-title">{title}</h2>
+            {caption ? <p className="ds-card-subtitle">{caption}</p> : null}
           </div>
           {action ? <div style={{ flexShrink: 0 }}>{action}</div> : null}
         </div>
       ) : null}
-      <div className={["cp-panel-body", flush && "cp-flush"].filter(Boolean).join(" ")}>
-        {children}
-      </div>
+      <div className={flush ? "" : "ds-card-body"}>{children}</div>
     </section>
   );
 }
@@ -77,42 +88,70 @@ export function Stat({
   delta?: number | null;
   hint?: string;
   invertDelta?: boolean;
-  /** Explicit comparison basis rendered with the delta (REQ-091). */
   basis?: string;
-  /** Optional server-rendered sparkline (micro-trend, REQ-032). */
   spark?: number[];
 }) {
   const good = delta === null || delta === undefined ? null : invertDelta ? delta <= 0 : delta >= 0;
   return (
-    <div className="cp-stat">
-      <p className="cp-stat-label">{label}</p>
-      <p className="cp-stat-value">{value}</p>
+    <div className="ds-stat-card cp-stat">
+      <div className="ds-stat-top">
+        <span className="ds-stat-label">{label}</span>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          gap: 8,
+        }}
+      >
+        <p className="ds-stat-value">{value}</p>
+      </div>
       {spark && spark.length > 1 ? <Sparkline data={spark} width={130} height={26} /> : null}
       {delta !== null && delta !== undefined ? (
-        <p className="cp-stat-foot">
-          <span className={good ? "cp-delta-up" : "cp-delta-down"}>{fmtDelta(delta)}</span>
-          {basis ? <span>{basis}</span> : hint ? <span>{hint}</span> : null}
-        </p>
+        <div className="ds-stat-sub">
+          <span
+            className="mono tabular-nums"
+            style={{
+              fontWeight: 600,
+              color: good ? "var(--color-success)" : "var(--color-warning)",
+            }}
+          >
+            {fmtDelta(delta)}
+          </span>
+          {basis || hint ? <span>{basis ?? hint}</span> : null}
+        </div>
       ) : hint ? (
-        <p className="cp-stat-foot">{hint}</p>
+        <div className="ds-stat-sub">{hint}</div>
       ) : null}
     </div>
   );
 }
 
-/** Open-canvas section label (not a panel head). */
 export function SectionLabel({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
     <div
+      className="cp-section-label"
       style={{
         display: "flex",
         alignItems: "baseline",
         justifyContent: "space-between",
         gap: 12,
-        margin: "26px 0 10px",
+        margin: "24px 0 10px",
+        flexWrap: "wrap",
       }}
     >
-      <p className="cp-eyebrow" style={{ margin: 0 }}>
+      <p
+        className="mono"
+        style={{
+          margin: 0,
+          fontSize: 10.5,
+          fontWeight: 700,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: "var(--color-muted)",
+        }}
+      >
         {children}
       </p>
       {right ? <div style={{ display: "flex", gap: 8, alignItems: "center" }}>{right}</div> : null}
@@ -120,13 +159,21 @@ export function SectionLabel({ children, right }: { children: ReactNode; right?:
   );
 }
 
-/** Data-backed observation rows ("Worth knowing") — never motivational. */
 export function InsightList({ items }: { items: string[] }) {
   if (items.length === 0) return null;
   return (
     <div>
       {items.map((t, i) => (
-        <p className="cp-insight" key={i}>
+        <p
+          key={i}
+          style={{
+            margin: 0,
+            padding: "10px 16px",
+            borderBottom: i === items.length - 1 ? "none" : "1px solid var(--color-border)",
+            fontSize: 13,
+            color: "var(--color-muted)",
+          }}
+        >
           {t}
         </p>
       ))}
@@ -134,17 +181,16 @@ export function InsightList({ items }: { items: string[] }) {
   );
 }
 
-/** Skeleton primitives matching final layout (REQ-092). */
 export function SkeletonStat({ count = 4 }: { count?: number }) {
   return (
     <div className="cp-stats">
       {Array.from({ length: count }).map((_, i) => (
-        <div className="cp-skel-stat" key={i}>
+        <div className="ds-stat-card" key={i}>
           <span
-            className="cp-sk"
-            style={{ width: 64, height: 9, display: "block", marginBottom: 10 }}
+            className="ds-skeleton"
+            style={{ width: 64, height: 10, display: "block", marginBottom: 12 }}
           />
-          <span className="cp-sk" style={{ width: 96, height: 22, display: "block" }} />
+          <span className="ds-skeleton" style={{ width: 96, height: 24, display: "block" }} />
         </div>
       ))}
     </div>
@@ -152,11 +198,33 @@ export function SkeletonStat({ count = 4 }: { count?: number }) {
 }
 
 export function SkeletonBlock({ height = 190 }: { height?: number }) {
-  return <span className="cp-sk" style={{ width: "100%", height, display: "block" }} />;
+  return <span className="ds-skeleton" style={{ width: "100%", height, display: "block" }} />;
 }
 
 export function Dot({ tone }: { tone: "ok" | "warn" | "bad" | "info" | "idle" }) {
-  return <span className={`cp-dot ${tone}`} aria-hidden />;
+  const color =
+    tone === "ok"
+      ? "var(--color-success)"
+      : tone === "warn"
+        ? "var(--color-warning)"
+        : tone === "bad"
+          ? "var(--color-danger)"
+          : tone === "info"
+            ? "var(--color-accent)"
+            : "var(--color-subtle)";
+  return (
+    <span
+      aria-hidden
+      style={{
+        width: 7,
+        height: 7,
+        borderRadius: 999,
+        display: "inline-block",
+        flexShrink: 0,
+        background: color,
+      }}
+    />
+  );
 }
 
 export function Badge({
@@ -166,13 +234,21 @@ export function Badge({
   tone?: "ok" | "warn" | "bad" | "accent" | "info";
   children: ReactNode;
 }) {
-  return (
-    <span className={`cp-badge ${tone === "info" ? "accent" : (tone ?? "")}`}>{children}</span>
-  );
+  const cls =
+    tone === "ok"
+      ? "ds-pill-success"
+      : tone === "warn"
+        ? "ds-pill-warning"
+        : tone === "bad"
+          ? "ds-pill-danger"
+          : tone === "accent" || tone === "info"
+            ? "ds-pill-info"
+            : "";
+  return <span className={`ds-pill ${cls}`.trim()}>{children}</span>;
 }
 
 export function Tag({ children }: { children: ReactNode }) {
-  return <span className="cp-tag">{children}</span>;
+  return <span className="ds-pill">{children}</span>;
 }
 
 export function KV({
@@ -187,28 +263,42 @@ export function KV({
   hint?: ReactNode;
 }) {
   return (
-    <div className="cp-kv">
-      <span className="k">
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 16,
+        padding: "9px 0",
+        borderBottom: "1px solid var(--color-border)",
+        fontSize: 13,
+      }}
+    >
+      <span style={{ color: "var(--color-muted)", fontSize: 12, fontWeight: 500 }}>
         {k}
-        {hint ? (
-          <span style={{ color: "var(--cp-faint)", marginLeft: 6, fontSize: 11.5 }}>{hint}</span>
-        ) : null}
+        {hint ? <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.8 }}>{hint}</span> : null}
       </span>
-      <span className={["v", mono && "mono"].filter(Boolean).join(" ")}>{v}</span>
+      <span
+        className={mono ? "mono" : ""}
+        style={{ fontWeight: 600, textAlign: "right", minWidth: 0 }}
+      >
+        {v}
+      </span>
     </div>
   );
 }
 
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <div className="cp-empty">
-      <b>{title}</b>
-      {children}
+    <div className="ds-empty">
+      <div style={{ fontWeight: 700, color: "var(--color-ink)", fontSize: 14 }}>{title}</div>
+      {children ? (
+        <div style={{ fontSize: 13, color: "var(--color-muted)", maxWidth: 520 }}>{children}</div>
+      ) : null}
     </div>
   );
 }
 
-/** Honest gate for capabilities that are specified but not operational in this deployment. */
 export function Planned({
   title,
   children,
@@ -222,19 +312,35 @@ export function Planned({
 }) {
   const label = state === "gated" ? "Gated" : state === "disabled" ? "Disabled" : "Not enabled";
   return (
-    <div className="cp-planned" data-state={state}>
-      <p className="cp-eyebrow" style={{ margin: "0 0 6px" }}>
-        {label}
-      </p>
-      <b>{title}</b>
-      <p>{children}</p>
-      {bullets?.length ? (
-        <ul>
-          {bullets.map((b) => (
-            <li key={b}>{b}</li>
-          ))}
-        </ul>
-      ) : null}
+    <div className="ds-card" style={{ borderStyle: "dashed", background: "var(--color-surface-elevated)" }}>
+      <div className="ds-card-body">
+        <div
+          className="mono"
+          style={{
+            fontSize: 10.5,
+            fontWeight: 700,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "var(--color-muted)",
+            marginBottom: 6,
+          }}
+        >
+          {label}
+        </div>
+        <div style={{ fontWeight: 700, color: "var(--color-ink)", fontSize: 14 }}>{title}</div>
+        <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--color-muted)", lineHeight: 1.55 }}>
+          {children}
+        </p>
+        {bullets?.length ? (
+          <ul style={{ margin: "10px 0 0", paddingLeft: 18, fontSize: 12.5, color: "var(--color-muted)" }}>
+            {bullets.map((b) => (
+              <li key={b} style={{ padding: "2px 0" }}>
+                {b}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -251,10 +357,20 @@ export function BarList({
   const top = max ?? Math.max(1, ...items.map((i) => i.count));
   if (items.length === 0) return <Empty title="No data yet" />;
   return (
-    <div className="cp-barlist">
+    <div style={{ padding: "8px 0" }}>
       {items.map((i) => (
-        <div className="cp-barrow" key={i.label}>
-          <span className="cp-bar-label">
+        <div
+          key={i.label}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(90px,160px) 1fr minmax(56px,auto)",
+            alignItems: "center",
+            gap: 12,
+            padding: "6px 16px",
+            fontSize: 13,
+          }}
+        >
+          <span style={{ color: "var(--color-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {i.href ? (
               <Link href={i.href} style={{ color: "inherit" }}>
                 {i.label}
@@ -263,13 +379,30 @@ export function BarList({
               i.label
             )}
           </span>
-          <span className="cp-bartrack">
+          <span
+            style={{
+              display: "block",
+              height: 6,
+              borderRadius: 999,
+              background: "var(--color-border)",
+              overflow: "hidden",
+            }}
+          >
             <span
-              className={`cp-barfill${i.dim || showOtherTone ? "dim" : ""}`}
-              style={{ width: `${Math.max(2, (i.count / top) * 100)}%` }}
+              style={{
+                display: "block",
+                height: "100%",
+                borderRadius: 999,
+                background:
+                  i.dim || showOtherTone ? "var(--color-subtle)" : "var(--color-accent)",
+                opacity: i.dim || showOtherTone ? 0.45 : 0.7,
+                width: `${Math.max(2, (i.count / top) * 100)}%`,
+              }}
             />
           </span>
-          <span className="cp-barvalue">{fmtInt(i.count)}</span>
+          <span className="mono tabular-nums" style={{ textAlign: "right", fontSize: 12.5 }}>
+            {fmtInt(i.count)}
+          </span>
         </div>
       ))}
     </div>
@@ -294,9 +427,9 @@ export function RangeTabs({
     return `${basePath}?${sp.toString()}`;
   };
   return (
-    <nav className="cp-tabs" aria-label="Time range">
+    <nav className="ds-tabs" aria-label="Time range">
       {RANGE_KEYS.map((r) => (
-        <Link key={r} className="cp-tab" data-active={current === r} href={params(r)}>
+        <Link key={r} className={`ds-tab ${current === r ? "is-active" : ""}`} href={params(r)}>
           {r === "all" ? "ALL" : r.toUpperCase()}
         </Link>
       ))}
@@ -324,13 +457,31 @@ export function Pager({
     return `${basePath}?${sp.toString()}`;
   };
   return (
-    <div className="cp-pager">
+    <div
+      style={{
+        display: "flex",
+        gap: 8,
+        alignItems: "center",
+        padding: "10px 16px",
+        fontSize: 12,
+        color: "var(--color-muted)",
+        borderTop: "1px solid var(--color-border)",
+      }}
+    >
       <span>
         {fmtInt(total)} total · page {page} / {pages}
       </span>
       <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-        {page > 1 ? <Link href={link(page - 1)}>← Prev</Link> : null}
-        {page < pages ? <Link href={link(page + 1)}>Next →</Link> : null}
+        {page > 1 ? (
+          <Link className="ds-btn ds-btn-secondary ds-btn-sm" href={link(page - 1)}>
+            ← Prev
+          </Link>
+        ) : null}
+        {page < pages ? (
+          <Link className="ds-btn ds-btn-secondary ds-btn-sm" href={link(page + 1)}>
+            Next →
+          </Link>
+        ) : null}
       </span>
     </div>
   );

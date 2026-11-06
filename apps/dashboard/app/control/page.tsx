@@ -203,30 +203,26 @@ export default async function CommandCenter({
         customFrom={query.from}
         customTo={query.to}
       />
-      <main className="cp-content">
-        <header className="cp-head">
-          <p className="cp-eyebrow">Command Center</p>
-          <h1 className="cp-title">Calder at a glance</h1>
-          <p
-            className="cp-subtitle"
-            style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}
-          >
-            Everything important happening across the platform ·{" "}
-            {issueCount === 0 ? (
-              <>
-                <Dot tone="ok" /> All systems operational
-              </>
-            ) : (
-              <Link
-                href="/control/observability/alerts"
-                style={{ color: "inherit", display: "inline-flex", alignItems: "center", gap: 6 }}
-              >
-                <Dot tone={critical > 0 ? "bad" : "warn"} /> {issueCount} issue
-                {issueCount === 1 ? "" : "s"} require attention →
-              </Link>
-            )}
-          </p>
-        </header>
+      <header className="ds-page-header cp-page-header">
+        <div className="ds-page-header-left">
+          <div style={{ minWidth: 0 }}>
+            <div className="mono" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--color-muted)", marginBottom: 6 }}>Command Center</div>
+            <div className="ds-page-title-row"><h1 className="ds-page-title">Calder at a glance</h1></div>
+            <p className="ds-page-desc" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              Everything important happening across the platform ·{" "}
+              {issueCount === 0 ? (
+                <>
+                  <Dot tone="ok" /> All systems operational
+                </>
+              ) : (
+                <Link href="/control/observability/alerts" style={{ color: "inherit", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <Dot tone={critical > 0 ? "bad" : "warn"} /> {issueCount} issue{issueCount === 1 ? "" : "s"} require attention →
+                </Link>
+              )}
+            </p>
+          </div>
+        </div>
+      </header>
 
         {alerts.length > 0 ? (
           <Panel
@@ -630,7 +626,6 @@ export default async function CommandCenter({
           Every number on this page is a live query; dashes mean the data does not exist yet, never
           a fabricated value. Comparisons are {window.compareLabel.replace("vs ", "")}.
         </p>
-      </main>
     </>
   );
 }

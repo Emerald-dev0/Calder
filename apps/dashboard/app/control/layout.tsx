@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { canAccessSection, CONTROL_ROLE_LABEL } from "@/lib/control/roles";
 import { requireControl } from "@/lib/control/guard";
-import { MobileNav, type NavGroup } from "./_components/nav";
-import { SidebarShell } from "./_components/sidebar-shell";
+import { ControlShell } from "./_components/control-shell";
+import type { NavGroup } from "./_components/nav";
 import "./control.css";
 
 /**
@@ -135,37 +135,20 @@ export const metadata = {
 
 export default async function ControlLayout({ children }: { children: ReactNode }) {
   const ctx = await requireControl();
-  const isFounder = ctx.role === "founder";
   const groups: NavGroup[] = NAV.filter(
     (g) =>
       g.section === "overview" ||
-      canAccessSection(ctx.role, g.section as Parameters<typeof canAccessSection>[1])
+      canAccessSection(ctx.role, g.section as Parameters<typeof canAccessSection>[1]),
   ).map((g) => ({ heading: g.heading, items: g.items }));
 
   return (
-    <SidebarShell
+    <ControlShell
       groups={groups}
       name={ctx.user.name ?? ctx.email}
       email={ctx.email}
       roleLabel={CONTROL_ROLE_LABEL[ctx.role]}
     >
-      <MobileNav groups={groups} />
-      <div className="cp-topbar">
-        <span className="cp-crumb">
-          Calder <span style={{ color: "var(--cp-faint)" }}>/</span> <b>Control Plane</b>
-        </span>
-        <div className="cp-topbar-right">
-          <span className="cp-pill">
-            <span
-              className={`cp-dot ${isFounder ? "ok" : "info"}`}
-              aria-hidden
-              style={{ background: isFounder ? "#d4b06a" : undefined }}
-            />
-            {CONTROL_ROLE_LABEL[ctx.role]}
-          </span>
-        </div>
-      </div>
-      <main className="cp-content">{children}</main>
-    </SidebarShell>
+      {children}
+    </ControlShell>
   );
 }
