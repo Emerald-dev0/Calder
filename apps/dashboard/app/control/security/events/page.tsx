@@ -15,12 +15,12 @@ export default async function SecurityEventsPage() {
       <PageHeader
         eyebrow="Security"
         title="Security Events"
-        subtitle="Authentication anomalies, credential abuse, and platform-level security signals."
+        subtitle="Recent audit-trail activity. Dedicated auth-abuse/credential-anomaly analytics are gated until stored as first-class security events."
       />
 
       <Panel
         title="Recent recorded activity"
-        caption="from the audit trail — the events captured today"
+        caption="Audit log rows (operator-visible, durable)"
         flush
       >
         {events.length === 0 ? (
@@ -57,22 +57,19 @@ export default async function SecurityEventsPage() {
         )}
       </Panel>
 
-      <Panel
-        title="Planned: dedicated security event pipeline"
-        caption="auth failures, key anomalies, signup abuse"
-      >
+      <Panel title="Gated capability" caption="Dedicated security event pipeline">
         <Planned
+          state="gated"
           title="Security event stream"
           bullets={[
-            "Auth failure spikes per IP / email (rate limiter already counts them)",
-            "Compromised API key signals: sudden geo + volume shifts",
-            "Aggregate signup rejection volumes and repeat-abuse patterns (no matched-domain detail shown to customers)",
-            "Alert integration with the rule book",
+            "Auth failure spikes and credential stuffing signals",
+            "API key anomaly detection with privacy-safe context",
+            "Abuse-pattern aggregation and alert integration",
           ]}
         >
-          Today the durable security signals are rate-limiter counters and the audit trail. The
-          dedicated stream (with retention separate from operational logs) is tracked in the
-          roadmap. <Link href="/control/security">Back to Abuse →</Link>
+          Use <Link href="/control/security">Abuse</Link> and{" "}
+          <Link href="/control/administration/audit-logs">Audit Logs</Link> for current durable
+          signals.
         </Planned>
       </Panel>
     </>

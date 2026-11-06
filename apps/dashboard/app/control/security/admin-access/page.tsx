@@ -2,7 +2,7 @@ import Link from "next/link";
 import { fmtAgo, fmtInt } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
 import { adminAccounts } from "@/lib/control/queries";
-import { CONTROL_ROLE_LABEL, FOUNDER_ONLY_ACTIONS } from "@/lib/control/roles";
+import { CONTROL_ROLE_LABEL } from "@/lib/control/roles";
 import { Badge, PageHeader, Panel, Stat } from "@/control/_components/ui";
 
 export const dynamic = "force-dynamic";
@@ -77,23 +77,10 @@ export default async function AdminAccessPage() {
         )}
       </Panel>
 
-      <Panel title="Boundaries" caption="what no administrator can do to the founder">
-        <ul
-          style={{
-            margin: 0,
-            paddingLeft: 18,
-            fontSize: 13.5,
-            color: "var(--cp-muted)",
-            lineHeight: 1.9,
-          }}
-        >
-          <li>Nobody can remove the founder or transfer platform ownership through the product.</li>
-          <li>Nobody can change founder credentials — founder accounts are managed out-of-band.</li>
-          <li>{FOUNDER_ONLY_ACTIONS.slice(0, 3).join("; ")} remain founder-only.</li>
-        </ul>
-        <p className="cp-panel-caption" style={{ marginTop: 10 }}>
-          Planned hardening: 2FA/passkeys for platform roles, admin session timeout,
-          re-authentication for dangerous actions, IP restrictions.
+      <Panel title="Hardening status" caption="Gated until implemented at auth boundary">
+        <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: 0, lineHeight: 1.6 }}>
+          Platform roles are enforced in code. MFA/passkeys, sensitive-action re-authentication, and
+          break-glass controls are not exposed here until implemented and audited (see SECURITY.md).
         </p>
       </Panel>
     </>

@@ -27,8 +27,8 @@ export default async function SettingsPage() {
           k="AWS / SES"
           v={
             config.AWS_ACCESS_KEY_ID
-              ? `region ${config.AWS_REGION}`
-              : "not configured (mock in dev)"
+              ? `Credentials present · region ${config.AWS_REGION}`
+              : "No AWS credentials configured (SES sends unavailable)"
           }
           mono
         />
@@ -105,18 +105,17 @@ export default async function SettingsPage() {
         />
       </Panel>
 
-      <Panel title="Planned: runtime settings" caption="mutable platform configuration with audit">
+      <Panel title="Runtime mutable settings" caption="Gated until safe">
         <Planned
+          state="gated"
           title="Settings editor"
           bullets={[
-            "Global sending limits and provider routing weights",
-            "Default Gmail daily cap",
-            "Maintenance windows and banners",
-            "Every change requires recent re-authentication and is audit-logged",
+            "Only settings with validated runtime effect and rollback path",
+            "Founder-only changes with recent re-authentication where sensitive",
+            "Audit log for every change with actor, reason, before, and after",
           ]}
         >
-          Runtime-mutable settings land with the maintenance controls — configuration that can
-          change without a deploy, safely.
+          Runtime mutation is intentionally unavailable until controls are real and auditable.
         </Planned>
       </Panel>
     </>

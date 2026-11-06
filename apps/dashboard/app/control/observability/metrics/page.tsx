@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireSection } from "@/lib/control/guard";
 import { PageHeader, Panel, Planned } from "@/control/_components/ui";
 
@@ -10,21 +11,28 @@ export default async function MetricsPage() {
       <PageHeader
         eyebrow="Observability"
         title="Metrics"
-        subtitle="Aggregated series: API latency, send/delivery/bounce/complaint rates, queue depth, worker and provider failures."
+        subtitle="A dedicated metrics store is not wired. Existing pages already expose durable delivery, queue, health, and usage signals from live data."
       />
-      <Panel title="Status" caption="metrics surfaces exist where data is durable today">
+      <Panel title="Use live metrics surfaces" caption="Current authoritative views">
+        <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: 0, lineHeight: 1.6 }}>
+          <Link href="/control/platform">Email/Platform</Link>,{" "}
+          <Link href="/control/platform/deliverability">Deliverability</Link>,{" "}
+          <Link href="/control/infrastructure/queues">Queues</Link>,{" "}
+          <Link href="/control/infrastructure">Infrastructure</Link>, and{" "}
+          <Link href="/control/platform/usage">Usage</Link> show real stored/derived values.
+        </p>
+      </Panel>
+      <Panel title="Gated capability" caption="Requires metrics aggregation backend">
         <Planned
-          title="Metrics store + panels"
+          state="gated"
+          title="Metrics aggregation"
           bullets={[
-            "Send, delivery, bounce, complaint rates (already computed live in Platform → Email)",
-            "API p50/p95/p99 per endpoint",
-            "Queue depth over time (BullMQ counters)",
-            "Provider latency percentiles",
+            "API latency percentiles and endpoint error rates",
+            "Provider latency and failure series",
+            "Time-series retention and alert integration",
           ]}
         >
-          Every metric the platform defines in ARCHITECTURE §12 is either already live on a Control
-          Plane page or listed here as the remaining aggregation work. Nothing is double-counted and
-          nothing is invented.
+          Aggregated request/provider metrics remain gated until backed by real telemetry storage.
         </Planned>
       </Panel>
     </>

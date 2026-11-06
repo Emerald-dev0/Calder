@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireSection } from "@/lib/control/guard";
-import { PageHeader, Panel, Planned } from "../../_components/ui";
+import { PageHeader, Panel } from "../../_components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -11,23 +11,16 @@ export default async function SupportPage() {
       <PageHeader
         eyebrow="Customers"
         title="Support"
-        subtitle="Every customer conversation, ticket, and resolution — connected to the account it belongs to."
+        subtitle="Use customer and organization records for investigations. A dedicated ticketing workspace is not implemented."
       />
-      <Panel title="Status" caption="the 360° view exists; the ticketing layer is next">
-        <Planned
-          title="Support workspace"
-          bullets={[
-            "Ticket timeline per user / organization, linked from their profile",
-            "Operator notes (already live on waitlist profiles) extended to accounts",
-            "Courtesy credits and resend actions, each audit-logged",
-            "Read-only view-as-customer sessions with explicit banners",
-          ]}
-        >
-          Today, support context lives where the data is: the user and organization pages carry
-          memberships, usage, billing state, and audit trails. The ticketing layer lands with the
-          first non-founder support admin.{" "}
-          <Link href="/control/customers">Open the customer directory →</Link>
-        </Planned>
+      <Panel title="Current support workflow" caption="Durable records, no fake ticket system">
+        <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: 0, lineHeight: 1.6 }}>
+          Investigate via <Link href="/control/customers">Users</Link>,{" "}
+          <Link href="/control/customers/organizations">Organizations</Link>,{" "}
+          <Link href="/control/observability">Logs</Link>, and{" "}
+          <Link href="/control/platform/deliverability">Deliverability</Link>. Administrative
+          actions must remain permissioned and audit-logged.
+        </p>
       </Panel>
     </>
   );

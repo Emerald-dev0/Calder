@@ -54,16 +54,11 @@ export default async function AcquisitionPage() {
         </Panel>
       </div>
 
-      <Panel title="Planned instrumentation" caption="tracked in the roadmap, not yet built">
-        <div className="cp-planned">
-          <b>Conversion &amp; revenue by source</b>
-          <p>
-            Once accounts convert and billing settles, this page joins acquisition source → plan →
-            revenue so you can see which channel brings paying customers, not just signups. UTM
-            capture on the public waitlist form is the prerequisite and lands with the marketing
-            surface.
-          </p>
-        </div>
+      <Panel title="Attribution limits" caption="Honest view of current data">
+        <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: 0, lineHeight: 1.6 }}>
+          Acquisition is based on signup/source data currently captured. Paid-campaign CAC/UTM
+          attribution is not shown until instrumented end-to-end with reliable source capture.
+        </p>
       </Panel>
 
       <p className="cp-caption">

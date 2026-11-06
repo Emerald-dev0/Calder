@@ -8,8 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CronPage() {
   await requireSection("infrastructure");
-  // Scheduled sends are the cron-adjacent surface today: jobs that ride
-  // delayed queue work (scheduledFor) instead of a wall-clock scheduler.
+  // Scheduled sends are the durable scheduled-work signal currently available.
   const db = getDb();
   const scheduled = await db
     .select({
@@ -27,13 +26,13 @@ export default async function CronPage() {
       <PageHeader
         eyebrow="Infrastructure"
         title="Cron"
-        subtitle="Scheduled work: scheduled sends ride delayed queue jobs today; recurring jobs (digest, retention sweeps) are idempotent by contract."
+        subtitle="Durable scheduled-send records are shown. A full recurring-job registry is gated until job runs are stored and queryable."
       />
-      <Panel title="Scheduled sends" caption="latest messages with a scheduledFor time" flush>
+      <Panel title="Scheduled sends" caption="Latest messages with scheduledFor" flush>
         {scheduled.filter((s) => s.scheduledFor).length === 0 ? (
           <div className="cp-empty">
             <b>Nothing scheduled</b>
-            Scheduled sends (hold delivery until scheduledFor) appear here.
+            Scheduled sends appear here when present.
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -67,20 +66,17 @@ export default async function CronPage() {
           </div>
         )}
       </Panel>
-      <Panel
-        title="Planned: recurring jobs view"
-        caption="every cron entry with last-run and duration"
-      >
+      <Panel title="Gated capability" caption="Recurring job observability">
         <Planned
-          title="Cron observability"
+          state="gated"
+          title="Cron/job registry"
           bullets={[
-            "Job registry: name, schedule, last run, duration, result",
-            "Missed-run detection with alerts",
-            "Idempotency proof: safe re-run on every entry",
+            "Job registry with schedule, last run, duration, and result",
+            "Missed-run detection from real execution records",
+            "Alert integration for failed or stale jobs",
           ]}
         >
-          All cron jobs are already contractually idempotent (ARCHITECTURE §6); this surface makes
-          their execution visible.
+          Recurring job visibility remains gated until execution records are durable.
         </Planned>
       </Panel>
     </>

@@ -41,7 +41,7 @@ export default async function ProvidersPage() {
           <p className="cp-stat-foot">
             {sesConfigured
               ? `region ${config.AWS_REGION}`
-              : "AWS credentials absent — mock provider in dev"}
+              : "AWS credentials absent — configure SES for production delivery"}
           </p>
         </div>
         <div className="cp-stat">
