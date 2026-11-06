@@ -2,7 +2,7 @@ import Link from "next/link";
 import { fmtAgo, fmtInt } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
 import { adminAccounts } from "@/lib/control/queries";
-import { CONTROL_ROLE_LABEL, FOUNDER_ONLY_ACTIONS } from "@/lib/control/roles";
+import { CONTROL_ROLE_LABEL } from "@/lib/control/roles";
 import { Badge, PageHeader, Panel, Stat } from "@/control/_components/ui";
 
 export const dynamic = "force-dynamic";
