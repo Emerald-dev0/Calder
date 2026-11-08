@@ -181,3 +181,30 @@ belong in the §11 audit log event set once implemented.
   **Owner:** repository security maintainer/founder. **Review expires:**
   2026-11-05. Track the major-version adapter upgrade and rerun route/protocol
   tests; this note is not a high/critical exception or evidence of zero risk.
+
+
+## 16. Source-integrity repair — 2026-11-08
+
+The source-integrity gate (`scripts/source-integrity-gate.mjs`,
+`apps/api/src/lib/source-integrity.ts`) failed on this checkout: eleven
+toolchain-executed files carried an appended obfuscated payload behind ~2,000
+spaces of padding, and the gate's own positive-control test had been truncated
+so it no longer parsed.
+
+Affected files: `apps/api/scripts/bundle-serverless.mjs`,
+`apps/api/src/scripts/launch-check.ts`, `apps/api/src/scripts/verify-deploy.ts`,
+`apps/dashboard/next.config.mjs`, `apps/web/next.config.mjs`,
+`packages/db/src/migrate-status.ts`, `packages/db/src/migrate.ts`,
+`packages/db/src/schema-drift.ts`, `packages/db/src/seed-demo.ts`,
+`packages/db/src/seed.ts`, `scripts/ensure-workspace-built.mjs`.
+
+Remediation: the appended code and the unused two-line `createRequire` preamble
+were removed, restoring each file's original body, and the truncated test was
+repaired with equivalent positive controls. Nothing in history was rewritten,
+and no credential, dependency or security control was changed. The gate now
+reports `source-integrity: clean`, and `tsc` builds the workspace again (the
+payload had also duplicated a `createRequire` declaration in `schema-drift.ts`).
+
+Operating rules unchanged: run the gate before any install or build in CI, treat
+every finding as a stop, and never let a cleanup leave a require shim behind
+(the `unusedRequireShim` structural check exists for that half-finished shape).

@@ -4,6 +4,8 @@ import { Megaphone, ArrowLeft } from "lucide-react";
 import { getTenantContext, resolveProject } from "../../../../lib/auth";
 import { DsPageHeader, DsBanner } from "../../../../components/design-system";
 import { broadcastOptions, createBroadcastAction } from "../actions";
+import { ComingSoon } from "../../../../components/coming-soon";
+import { isDashboardFeatureAvailable } from "../../../../lib/features";
 
 export const metadata = { title: "Calder — New broadcast" };
 
@@ -12,6 +14,9 @@ export default async function NewBroadcastPage({
 }: {
   searchParams: Promise<{ project?: string }>;
 }) {
+  if (!isDashboardFeatureAvailable("broadcasts")) {
+    return <ComingSoon feature="broadcasts" />;
+  }
   const query = await searchParams;
   const ctx = await getTenantContext();
   const scope = resolveProject(ctx, query.project);

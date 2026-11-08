@@ -1135,3 +1135,57 @@ temporary pause. A simulated test is never described as inbox delivery.
 ## ADR-054: Beginner daily live-send ceiling
 
 Enforce 500 accepted live emails per organization per UTC calendar day in the shared, locked admission transaction across projects, API and dashboard; the monthly limit remains independent. Test keys and the internal organization are exempt. Queued and failed emails count; retries of accepted messages do not consume additional admissions and idempotent replays are not new sends. Gmail has its additional account-level limits. Reset at UTC midnight. Paid checkout remains unverified.
+
+## ADR-055: One feature-availability registry; non-MVP products fail closed
+
+**Status:** Accepted (2026-11-08).
+
+Availability used to be decided per surface: the sidebar hardcoded a `PRO`
+badge, the Inbox page sold inbound routing that had no implementation, and
+console code and pricing-page checkmarks disagreed about marketing. That is not
+a styling problem; it is three different answers to "does this exist".
+
+Decision:
+
+1. `packages/config/src/features.ts` is the single inventory. It records, per
+   feature, `status` (`ready` | `coming_soon` | `not_supported`), `mvp` scope,
+   plan entitlement, surfaces, a customer-safe note and the blocker/owner action.
+2. These questions stay separate: existence, MVP scope, and plan entitlement.
+   `available` is only true when a feature is ready **and** entitled.
+3. The API enforces availability (`requireFeature` → `403
+   feature_not_available`) for features absent from the release. Hiding a nav
+   item is not a security control, and Next server actions are public endpoints,
+   so the dashboard calls `assertDashboardFeature` before touching data too.
+4. Marketing (broadcasts, audiences, campaigns) is implemented in this
+   repository and excluded from the MVP. Its endpoints and actions are disabled
+   by the registry; its data and code are preserved. Re-enabling is a product
+   decision, not a rewrite.
+5. Advertised-but-unenforced tier distinctions are listed in
+   `UNENFORCED_PLAN_DIFFERENCES` rather than silently implemented or silently
+   dropped. A paid checkout must not launch while that list is unresolved.
+
+**Consequences:** flipping a feature to `ready` changes the dashboard, the API
+and the docs from one edit; a half-built feature can no longer be reachable by
+URL or `curl`; and marketing cannot be sold by accident.
+
+## ADR-056: `premium` is storable; seeds resolve plans by tier
+
+**Status:** Accepted (2026-11-08). Completes the follow-up in ADR-045/PRICING §6.
+
+The catalogue, the pricing page and ADR-045 all sold a five-tier structure while
+`plan_tier` was `free | starter | pro | scale`. Premium could be advertised,
+priced, printed and reasoned about, but never written to a subscription row, so
+`resolveOrgTier` could never return `premium`.
+
+Decision: add `premium` to the enum (migration `0035_quick_harrier.sql`,
+additive, no backfill), seed all five tiers from `PLAN_LIMITS`, and make the
+seed resolve an existing plan row **by tier** before inserting prices. `tier` is
+the unique key; a row created earlier under a different id previously made the
+price insert violate its foreign key and stop the whole catalogue from seeding.
+
+No tier is assigned automatically. Premium remains a billing-phase action; this
+change only removes the impossibility. Prices are unchanged by this ADR.
+
+**Consequences:** Premium is storable and resolvable; `pnpm db:seed` is
+idempotent against a database that already contains a plan per tier; the
+catalogue and the enum can no longer disagree about which plans exist.

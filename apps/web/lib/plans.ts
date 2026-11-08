@@ -60,8 +60,14 @@ function retentionText(id: PlanId): string {
   return d === null ? "Custom" : `${d} days`;
 }
 
-/** Honest status for anything that is not simply available today. */
-export type Status = "today" | "dev";
+/**
+ * Honest status for anything that is not simply available today.
+ *
+ * `soon` is the MVP boundary: the capability is not in this release and is not
+ * usable. `dev` remains only where something is built and being finished;
+ * nothing currently qualifies, so the public site no longer uses it.
+ */
+export type Status = "today" | "soon";
 
 export interface Plan {
   id: PlanId;
@@ -80,8 +86,13 @@ export interface Plan {
   environments: string;
   logs: string;
   support: string;
-  /** Short scannable list on the card itself. */
+  /** Short scannable list on the card itself — capabilities usable today. */
   highlights: string[];
+  /**
+   * Advertised capabilities that are not implemented. Rendered separately and
+   * tagged "Coming soon"; never mixed into the available list.
+   */
+  plannedHighlights?: string[];
   cta: string;
   ctaHref: string;
   popular?: boolean;
@@ -181,12 +192,10 @@ export const PLANS: Plan[] = [
       "Advanced delivery history",
       "Suppression and unsubscribe controls",
       `${retentionText("pro")} log retention`,
-      "Queue visibility",
-      "Rate-limit controls",
       `${count(catalogue("pro").seats)} team members`,
-      "Roles and permissions",
       "Email support",
     ],
+    plannedHighlights: ["Queue visibility", "Rate-limit controls", "Roles and permissions"],
     cta: "Choose Pro",
     ctaHref: SIGNUP_URL,
     popular: true,
@@ -211,19 +220,21 @@ export const PLANS: Plan[] = [
       `${count(catalogue("premium").projects)} projects`,
       `${count(catalogue("premium").domains)} sending domains`,
       `${count(catalogue("premium").senders)} sender identities`,
+      `${retentionText("premium")} log retention`,
+      "Audit logs",
+      "Security events",
+      `${count(catalogue("premium").seats)} team members`,
+      "Priority support",
+    ],
+    plannedHighlights: [
       "Advanced deliverability monitoring",
       "Domain reputation visibility",
       "Custom rate limits",
       "Provider routing controls",
       "Custom throughput",
       "Advanced analytics",
-      `${retentionText("premium")} log retention`,
       "Advanced roles",
-      "Audit logs",
-      "Security events",
       "IP allowlisting",
-      `${count(catalogue("premium").seats)} team members`,
-      "Priority support",
     ],
     cta: "Choose Premium",
     ctaHref: SIGNUP_URL,
@@ -244,20 +255,22 @@ export const PLANS: Plan[] = [
     logs: retentionText("scale"),
     support: "Dedicated",
     highlights: [
-      "Custom sending volume",
+      "Custom sending volume, by contract",
+      "Custom retention, by contract",
+      "Architecture review",
+      "Migration assistance",
+      "Dedicated support",
+    ],
+    plannedHighlights: [
       "Dedicated infrastructure",
       "Dedicated IPs",
       "IP warmup",
       "Custom throughput",
       "Provider redundancy",
       "Advanced routing",
-      "Custom retention",
       "SSO / SAML",
       "Advanced security controls",
       "SLA",
-      "Architecture review",
-      "Migration assistance",
-      "Dedicated support",
       "Custom contracts and billing",
     ],
     cta: "Talk to Calder",
@@ -323,9 +336,15 @@ export const COMPARISON: ComparisonGroup[] = [
       },
       {
         label: "Marketing email",
-        values: [YES, YES, YES, YES, YES],
-        status: "dev",
-        note: "Newsletters, announcements, launches, promotions, lifecycle. Ships to every plan, no separate price.",
+        values: [
+          "Coming soon",
+          "Coming soon",
+          "Coming soon",
+          "Coming soon",
+          "Coming soon",
+        ],
+        status: "soon",
+        note: "Broadcasts, audiences and campaigns exist in the codebase but are not part of this release. The API is disabled and the dashboard shows Coming Soon.",
       },
       { label: "Projects", values: projectsRow() },
       { label: "Sending domains", values: domainsRow() },
@@ -350,15 +369,22 @@ export const COMPARISON: ComparisonGroup[] = [
         note: "/v1, with a live OpenAPI document at api.calder.click/v1/openapi.json.",
       },
       { label: "Test and live API keys", values: [YES, YES, YES, YES, YES] },
-      { label: "Scoped API keys", values: [NO, YES, YES, YES, YES] },
+      {
+        label: "Scoped API keys",
+        values: [YES, YES, YES, YES, YES],
+        note: "Available on every plan today. Tiering it is a planned commercial decision, not an enforced entitlement.",
+      },
       { label: "Idempotency keys", values: [YES, YES, YES, YES, YES] },
       { label: "Signed webhooks with retries", values: [YES, YES, YES, YES, YES] },
-      { label: "Webhook replay and delivery history", values: [NO, YES, YES, YES, YES] },
+      {
+        label: "Webhook replay and delivery history",
+        values: [YES, YES, YES, YES, YES],
+        note: "Available on every plan today; the intended Starter+ tiering is not enforced yet.",
+      },
       {
         label: "SDKs and CLI",
-        values: [YES, YES, YES, YES, YES],
-        status: "dev",
-        note: "The API is stable now; official packages follow the delivery core.",
+        values: ["Node, Python", "Node, Python", "Node, Python", "Node, Python", "Node, Python"],
+        note: "Node and Python SDK source is tested in this repository but not published to a package registry. Ruby/PHP are unverified; there is no CLI.",
       },
     ],
   },
@@ -368,17 +394,37 @@ export const COMPARISON: ComparisonGroup[] = [
     rows: [
       { label: "Automatic retries with backoff", values: [YES, YES, YES, YES, YES] },
       { label: "Suppression and bounce handling", values: [YES, YES, YES, YES, YES] },
-      { label: "Queue visibility", values: [NO, YES, YES, YES, YES] },
-      { label: "Rate-limit controls", values: [NO, YES, YES, YES, YES] },
-      { label: "Custom throughput", values: [NO, NO, YES, YES, YES] },
+      {
+        label: "Queue visibility",
+        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
+        status: "soon",
+      },
+      {
+        label: "Rate-limit controls",
+        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
+        status: "soon",
+      },
+      {
+        label: "Custom throughput",
+        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
+        status: "soon",
+      },
       {
         label: "Provider routing and fallback",
-        values: [NO, NO, YES, YES, YES],
-        status: "dev",
-        note: "SES is the delivery provider today; additional providers sit behind the same interface.",
+        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
+        status: "soon",
+        note: "SES is the only delivery provider today.",
       },
-      { label: "Dedicated IPs and warmup", values: [NO, NO, NO, YES, YES] },
-      { label: "SLA", values: [NO, NO, NO, YES, YES] },
+      {
+        label: "Dedicated IPs and warmup",
+        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
+        status: "soon",
+      },
+      {
+        label: "SLA",
+        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
+        status: "soon",
+      },
     ],
   },
   {
@@ -386,6 +432,7 @@ export const COMPARISON: ComparisonGroup[] = [
     rows: [
       {
         label: "Log retention",
+        note: "Retention is recorded per plan but is not enforced by an automated purge yet.",
         values: [
           retentionText("beginner"),
           retentionText("starter"),
@@ -398,26 +445,50 @@ export const COMPARISON: ComparisonGroup[] = [
       { label: "Basic analytics", values: [YES, YES, YES, YES, YES] },
       {
         label: "Advanced analytics: trends, failure analysis",
-        values: [NO, YES, YES, YES, YES],
-        status: "dev",
+        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
+        status: "soon",
+        note: "Basic usage analytics is live on every plan. Advanced analytics has no implementation.",
       },
       {
         label: "Deliverability monitoring, domain reputation",
-        values: [NO, NO, YES, YES, YES],
-        status: "dev",
+        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
+        status: "soon",
       },
-      { label: "Custom dashboards and alerts", values: [NO, NO, YES, YES, YES], status: "dev" },
+      {
+        label: "Custom dashboards and alerts",
+        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
+        status: "soon",
+      },
     ],
   },
   {
     group: "Team, security and support",
     rows: [
       { label: "Team members", values: seatsRow() },
-      { label: "Roles and permissions", values: [NO, "Basic", "Advanced", "Custom", "Custom"] },
-      { label: "Organization activity", values: [NO, YES, YES, YES, YES], status: "dev" },
-      { label: "Audit logs and security events", values: [NO, NO, YES, YES, YES], status: "dev" },
-      { label: "IP allowlisting", values: [NO, NO, YES, YES, YES], status: "dev" },
-      { label: "SSO / SAML", values: [NO, NO, NO, YES, YES], status: "dev" },
+      {
+        label: "Roles and permissions",
+        values: ["Owner, admin, member", "Owner, admin, member", "Owner, admin, member", "Owner, admin, member", "Owner, admin, member"],
+        note: "Three fixed roles today; per-plan role sets are not implemented.",
+      },
+      {
+        label: "Organization activity",
+        values: ["Audit log", "Audit log", "Audit log", "Audit log", "Audit log"],
+      },
+      {
+        label: "Audit logs and security events",
+        values: [YES, YES, YES, YES, YES],
+        note: "Available on every plan today; the intended Pro+ tiering is not enforced.",
+      },
+      {
+        label: "IP allowlisting",
+        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
+        status: "soon",
+      },
+      {
+        label: "SSO / SAML",
+        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
+        status: "soon",
+      },
       { label: "Support", values: ["Community", "Email", "Priority", "Dedicated", "Dedicated"] },
     ],
   },
@@ -430,18 +501,37 @@ export const COMPARISON: ComparisonGroup[] = [
  * mail. See PRD §18.
  */
 export const MARKETING_ALLOWANCES: ComparisonRow[] = [
-  // Draft figures, deliberately NOT sourced from the plan catalogue: the
-  // contacts allowance is unapproved and must not gain authority by moving.
-  { label: "Contacts", values: ["1,000", "10,000", "50,000", "Custom", "Custom"] },
-  { label: "Campaigns", values: [YES, YES, YES, YES, YES] },
-  { label: "Audiences", values: [YES, YES, YES, YES, YES] },
-  { label: "Segments", values: ["Basic", YES, "Advanced", "Custom", "Custom"] },
-  { label: "Automations", values: ["Basic", YES, "Advanced", "Custom", "Custom"] },
-  { label: "Marketing analytics", values: ["Basic", "Advanced", "Advanced", "Custom", "Custom"] },
-  { label: "Unsubscribe handling", values: [YES, YES, YES, YES, YES] },
-  { label: "Suppression", values: [YES, YES, "Advanced", "Advanced", "Advanced"] },
-  { label: "Preference center", values: [NO, YES, YES, YES, YES] },
-  { label: "Sending schedule", values: [YES, YES, YES, YES, YES] },
+  // The whole marketing suite is out of scope for this release. These rows are
+  // kept so the planned shape is visible, but every value says so instead of
+  // printing a checkmark for a product that cannot be used.
+  ...(
+    [
+      "Contacts",
+      "Campaigns",
+      "Audiences",
+      "Segments",
+      "Automations",
+      "Marketing analytics",
+      "Preference center",
+      "Campaign unsubscribe management",
+      "Marketing sending schedule",
+    ] as const
+  ).map((label) => ({
+    label,
+    values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"] as [
+      string,
+      string,
+      string,
+      string,
+      string,
+    ],
+    status: "soon" as const,
+  })),
+  {
+    label: "Transactional suppression and unsubscribe",
+    values: [YES, YES, YES, YES, YES],
+    note: "Part of the email MVP and live today. Distinct from campaign unsubscribe management.",
+  },
 ];
 
 /** Plain-language answers. Short, specific, no hedging. */
@@ -460,7 +550,7 @@ export const PRICING_FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "Can I change plans?",
-    a: "Yes. Upgrade or downgrade from your dashboard. Your projects, API keys, logs, and sending history stay with you.",
+    a: "Not yet. Paid billing and self-service upgrades are not available in this release, so there is no checkout and no plan change to make. Launch accounts keep their assigned limits; paid-tier allowances are not granted automatically.",
   },
   {
     q: "Do I need a domain to start?",
@@ -468,6 +558,6 @@ export const PRICING_FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "Are marketing capabilities included?",
-    a: "Yes. Marketing communication is part of Calder's platform rather than a separate paid product. It uses its own contact allowance and operational boundaries.",
+    a: "Not in this release. Broadcasts, campaigns and audiences are planned but not available: the API refuses them and the dashboard labels them Coming Soon. Transactional unsubscribe and suppression are live because email compliance requires them.",
   },
 ];

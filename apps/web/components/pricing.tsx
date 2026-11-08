@@ -92,10 +92,16 @@ export function Pricing() {
                 {plan.highlights.slice(0, CARD_HIGHLIGHTS).map((f) => (
                   <li key={f}>{f}</li>
                 ))}
+                {(plan.plannedHighlights ?? []).slice(0, 2).map((f) => (
+                  <li key={f} className="price-planned">
+                    <span className="plan-tag">soon</span> {f}
+                  </li>
+                ))}
               </ul>
-              {plan.highlights.length > CARD_HIGHLIGHTS && (
+              {plan.highlights.length + (plan.plannedHighlights?.length ?? 0) >
+                CARD_HIGHLIGHTS && (
                 <a className="price-more" href="#compare">
-                  All {plan.highlights.length} features
+                  All {plan.highlights.length + (plan.plannedHighlights?.length ?? 0)} features
                   <span aria-hidden="true"> ↓</span>
                 </a>
               )}

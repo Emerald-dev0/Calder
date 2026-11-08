@@ -41,8 +41,9 @@ History is summarized in [CHANGELOG.md](../CHANGELOG.md); it is not an SLA.
   checkout. Do not claim a public SMTP host is operational.
 - **Gmail:** adapter/OAuth code exists; production OAuth configuration/approval and
   a real send have not been verified in this review.
-- **Marketing:** audience/consent/broadcast/tracking code is merged, but public
-  `MARKETING_SUITE` remains `dev`. No blanket production-readiness claim.
+- **Marketing:** audience/consent/broadcast/tracking code is merged but the suite
+  is excluded from the MVP. The API returns `403 feature_not_available`, the
+  dashboard shows Coming Soon, and public surfaces no longer mark it as included.
 - **Recovery/SLA:** no new restore drill, scale test, uptime or backup guarantee is
   established by this review. Older roadmap audit entries are historical snapshots.
 
@@ -56,3 +57,36 @@ History is summarized in [CHANGELOG.md](../CHANGELOG.md); it is not an SLA.
 4. Confirm limits for newly created organizations and show them honestly.
 5. Keep billing, unpublished SDK packages, SMTP and unverified Gmail setup out of
    ready-to-use promises. Revisit this file only when evidence changes.
+
+
+## Feature availability reconciliation — 2026-11-08
+
+Repository state, availability and commercial status are now reconciled in
+[MVP-FEATURE-MATRIX.md](MVP-FEATURE-MATRIX.md). Summary:
+
+- **Live MVP:** transactional email, API, queue/worker/provider pipeline,
+  templates (create/list/edit/delete/search/paginate/preview/send-by-alias),
+  senders, domains and verification, delivery logs/tracking, suppression,
+  bounce/complaint/unsubscribe, idempotency, limits, test environment, batch and
+  scheduled sends, keys, webhooks (signing, logs, replay), usage and basic
+  analytics, audit logs, team and workspace settings.
+- **Coming Soon (disabled):** broadcasts, audiences, campaigns, inbound email,
+  SMTP gateway, advanced analytics, queue visibility, rate-limit controls,
+  per-plan roles, dedicated IPs/warmup/SLA/SSO, Gmail transport, third-party
+  integrations, aggregate bounce/complaint analytics, customer uptime history.
+- **Enforcement:** a single registry (`packages/config/src/features.ts`) drives
+  the API gate, dashboard availability and public copy. Marketing endpoints fail
+  at the boundary; dashboard server actions refuse before touching data.
+- **Plans:** all five tiers exist in config and the database (`premium` added in
+  migration 0035). Billing still cannot assign any paid tier, so every current
+  organization is on Beginner and every implemented feature is entitled to it.
+  Resource and email ceilings remain enforced. Advertised-but-unenforced
+  distinctions are recorded in `UNENFORCED_PLAN_DIFFERENCES`.
+- **Security repair:** appended obfuscated payloads were present in eleven
+  build/migration/config files in this checkout. They were removed without
+  rewriting history; the source-integrity gate now reports clean. See
+  SECURITY.md §16.
+
+Still outstanding before inviting users: a hosted send without a manual drain,
+SES/SNS production verification, billing, and the owner decisions in
+MVP-FEATURE-MATRIX §7.

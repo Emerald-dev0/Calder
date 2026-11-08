@@ -66,7 +66,22 @@ export const webhookDeliveryStatusEnum = pgEnum("webhook_delivery_status", [
   "failed",
   "exhausted",
 ]);
-export const planTierEnum = pgEnum("plan_tier", ["free", "starter", "pro", "scale"]);
+/**
+ * Stored plan tiers. `free` is the database value for the plan a customer sees
+ * as Beginner; the display name lives in `@calder/config`.
+ *
+ * `premium` was missing from this enum while the catalogue, the pricing page
+ * and ADR-045 all sold it. That made a Premium subscription unstorable: the
+ * tier could be advertised and enforced-on-paper but never assigned. Adding an
+ * enum value is additive and needs no backfill (migration 0035).
+ */
+export const planTierEnum = pgEnum("plan_tier", [
+  "free",
+  "starter",
+  "pro",
+  "premium",
+  "scale",
+]);
 export const subscriptionStatusEnum = pgEnum("subscription_status", [
   "active",
   "past_due",

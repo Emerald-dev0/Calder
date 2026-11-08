@@ -1,5 +1,3 @@
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
 import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -123,12 +121,12 @@ describe("detectors fire on synthetic samples", () => {
 
   it("rule 4: both marker families", () => {
     for (const marker of MARKERS) {
-      expect(violationsIn(`
+      expect(violationsIn(`const value = "${marker}";`)).toContain("known injection marker");
     }
   });
 
   it("rule 5: eval of an encoded string (October call shape)", () => {
-    const sample = `${EVAL}("
+    const sample = `${EVAL}(${B64}("ZG9jdW1lbnQ="))`;
     expect(violationsIn(sample)).toContain("eval of encoded string");
   });
 

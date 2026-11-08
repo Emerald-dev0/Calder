@@ -1,10 +1,11 @@
 "use server";
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import {
   getDb,
   templates,
   templateVersions,
+  senderIdentities,
   apiKeys,
   insertApiKeyForActiveOrganization,
 } from "@calder/db";
@@ -117,6 +118,31 @@ export async function testSendTemplate(
     .limit(1);
   if (!tpl || !tpl.alias) throw new Error("Template not found (or missing alias).");
 
+  /**
+   * A test send must be attributable to a real sender identity on this
+   * project. The previous version hardcoded `welcome@calder.click`, which is
+   * not a customer identity: in a hosted environment sender resolution
+   * rejects it, so the advertised "send test email" could never work for the
+   * person trying it. Failing here with an actionable message is honest; a
+   * silent unattributed fallback is not.
+   */
+  const [sender] = await db
+    .select({ id: senderIdentities.id, email: senderIdentities.email })
+    .from(senderIdentities)
+    .where(
+      and(
+        eq(senderIdentities.projectId, projectId),
+        isNull(senderIdentities.archivedAt),
+        eq(senderIdentities.status, "verified")
+      )
+    )
+    .limit(1);
+  if (!sender) {
+    throw new Error(
+      "Add and verify a sender identity first — a template test send needs a real 'from' address on this project."
+    );
+  }
+
   const key = generateApiKey("test");
   const keyId = rid("key");
   await insertApiKeyForActiveOrganization(db, projectId, {
@@ -137,7 +163,7 @@ export async function testSendTemplate(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "welcome@calder.click",
+        from: sender.id,
         to,
         template: tpl.alias,
         variables,
@@ -149,7 +175,7 @@ export async function testSendTemplate(
     } | null;
     if (!res.ok || !body?.id)
       throw new Error(body?.error?.message ?? `Send failed (HTTP ${res.status}).`);
-    return { emailId: body.id };
+    return { emailId: body.id, sandbox: true as const };
   } finally {
     // One-time key revoked immediately after use.
     await db

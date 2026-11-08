@@ -5,6 +5,30 @@ Selected changes reconstructed from the GitHub `main` commit history through
 not a claim that every implemented feature is configured or available in production.
 No release tags or semantic versions are invented. See [launch availability](docs/LAUNCH-STATUS.md).
 
+## 2026-11-08 — MVP feature reconciliation, plan entitlements, source-integrity repair
+
+- Added `packages/config/src/features.ts`: one registry for feature existence, MVP
+  scope, plan entitlement and availability, plus `UNENFORCED_PLAN_DIFFERENCES`.
+- Marketing (broadcasts, audiences, campaigns) is disabled server-side:
+  `/v1/broadcasts*` and `/v1/audiences*` return `403 feature_not_available`; the
+  dashboard pages render Coming Soon and their server actions refuse before any
+  read or write. Data and code are untouched.
+- Corrected dashboard availability: Inbox (inbound email), SMTP, advanced
+  Analytics and marketing destinations are disabled and labelled Coming Soon;
+  the fake "PRO" inbound webhook preview and the analytics upgrade gate are gone.
+- Templates: added search and cursor pagination to the library, fixed dashboard
+  test sends to use a verified project sender instead of a hardcoded Calder
+  address, and added an end-to-end API journey test (create, version, render,
+  send, log, replay, tenant isolation, delete).
+- Plan catalogue: added `premium` to the `plan_tier` enum (migration 0035), made
+  `seed.ts` seed all five tiers and tolerate a pre-existing plan id for a tier.
+- Public site: marketing rows now say Coming soon, unimplemented premium/scale
+  capabilities moved to a muted planned list, SMTP relabelled as planned, and
+  Templates described as live.
+- Repository source-integrity repair: removed appended obfuscated payloads from
+  eleven build/migration/config files and repaired the mangled positive-control
+  test. The gate now passes clean (see SECURITY.md §16).
+
 ## Unreleased — this PR (#87)
 
 - Fix dashboard/API automatic drain wake-up lifecycle. Requires API and dashboard

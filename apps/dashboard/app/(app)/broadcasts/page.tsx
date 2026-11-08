@@ -4,6 +4,8 @@ import { getTenantContext, resolveProject } from "../../../lib/auth";
 import { DsPageHeader, StatCard, StatusPill } from "../../../components/design-system";
 import { EmptyState } from "../../../components/empty-state";
 import { broadcastList } from "./actions";
+import { ComingSoon } from "../../../components/coming-soon";
+import { isDashboardFeatureAvailable } from "../../../lib/features";
 
 export const metadata = { title: "Calder — Broadcasts" };
 
@@ -21,6 +23,16 @@ export default async function BroadcastsPage({
 }: {
   searchParams: Promise<{ project?: string }>;
 }) {
+  // Marketing is not in this release. Refuse before any query so no draft or
+  // statistic can be rendered as if the product were available.
+  if (!isDashboardFeatureAvailable("broadcasts")) {
+    return (
+      <ComingSoon
+        feature="broadcasts"
+        alternative={{ href: "/usage", label: "View email usage" }}
+      />
+    );
+  }
   const query = await searchParams;
   const ctx = await getTenantContext();
   const scope = resolveProject(ctx, query.project);

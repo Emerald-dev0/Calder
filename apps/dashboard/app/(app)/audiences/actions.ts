@@ -10,6 +10,7 @@ import {
 } from "@calder/audiences";
 import { getDb } from "@calder/db";
 import { getTenantContext, resolveProject } from "../../../lib/auth";
+import { assertDashboardFeature } from "../../../lib/features";
 
 /**
  * Server actions for audiences.
@@ -20,6 +21,8 @@ import { getTenantContext, resolveProject } from "../../../lib/auth";
  */
 
 async function requireProject(projectId: string) {
+  // Audiences are part of the marketing suite, which is not in this release.
+  assertDashboardFeature("audiences");
   const ctx = await getTenantContext();
   const scope = resolveProject(ctx, projectId);
   if (!scope) throw new Error("Project not found.");
@@ -104,6 +107,7 @@ export async function importCsvAction(formData: FormData): Promise<void> {
 
 /** Preview of what a paste would do, used by the confirmation copy. */
 export async function previewPasteCount(raw: string): Promise<{ valid: number; invalid: number }> {
+  assertDashboardFeature("audiences");
   const emails = raw
     .split(/[\s,;]+/)
     .map((value) => value.trim())

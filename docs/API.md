@@ -49,6 +49,42 @@ Beyond validation (`400`), send endpoints can fail at ingest with:
 - `422 { error: { code: "suppressed" } }`, the recipient is on the project's suppression list; the message gives the reason (`bounce`/`complaint`/`unsubscribe`/`manual`). Nothing is persisted or queued for a suppressed send.
 - `403 { error: { code: "organization_sending_unavailable" } }`, org sending is paused/suspended or a live send is outside the configured new-organization allowance. The public message is generic; internal detection thresholds are not exposed. Nothing is persisted or queued.
 - `409 { error: { code: "idempotency_conflict" } }`, see above.
+- `403 { error: { code: "feature_not_available" } }`, the route belongs to a product that is not in this release. Currently `/v1/broadcasts*` and `/v1/audiences*` (marketing). The request is refused before authentication and before any handler runs; no data is read or written. Details carry `{ feature, status }`.
+
+## Templates
+
+Templates are part of the MVP and are versioned. A template has a project-unique
+`alias` used at send time.
+
+- `POST /v1/templates` creates the template and, when `subject`/`html`/`text` are
+  present, its first version (`v1`). Duplicate alias on the same project → `409`.
+- `POST /v1/templates/:id/versions` appends an immutable version (`v2`, `v3`, …).
+  Editing never mutates history; "rollback" is posting the old content again.
+- `GET /v1/templates/:id/versions` lists versions newest first.
+- `DELETE /v1/templates/:id` removes the template. Emails already sent from it
+  keep their rendered content and delivery history.
+
+Sending from a template:
+
+```json
+POST /v1/emails
+{
+  "from": "sender_abc123",
+  "to": "ada@example.com",
+  "template": "password-reset",
+  "variables": { "name": "Ada", "reset_url": "https://app.example/reset/…" }
+}
+```
+
+- The template must exist on the requesting project; a cross-project alias is
+  `404`, exactly as if it did not exist.
+- The latest version is resolved at ingest and rendered **before** the message
+  is queued, so a provider never receives `{{placeholder}}` text.
+- Every `{{variable}}` referenced by subject/HTML/text must be supplied. A
+  missing one is `400 validation_error` naming each gap, and nothing is queued.
+- `subject`/`html`/`text` in the request override the template where supplied.
+- Standard idempotency applies: replaying the `Idempotency-Key` returns the
+  original message rather than rendering or queueing a second one.
 
 ## Error shape
 

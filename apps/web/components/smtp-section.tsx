@@ -15,9 +15,9 @@ export function SmtpSection() {
             Use the interface that <em>fits your stack.</em>
           </h2>
           <p className="lede" style={{ marginTop: "1.2rem" }}>
-            Building something new? <strong>Use the API.</strong> Already have an application
-            sending mail through SMTP? <strong>Keep using SMTP.</strong> Both end up in the same
-            Calder pipeline, with the same delivery tracking, events, retries, and observability.
+            Building something new? <strong>Use the API today.</strong> SMTP is a designed second
+            interface, not a running service: there is no host to connect to yet, and no SMTP
+            credential to issue. The preview below describes the intended shape.
           </p>
         </Reveal>
         <div className="dev-grid">
@@ -41,27 +41,27 @@ export function SmtpSection() {
           </Reveal>
           <Reveal delay={120}>
             <div className="pipeline" style={{ marginTop: 0, height: "100%" }}>
-              <p className="eyebrow">SMTP</p>
+              <p className="eyebrow">SMTP · Coming soon</p>
               <p className="caption" style={{ marginBottom: "1.5rem", fontSize: "0.95rem" }}>
-                <code>smtp.calder.click:587</code>
+                <code>smtp.calder.click:587</code> — planned, not available
               </p>
               <div className="minilog">
                 <div className="minilog-row">
-                  <span className="status-dot ok" />
+                  <span className="status-dot info" />
                   <span className="addr">
-                    <b>STARTTLS</b> &middot; Secure transport
+                    <b>STARTTLS</b> &middot; planned
                   </span>
                 </div>
                 <div className="minilog-row">
-                  <span className="status-dot ok" />
+                  <span className="status-dot info" />
                   <span className="addr">
-                    <b>Authenticated</b> &middot; Project credentials
+                    <b>Authenticated</b> &middot; planned
                   </span>
                 </div>
                 <div className="minilog-row">
-                  <span className="status-dot ok" />
+                  <span className="status-dot info" />
                   <span className="addr">
-                    <b>Same pipeline</b> &middot; Identical tracking
+                    <b>Same pipeline</b> &middot; by design
                   </span>
                 </div>
               </div>
@@ -74,11 +74,11 @@ export function SmtpSection() {
                     fontStyle: "italic",
                   }}
                 >
-                  No mail server to operate.
+                  Planned, not shipped.
                   <br />
-                  No second system to monitor.
+                  Use POST /v1/emails today.
                   <br />
-                  No separate set of logs to understand.
+                  Do not point production at this host.
                 </p>
               </div>
             </div>

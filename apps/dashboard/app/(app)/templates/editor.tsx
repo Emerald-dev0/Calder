@@ -339,7 +339,9 @@ export function TemplateEditor({
                     setNotice(null);
                     try {
                       const r = await testSendTemplate(projectId, templateId!, testTo, vars);
-                      setNotice(`Test email accepted: ${r.emailId}. Watch it on Deliveries.`);
+                      setNotice(
+                        `Sandbox test send accepted: ${r.emailId}. Test keys use the mock provider, so no real inbox delivery — the full pipeline and delivery log are real.`,
+                      );
                     } catch (e) {
                       setError(e instanceof Error ? e.message : "Test send failed.");
                     } finally {

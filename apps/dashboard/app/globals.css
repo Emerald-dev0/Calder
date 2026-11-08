@@ -5032,3 +5032,34 @@ html[data-theme="dark"] .shell-brand svg * {
 html[data-theme="dark"] .shell-brand span {
   color: var(--color-ink) !important;
 }
+
+/* ── Coming Soon navigation ─────────────────────────────────────────────────
+   A disabled destination must read as disabled without disappearing: it is
+   still product information, but it is not an invitation. Grayscale + reduced
+   opacity keeps contrast readable while removing the active affordance, and
+   `cursor: not-allowed` matches the aria-disabled semantics. */
+.shell-nav-link.is-soon {
+  color: var(--color-muted);
+  opacity: 0.55;
+  filter: grayscale(1);
+  cursor: not-allowed;
+  user-select: none;
+}
+
+.shell-nav-link.is-soon:hover {
+  background: transparent;
+  color: var(--color-muted);
+}
+
+.shell-nav-soon {
+  flex-shrink: 0;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  color: var(--color-muted);
+}

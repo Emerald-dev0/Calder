@@ -17,7 +17,9 @@ export type ErrorCode =
   | "idempotency_conflict"
   | "sender_not_ready"
   | "plan_limit_reached"
-  | "organization_sending_unavailable";
+  | "organization_sending_unavailable"
+  /** The feature exists in code but is not part of this release. 403. */
+  | "feature_not_available";
 
 export class AppError extends Error {
   constructor(

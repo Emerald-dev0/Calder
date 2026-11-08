@@ -1,10 +1,12 @@
 # Calder Pricing, Architecture & Unit Economics Gate
 
-> Launch status (2026-10-29): paid billing is not configured. The catalogue below
+> Launch status (2026-11-08): paid billing is not configured. The catalogue below
 > is planning/configuration, not an offer of working checkout or invoices. Usage
 > hides the paid comparison and upgrade CTAs while preserving actual limits.
-> Free launch access does not automatically grant paid-tier quotas. See
-> [LAUNCH-STATUS.md](LAUNCH-STATUS.md).
+> Free launch access does not automatically grant paid-tier quotas. Feature
+> availability per plan is reconciled in
+> [MVP-FEATURE-MATRIX.md](MVP-FEATURE-MATRIX.md); see
+> [LAUNCH-STATUS.md](LAUNCH-STATUS.md) for evidence.
 
 Status: **revised 2026-10-22** (five-tier catalogue). The catalogue itself lives
 in `packages/config/src/plan-limits.ts` — limits, prices and display names — and
@@ -33,6 +35,11 @@ is enforced nowhere; the pricing-page pass will settle it.
 Marketing allowances (contacts, not sends): 1,000 / 10,000 / 50,000 / Custom.
 **Unapproved draft** — carried in config as `contacts` with `approved: false`,
 never rendered in the Usage UI, not enforced.
+
+Marketing itself is **not part of this release**. The suite is no longer
+described as "in development and included"; every public column, the dashboard
+and the API state Coming Soon. Broadcast and audience endpoints return
+`403 feature_not_available`, and their dashboard destinations are disabled.
 
 ### What is enforced, and when
 
@@ -109,9 +116,11 @@ separate rate limits, separate allowance.
   the transactional quota that keeps logins working.
 - Conversely, campaign volume never inflates the transactional bill.
 - The marketing suite (campaigns, audiences, segments, automations, preference
-  center) is included in **every plan, including Beginner**. It is marked
-  "in development" on public surfaces until it ships; that label is removed in
-  the same commit that ships it (`apps/web/lib/site.ts` → `MARKETING_SUITE`).
+  center) is **planned for every plan, including Beginner**, and is excluded
+  from this release. Public surfaces, the dashboard and the API all say Coming
+  Soon; the marketing API is disabled server-side. That status changes only with
+  a product launch decision and campaign acceptance evidence
+  (`apps/web/lib/site.ts` → `MARKETING_SUITE`, `packages/config/src/features.ts`).
 
 ## 4. Unit-economics model (still the gate for any change)
 
@@ -180,18 +189,28 @@ are modelled separately: contacts cost storage and support, not delivery.
 
 ## Follow-ups this revision deliberately leaves open
 
-1. **`premium` in `plan_tier`.** The enum is `free | starter | pro | scale`.
-   Nothing can store a Premium subscription yet. The migration belongs to the
-   billing phase, alongside the checkout that would write it; it is additive
-   (`ALTER TYPE plan_tier ADD VALUE 'premium'`), and its rollback is "recreate
-   the type without the value", which requires no rows to use it.
+1. **`premium` in `plan_tier` — resolved 2026-11-08.** Migration
+   `0035_quick_harrier.sql` adds the value, `seed.ts` seeds all five tiers, and
+   `packages/db/src/plan-premium.integration.test.ts` proves a Premium
+   subscription is storable and resolves through `resolveOrgTier`. No tier is
+   assigned automatically; assigning Premium remains a billing-phase action.
 2. **Existing subscriptions.** Tier keys did not move, so a workspace on
    `starter` now reads Starter's allowance (10,000) rather than the old
    catalogue's 50,000, and one on `pro` reads Pro's (50,000) rather than
    250,000. Nobody's resources are touched, but their monthly ceiling changes at
    the next period. Remapping or grandfathered quotas is a commercial decision
    for the billing phase; see the phase report.
-3. **Starter on the marketing page.** `apps/web` still renders four cards, so
-   Starter (₦5,000/$5) is sellable in config but absent from `/pricing`. Adding
-   it is a pricing-page change, explicitly out of scope here.
-4. **Starter's environments.** Unset above; it is enforced nowhere today.
+3. **Starter on the marketing page — resolved 2026-11-08.** `/pricing` renders
+   all five cards from the catalogue; Starter is no longer config-only.
+4. **Starter's environments.** Still unset above and enforced nowhere. Owner
+   decision required; the comparison table no longer claims a Starter
+   environment difference it cannot enforce.
+5. **Price discrepancy with `PRD.md` §11.** The PRD still prints Pro
+   $15/₦25,000 and Premium $49/₦75,000, while this catalogue (ADR-045) has Pro
+   $18/₦20,000 and Premium $65/₦75,000. The implementation follows the
+   catalogue; the PRD is stale and must be corrected by the product owner
+   before any checkout is built.
+6. **Advertised but unenforced distinctions.** Scoped keys, webhook replay,
+   audit logs and per-plan environments are available to every organization
+   today. `UNENFORCED_PLAN_DIFFERENCES` in `packages/config/src/features.ts`
+   records each one with the decision it needs.

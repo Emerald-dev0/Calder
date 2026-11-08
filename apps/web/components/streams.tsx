@@ -1,13 +1,12 @@
 import { Reveal } from "./reveal";
-import { MARKETING_SUITE } from "../lib/site";
 
 /**
  * The differentiator, made visual: two streams that never share a reputation.
  *
  * Structure matters here. Transactional and marketing each get a lane with
  * real event names, so the difference is legible without reading the prose.
- * The marketing lane is honestly labeled as in development rather than drawn
- * as if it were live.
+ * The marketing lane is labelled Coming Soon and muted rather than drawn as
+ * if it were live: broadcasts and audiences are excluded from this release.
  */
 
 const TRANSACTIONAL = [
@@ -72,8 +71,9 @@ export function Streams() {
           </h2>
           <p className="lede" style={{ marginTop: "1.2rem" }}>
             A verification code and a product announcement shouldn&rsquo;t behave the same way.
-            Calder gives application and campaign communication the separation they need while
-            keeping everything your team uses in one place.
+            Calder is designed to give application and campaign communication the separation they
+            need while keeping everything your team uses in one place. Transactional is live today;
+            the campaign stream is planned, not available.
           </p>
         </Reveal>
 
@@ -106,13 +106,14 @@ export function Streams() {
             </div>
           </Reveal>
           <Reveal delay={90}>
-            <div className="lane lane-live">
+            <div className="lane lane-soon">
               <div className="lane-head">
                 <h3>Marketing</h3>
+                <span className="lane-tag dev">Coming soon</span>
               </div>
               <p className="lane-caption">
-                The messages you send when you have something to say. Audiences, consent,
-                scheduling, and automation.
+                Planned: audiences, consent, scheduling and automation. Not part of this
+                release, and not purchasable today.
               </p>
               <div className="lane-events">
                 {[

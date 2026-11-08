@@ -4,6 +4,7 @@ import { requestIdMiddleware } from "./middleware/request-id.js";
 import { errorMiddleware } from "./middleware/error.js";
 import { loggerMiddleware } from "./middleware/logger.js";
 import { securityHeaders } from "./middleware/security.js";
+import { requireFeature } from "./middleware/feature-gate.js";
 import health from "./routes/health.js";
 import emails from "./routes/emails.js";
 import domains from "./routes/domains.js";
@@ -80,6 +81,13 @@ export function createApp() {
   app.onError(errorMiddleware);
 
   // Routes
+  // Features excluded from this release refuse at the boundary, before auth and
+  // before any handler touches data. Hiding navigation is not enforcement.
+  app.use("/v1/broadcasts", requireFeature("broadcasts"));
+  app.use("/v1/broadcasts/*", requireFeature("broadcasts"));
+  app.use("/v1/audiences", requireFeature("audiences"));
+  app.use("/v1/audiences/*", requireFeature("audiences"));
+
   app.route("/", health);
   app.route("/v1/emails", emails);
   app.route("/v1/domains", domains);

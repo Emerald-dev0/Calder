@@ -29,7 +29,7 @@ const FACTS: Array<[string, string]> = [
   ],
   [
     "Also does",
-    "Marketing mail on a separate stream: newsletters, launches, promotions, lifecycle campaigns, with their own audiences, consent, suppression and contact limits. In development, included in every plan when it ships.",
+    "Marketing mail on a separate stream: newsletters, launches, promotions, lifecycle campaigns, with their own audiences, consent, suppression and contact limits. Coming Soon: broadcasts and audiences are excluded from this release and disabled in the product, though they are planned for every plan when they ship.",
   ],
   [
     "How",

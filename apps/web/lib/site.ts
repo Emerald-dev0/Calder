@@ -14,7 +14,11 @@ export const LOGIN_URL = `${APP_URL}/login`;
 export const SUPPORT_EMAIL = "support@calder.click";
 
 /**
- * Marketing suite status. Flip to "live" in the same commit that ships
- * campaigns, and every "in development" mark on the site disappears with it.
+ * Marketing suite status. `coming_soon` means the product is out of this
+ * release: the API refuses it and the dashboard labels it Coming Soon. Flip to
+ * "live" only in the commit that ships campaigns with acceptance evidence.
+ *
+ * The authoritative inventory is `packages/config/src/features.ts`; this
+ * constant exists for marketing-site copy only.
  */
-export const MARKETING_SUITE: "dev" | "live" = "dev";
+export const MARKETING_SUITE: "coming_soon" | "live" = "coming_soon";

@@ -3,8 +3,8 @@ import { TemplateScene, DomainScene, MeterScene } from "./product-scenes";
 
 /**
  * The actual offering: what life inside Calder looks like day to day.
- * Templates are post-MVP per the PRD, so the row says "in development"
- * rather than pretending to ship today.
+ * Templates are part of the MVP and live (versioned, sendable by alias), so
+ * this section describes them as available rather than "in development".
  */
 export function ProductTour() {
   return (

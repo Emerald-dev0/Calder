@@ -45,7 +45,7 @@ export default function Availability() {
           verified here.
         </li>
         <li>
-          Campaign/audience code exists, but the marketing suite is still marked in development;
+          Campaign/audience code exists, but the marketing suite is out of scope for this release and every surface labels it Coming Soon;
           production rollout is not certified.
         </li>
       </ul>

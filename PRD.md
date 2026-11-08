@@ -8,6 +8,15 @@ setup are not launch-certified. See `docs/LAUNCH-STATUS.md` for current evidence
 Category: Developer infrastructure / application communication
 Primitives: Transactional email (live) + marketing email (in development)
 
+> **Implementation reconciliation (2026-11-08).** The launch MVP is transactional
+> email only and is enumerated in [docs/MVP-FEATURE-MATRIX.md](docs/MVP-FEATURE-MATRIX.md).
+> SMTP (§10b), Gmail, inbound email and the marketing suite (§18) are specified
+> and in some cases partly coded, but they are **not in this release**: their
+> APIs and dashboard surfaces are disabled and labelled Coming Soon. The price
+> table in §11 predates `packages/config/src/plan-limits.ts` (ADR-045) and is
+> stale (Pro and Premium USD/NGN differ); the catalogue is the enforced source of
+> truth and reconciling the PRD is an owner decision, not an agent edit.
+
 ## 1. Summary
 
 Calder is developer-first communication infrastructure, starting with transactional email and designed to expand into a broader communication layer (OTP, SMS, push) without architectural rework.
