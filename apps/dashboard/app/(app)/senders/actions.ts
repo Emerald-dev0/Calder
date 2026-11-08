@@ -1,8 +1,11 @@
 "use server";
 
 import type { DeliveryEventHealth } from "@calder/observability";
+import { ResourceLimitError } from "@calder/db";
 import { getTenantContext } from "../../../lib/auth";
 import {
+  SenderInputError,
+  SenderNotFoundError,
   createDomainSender as createDomainSenderSvc,
   createGmailSender as createGmailSenderSvc,
   dispatchStatus as dispatchStatusSvc,
@@ -102,21 +105,48 @@ export async function senderStreamStats(senderId: string): Promise<StreamStats> 
   return senderStreamStatsSvc(await actor(), senderId);
 }
 
+type CreateSenderActionResult = { ok: true; id: string } | { ok: false; error: string };
+
+async function createSenderResult(
+  create: () => Promise<{ id: string }>
+): Promise<CreateSenderActionResult> {
+  try {
+    return { ok: true, ...(await create()) };
+  } catch (error) {
+    if (
+      error instanceof SenderInputError ||
+      error instanceof SenderNotFoundError ||
+      error instanceof ResourceLimitError
+    ) {
+      return { ok: false, error: error.message };
+    }
+    // Do not expose database errors or credentials to the browser.
+    console.error("Sender creation failed", {
+      name: error instanceof Error ? error.name : "unknown",
+    });
+    return {
+      ok: false,
+      error:
+        "We couldn't create this sender right now. Please try again; if it persists, contact support.",
+    };
+  }
+}
+
 export async function createDomainSender(input: {
   projectId: string;
   displayName: string;
   localPart: string;
   domain: string;
-}): Promise<{ id: string }> {
-  return createDomainSenderSvc(await actor(), input);
+}): Promise<CreateSenderActionResult> {
+  return createSenderResult(async () => createDomainSenderSvc(await actor(), input));
 }
 
 export async function createGmailSender(input: {
   projectId: string;
   transportId: string;
   displayName: string;
-}): Promise<{ id: string }> {
-  return createGmailSenderSvc(await actor(), input);
+}): Promise<CreateSenderActionResult> {
+  return createSenderResult(async () => createGmailSenderSvc(await actor(), input));
 }
 
 export async function setSenderDefault(

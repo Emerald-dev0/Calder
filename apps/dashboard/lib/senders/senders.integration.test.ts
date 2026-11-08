@@ -515,6 +515,39 @@ gate("senders (live Postgres)", async () => {
     expect(after?.warned).toBe(true);
   });
 
+  it("creates a sender from a full address on the verified domain and refuses mismatches", async () => {
+    if (!(await reachable())) throw new Error("Integration database unavailable");
+    const domain = `snd-a-${suffix}.test`;
+    const created = await svc.createDomainSender(actorA(), {
+      projectId: projectA,
+      displayName: "Support",
+      localPart: `NewIdentity@${domain}`,
+      domain,
+    });
+    const [row] = await getDb()
+      .select()
+      .from(senderIdentities)
+      .where(eq(senderIdentities.id, created.id));
+    expect(row?.email).toBe(`newidentity@${domain}`);
+    await expect(
+      svc.createDomainSender(actorA(), {
+        projectId: projectA,
+        displayName: "Support",
+        localPart: "support@different.test",
+        domain,
+      })
+    ).rejects.toThrow(/selected verified domain/);
+    await expect(
+      svc.createDomainSender(actorA(), {
+        projectId: projectA,
+        displayName: "Support",
+        localPart: "newidentity",
+        domain,
+      })
+    ).rejects.toThrow(/already a sender/);
+    await svc.retireSender(actorA(), created.id);
+  });
+
   /* ── Plan ceiling at creation ───────────────────────────────────────── */
 
   it("refuses creation past the plan ceiling and frees the slot on archive", async () => {
