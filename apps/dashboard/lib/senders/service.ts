@@ -60,6 +60,31 @@ export function isUsableStatus(status: string): boolean {
   return (USABLE_STATUSES as readonly string[]).includes(status);
 }
 
+export class SenderInputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SenderInputError";
+  }
+}
+
+/** Accept either a local part or a full address on the selected verified domain. */
+export function senderLocalPart(value: string, selectedDomain: string): string {
+  const input = value.trim().toLowerCase();
+  const parts = input.split("@");
+  if (parts.length > 2 || (parts.length === 2 && parts[1] !== selectedDomain.toLowerCase())) {
+    throw new SenderInputError(
+      "The email address must use the selected verified domain. Select the matching domain, or enter only the part before @."
+    );
+  }
+  const local = parts[0] ?? "";
+  if (!LOCAL_PART_RE.test(local)) {
+    throw new SenderInputError(
+      "Enter a valid email name using letters, numbers, dots, underscores or hyphens (up to 64 characters)."
+    );
+  }
+  return local;
+}
+
 export class SenderNotFoundError extends Error {
   readonly code = "not_found";
   constructor() {
@@ -98,7 +123,7 @@ async function loadSender(db: DbClient, actor: SenderActor, senderId: string) {
 
 async function requireManage(actor: SenderActor, projectId: string): Promise<void> {
   const ok = await canManageProject(actor.userId, projectId);
-  if (!ok) throw new Error("Only organization owners or admins can manage senders.");
+  if (!ok) throw new SenderInputError("Only organization owners or admins can manage senders.");
 }
 
 async function audit(
@@ -435,13 +460,13 @@ export async function createDomainSender(
     .where(and(eq(domains.projectId, input.projectId), eq(domains.domain, input.domain)))
     .limit(1);
   if (!domain || domain.status !== "verified") {
-    throw new Error(`Verify ${input.domain} before creating senders on it.`);
+    throw new SenderInputError("Verify the selected domain before creating a sender on it.");
   }
 
-  const local = input.localPart.trim().toLowerCase();
-  if (!LOCAL_PART_RE.test(local)) throw new Error("Local part: letters, numbers, . _ - (max 64).");
+  const local = senderLocalPart(input.localPart, input.domain);
   const displayName = input.displayName.trim().slice(0, 255);
-  if (displayName.length < 2) throw new Error("Give the sender a display name.");
+  if (displayName.length < 2)
+    throw new SenderInputError("Give the sender a display name (at least 2 characters).");
 
   const organizationId = await organizationForProject(db, input.projectId);
   if (!organizationId) throw new SenderNotFoundError();
@@ -457,8 +482,21 @@ export async function createDomainSender(
       type: "domain",
       status: "verified",
     });
-  } catch {
-    throw new Error("That address is already a sender on this project.");
+  } catch (error) {
+    const cause = error instanceof Error && error.cause ? error.cause : error;
+    if (
+      cause &&
+      typeof cause === "object" &&
+      "code" in cause &&
+      cause.code === "23505" &&
+      (("constraint_name" in cause && cause.constraint_name === "senders_project_email_unique") ||
+        ("constraint" in cause && cause.constraint === "senders_project_email_unique"))
+    ) {
+      throw new SenderInputError(
+        "That address is already a sender on this project. Check archived senders too."
+      );
+    }
+    throw error;
   }
   await audit(db, {
     projectId: input.projectId,
@@ -490,11 +528,12 @@ export async function createGmailSender(
     )
     .limit(1);
   if (!transport || transport.type !== "gmail" || transport.status !== "active") {
-    throw new Error("That Gmail connection is no longer active. Reconnect it first.");
+    throw new SenderInputError("That Gmail connection is no longer active. Reconnect it first.");
   }
 
   const displayName = input.displayName.trim().slice(0, 255);
-  if (displayName.length < 2) throw new Error("Give the sender a display name.");
+  if (displayName.length < 2)
+    throw new SenderInputError("Give the sender a display name (at least 2 characters).");
 
   const organizationId = await organizationForProject(db, input.projectId);
   if (!organizationId) throw new SenderNotFoundError();
@@ -511,8 +550,21 @@ export async function createGmailSender(
       transportId: transport.id,
       status: "connected",
     });
-  } catch {
-    throw new Error("That address is already a sender on this project.");
+  } catch (error) {
+    const cause = error instanceof Error && error.cause ? error.cause : error;
+    if (
+      cause &&
+      typeof cause === "object" &&
+      "code" in cause &&
+      cause.code === "23505" &&
+      (("constraint_name" in cause && cause.constraint_name === "senders_project_email_unique") ||
+        ("constraint" in cause && cause.constraint === "senders_project_email_unique"))
+    ) {
+      throw new SenderInputError(
+        "That address is already a sender on this project. Check archived senders too."
+      );
+    }
+    throw error;
   }
   await audit(db, {
     projectId: input.projectId,

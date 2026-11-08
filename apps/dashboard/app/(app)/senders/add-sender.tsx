@@ -45,11 +45,16 @@ export function AddSender({
         choice === "domain"
           ? await createDomainSender({ projectId, displayName, localPart, domain })
           : await createGmailSender({ projectId, transportId, displayName });
+      if (!res.ok) {
+        setMsg({ text: res.error, ok: false });
+        return;
+      }
       router.push(`/senders/${res.id}?project=${projectId}`);
     } catch (err) {
       setMsg({ text: err instanceof Error ? err.message : "Failed.", ok: false });
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   }
 
   return (
@@ -263,7 +268,7 @@ export function AddSender({
                       value={localPart}
                       onChange={(e) => setLocalPart(e.target.value)}
                       placeholder="support"
-                      aria-label="Local part"
+                      aria-label="Email name or full address"
                       className="ds-input mono"
                       style={{ flex: 1, minWidth: 0 }}
                     />
@@ -283,7 +288,7 @@ export function AddSender({
                   </div>
                 </div>
                 <p className="mono" style={{ fontSize: 12, color: "var(--color-muted)", margin: 0 }}>
-                  Preview: {displayName || "Name"} &lt;{localPart || "name"}@{domain}&gt;
+                  Preview: {displayName || "Name"} &lt;{localPart.includes("@") ? localPart : `${localPart || "name"}@${domain}`}&gt;
                 </p>
                 <button
                   type="button"
