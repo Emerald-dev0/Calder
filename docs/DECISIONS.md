@@ -974,7 +974,9 @@ Redis/provider fixtures, and browser-runner ownership.
 
 ## ADR-045: Plan catalogue becomes five tiers and one config file
 
-**Status:** Accepted (2026-10-22). Supersedes the prices in ADR-024.
+**Status:** Accepted (2026-10-22); **commercial scope superseded by ADR-057**
+(2026-11-08). Premium and Scale are retired; the single-source-of-truth and
+resource-enforcement decisions below still stand. Supersedes the prices in ADR-024.
 
 **Decision:** Calder sells five tiers — Beginner (free), Starter, Pro, Premium
 and Scale. `packages/config/src/plan-limits.ts` is the single source of truth
@@ -1171,6 +1173,9 @@ URL or `curl`; and marketing cannot be sold by accident.
 ## ADR-056: `premium` is storable; seeds resolve plans by tier
 
 **Status:** Accepted (2026-11-08). Completes the follow-up in ADR-045/PRICING §6.
+**Superseded in part by ADR-057:** the enum value and historical resolution still
+stand, but `premium` is retired and the seed now inserts only the three commercial
+tiers.
 
 The catalogue, the pricing page and ADR-045 all sold a five-tier structure while
 `plan_tier` was `free | starter | pro | scale`. Premium could be advertised,

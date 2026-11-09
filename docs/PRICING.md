@@ -213,10 +213,9 @@ are modelled separately: contacts cost storage and support, not delivery.
    tier reappears in the marketing data.
 4. **Starter's environments.** Dropped from the catalogue and the comparison
    table: it was never enforced, so it is not claimed.
-5. **Price discrepancy with `PRD.md` §11.** The PRD still prints Pro
-   $15/₦25,000 and Premium $49/₦75,000, while this catalogue (ADR-045) has Pro
-   $18/₦20,000. The implementation follows the catalogue; the PRD is stale and
-   must be corrected by the product owner before any checkout is built.
+5. **Price discrepancy with `PRD.md` §11 — resolved 2026-11-08.** The PRD now
+   matches this catalogue and ADR-057: Beginner ₦0/$0, Starter ₦5,000/$5, Pro
+   ₦20,000/$18; Premium and Scale are retired. No prices changed.
 6. **Advertised but unenforced distinctions.** Scoped keys, webhook replay,
    audit logs and per-plan environments were available to every organization
    regardless of tier. They are now either described as available on every plan

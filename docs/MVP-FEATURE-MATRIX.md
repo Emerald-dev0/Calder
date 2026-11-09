@@ -245,20 +245,23 @@ Still-open pricing discrepancies are in §7.
 
 These are commercial or product calls. The code does not invent an answer.
 
-1. **Price discrepancy, PRD vs catalogue.** `PRD.md` §11 lists Pro $15/₦25,000
-   and Premium $49/₦75,000; `packages/config/src/plan-limits.ts` (ADR-045)
-   lists Pro $18/₦20,000. The implementation follows the
-   catalogue. Choose one before any checkout is built; do not reprice silently.
-2. **Starter's environment matrix** is unset in `docs/PRICING.md` and enforced
-   nowhere. Define it or stop implying a difference.
-3. **Unenforced tier distinctions** (`UNENFORCED_PLAN_DIFFERENCES`): webhook
-   replay, audit logs, per-plan environments. Either gate them (removing
-   capability from existing free organizations) or correct the pricing rows.
-   Recorded in code so a paid launch cannot ignore them.
-4. **Premium storage** is now possible (migration 0035). Any existing rows that
-   should be Premium must be assigned deliberately; nothing is inferred.
-5. **Log retention** is recorded per plan and is not enforced by a purge.
-   Decide whether to build retention enforcement or stop printing day counts.
+1. **Price discrepancy, PRD vs catalogue — resolved 2026-11-08.** `PRD.md` §11
+   now matches `packages/config/src/plan-limits.ts`: Beginner ₦0/$0, Starter
+   ₦5,000/$5, Pro ₦20,000/$18. Premium and Scale are retired (ADR-057). No
+   prices changed in this reconciliation.
+2. **Starter's environment matrix — resolved 2026-11-08.** Removed from the
+   catalogue and every public table; it was never enforced.
+3. **Unenforced tier distinctions — resolved 2026-11-08.** Scoped keys, webhook
+   replay and audit logs are documented as available on every plan; per-plan
+   environments and retention claims were removed. `UNENFORCED_PLAN_DIFFERENCES`
+   retains the record and any remaining decision.
+4. **Premium/Scale storage — resolved 2026-11-08.** Both remain storable and
+   resolvable for historical subscriptions, with `retired: true`; new
+   assignments are rejected before any write. No existing row is inferred,
+   migrated or downgraded.
+5. **Log retention — resolved 2026-11-08.** Day counts are no longer printed on
+   any surface. A per-plan retention purge remains unimplemented; build it
+   before selling retention as a feature.
 6. **SDK publication.** Node/Python are tested but unpublished; Ruby/PHP are
    untested. Decide publish-and-certify or remove from public docs.
 7. **SMTP and Gmail.** Both remain Coming Soon until acceptance evidence exists.

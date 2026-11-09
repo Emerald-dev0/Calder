@@ -5,6 +5,11 @@
 > use [LAUNCH-STATUS.md](LAUNCH-STATUS.md) and [CHANGELOG.md](../CHANGELOG.md).
 > Billing activation, verified SDK publication and hosted automatic-delivery
 > validation remain launch work; source implementation alone does not close them.
+>
+> **Plan references are historical.** Premium and Scale were retired from the
+> commercial offering on 2026-11-08 (ADR-057). Any "Premium gate", five-tier or
+> per-plan-environment wording below describes an earlier snapshot; the current
+> catalogue is Beginner, Starter and Pro, and log retention is not enforced.
 
 _The single guide from current state to production. Replaces all prior roadmap content (2026-09-19). Part A = full evidence audit. Part B = phased build order with milestones, exit criteria, and the Gmail protection track. Rules: no phase starts until prior milestones meet exit criteria; every milestone ends BUILD → UNIT → INTEGRATION → E2E → MANUAL → FAILURE → SECURITY → UI → PROD-LIKE → DONE; not done unless CI is green._
 
