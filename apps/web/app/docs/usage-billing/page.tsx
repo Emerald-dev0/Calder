@@ -34,8 +34,8 @@ export default function UsageBilling() {
       <h2>Plans</h2>
       <p>
         Beginner is free with 5,000 emails a month and 500 submissions a day. Starter is $5 for
-        10,000 and 2,000 a day; Pro is $18 for 50,000 and 5,000 a day. Monthly subscriptions bill
-        in USD through Paystack until cancelled.
+        10,000 and 2,000 a day; Pro is $18 for 50,000 and 5,000 a day. Monthly subscriptions bill in
+        USD through Paystack until cancelled.
       </p>
       <h2>Monthly credits</h2>
       <p>
@@ -45,9 +45,9 @@ export default function UsageBilling() {
       </p>
       <h2>Daily Burst Passes</h2>
       <p>
-        A $1 Daily Burst Pass adds 1,000 submissions for the rest of the current UTC day. It
-        expires at 23:59:59 UTC, does not roll over, adds no monthly credits, and is capped at two
-        per account per UTC day. It cannot bypass your monthly allowance, a suspension, compliance
+        A $1 Daily Burst Pass adds 1,000 submissions for the rest of the current UTC day. It expires
+        at 23:59:59 UTC, does not roll over, adds no monthly credits, and is capped at two per
+        account per UTC day. It cannot bypass your monthly allowance, a suspension, compliance
         checks, provider limits, or anti-abuse controls.
       </p>
       <h2>When you reach a limit</h2>
