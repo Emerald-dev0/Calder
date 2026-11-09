@@ -275,7 +275,7 @@ export function OverviewQuickstartCurl() {
     <div style={{ marginTop: 16, textAlign: "left" }}>
       <CodeBlock
         title="Quickstart cURL"
-        code={`curl -X POST https://api.calder.build/v1/emails \\
+        code={`curl -X POST https://api.calder.click/v1/emails \\
   -H "Authorization: Bearer $CALDER_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
