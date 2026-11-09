@@ -58,7 +58,6 @@ History is summarized in [CHANGELOG.md](../CHANGELOG.md); it is not an SLA.
 5. Keep billing, unpublished SDK packages, SMTP and unverified Gmail setup out of
    ready-to-use promises. Revisit this file only when evidence changes.
 
-
 ## Feature availability reconciliation — 2026-11-08
 
 Repository state, availability and commercial status are now reconciled in
@@ -77,11 +76,13 @@ Repository state, availability and commercial status are now reconciled in
 - **Enforcement:** a single registry (`packages/config/src/features.ts`) drives
   the API gate, dashboard availability and public copy. Marketing endpoints fail
   at the boundary; dashboard server actions refuse before touching data.
-- **Plans:** all five tiers exist in config and the database (`premium` added in
-  migration 0035). Billing still cannot assign any paid tier, so every current
-  organization is on Beginner and every implemented feature is entitled to it.
-  Resource and email ceilings remain enforced. Advertised-but-unenforced
-  distinctions are recorded in `UNENFORCED_PLAN_DIFFERENCES`.
+- **Plans:** three plans are sold (Beginner, Starter, Pro). Premium and Scale
+  are retired: their config entries and database values remain so historical
+  subscriptions keep resolving to real limits, but they are hidden from pricing
+  and rejected by every assignment path. Billing still cannot assign a paid
+  tier automatically. Resource and email ceilings remain enforced; retention,
+  per-plan environments and tier-restricted tools are not claimed because they
+  are not enforced (`UNENFORCED_PLAN_DIFFERENCES`).
 - **Security repair:** appended obfuscated payloads were present in eleven
   build/migration/config files in this checkout. They were removed without
   rewriting history; the source-integrity gate now reports clean. See

@@ -134,7 +134,7 @@ export function pricingJsonLd(plans: Plan[]): Record<string, unknown> {
         name: `${plan.name} plan`,
         url: `${SITE_URL}/pricing`,
         availability: "https://schema.org/InStock",
-        description: `${plan.promise} ${plan.volume}, ${plan.projects} projects, ${plan.domains} sending domains, ${plan.team} team seat(s), ${plan.logs} log retention, ${plan.support.toLowerCase()} support.`,
+        description: `${plan.promise} ${plan.volume}, ${plan.projects} projects, ${plan.domains} sending domains, ${plan.team} team seat(s).`,
       };
 
       // A "contact us" plan has no price, and an Offer without a price is

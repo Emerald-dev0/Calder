@@ -138,7 +138,7 @@ export default async function ControlLayout({ children }: { children: ReactNode 
   const groups: NavGroup[] = NAV.filter(
     (g) =>
       g.section === "overview" ||
-      canAccessSection(ctx.role, g.section as Parameters<typeof canAccessSection>[1]),
+      canAccessSection(ctx.role, g.section as Parameters<typeof canAccessSection>[1])
   ).map((g) => ({ heading: g.heading, items: g.items }));
 
   return (

@@ -11,7 +11,7 @@ import {
   isFeatureLive,
   planIncludesFeature,
 } from "./features.js";
-import { PLAN_ORDER } from "./plan-limits.js";
+import { KNOWN_TIERS, type PlanTier } from "./plan-limits.js";
 
 /**
  * The registry is the one place surfaces read availability from, so the
@@ -88,9 +88,11 @@ describe("feature registry", () => {
   it("honours a feature restricted to specific tiers", () => {
     // The catalogue currently has no tier-restricted implemented feature; assert
     // the mechanism rather than inventing a commercial restriction.
-    const restricted = { ...FEATURES.transactional_email, plans: ["pro", "premium"] as const };
-    expect(restricted.plans.includes("free")).toBe(false);
-    for (const tier of PLAN_ORDER) {
+    const restrictedPlans: readonly PlanTier[] = ["pro", "premium"];
+    expect(restrictedPlans.includes("free")).toBe(false);
+    expect(restrictedPlans.includes("pro")).toBe(true);
+    // Every implemented feature defaults to every known tier, retired included.
+    for (const tier of KNOWN_TIERS) {
       expect(featurePlans("email_templates")).toContain(tier);
     }
   });

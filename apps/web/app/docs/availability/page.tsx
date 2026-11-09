@@ -45,8 +45,8 @@ export default function Availability() {
           verified here.
         </li>
         <li>
-          Campaign/audience code exists, but the marketing suite is out of scope for this release and every surface labels it Coming Soon;
-          production rollout is not certified.
+          Campaign/audience code exists, but the marketing suite is out of scope for this release
+          and every surface labels it Coming Soon; production rollout is not certified.
         </li>
       </ul>
       <h2>Automatic delivery is a separate check</h2>

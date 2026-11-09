@@ -23,7 +23,11 @@ export default async function FeatureFlagsPage() {
       note: "OAuth quickstart, capped daily, graduates to domains",
     },
     { name: "SMTP Gateway", state: "on", note: "Same pipeline, project-scoped credentials" },
-    { name: "Inbound Email", state: "off", note: "Specified post-MVP (user → Calder → app webhook)" },
+    {
+      name: "Inbound Email",
+      state: "off",
+      note: "Specified post-MVP (user → Calder → app webhook)",
+    },
     {
       name: "Marketing (product flag)",
       state: config.FEATURE_MARKETING ? "rollout" : "off",
@@ -94,7 +98,10 @@ export default async function FeatureFlagsPage() {
         </div>
       </Panel>
 
-      <Panel title="Runtime flag service" caption="Not implemented; current gating is config + code">
+      <Panel
+        title="Runtime flag service"
+        caption="Not implemented; current gating is config + code"
+      >
         <Planned
           title="Flag engine"
           bullets={[

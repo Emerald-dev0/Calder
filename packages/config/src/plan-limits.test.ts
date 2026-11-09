@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  COMMERCIAL_PLAN_ORDER,
   EXEMPT_TIERS,
+  KNOWN_TIERS,
   LIMITED_RESOURCES,
   PLAN_LIMITS,
   PLAN_ORDER,
+  RETIRED_TIERS,
   UNENFORCED_PLAN_LIMITS,
+  UnassignablePlanTierError,
+  assertAssignableTier,
+  isCommercialTier,
   USAGE_WARNING_RATIOS,
   checkResourceLimit,
   formatPlanPrice,
@@ -23,15 +29,67 @@ import {
  * with it — and the diff explains itself.
  */
 describe("plan catalogue", () => {
-  it("has the five tiers in order, with the sanctioned display names", () => {
-    expect(PLAN_ORDER).toEqual(["free", "starter", "pro", "premium", "scale"]);
-    expect(PLAN_ORDER.map((t) => PLAN_LIMITS[t].displayName)).toEqual([
+  it("sells exactly three commercial plans, with the sanctioned display names", () => {
+    expect(COMMERCIAL_PLAN_ORDER).toEqual(["free", "starter", "pro"]);
+    expect(COMMERCIAL_PLAN_ORDER.map((t) => PLAN_LIMITS[t].displayName)).toEqual([
+      "Beginner",
+      "Starter",
+      "Pro",
+    ]);
+    // PLAN_ORDER is the commercial order; it must never point at a retired tier.
+    expect(PLAN_ORDER).toEqual([...COMMERCIAL_PLAN_ORDER]);
+  });
+
+  it("still knows every historical tier, including the retired ones", () => {
+    expect(KNOWN_TIERS).toEqual(["free", "starter", "pro", "premium", "scale"]);
+    expect(KNOWN_TIERS.map((t) => PLAN_LIMITS[t].displayName)).toEqual([
       "Beginner",
       "Starter",
       "Pro",
       "Premium",
       "Scale",
     ]);
+    expect(RETIRED_TIERS).toEqual(["premium", "scale"]);
+    for (const tier of KNOWN_TIERS) {
+      expect(PLAN_LIMITS[tier].retired, tier).toBe(
+        (RETIRED_TIERS as readonly string[]).includes(tier)
+      );
+    }
+  });
+
+  it("classifies tiers for assignment without touching resolution", () => {
+    expect(isCommercialTier("free")).toBe(true);
+    expect(isCommercialTier("starter")).toBe(true);
+    expect(isCommercialTier("pro")).toBe(true);
+    expect(isCommercialTier("premium")).toBe(false);
+    expect(isCommercialTier("scale")).toBe(false);
+    expect(isCommercialTier("gold")).toBe(false);
+    expect(isCommercialTier(null)).toBe(false);
+  });
+
+  it("resolves retired tiers to their own historical limits, never to Beginner", () => {
+    expect(planFor("premium").displayName).toBe("Premium");
+    expect(planFor("premium").emailsPerMonth).toBe(250_000);
+    expect(planFor("premium").projects).toBe(50);
+    expect(planFor("scale").emailsPerMonth).toBeNull();
+    expect(planDisplayName("premium")).toBe("Premium");
+    expect(PLAN_LIMITS.premium.retired).toBe(true);
+  });
+
+  it("rejects retired and unknown tiers for new assignments", () => {
+    expect(assertAssignableTier("pro")).toBe("pro");
+    expect(assertAssignableTier("free")).toBe("free");
+    for (const tier of ["premium", "scale", "gold", "", null, undefined]) {
+      expect(() => assertAssignableTier(tier), String(tier)).toThrow(UnassignablePlanTierError);
+    }
+    try {
+      assertAssignableTier("premium");
+    } catch (err) {
+      expect(err).toBeInstanceOf(UnassignablePlanTierError);
+      expect((err as UnassignablePlanTierError).code).toBe("plan_not_assignable");
+      expect((err as UnassignablePlanTierError).retired).toBe(true);
+      expect((err as UnassignablePlanTierError).message).toContain("Premium is retired");
+    }
   });
 
   it("matches the approved email allowances", () => {
@@ -66,7 +124,7 @@ describe("plan catalogue", () => {
     expect(PLAN_LIMITS.starter.retentionDays).toBe(14);
     expect(PLAN_LIMITS.pro.retentionDays).toBe(30);
     expect(PLAN_LIMITS.premium.retentionDays).toBe(90);
-    for (const tier of PLAN_ORDER)
+    for (const tier of KNOWN_TIERS)
       expect(PLAN_LIMITS[tier].gmailSenders).toBe(tier === "scale" ? null : 2);
     expect(PLAN_LIMITS.free.dailySendCap).toBe(500);
     expect(PLAN_LIMITS.premium.dailySendCap).toBeNull();
@@ -74,7 +132,7 @@ describe("plan catalogue", () => {
   });
 
   it("never approves the contacts allowance", () => {
-    for (const tier of PLAN_ORDER) {
+    for (const tier of KNOWN_TIERS) {
       expect(PLAN_LIMITS[tier].contacts.approved).toBe(false);
     }
   });
@@ -113,7 +171,7 @@ describe("warning thresholds", () => {
   });
 
   it("are exactly the ratios of the limit for every metered plan", () => {
-    for (const tier of PLAN_ORDER) {
+    for (const tier of KNOWN_TIERS) {
       const limit = planEmailsLimit(tier);
       if (limit === null) continue;
       expect(planWarningThresholds(tier)).toEqual(USAGE_WARNING_RATIOS.map((r) => limit * r));
@@ -152,11 +210,12 @@ describe("checkResourceLimit", () => {
     expect(d.code).toBe("plan_limit_reached");
   });
 
-  it("points at Scale with a contract message when no plan raises the ceiling", () => {
+  it("never recommends a retired plan when no commercial plan raises the ceiling", () => {
     const d = checkResourceLimit("premium", "seats", 15);
     expect(d.allowed).toBe(false);
-    expect(d.upgradeTier).toBe("scale");
-    expect(d.message).toContain("Scale");
+    expect(d.upgradeTier).toBeNull();
+    expect(d.upgradeDisplayName).toBeNull();
+    expect(d.message).toContain("Contact us");
   });
 
   it("never blocks a custom plan", () => {
@@ -196,8 +255,10 @@ describe("checkResourceLimit", () => {
   it("skips tiers that do not raise this particular ceiling", () => {
     expect(upgradeTierFor("free", "domains")).toBe("starter"); // 2 → 3
     expect(upgradeTierFor("starter", "projects")).toBe("pro"); // 3 → 3 → 10
-    expect(upgradeTierFor("premium", "projects")).toBe("scale");
+    // Retired tiers have no commercial successor and are never suggested.
+    expect(upgradeTierFor("premium", "projects")).toBeNull();
     expect(upgradeTierFor("scale", "projects")).toBeNull();
+    expect(upgradeTierFor("free", "projects")).toBe("pro");
   });
 
   it("uses the right noun for a single seat", () => {

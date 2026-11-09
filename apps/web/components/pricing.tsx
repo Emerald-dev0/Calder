@@ -9,10 +9,9 @@ import { PLANS, PROGRESSION, type Currency } from "../lib/plans";
  * Limits remain sourced from configuration (see lib/plans.ts).
  */
 /**
- * How many bullets fit on a card. Five plans share one row, so each card is
- * ~200px wide: a fourteen-item list at that width is a wall of text, not a
- * comparison. The card carries the headline features and links to the full
- * table below, which lists every one of them.
+ * How many bullets fit on a card. Three plans share one row: the card carries
+ * the headline features and links to the full table below, which lists every
+ * one of them. Retired plans (Premium/Scale) are never rendered.
  */
 const CARD_HIGHLIGHTS = 5;
 
@@ -98,8 +97,7 @@ export function Pricing() {
                   </li>
                 ))}
               </ul>
-              {plan.highlights.length + (plan.plannedHighlights?.length ?? 0) >
-                CARD_HIGHLIGHTS && (
+              {plan.highlights.length + (plan.plannedHighlights?.length ?? 0) > CARD_HIGHLIGHTS && (
                 <a className="price-more" href="#compare">
                   All {plan.highlights.length + (plan.plannedHighlights?.length ?? 0)} features
                   <span aria-hidden="true"> ↓</span>

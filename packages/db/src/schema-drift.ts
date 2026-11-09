@@ -206,4 +206,4 @@ if (isCli) {
   }
   console.error(`schema-drift FAILED (${result.kind}): ${result.detail}`);
   process.exit(1);
-};
+}

@@ -24,7 +24,8 @@ export default async function CreditsPage() {
             "No negative balances or estimated consumption",
           ]}
         >
-          Credits remain gated to avoid support gestures being mistaken for production billing state.
+          Credits remain gated to avoid support gestures being mistaken for production billing
+          state.
         </Planned>
       </Panel>
     </>

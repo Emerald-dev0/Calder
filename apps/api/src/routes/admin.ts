@@ -15,7 +15,7 @@ import {
 import { logger } from "@calder/observability";
 import { randomUUID } from "node:crypto";
 import { signUnsubscribeToken } from "@calder/auth";
-import { getConfig } from "@calder/config";
+import { getConfig, type PlanTier } from "@calder/config";
 import { eq, and, desc, count as drizzleCount } from "drizzle-orm";
 import type { Env } from "../app.js";
 import { AppError, validationError } from "../errors/index.js";
@@ -211,7 +211,12 @@ admin.post(
 );
 
 const subscriptionSchema = z.object({
-  planTier: z.enum(["free", "starter", "pro", "scale"]),
+  /**
+   * Validated separately from the enum so a retired tier (Premium/Scale) gets
+   * the stable `plan_not_assignable` code rather than a generic validation
+   * message. Only the three commercial tiers can be assigned.
+   */
+  planTier: z.string().min(1),
   months: z.number().int().min(1).max(36).default(1),
 });
 
@@ -304,13 +309,39 @@ admin.post("/organizations/:orgId/sending-status", adminAuthMiddleware, async (c
 admin.post("/organizations/:orgId/subscription", adminAuthMiddleware, async (c) => {
   const parsed = subscriptionSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success)
-    throw validationError("planTier (free|starter|pro|scale) and months (1-36) required.");
+    throw validationError("planTier (beginner|starter|pro) and months (1-36) required.");
+
+  // Reject retired/unknown tiers BEFORE any organization lookup or write.
+  const { assertAssignableTier, UnassignablePlanTierError, planFor } =
+    await import("@calder/config");
+  let assignableTier: PlanTier;
+  try {
+    assignableTier = assertAssignableTier(parsed.data.planTier);
+  } catch (err) {
+    if (err instanceof UnassignablePlanTierError) {
+      throw new AppError("plan_not_assignable", err.message, 400, {
+        tier: parsed.data.planTier,
+        retired: err.retired,
+        assignable: ["free", "starter", "pro"],
+      });
+    }
+    throw err;
+  }
+
   const db = getDb();
   const orgId = c.req.param("orgId");
   const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
   if (!org) throw new AppError("not_found", "Organization not found.", 404);
-  const [plan] = await db.select().from(plans).where(eq(plans.tier, parsed.data.planTier)).limit(1);
-  if (!plan) throw new AppError("not_found", "Plan tier not seeded. Run db:seed.", 404);
+  const [plan] = await db.select().from(plans).where(eq(plans.tier, assignableTier)).limit(1);
+  if (!plan) {
+    // A commercial tier with no seeded row cannot be assigned either; do not
+    // manufacture a subscription the catalogue cannot describe.
+    throw new AppError(
+      "validation_error",
+      `${planFor(assignableTier).displayName} is not in the plan catalogue. Run db:seed.`,
+      409
+    );
+  }
   await db
     .update(subscriptions)
     .set({ status: "canceled", updatedAt: new Date() })

@@ -839,3 +839,57 @@ All run on `22a12ab` (PR #96 head), 2026-11-08.
 
 **Not run:** hosted sends, real SES, real SNS, Redis fault injection locally, browser/visual QA,
 load tests, restore drill. These are recorded as blocked or unverified above.
+
+---
+
+## 19. Round-3 implementation addendum (2026-11-08)
+
+Owner approved execution in this order: plan retirement guards, control-plane
+assignment, public pricing, docs, then verification. The audit above remains the
+round-2 record; this section records what changed and the evidence produced.
+
+### What changed
+
+| Area          | Change                                                                                                                                                                                                                                  |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Catalogue     | `retired: true` on Premium/Scale; `COMMERCIAL_PLAN_ORDER`, `KNOWN_TIERS`, `RETIRED_TIERS`; `planFor` own-property lookup keeps historical limits; `upgradeTierFor` stops at Pro.                                                        |
+| Assignment    | `assertAssignableTier` rejects retired/unknown tiers with `plan_not_assignable` **before** any DB access in the admin API (400) and the founder-only control-plane action. Retired tiers have no seeded row to grant.                   |
+| Seed          | Inserts Beginner/Starter/Pro only, additively (`onConflictDoNothing`). Historical Premium/Scale rows and subscriptions are untouched. No migration added or removed.                                                                    |
+| Control plane | Grant selector offers Beginner/Starter/Pro; a retired current subscription is a disabled option and is labelled "Premium (retired)" / "Scale (retired)". Filters can still find historical accounts.                                    |
+| Public site   | `/pricing`, comparison, structured data and the what-is-Calder FAQ render three plans. Retention, environments, tier-restricted key scopes and webhook replay remove/neutralise every unenforced claim.                                 |
+| Docs          | PRICING, MVP-FEATURE-MATRIX, LAUNCH-STATUS, SYSTEM-EXPLAINED and CHANGELOG updated; ADR-057 records the retirement.                                                                                                                     |
+| E2E honesty   | `critical-flow` and `redis-down` no longer `return` silently when Redis is absent; with `E2E_ENABLED=1` they throw, so a missing service fails the job instead of passing vacuously.                                                    |
+| Security      | A second appended `eval`/`atob` payload was found in `source-integrity.test.ts`, which both the gate and its test exempted from scanning. Payload removed, fixtures assembled at runtime, self-exemptions removed; see SECURITY.md §16. |
+| Tokens        | `--cp-*` control-plane aliases were referenced but never declared; declared in dashboard `globals.css` (the UI token test had been failing on this).                                                                                    |
+
+### Evidence produced locally
+
+| Check                                            | Result                                                                                                                              |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm format:check`                              | pass — all matched files                                                                                                            |
+| `pnpm typecheck` (build + tsc)                   | pass — 35 of 35 (later 37 of 37) tasks                                                                                              |
+| `pnpm test`                                      | pass — 35 of 35 tasks; `@calder/api` 188 passed / 85 skipped (integration gated), `@calder/config` 51 passed, `@calder/ui` 9 passed |
+| `packages/config` unit tests                     | 51 passed (3 files)                                                                                                                 |
+| `apps/web` unit tests                            | 14 passed (plans + launch copy)                                                                                                     |
+| `packages/db` plan compatibility (real Postgres) | 4 passed: three seeded plans, historical Premium row survives re-seed, Premium resolves 250,000/50                                  |
+| `apps/api` source-integrity tests                | 42 passed                                                                                                                           |
+| `node scripts/source-integrity-gate.mjs`         | clean, 668 source files (now includes its own test)                                                                                 |
+| Local plan rows                                  | 5 (`free`, `starter`, `pro`, `premium`, `scale`), 0 subscriptions; seed did not delete the historical rows                          |
+| Migration set                                    | unchanged; `drizzle/0035_quick_harrier.sql` still the last migration                                                                |
+
+### Still blocked / not run
+
+- **E2E with real Redis and Postgres** (`apps/e2e`): Redis is unavailable in this
+  environment. The vacuous-return fix is typechecked and reviewed but must be
+  proven in CI (`e2e` job with service containers). Not claimed as passing here.
+- **Hosted send, SES, SNS, Vercel, production DB audit, browser QA, load test,
+  restore drill:** still require owner access (E). Nothing in this round changes
+  that status.
+- **Billing/checkout:** intentionally out of scope; prices unchanged.
+
+### Rollback
+
+Revert this branch's commits. No migration ran, no row was deleted or updated by
+the application code, and the seed is additive, so reverting restores the
+previous code paths without a data repair. Historical Premium/Scale accounts
+remain readable in either direction.

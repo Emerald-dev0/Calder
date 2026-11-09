@@ -48,15 +48,16 @@ gate("excluded features fail closed at the API (live Postgres)", () => {
 
   beforeAll(async () => {
     if (!(await reachable())) return;
-    const { getDb, organizations, organizationMembers, projects, users } = await import(
-      "@calder/db"
-    );
+    const { getDb, organizations, organizationMembers, projects, users } =
+      await import("@calder/db");
     const { createApp } = await import("../app.js");
     const { registerDevKey } = await import("../middleware/auth.js");
     app = createApp();
     db = getDb();
     await db.insert(users).values({ id: userId, email: `fa-user-${suffix}@test.test` });
-    await db.insert(organizations).values({ id: orgId, name: "Feature Gate", slug: `fa-${suffix}` });
+    await db
+      .insert(organizations)
+      .values({ id: orgId, name: "Feature Gate", slug: `fa-${suffix}` });
     await db
       .insert(organizationMembers)
       .values({ id: `orgm_fa_${suffix}`, organizationId: orgId, userId, role: "owner" });
@@ -120,7 +121,10 @@ gate("excluded features fail closed at the API (live Postgres)", () => {
     expect(add.status).toBe(403);
 
     for (const table of [audiences, contacts]) {
-      const [row] = await db.select({ value: count() }).from(table).where(eq(table.projectId, projId));
+      const [row] = await db
+        .select({ value: count() })
+        .from(table)
+        .where(eq(table.projectId, projId));
       expect(Number(row?.value ?? 0)).toBe(0);
     }
   });

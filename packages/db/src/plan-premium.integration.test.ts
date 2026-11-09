@@ -2,16 +2,13 @@ import { randomBytes } from "node:crypto";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
 /**
- * Premium must be storable before it can be entitled.
+ * Retired tiers stay storable and resolvable, but are never sold or seeded.
  *
- * For most of this repository's life `plan_tier` was `free | starter | pro |
- * scale` while the catalogue, the pricing page and ADR-045 sold a fifth tier.
- * The result: a Premium subscription could be advertised, priced and reasoned
- * about, but never written to the database, so `resolveOrgTier` could never
- * return `premium`. Migration 0035 fixes that.
- *
- * This is the plainest possible proof: create a Premium subscription and read
- * the tier back through the same resolver the quota engine uses.
+ * Premium and Scale are retired from the commercial catalogue. Historical
+ * subscriptions may still reference them, so resolution must keep returning
+ * their own limits — never Beginner's — and `seedPlans()` must not delete or
+ * recreate them. This suite simulates a legacy plan row the way production
+ * would already have one.
  */
 process.env.RUN_INTEGRATION_TESTS ??= "";
 const ENABLED = process.env.RUN_INTEGRATION_TESTS === "1";
@@ -52,33 +49,59 @@ gate("plan tier catalogue (live Postgres)", () => {
     await cleanupSuiteOrg(getDb(), orgId, userId);
   });
 
-  it("seeds all five catalogue tiers, including Premium", async () => {
+  it("seeds the three commercial plans only", async () => {
     if (!(await reachable())) return;
     const { getDb, plans } = await import("./index.js");
     const { inArray } = await import("drizzle-orm");
     const rows = await getDb()
       .select({ tier: plans.tier, name: plans.name })
       .from(plans)
-      .where(inArray(plans.tier, ["free", "starter", "pro", "premium", "scale"]));
-    const tiers = rows.map((r) => r.tier).sort();
-    expect(tiers).toEqual(["free", "premium", "pro", "scale", "starter"]);
-    expect(rows.find((r) => r.tier === "premium")?.name).toBe("Premium");
+      .where(inArray(plans.tier, ["free", "starter", "pro"]));
+    expect(rows.map((r) => r.tier).sort()).toEqual(["free", "pro", "starter"]);
+    expect(rows.find((r) => r.tier === "pro")?.name).toBe("Pro");
   });
 
-  it("stores a Premium subscription and resolves it as the org tier", async () => {
+  it("preserves a historical Premium plan row across a re-seed", async () => {
     if (!(await reachable())) return;
-    const { getDb, subscriptions } = await import("./index.js");
-    const { resolveOrgTier } = await import("./usage.js");
-    const { PLAN_LIMITS } = await import("@calder/config");
+    const { getDb, plans } = await import("./index.js");
+    const { seedPlans } = await import("./seed.js");
+    const { eq } = await import("drizzle-orm");
     const db = getDb();
+    // Simulate a plan row created before retirement. It must survive seeding.
+    await db
+      .insert(plans)
+      .values({ id: `plan_premium_${suffix}`, tier: "premium", name: "Premium" })
+      .onConflictDoNothing();
+    await seedPlans();
+    const [row] = await db
+      .select({ tier: plans.tier })
+      .from(plans)
+      .where(eq(plans.tier, "premium"));
+    expect(row?.tier).toBe("premium");
+  });
+
+  it("stores a Premium subscription and resolves its historical limits", async () => {
+    if (!(await reachable())) return;
+    const { getDb, plans, subscriptions } = await import("./index.js");
+    const { resolveOrgTier } = await import("./usage.js");
+    const { PLAN_LIMITS, planFor } = await import("@calder/config");
+    const { eq } = await import("drizzle-orm");
+    const db = getDb();
+    const [premiumPlan] = await db
+      .select({ id: plans.id })
+      .from(plans)
+      .where(eq(plans.tier, "premium"))
+      .limit(1);
+    if (!premiumPlan) throw new Error("historical Premium plan row is missing");
     await db.insert(subscriptions).values({
       id: `sub_plan_${suffix}`,
       organizationId: orgId,
-      planId: "plan_premium",
+      planId: premiumPlan.id,
       status: "active",
     });
     expect(await resolveOrgTier(db, orgId)).toBe("premium");
-    expect(PLAN_LIMITS.premium.emailsPerMonth).toBe(250_000);
+    expect(planFor("premium").emailsPerMonth).toBe(250_000);
+    expect(PLAN_LIMITS.premium.projects).toBe(50);
   });
 
   it("fails closed to Beginner for an unknown tier", async () => {

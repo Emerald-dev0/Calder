@@ -840,4 +840,4 @@ if (invokedDirectly) {
       console.error("Demo seed failed:", err);
       process.exit(1);
     });
-};
+}

@@ -67,7 +67,7 @@ function PlanHead() {
 function ComparisonTable({ rows, label }: { rows: ComparisonRow[]; label: string }) {
   return (
     <>
-      <p className="cmp-hint">Swipe to compare all four plans</p>
+      <p className="cmp-hint">Swipe to compare all {PLANS.length} plans</p>
       <div className="cmp-scroll">
         <table className="cmp-table">
           <PlanHead />

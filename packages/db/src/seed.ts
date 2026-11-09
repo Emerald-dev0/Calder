@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { PLAN_LIMITS, PLAN_ORDER, type PlanTier } from "@calder/config";
+import { COMMERCIAL_PLAN_ORDER, PLAN_LIMITS, type CommercialPlanTier } from "@calder/config";
 import { getDb, organizations, projects, plans, planPrices } from "./index.js";
 
 /**
@@ -31,13 +31,14 @@ const invokedDirectly =
  * Idempotent plan catalogue. Every value comes from `@calder/config`, so the
  * database cannot drift from the plans the application enforces.
  *
- * Every catalogue tier is seedable: `premium` was added to the `plan_tier`
- * enum in migration 0035, so the full five-tier catalogue now round-trips
- * through the database instead of advertising a tier no row could hold.
+ * Only the **commercial** plans are seeded. Premium and Scale are retired:
+ * their enum values and any historical plan rows are preserved (never deleted
+ * here), because subscriptions may still reference them. Seeding is additive
+ * and never removes a row.
  */
-type SeedableTier = PlanTier;
+type SeedableTier = CommercialPlanTier;
 
-const SEEDABLE_TIERS: SeedableTier[] = [...PLAN_ORDER];
+const SEEDABLE_TIERS: SeedableTier[] = [...COMMERCIAL_PLAN_ORDER];
 
 interface PlanSeed {
   tier: SeedableTier;
@@ -104,4 +105,4 @@ if (invokedDirectly) {
       console.error("Seed failed:", err);
       process.exit(1);
     });
-};
+}

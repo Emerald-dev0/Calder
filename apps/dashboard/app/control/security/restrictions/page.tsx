@@ -41,11 +41,7 @@ export default async function RestrictionsPage() {
         subtitle="Active transport restrictions from durable state. Broader enforcement controls are gated until wired to real, audited actions."
       />
 
-      <Panel
-        title="Active restrictions"
-        caption="Suspended/revoked transports fail closed"
-        flush
-      >
+      <Panel title="Active restrictions" caption="Suspended/revoked transports fail closed" flush>
         {restricted.length === 0 ? (
           <Empty title="No active restrictions">Every transport is active.</Empty>
         ) : (
@@ -103,8 +99,8 @@ export default async function RestrictionsPage() {
             "Clear before/after state and rollback/restore path",
           ]}
         >
-          Gmail suspended transports can be reactivated from the Abuse page where authorized. Broader
-          restriction controls remain gated until fully implemented.
+          Gmail suspended transports can be reactivated from the Abuse page where authorized.
+          Broader restriction controls remain gated until fully implemented.
         </Planned>
       </Panel>
     </>

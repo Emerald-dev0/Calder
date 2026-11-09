@@ -37,11 +37,11 @@ const FACTS: Array<[string, string]> = [
   ],
   [
     "Pricing",
-    `Beginner is free: ${planSummary("beginner")}. Pro is ${planPrice("pro", "USD")} or ${planPrice("pro", "NGN")} for 50,000. Premium is ${planPrice("premium", "USD")} or ${planPrice("premium", "NGN")} for 250,000. These are planned prices; paid checkout is not available yet. Naira and dollar prices are set separately, not converted.`,
+    `Beginner is free: ${planSummary("beginner")}. Starter is ${planPrice("starter", "USD")} or ${planPrice("starter", "NGN")} for 10,000 emails. Pro is ${planPrice("pro", "USD")} or ${planPrice("pro", "NGN")} for 50,000. These are planned prices; paid checkout is not available yet. Naira and dollar prices are set separately, not converted. Premium and Scale are retired and no longer sold.`,
   ],
   [
     "Evidence",
-    "Every response carries a request ID. Every email carries a timeline from queued to delivered, bounced or failed. Logs are retained 7 to 90 days depending on plan.",
+    "Every response carries a request ID. Every email carries a timeline from queued to delivered, bounced or failed. Message and event history is kept; a per-plan retention purge is not implemented yet.",
   ],
   ["Where", "Nigeria-first, with planned local pricing and the same API for developers elsewhere."],
   [

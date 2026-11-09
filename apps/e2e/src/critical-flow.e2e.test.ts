@@ -44,7 +44,10 @@ gate("critical flow: key → send → queue → worker → delivery state", () =
 
   beforeAll(async () => {
     redisOk = (await pingRedis(REDIS_URL, 1000)).ok;
-    if (!redisOk) return;
+    if (!redisOk)
+      throw new Error(
+        "[e2e] Redis at REDIS_URL is required when the suite is enabled; refusing to pass vacuously."
+      );
     setRedisEnv(REDIS_URL);
 
     tenant = await provisionTenant("flow");
@@ -75,7 +78,12 @@ gate("critical flow: key → send → queue → worker → delivery state", () =
   }, 30_000);
 
   it("rejects an unauthenticated send (auth is enforced over real HTTP)", async () => {
-    if (!redisOk || !api || !tenant) return;
+    if (!redisOk)
+      throw new Error(
+        "[e2e] Redis at REDIS_URL is required when the suite is enabled; refusing to pass vacuously."
+      );
+    if (!api || !tenant)
+      throw new Error("[e2e] API/tenant setup did not complete; refusing to pass vacuously.");
     const res = await post(api.url, "/v1/emails", {
       from: tenant.from,
       to: `nobody-${tenant.suffix}@test.test`,
@@ -89,7 +97,12 @@ gate("critical flow: key → send → queue → worker → delivery state", () =
   });
 
   it("accepts a live send, delivers it through the worker, and meters it exactly once", async () => {
-    if (!redisOk || !api || !tenant) return;
+    if (!redisOk)
+      throw new Error(
+        "[e2e] Redis at REDIS_URL is required when the suite is enabled; refusing to pass vacuously."
+      );
+    if (!api || !tenant)
+      throw new Error("[e2e] API/tenant setup did not complete; refusing to pass vacuously.");
     const to = `delivered-${tenant.suffix}@test.test`;
     const res = await post(
       api.url,
@@ -137,7 +150,12 @@ gate("critical flow: key → send → queue → worker → delivery state", () =
   }, 40_000);
 
   it("keeps test-environment sends unmetred (ADR-036 isolation still holds)", async () => {
-    if (!redisOk || !api || !tenant) return;
+    if (!redisOk)
+      throw new Error(
+        "[e2e] Redis at REDIS_URL is required when the suite is enabled; refusing to pass vacuously."
+      );
+    if (!api || !tenant)
+      throw new Error("[e2e] API/tenant setup did not complete; refusing to pass vacuously.");
     const to = `test-env-${tenant.suffix}@test.test`;
     const res = await post(
       api.url,
@@ -160,7 +178,12 @@ gate("critical flow: key → send → queue → worker → delivery state", () =
   }, 40_000);
 
   it("replays an identical request without a second send or a second meter row", async () => {
-    if (!redisOk || !api || !tenant) return;
+    if (!redisOk)
+      throw new Error(
+        "[e2e] Redis at REDIS_URL is required when the suite is enabled; refusing to pass vacuously."
+      );
+    if (!api || !tenant)
+      throw new Error("[e2e] API/tenant setup did not complete; refusing to pass vacuously.");
     const to = `replay-${tenant.suffix}@test.test`;
     const idempotencyKey = `e2e-${tenant.suffix}-replay`;
     const body = { from: tenant.from, to, subject: "replay", text: "once" };
@@ -196,7 +219,12 @@ gate("critical flow: key → send → queue → worker → delivery state", () =
   }, 40_000);
 
   it("refuses a suppressed recipient before it is queued", async () => {
-    if (!redisOk || !api || !tenant) return;
+    if (!redisOk)
+      throw new Error(
+        "[e2e] Redis at REDIS_URL is required when the suite is enabled; refusing to pass vacuously."
+      );
+    if (!api || !tenant)
+      throw new Error("[e2e] API/tenant setup did not complete; refusing to pass vacuously.");
     const blocked = `blocked-${tenant.suffix}@test.test`;
     const { getDb, suppressions } = await import("@calder/db");
     await getDb()
@@ -228,7 +256,12 @@ gate("critical flow: key → send → queue → worker → delivery state", () =
   }, 30_000);
 
   it("enqueues onto Redis (the durable queue is real, not simulated)", async () => {
-    if (!redisOk || !api || !tenant) return;
+    if (!redisOk)
+      throw new Error(
+        "[e2e] Redis at REDIS_URL is required when the suite is enabled; refusing to pass vacuously."
+      );
+    if (!api || !tenant)
+      throw new Error("[e2e] API/tenant setup did not complete; refusing to pass vacuously.");
     const { createQueue, QUEUE_NAMES } = await import("@calder/queue");
     const queue = createQueue<{ emailId: string }>(QUEUE_NAMES.emailSend, { redisUrl: REDIS_URL });
     try {
@@ -242,7 +275,12 @@ gate("critical flow: key → send → queue → worker → delivery state", () =
   }, 30_000);
 
   it("serves honest readiness over HTTP (database + queue checked, no secrets)", async () => {
-    if (!redisOk || !api) return;
+    if (!redisOk)
+      throw new Error(
+        "[e2e] Redis at REDIS_URL is required when the suite is enabled; refusing to pass vacuously."
+      );
+    if (!api)
+      throw new Error("[e2e] API/tenant setup did not complete; refusing to pass vacuously.");
     const res = await fetch(`${api.url}/ready`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as {

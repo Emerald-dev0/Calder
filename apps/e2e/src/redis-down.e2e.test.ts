@@ -43,7 +43,10 @@ gate("Redis unavailable: durable acceptance, no silent loss", () => {
 
   beforeAll(async () => {
     realRedisOk = (await pingRedis(REDIS_URL, 1000)).ok;
-    if (!realRedisOk) return;
+    if (!realRedisOk)
+      throw new Error(
+        "[e2e] Redis at REDIS_URL is required when the suite is enabled; refusing to pass vacuously."
+      );
     tenant = await provisionTenant("redisdown");
     setRedisEnv(DEAD_REDIS);
     api = await startApi();
@@ -56,7 +59,12 @@ gate("Redis unavailable: durable acceptance, no silent loss", () => {
   }, 30_000);
 
   it("accepts the send durably, keeps it queued, and does not meter it", async () => {
-    if (!realRedisOk || !api || !tenant) return;
+    if (!realRedisOk)
+      throw new Error(
+        "[e2e] Redis at REDIS_URL is required when the suite is enabled; refusing to pass vacuously."
+      );
+    if (!api || !tenant)
+      throw new Error("[e2e] API/tenant setup did not complete; refusing to pass vacuously.");
     const to = `redis-down-${tenant.suffix}@test.test`;
     const res = await post(
       api.url,
@@ -77,7 +85,12 @@ gate("Redis unavailable: durable acceptance, no silent loss", () => {
   }, 40_000);
 
   it("the enqueue failure is counted, not swallowed", async () => {
-    if (!realRedisOk || !api || !tenant) return;
+    if (!realRedisOk)
+      throw new Error(
+        "[e2e] Redis at REDIS_URL is required when the suite is enabled; refusing to pass vacuously."
+      );
+    if (!api || !tenant)
+      throw new Error("[e2e] API/tenant setup did not complete; refusing to pass vacuously.");
     const { queueEnqueueFailures } = await import("@calder/observability");
     // The counter lives in the API process, which is this process.
     await waitFor(() => queueEnqueueFailures.value() > 0, {
@@ -88,7 +101,12 @@ gate("Redis unavailable: durable acceptance, no silent loss", () => {
   }, 20_000);
 
   it("delivers the queued email once Redis is reachable again (drain is the backstop)", async () => {
-    if (!realRedisOk || !tenant) return;
+    if (!realRedisOk)
+      throw new Error(
+        "[e2e] Redis at REDIS_URL is required when the suite is enabled; refusing to pass vacuously."
+      );
+    if (!tenant)
+      throw new Error("[e2e] API/tenant setup did not complete; refusing to pass vacuously.");
     // Find the row we left queued.
     const { getDb, emails } = await import("@calder/db");
     const { and, eq, count } = await import("drizzle-orm");

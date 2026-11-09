@@ -1153,7 +1153,7 @@ Decision:
 2. These questions stay separate: existence, MVP scope, and plan entitlement.
    `available` is only true when a feature is ready **and** entitled.
 3. The API enforces availability (`requireFeature` → `403
-   feature_not_available`) for features absent from the release. Hiding a nav
+feature_not_available`) for features absent from the release. Hiding a nav
    item is not a security control, and Next server actions are public endpoints,
    so the dashboard calls `assertDashboardFeature` before touching data too.
 4. Marketing (broadcasts, audiences, campaigns) is implemented in this
@@ -1189,3 +1189,47 @@ change only removes the impossibility. Prices are unchanged by this ADR.
 **Consequences:** Premium is storable and resolvable; `pnpm db:seed` is
 idempotent against a database that already contains a plan per tier; the
 catalogue and the enum can no longer disagree about which plans exist.
+
+## ADR-057: Premium and Scale are retired from the commercial offering
+
+**Status:** Accepted (2026-11-08). Supersedes the commercial scope of ADR-045
+and ADR-056; their storage/compatibility decisions stand.
+
+Calder now sells exactly **three** plans: Beginner (free, 5,000 emails/month),
+Starter (₦5,000 / $5, 10,000) and Pro (₦20,000 / $18, 50,000). Premium and Scale
+had no implemented differentiation beyond higher numeric ceilings, no working
+checkout, and no customers on this database. Keeping them advertised implied a
+product that does not exist.
+
+**Decision.**
+
+1. `PlanTier` keeps all five values and `PLAN_LIMITS` keeps all five entries.
+   `premium` and `scale` carry `retired: true`. No enum value is removed and no
+   migration is added: deleting values is destructive and would orphan any
+   historical subscription.
+2. `planFor()` resolves by own-property lookup, so a historical Premium
+   subscription still returns 250,000 emails and 50 projects. Unknown or typo
+   values still fall back to Beginner (fail closed for reads).
+3. `COMMERCIAL_PLAN_ORDER = ["free", "starter", "pro"]` drives every commercial
+   surface, including `PLAN_ORDER`, the marketing page and the seed. The seed is
+   additive (`onConflictDoNothing`): it inserts the three commercial rows and
+   never deletes or updates a historical Premium/Scale row.
+4. New assignments fail closed. `assertAssignableTier` throws
+   `UnassignablePlanTierError` (`plan_not_assignable`) for retired and unknown
+   tiers. The admin API validates it before any org lookup or write (HTTP 400)
+   and the control-plane grant action does the same (founder-only).
+   `upgradeTierFor` iterates commercial plans only and returns `null` past Pro;
+   a limit message on a retired tier says "Contact us", never "upgrade to Pro".
+5. Existing Premium/Scale organizations are **not** downgraded, migrated,
+   re-priced or deleted. Control-plane surfaces label them "Premium (retired)" /
+   "Scale (retired)" and display their real limits. Any future remapping or
+   re-pricing requires an explicit owner decision and notice.
+6. Public copy advertises only implemented capability. Log-retention periods,
+   per-plan environments, tier-restricted key scopes and webhook replay as a
+   paid feature are removed; scoped keys, webhook replay and audit logs are
+   documented as available on every plan.
+
+**Consequences:** the pricing page, comparison table, structured data, dashboard
+plan labels, admin API, seed and docs all agree on three plans; a test fails if
+"Premium" or "Scale" reappears in marketing data; and historical accounts keep
+working without a data migration.

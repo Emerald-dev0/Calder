@@ -12,10 +12,14 @@ import {
   setOrganizationSendingStatus as persistOrganizationSendingStatus,
 } from "@calder/db";
 import { getDb } from "@calder/db";
+import {
+  UnassignablePlanTierError,
+  assertAssignableTier,
+  type CommercialPlanTier,
+} from "@calder/config";
 import { requireControl } from "@/lib/control/guard";
 import { isFounderRole } from "@/lib/control/roles";
 
-const TIERS = ["free", "starter", "pro", "scale"] as const;
 const ORGANIZATION_SAFETY_ROLES = new Set(["founder", "platform_admin", "security"]);
 
 /** Founder/security kill-switch. Suspension revokes all project keys atomically. */
@@ -90,8 +94,17 @@ export async function setSubscription(
       error: "A reason (≥ 6 characters) is required — it lands in the audit log.",
     };
   }
-  if (!TIERS.includes(planTier as (typeof TIERS)[number])) {
-    return { ok: false, error: "Unknown plan tier." };
+  // Reject retired/unknown tiers before any database read or write.
+  // Only the commercial tiers may be assigned; retired tiers are rejected here
+  // before any database read or write.
+  let tier: CommercialPlanTier;
+  try {
+    tier = assertAssignableTier(planTier);
+  } catch (err) {
+    if (err instanceof UnassignablePlanTierError) {
+      return { ok: false, error: err.message };
+    }
+    throw err;
   }
   const m = Math.floor(months);
   if (!Number.isFinite(m) || m < 1 || m > 36) {
@@ -101,11 +114,7 @@ export async function setSubscription(
   const db = getDb();
   const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
   if (!org) return { ok: false, error: "Organization not found." };
-  const [plan] = await db
-    .select()
-    .from(plans)
-    .where(eq(plans.tier, planTier as (typeof TIERS)[number]))
-    .limit(1);
+  const [plan] = await db.select().from(plans).where(eq(plans.tier, tier)).limit(1);
   if (!plan) return { ok: false, error: "Plan tier not seeded. Run db:seed." };
 
   await db

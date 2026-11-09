@@ -5,6 +5,28 @@ Selected changes reconstructed from the GitHub `main` commit history through
 not a claim that every implemented feature is configured or available in production.
 No release tags or semantic versions are invented. See [launch availability](docs/LAUNCH-STATUS.md).
 
+## 2026-11-08 — Three-plan commercial launch (Premium and Scale retired)
+
+- The commercial catalogue is now exactly three plans: Beginner (free, 5,000
+  emails/month), Starter (₦5,000 / $5, 10,000) and Pro (₦20,000 / $18, 50,000).
+  Prices are unchanged.
+- Premium and Scale are retired, not deleted. Their `PlanTier` values,
+  `PLAN_LIMITS` entries (`retired: true`), enum values and historical plan rows
+  remain, so existing subscriptions still resolve to 250,000 / custom limits.
+  No migration was added and no historical row is updated or removed.
+- New assignments fail closed. `assertAssignableTier` rejects retired and
+  unknown tiers before any database access: the admin API returns
+  `400 plan_not_assignable` and the founder-only control-plane action returns a
+  refusal. `upgradeTierFor` stops at Pro and never points at a retired tier.
+- The seed inserts only the three commercial plans (additively), and the control
+  plane shows historical subscriptions as "Premium (retired)" / "Scale (retired)"
+  with their limits intact.
+- Public pricing, comparison, structured data and the what-is-Calder FAQ render
+  three plans. Log-retention periods, per-plan environments and tier-restricted
+  key scopes/webhook replay are no longer advertised; scoped keys, webhook
+  replay and audit logs are documented as available on every plan.
+- Docs: PRICING.md, MVP-FEATURE-MATRIX.md, LAUNCH-STATUS.md and ADR-057 updated.
+
 ## 2026-11-08 — MVP feature reconciliation, plan entitlements, source-integrity repair
 
 - Added `packages/config/src/features.ts`: one registry for feature existence, MVP
@@ -22,6 +44,8 @@ No release tags or semantic versions are invented. See [launch availability](doc
   send, log, replay, tenant isolation, delete).
 - Plan catalogue: added `premium` to the `plan_tier` enum (migration 0035), made
   `seed.ts` seed all five tiers and tolerate a pre-existing plan id for a tier.
+  Superseded by the three-plan entry above: Premium and Scale are now retired and
+  only Beginner, Starter and Pro are seeded or assignable.
 - Public site: marketing rows now say Coming soon, unimplemented premium/scale
   capabilities moved to a muted planned list, SMTP relabelled as planned, and
   Templates described as live.

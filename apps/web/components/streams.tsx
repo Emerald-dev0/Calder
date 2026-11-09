@@ -112,8 +112,8 @@ export function Streams() {
                 <span className="lane-tag dev">Coming soon</span>
               </div>
               <p className="lane-caption">
-                Planned: audiences, consent, scheduling and automation. Not part of this
-                release, and not purchasable today.
+                Planned: audiences, consent, scheduling and automation. Not part of this release,
+                and not purchasable today.
               </p>
               <div className="lane-events">
                 {[

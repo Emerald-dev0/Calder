@@ -967,11 +967,11 @@ a {
   max-width: 66ch;
 }
 
-/* One row, five plans. The grid used to be four columns and PLANS grew a
-   fifth (Scale), so the last card dropped onto a line of its own. */
+/* One row, three commercial plans. Premium and Scale are retired; if a fourth
+   card is ever added, this grid and the comparison tuples must grow with it. */
 .pricing-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.9rem;
   margin-top: 2.8rem;
 }
@@ -2503,10 +2503,10 @@ a {
 
 /* Progression strip: build → ship → operate → depend. Plain text, a rule,
    no arrows, because the words already carry the order. */
-/* Five plans, five steps — this used to be four and the fifth wrapped. */
+/* Three commercial plans, three steps. */
 .progression {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   margin-top: 2.6rem;
   border-top: 1px solid var(--border);
 }

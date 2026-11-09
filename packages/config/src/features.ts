@@ -28,7 +28,7 @@
  * not a security control.
  */
 
-import { PLAN_LIMITS, PLAN_ORDER, type PlanTier, isExemptTier } from "./plan-limits.js";
+import { KNOWN_TIERS, PLAN_LIMITS, type PlanTier, isExemptTier } from "./plan-limits.js";
 
 export type FeatureStatus =
   /** Implemented end-to-end and tested. Safe to expose. */
@@ -134,7 +134,13 @@ export interface FeatureDefinition {
   ownerAction?: string;
 }
 
-const ALL_TIERS: readonly PlanTier[] = PLAN_ORDER;
+/**
+ * Default entitlement for an implemented feature: every *known* tier,
+ * including retired ones. A Premium organization keeps the features it pays
+ * for; the commercial list must never be used here or retirement would become
+ * a silent downgrade.
+ */
+const ALL_TIERS: readonly PlanTier[] = KNOWN_TIERS;
 
 /**
  * The inventory. Order mirrors `docs/MVP-FEATURE-MATRIX.md` so the document
@@ -383,8 +389,10 @@ export const FEATURES: Readonly<Record<FeatureId, FeatureDefinition>> = {
     mvp: false,
     surfaces: { dashboardHref: "/smtp" },
     note: "No SMTP gateway application exists. There is no host or credential to connect to; use the REST API.",
-    blocker: "SMTP gateway implementation and acceptance tests; docs/SMTP.md is a specification only.",
-    ownerAction: "Product/engineering: decide whether SMTP is in scope for the next milestone. Do not advertise a host until it accepts a real authenticated message.",
+    blocker:
+      "SMTP gateway implementation and acceptance tests; docs/SMTP.md is a specification only.",
+    ownerAction:
+      "Product/engineering: decide whether SMTP is in scope for the next milestone. Do not advertise a host until it accepts a real authenticated message.",
   },
   inbound_email: {
     id: "inbound_email",
@@ -404,7 +412,8 @@ export const FEATURES: Readonly<Record<FeatureId, FeatureDefinition>> = {
     surfaces: { dashboardHref: "/integrations" },
     note: "OAuth code exists, but production OAuth approval and a verified send are not confirmed.",
     blocker: "Google OAuth production approval and one verified end-to-end send.",
-    ownerAction: "Owner: complete Google verification, then flip this feature and the public Gmail copy together.",
+    ownerAction:
+      "Owner: complete Google verification, then flip this feature and the public Gmail copy together.",
   },
   workspace_overview: {
     id: "workspace_overview",
@@ -486,7 +495,8 @@ export const FEATURES: Readonly<Record<FeatureId, FeatureDefinition>> = {
     status: "coming_soon",
     mvp: false,
     note: "Bounces are individually visible in delivery logs, but no aggregate bounce analytics exists.",
-    ownerAction: "Product: decide whether aggregate bounce/complaint reporting belongs in the next milestone.",
+    ownerAction:
+      "Product: decide whether aggregate bounce/complaint reporting belongs in the next milestone.",
   },
   complaint_statistics: {
     id: "complaint_statistics",
@@ -509,7 +519,8 @@ export const FEATURES: Readonly<Record<FeatureId, FeatureDefinition>> = {
     mvp: false,
     surfaces: { dashboardHref: "/analytics" },
     note: "No advanced analytics implementation exists. The previous page offered an upgrade for a feature that could not be used.",
-    ownerAction: "Product/engineering: define and build the advanced analytics surface before listing it as a paid capability.",
+    ownerAction:
+      "Product/engineering: define and build the advanced analytics surface before listing it as a paid capability.",
   },
   usage_forecasting: {
     id: "usage_forecasting",
@@ -538,7 +549,8 @@ export const FEATURES: Readonly<Record<FeatureId, FeatureDefinition>> = {
     status: "coming_soon",
     mvp: false,
     note: "No historical uptime data is collected for publication.",
-    ownerAction: "Operations: choose a monitoring source with retained history before publishing per-component uptime.",
+    ownerAction:
+      "Operations: choose a monitoring source with retained history before publishing per-component uptime.",
   },
   marketing_overview: {
     id: "marketing_overview",
@@ -546,7 +558,8 @@ export const FEATURES: Readonly<Record<FeatureId, FeatureDefinition>> = {
     status: "coming_soon",
     mvp: false,
     note: "The marketing suite is not in the MVP.",
-    ownerAction: "Product: schedule the marketing suite as a separate launch with its own acceptance criteria.",
+    ownerAction:
+      "Product: schedule the marketing suite as a separate launch with its own acceptance criteria.",
   },
   broadcasts: {
     id: "broadcasts",
@@ -555,8 +568,10 @@ export const FEATURES: Readonly<Record<FeatureId, FeatureDefinition>> = {
     mvp: false,
     surfaces: { dashboardHref: "/broadcasts", apiRoutes: ["/v1/broadcasts"] },
     note: "Broadcast code exists in the repository, but the product is not part of the MVP. The API is disabled server-side and the dashboard shows Coming Soon.",
-    blocker: "Marketing launch decision plus campaign acceptance tests and contact/consent enforcement.",
-    ownerAction: "Product: keep disabled until a marketing launch is approved. Do not re-enable the API without that decision.",
+    blocker:
+      "Marketing launch decision plus campaign acceptance tests and contact/consent enforcement.",
+    ownerAction:
+      "Product: keep disabled until a marketing launch is approved. Do not re-enable the API without that decision.",
   },
   campaigns: {
     id: "campaigns",

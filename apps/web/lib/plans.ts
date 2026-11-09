@@ -5,18 +5,24 @@
  * - ₦ and $ figures are Calder's own local prices, not live FX conversions.
  *   A Nigerian customer pays the naira price; a US customer pays the dollar
  *   price. Neither one moves when the exchange rate does.
+ * - Exactly three plans are sold: Beginner, Starter and Pro. Premium and Scale
+ *   are retired from the commercial catalogue; their historical subscriptions
+ *   are unaffected and are resolved by `@calder/config/plan-limits`, never by
+ *   this marketing file.
  * - Nothing here is hardcoded anywhere else. Plan cards, the comparison
- *   table, FAQ answers, and structured data all read from this file.
- * - "In development" marks are deliberately visible. The marketing suite and
- *   a few control features are not built yet, and a pricing page that hides
- *   that is selling something it cannot deliver.
+ *   table, FAQ answers and structured data all read from this file.
+ * - Only implemented capability is printed as included. Anything planned is
+ *   rendered separately and tagged Coming soon. We do not advertise log
+ *   retention periods (no purge exists), environment restrictions (not
+ *   enforced), key-scope tiering (not enforced) or webhook replay as a paid
+ *   differentiator (available to everyone).
  */
 
 import { PLAN_LIMITS, formatPlanPrice, type PlanTier } from "@calder/config/plan-limits";
 import { SIGNUP_URL } from "./site";
 
 export type Currency = "NGN" | "USD";
-export type PlanId = "beginner" | "starter" | "pro" | "premium" | "scale";
+export type PlanId = "beginner" | "starter" | "pro";
 
 /**
  * Marketing plan id → catalogue tier. The database still calls the entry tier
@@ -26,8 +32,6 @@ const TIER_OF: Record<PlanId, PlanTier> = {
   beginner: "free",
   starter: "starter",
   pro: "pro",
-  premium: "premium",
-  scale: "scale",
 };
 
 const catalogue = (id: PlanId) => PLAN_LIMITS[TIER_OF[id]];
@@ -55,17 +59,11 @@ function volumeText(id: PlanId): string {
   return n === null ? "Custom volume" : `${count(n)} emails / month`;
 }
 
-function retentionText(id: PlanId): string {
-  const d = catalogue(id).retentionDays;
-  return d === null ? "Custom" : `${d} days`;
-}
-
 /**
  * Honest status for anything that is not simply available today.
  *
  * `soon` is the MVP boundary: the capability is not in this release and is not
- * usable. `dev` remains only where something is built and being finished;
- * nothing currently qualifies, so the public site no longer uses it.
+ * usable. `today` is the default and is not rendered.
  */
 export type Status = "today" | "soon";
 
@@ -83,9 +81,6 @@ export interface Plan {
   projects: string;
   domains: string;
   team: string;
-  environments: string;
-  logs: string;
-  support: string;
   /** Short scannable list on the card itself — capabilities usable today. */
   highlights: string[];
   /**
@@ -111,22 +106,17 @@ export const PLANS: Plan[] = [
     projects: count(catalogue("beginner").projects),
     domains: count(catalogue("beginner").domains),
     team: count(catalogue("beginner").seats),
-    environments: "Development",
-    logs: retentionText("beginner"),
-    support: "Community",
     highlights: [
       "Transactional email",
       "REST API",
       "Idempotency",
+      "Scoped API keys",
       "Signed webhooks",
       `${count(catalogue("beginner").domains)} sending domains`,
       `${count(catalogue("beginner").senders)} sender identities`,
       `${count(catalogue("beginner").projects)} projects`,
-      "Development environment",
       "Delivery logs",
       "Basic analytics",
-      `${retentionText("beginner")} log retention`,
-      "Basic suppression and bounce handling",
       "Batch and scheduled sending",
       `${count(catalogue("beginner").seats)} team member`,
     ],
@@ -138,30 +128,25 @@ export const PLANS: Plan[] = [
     name: "Starter",
     promise: "Start small, grow built-in.",
     audience:
-      "For side projects and early-stage products ready to move beyond the free tier into a paid plan with higher quotas and more sending capacity.",
+      "For side projects and early-stage products ready to move beyond the free tier into higher quotas and more sending capacity.",
     price: { NGN: price("starter", "NGN"), USD: price("starter", "USD") },
     volume: volumeText("starter"),
     volumeRaw: catalogue("starter").emailsPerMonth,
     projects: count(catalogue("starter").projects),
     domains: count(catalogue("starter").domains),
     team: count(catalogue("starter").seats),
-    environments: "Development",
-    logs: retentionText("starter"),
-    support: "Community",
     highlights: [
       "Everything in Beginner",
       "10,000 emails / month",
       "3 projects",
       "3 sending domains",
       "10 sender identities",
-      "Scoped API keys",
       "Signed webhooks with retries",
       "Delivery trends",
       "Advanced delivery history",
       "Suppression and unsubscribe controls",
-      "14 days log retention",
       "Batch and scheduled sending",
-      `${count(catalogue("starter").seats)} team member`,
+      `${count(catalogue("starter").seats)} team members`,
     ],
     cta: "Get started",
     ctaHref: SIGNUP_URL,
@@ -177,21 +162,16 @@ export const PLANS: Plan[] = [
     projects: count(catalogue("pro").projects),
     domains: count(catalogue("pro").domains),
     team: count(catalogue("pro").seats),
-    environments: "Dev · Staging · Production",
-    logs: retentionText("pro"),
-    support: "Email",
     highlights: [
-      "Everything in Beginner",
-      "Staging and production environments",
+      "Everything in Starter",
+      "50,000 emails / month",
       `${count(catalogue("pro").projects)} projects`,
       `${count(catalogue("pro").domains)} sending domains`,
       `${count(catalogue("pro").senders)} sender identities`,
-      "Scoped API keys",
-      "Webhook replay",
+      "Signed webhooks with retries",
       "Delivery trends",
       "Advanced delivery history",
       "Suppression and unsubscribe controls",
-      `${retentionText("pro")} log retention`,
       `${count(catalogue("pro").seats)} team members`,
       "Email support",
     ],
@@ -200,82 +180,6 @@ export const PLANS: Plan[] = [
     ctaHref: SIGNUP_URL,
     popular: true,
   },
-  {
-    id: "premium",
-    name: "Premium",
-    promise: "Operate with control.",
-    audience:
-      "For teams where communication is becoming part of the product infrastructure itself.",
-    price: { NGN: price("premium", "NGN"), USD: price("premium", "USD") },
-    volume: volumeText("premium"),
-    volumeRaw: catalogue("premium").emailsPerMonth,
-    projects: count(catalogue("premium").projects),
-    domains: count(catalogue("premium").domains),
-    team: count(catalogue("premium").seats),
-    environments: "Dev · Staging · Production",
-    logs: retentionText("premium"),
-    support: "Priority",
-    highlights: [
-      "Everything in Pro",
-      `${count(catalogue("premium").projects)} projects`,
-      `${count(catalogue("premium").domains)} sending domains`,
-      `${count(catalogue("premium").senders)} sender identities`,
-      `${retentionText("premium")} log retention`,
-      "Audit logs",
-      "Security events",
-      `${count(catalogue("premium").seats)} team members`,
-      "Priority support",
-    ],
-    plannedHighlights: [
-      "Advanced deliverability monitoring",
-      "Domain reputation visibility",
-      "Custom rate limits",
-      "Provider routing controls",
-      "Custom throughput",
-      "Advanced analytics",
-      "Advanced roles",
-      "IP allowlisting",
-    ],
-    cta: "Choose Premium",
-    ctaHref: SIGNUP_URL,
-  },
-  {
-    id: "scale",
-    name: "Scale",
-    promise: "Make communication part of your infrastructure.",
-    audience:
-      "For organizations that need Calder shaped around their architecture, traffic, security, and operational requirements.",
-    price: { NGN: price("scale", "NGN"), USD: price("scale", "USD") },
-    volume: volumeText("scale"),
-    volumeRaw: catalogue("scale").emailsPerMonth,
-    projects: count(catalogue("scale").projects),
-    domains: count(catalogue("scale").domains),
-    team: count(catalogue("scale").seats),
-    environments: "Custom",
-    logs: retentionText("scale"),
-    support: "Dedicated",
-    highlights: [
-      "Custom sending volume, by contract",
-      "Custom retention, by contract",
-      "Architecture review",
-      "Migration assistance",
-      "Dedicated support",
-    ],
-    plannedHighlights: [
-      "Dedicated infrastructure",
-      "Dedicated IPs",
-      "IP warmup",
-      "Custom throughput",
-      "Provider redundancy",
-      "Advanced routing",
-      "SSO / SAML",
-      "Advanced security controls",
-      "SLA",
-      "Custom contracts and billing",
-    ],
-    cta: "Talk to Calder",
-    ctaHref: "mailto:hello@calder.click?subject=Calder%20Scale",
-  },
 ];
 
 /** One-line progression shown under the cards. See docs/PRICING.md § narrative. */
@@ -283,14 +187,12 @@ export const PROGRESSION = [
   { plan: "Beginner", line: "Build and experiment." },
   { plan: "Starter", line: "Start small, grow built-in." },
   { plan: "Pro", line: "Ship and grow." },
-  { plan: "Premium", line: "Operate at scale." },
-  { plan: "Scale", line: "Make communication infrastructure." },
 ] as const;
 
 export interface ComparisonRow {
   label: string;
-  /** One value per plan, in PLANS order. */
-  values: [string, string, string, string, string];
+  /** One value per plan, in PLANS order: Beginner, Starter, Pro. */
+  values: [string, string, string];
   status?: Status;
   note?: string;
 }
@@ -303,11 +205,11 @@ export interface ComparisonGroup {
 }
 
 const YES = "✓";
-const NO = "—";
+const SOON = "Coming soon";
 
-/** Comparison columns follow PLANS order: Beginner, Starter, Pro, Premium, Scale. */
-function rowOf(pick: (id: PlanId) => string): [string, string, string, string, string] {
-  return [pick("beginner"), pick("starter"), pick("pro"), pick("premium"), pick("scale")];
+/** Comparison columns follow PLANS order: Beginner, Starter, Pro. */
+function rowOf(pick: (id: PlanId) => string): [string, string, string] {
+  return [pick("beginner"), pick("starter"), pick("pro")];
 }
 
 const projectsRow = () => rowOf((id) => count(catalogue(id).projects));
@@ -325,39 +227,24 @@ export const COMPARISON: ComparisonGroup[] = [
           count(catalogue("beginner").emailsPerMonth),
           count(catalogue("starter").emailsPerMonth),
           count(catalogue("pro").emailsPerMonth),
-          count(catalogue("premium").emailsPerMonth),
-          "Custom",
         ],
       },
       {
         label: "Transactional email",
-        values: [YES, YES, YES, YES, YES],
+        values: [YES, YES, YES],
         note: "OTPs, password resets, receipts, invoices, security alerts, order updates.",
       },
       {
         label: "Marketing email",
-        values: [
-          "Coming soon",
-          "Coming soon",
-          "Coming soon",
-          "Coming soon",
-          "Coming soon",
-        ],
+        values: [SOON, SOON, SOON],
         status: "soon",
         note: "Broadcasts, audiences and campaigns exist in the codebase but are not part of this release. The API is disabled and the dashboard shows Coming Soon.",
       },
       { label: "Projects", values: projectsRow() },
       { label: "Sending domains", values: domainsRow() },
       { label: "Sender identities", values: sendersRow() },
-      {
-        label: "Environments",
-        values: ["Development", "Dev + Staging + Prod", "Dev + Staging + Prod", "Custom", "Custom"],
-      },
-      { label: "Batch sending (100 per call)", values: [YES, YES, YES, YES, YES] },
-      {
-        label: "Scheduled sending",
-        values: [YES, YES, YES, YES, YES],
-      },
+      { label: "Batch sending (100 per call)", values: [YES, YES, YES] },
+      { label: "Scheduled sending", values: [YES, YES, YES] },
     ],
   },
   {
@@ -365,140 +252,82 @@ export const COMPARISON: ComparisonGroup[] = [
     rows: [
       {
         label: "REST API, versioned",
-        values: [YES, YES, YES, YES, YES],
+        values: [YES, YES, YES],
         note: "/v1, with a live OpenAPI document at api.calder.click/v1/openapi.json.",
       },
-      { label: "Test and live API keys", values: [YES, YES, YES, YES, YES] },
+      {
+        label: "Test and live API keys",
+        values: [YES, YES, YES],
+        note: "Available on every plan. A test key simulates delivery and is never metered.",
+      },
       {
         label: "Scoped API keys",
-        values: [YES, YES, YES, YES, YES],
-        note: "Available on every plan today. Tiering it is a planned commercial decision, not an enforced entitlement.",
+        values: [YES, YES, YES],
+        note: "full / manage / send / read, on every plan. Not tier-restricted.",
       },
-      { label: "Idempotency keys", values: [YES, YES, YES, YES, YES] },
-      { label: "Signed webhooks with retries", values: [YES, YES, YES, YES, YES] },
+      { label: "Idempotency keys", values: [YES, YES, YES] },
+      { label: "Signed webhooks with retries", values: [YES, YES, YES] },
       {
         label: "Webhook replay and delivery history",
-        values: [YES, YES, YES, YES, YES],
-        note: "Available on every plan today; the intended Starter+ tiering is not enforced yet.",
+        values: [YES, YES, YES],
+        note: "Available on every plan today; not a paid differentiator.",
       },
       {
-        label: "SDKs and CLI",
-        values: ["Node, Python", "Node, Python", "Node, Python", "Node, Python", "Node, Python"],
-        note: "Node and Python SDK source is tested in this repository but not published to a package registry. Ruby/PHP are unverified; there is no CLI.",
+        label: "SDKs",
+        values: ["Node, Python", "Node, Python", "Node, Python"],
+        note: "Source and tests only; packages are not published yet. Ruby/PHP are unverified.",
       },
+      { label: "Support", values: ["Community", "Email", "Email"] },
     ],
   },
   {
-    group: "Reliability and control",
-    status: "today",
+    group: "Reliability and platform",
     rows: [
-      { label: "Automatic retries with backoff", values: [YES, YES, YES, YES, YES] },
-      { label: "Suppression and bounce handling", values: [YES, YES, YES, YES, YES] },
+      { label: "Automatic retries with backoff", values: [YES, YES, YES] },
+      { label: "Suppression and bounce handling", values: [YES, YES, YES] },
+      { label: "Delivery, bounce and failure status", values: [YES, YES, YES] },
+      { label: "Basic analytics", values: [YES, YES, YES] },
       {
-        label: "Queue visibility",
-        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
-        status: "soon",
+        label: "Team members",
+        values: seatsRow(),
       },
-      {
-        label: "Rate-limit controls",
-        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
-        status: "soon",
-      },
-      {
-        label: "Custom throughput",
-        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
-        status: "soon",
-      },
-      {
-        label: "Provider routing and fallback",
-        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
-        status: "soon",
-        note: "SES is the only delivery provider today.",
-      },
-      {
-        label: "Dedicated IPs and warmup",
-        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
-        status: "soon",
-      },
-      {
-        label: "SLA",
-        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
-        status: "soon",
-      },
-    ],
-  },
-  {
-    group: "Observability",
-    rows: [
-      {
-        label: "Log retention",
-        note: "Retention is recorded per plan but is not enforced by an automated purge yet.",
-        values: [
-          retentionText("beginner"),
-          retentionText("starter"),
-          retentionText("pro"),
-          retentionText("premium"),
-          "Custom",
-        ],
-      },
-      { label: "Delivery, bounce and failure status", values: [YES, YES, YES, YES, YES] },
-      { label: "Basic analytics", values: [YES, YES, YES, YES, YES] },
-      {
-        label: "Advanced analytics: trends, failure analysis",
-        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
-        status: "soon",
-        note: "Basic usage analytics is live on every plan. Advanced analytics has no implementation.",
-      },
-      {
-        label: "Deliverability monitoring, domain reputation",
-        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
-        status: "soon",
-      },
-      {
-        label: "Custom dashboards and alerts",
-        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
-        status: "soon",
-      },
-    ],
-  },
-  {
-    group: "Team, security and support",
-    rows: [
-      { label: "Team members", values: seatsRow() },
       {
         label: "Roles and permissions",
-        values: ["Owner, admin, member", "Owner, admin, member", "Owner, admin, member", "Owner, admin, member", "Owner, admin, member"],
-        note: "Three fixed roles today; per-plan role sets are not implemented.",
-      },
-      {
-        label: "Organization activity",
-        values: ["Audit log", "Audit log", "Audit log", "Audit log", "Audit log"],
+        values: [YES, YES, YES],
+        note: "Owner / admin / member, on every plan.",
       },
       {
         label: "Audit logs and security events",
-        values: [YES, YES, YES, YES, YES],
-        note: "Available on every plan today; the intended Pro+ tiering is not enforced.",
+        values: [YES, YES, YES],
+        note: "Available on every plan today; not a paid differentiator.",
       },
+      { label: "Queue visibility", values: [SOON, SOON, SOON], status: "soon" },
+      { label: "Rate-limit controls", values: [SOON, SOON, SOON], status: "soon" },
+      { label: "Custom throughput", values: [SOON, SOON, SOON], status: "soon" },
+      { label: "Provider routing and fallback", values: [SOON, SOON, SOON], status: "soon" },
+      { label: "Dedicated IPs and warmup", values: [SOON, SOON, SOON], status: "soon" },
+      { label: "SLA", values: [SOON, SOON, SOON], status: "soon" },
       {
-        label: "IP allowlisting",
-        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
+        label: "Advanced analytics: trends, failure analysis",
+        values: [SOON, SOON, SOON],
         status: "soon",
       },
       {
-        label: "SSO / SAML",
-        values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"],
+        label: "Deliverability monitoring, domain reputation",
+        values: [SOON, SOON, SOON],
         status: "soon",
       },
-      { label: "Support", values: ["Community", "Email", "Priority", "Dedicated", "Dedicated"] },
+      { label: "Custom dashboards and alerts", values: [SOON, SOON, SOON], status: "soon" },
+      { label: "IP allowlisting", values: [SOON, SOON, SOON], status: "soon" },
+      { label: "SSO / SAML", values: [SOON, SOON, SOON], status: "soon" },
     ],
   },
 ];
 
 /**
  * Marketing allowances. Kept separate from sending volume on purpose: a
- * customer with a 50,000-contact list should not have their OTP budget eaten
- * by campaigns, and campaign reputation should never sit next to application
- * mail. See PRD §18.
+ * customer's OTP budget must not be eaten by campaigns, and campaign
+ * reputation should never sit next to application mail. See PRD §18.
  */
 export const MARKETING_ALLOWANCES: ComparisonRow[] = [
   // The whole marketing suite is out of scope for this release. These rows are
@@ -518,18 +347,12 @@ export const MARKETING_ALLOWANCES: ComparisonRow[] = [
     ] as const
   ).map((label) => ({
     label,
-    values: ["Coming soon", "Coming soon", "Coming soon", "Coming soon", "Coming soon"] as [
-      string,
-      string,
-      string,
-      string,
-      string,
-    ],
+    values: [SOON, SOON, SOON] as [string, string, string],
     status: "soon" as const,
   })),
   {
     label: "Transactional suppression and unsubscribe",
-    values: [YES, YES, YES, YES, YES],
+    values: [YES, YES, YES],
     note: "Part of the email MVP and live today. Distinct from campaign unsubscribe management.",
   },
 ];
@@ -547,6 +370,10 @@ export const PRICING_FAQS: Array<{ q: string; a: string }> = [
   {
     q: "Are the naira and dollar prices converted?",
     a: `No. ${price("pro", "NGN")} and ${price("pro", "USD")} are intentionally separate prices for the same plan. They aren't tied to a daily exchange-rate calculation.`,
+  },
+  {
+    q: "What happened to Premium and Scale?",
+    a: "They are retired from the commercial catalogue. Existing subscriptions on those plans keep their current limits and are not downgraded; they simply cannot be newly purchased or assigned. Beginner, Starter and Pro are the plans on offer.",
   },
   {
     q: "Can I change plans?",

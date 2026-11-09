@@ -8,7 +8,7 @@
  */
 
 import { AppError } from "../errors/index.js";
-import { planDisplayName, type UsagePeriod } from "@calder/config";
+import { planDisplayLabel, type UsagePeriod } from "@calder/config";
 import {
   checkOrganizationQuota,
   INTERNAL_ORGANIZATION_ID,
@@ -37,7 +37,7 @@ export function assertQuotaAllowed(decision: QuotaDecision, incoming = 1): void 
   if (decision.allowed) return;
   const { limit, usage, tier, period } = decision;
   // Display names come from the catalogue, never from the raw database value.
-  const display = planDisplayName(tier);
+  const display = planDisplayLabel(tier);
   if (decision.window === "daily") {
     throw new AppError(
       "plan_limit_reached",

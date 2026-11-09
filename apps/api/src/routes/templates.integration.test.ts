@@ -61,14 +61,8 @@ gate("template journey through the real API (live Postgres)", () => {
 
   beforeAll(async () => {
     if (!(await reachable())) return;
-    const {
-      getDb,
-      organizations,
-      organizationMembers,
-      projects,
-      users,
-      senderIdentities,
-    } = await import("@calder/db");
+    const { getDb, organizations, organizationMembers, projects, users, senderIdentities } =
+      await import("@calder/db");
     const { createApp } = await import("../app.js");
     const { registerDevKey } = await import("../middleware/auth.js");
     const db = getDb();
@@ -136,9 +130,9 @@ gate("template journey through the real API (live Postgres)", () => {
       }),
     });
     expect(res.status).toBe(201);
-    const body = await json<{ data: { id: string; alias: string; latest_version: { version: string } } }>(
-      res
-    );
+    const body = await json<{
+      data: { id: string; alias: string; latest_version: { version: string } };
+    }>(res);
     templateId = body.data.id;
     expect(body.data.id.startsWith("tpl_")).toBe(true);
     expect(body.data.alias).toBe(`welcome-${suffix}`);
@@ -184,7 +178,9 @@ gate("template journey through the real API (live Postgres)", () => {
     expect(history.data.map((v) => v.version)).toEqual(["v2", "v1"]);
 
     const detail = await call(`/v1/templates/${templateId}`);
-    const one = await json<{ data: { latest_version: { version: string; subject: string } } }>(detail);
+    const one = await json<{ data: { latest_version: { version: string; subject: string } } }>(
+      detail
+    );
     expect(one.data.latest_version.version).toBe("v2");
     expect(one.data.latest_version.subject).toBe("Welcome aboard, {{name}}");
   });
@@ -247,7 +243,10 @@ gate("template journey through the real API (live Postgres)", () => {
     const { getDb, emails } = await import("@calder/db");
     const { count, eq } = await import("drizzle-orm");
     const db = getDb();
-    const [before] = await db.select({ value: count() }).from(emails).where(eq(emails.projectId, projectA));
+    const [before] = await db
+      .select({ value: count() })
+      .from(emails)
+      .where(eq(emails.projectId, projectA));
 
     const send = await call("/v1/emails", {
       method: "POST",
@@ -263,7 +262,10 @@ gate("template journey through the real API (live Postgres)", () => {
     expect(body.error.code).toBe("validation_error");
     expect(body.error.message).toContain("code");
 
-    const [after] = await db.select({ value: count() }).from(emails).where(eq(emails.projectId, projectA));
+    const [after] = await db
+      .select({ value: count() })
+      .from(emails)
+      .where(eq(emails.projectId, projectA));
     expect(after?.value).toBe(before?.value);
   });
 

@@ -19,7 +19,9 @@ export type ErrorCode =
   | "plan_limit_reached"
   | "organization_sending_unavailable"
   /** The feature exists in code but is not part of this release. 403. */
-  | "feature_not_available";
+  | "feature_not_available"
+  /** The requested plan is retired or unknown and cannot be assigned. 400. */
+  | "plan_not_assignable";
 
 export class AppError extends Error {
   constructor(

@@ -141,7 +141,9 @@ export default async function DeliverabilityPage() {
                       </span>
                     </td>
                     <td className="mono" style={{ fontSize: 12 }}>
-                      <Link href={`/control/observability?q=${encodeURIComponent(f.id)}`}>{f.id}</Link>
+                      <Link href={`/control/observability?q=${encodeURIComponent(f.id)}`}>
+                        {f.id}
+                      </Link>
                     </td>
                     <td className="mono" style={{ fontSize: 12.5 }}>
                       {f.to}
