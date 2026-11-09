@@ -23,7 +23,21 @@ vi.mock("@calder/db", () => ({
     dailyLimit: 500,
     dailyPeriod: { start: new Date("2026-10-01"), end: new Date("2026-10-02") },
     period: { start: new Date("2026-10-01"), end: new Date("2026-11-01") },
+    creditsAvailable: 1000,
+    burstCapacityToday: 0,
+    burstPassesToday: 0,
+    dailyCapacity: 500,
   }),
+  creditSnapshot: async () => ({
+    available: 1000,
+    expiringSoon: [],
+    purchases: [],
+    transactions: [],
+    burstCapacityToday: 0,
+    burstPassesToday: 0,
+    burstPassLimit: 2,
+  }),
+  billingSummary: async () => ({ subscription: null, history: [] }),
 }));
 import UsagePage from "./page";
 beforeEach(() => {
@@ -35,10 +49,11 @@ describe("launch Usage copy", () => {
     const html = renderToStaticMarkup(await UsagePage());
     expect(html).toContain("Provider-Accepted Sends");
     expect(html).toContain("12 / 5,000");
-    expect(html).toContain("Daily live sends:");
+    expect(html).toContain("Daily live submissions:");
     expect(html).toContain("500");
-    expect(html).toContain("Billing is not available yet");
-    expect(html).toContain("not an invoice");
+    expect(html).toContain("Prepaid credits");
+    expect(html).toContain("A pass adds daily capacity only");
+    expect(html).not.toContain("Billing is not available yet");
     expect(html).not.toContain(">Delivered<");
     expect(html).not.toMatch(
       /Available Plans|Monthly Quotas|Compare Plans|Upgrade to keep sending|Confirmed remote MX/
@@ -52,7 +67,7 @@ describe("launch Usage copy", () => {
     data.accepted = 5000;
     const html = renderToStaticMarkup(await UsagePage());
     expect(html).toContain("Limit reached");
-    expect(html).toContain("wait for the period reset".replace("wait", "Wait"));
+    expect(html).toContain("Buy prepaid credits");
     expect(html).not.toContain("Upgrade");
   });
 });

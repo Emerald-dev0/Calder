@@ -377,8 +377,14 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
   // transaction; the queue remains a wake-up and the DB drain the backstop.
   let persisted = false;
   try {
-    const { getDb, emails, emailEvents, idempotencyKeys, withOrganizationSendingEligibility } =
-      await import("@calder/db");
+    const {
+      getDb,
+      emails,
+      emailEvents,
+      idempotencyKeys,
+      withOrganizationSendingEligibility,
+      consumeAdmissionCredits,
+    } = await import("@calder/db");
     const { and, eq, lt } = await import("drizzle-orm");
     const db = getDb();
     const insertEmail = {
@@ -431,7 +437,7 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
     const admission = await withOrganizationSendingEligibility(
       db,
       { organizationId: params.organizationId, projectId, env },
-      async (tx, _organization, admittedAt) => {
+      async (tx, _organization, admittedAt, decision) => {
         if (idempotencyKey) {
           const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
           const rows = await tx
@@ -464,6 +470,11 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
             .where(
               and(eq(idempotencyKeys.projectId, projectId), eq(idempotencyKeys.key, idempotencyKey))
             );
+          await consumeAdmissionCredits(tx, {
+            organizationId: params.organizationId,
+            emailId,
+            decision: decision.quota ?? {},
+          });
           return true;
         }
         await tx.insert(emails).values({
@@ -473,6 +484,11 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
           stream: resolveEmailStream(input),
         });
         await tx.insert(emailEvents).values(events);
+        await consumeAdmissionCredits(tx, {
+          organizationId: params.organizationId,
+          emailId,
+          decision: decision.quota ?? {},
+        });
         return true;
       }
     );
@@ -548,6 +564,25 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
   // A persisted "queued" row is the durable record; the cron drain is the
   // backstop that picks it up even if this enqueue call fails, so on
   // failure we log loudly rather than failing a send that is already safe.
+  // Durable Postgres job row (Round 4, Approach A). The legacy BullMQ queue is
+  // still the immediate wake-up until its replacement is verified in
+  // production; both point at the same committed email row, so a failure of
+  // either path cannot lose mail. Idempotency is per email id.
+  if (persisted) {
+    try {
+      const { getDb: getDurableDb, enqueueJob } = await import("@calder/db");
+      await enqueueJob(getDurableDb(), {
+        type: "email.send",
+        accountId: params.organizationId,
+        payload: { emailId, projectId },
+        idempotencyKey: `email:${emailId}`,
+        priority: 0,
+      });
+    } catch (jobErr) {
+      logger.warn({ err: jobErr, emailId }, "Postgres job enqueue failed; drain backstop remains");
+    }
+  }
+
   const queue = getEmailQueue();
 
   try {

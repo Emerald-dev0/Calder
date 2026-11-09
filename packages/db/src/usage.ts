@@ -19,6 +19,7 @@ import {
   METRIC_EMAILS_SENT,
   planEmailsLimit,
   planFor,
+  DAILY_BURST_PASS,
   type UsagePeriod,
 } from "@calder/config";
 import type { DbClient, DbExecutor } from "./client.js";
@@ -27,6 +28,7 @@ import { plans } from "./schema/billing.js";
 import { subscriptions } from "./schema/billing.js";
 import { projects } from "./schema/projects.js";
 import { usageRecords, usageSummaries } from "./schema/billing.js";
+import { activeBurstCapacity, burstPassesToday, creditBalance } from "./credits.js";
 
 /** Resolve an org's plan tier from its active subscription. Default: free. */
 export async function resolveOrgTier(db: DbExecutor, organizationId: string): Promise<string> {
@@ -94,6 +96,20 @@ export interface OrganizationQuotaDecision {
   period: UsagePeriod;
   window?: "daily" | "billing_period";
   reason?: "test-env" | "internal-org" | "unlimited-tier";
+  /** Monthly included allowance consumed for this request (not prepaid credits). */
+  includedUsage?: number;
+  /** Units above the included monthly allowance that prepaid credits must cover. */
+  creditUnits?: number;
+  /** Prepaid credit balance visible to this admission (locked org tx). */
+  creditsAvailable?: number;
+  /** Daily cap before burst passes. */
+  dailyLimit?: number | null;
+  /** Extra daily capacity from active passes for the current UTC day. */
+  burstCapacity?: number;
+  /** Daily cap including active burst passes. */
+  dailyCapacity?: number | null;
+  /** True when the daily refusal could be lifted by buying a burst pass. */
+  passAvailable?: boolean;
 }
 
 /**
@@ -127,15 +143,40 @@ export async function checkOrganizationQuota(
     orgAcceptedLiveInPeriod(db, organizationId, period),
   ]);
   const limit = planEmailsLimit(tier);
+  // Prepaid credits cover only the overage above the included monthly
+  // allowance. They never extend the daily ceiling (burst passes do that) and
+  // the balance is read inside the caller's organization lock, so concurrent
+  // admissions cannot promise the same credits twice.
+  let creditUnits = 0;
+  let creditsAvailable = 0;
   if (limit !== null && usage + incoming > limit) {
-    return { allowed: false, tier, limit, usage, period, window: "billing_period" };
+    const balance = await creditBalance(db, organizationId, now);
+    creditsAvailable = balance.available;
+    creditUnits = usage + incoming - limit;
+    if (creditsAvailable < creditUnits) {
+      return {
+        allowed: false,
+        tier,
+        limit,
+        usage,
+        period,
+        window: "billing_period",
+        creditUnits,
+        creditsAvailable,
+        includedUsage: usage,
+      };
+    }
   }
   const dailyLimit = planFor(tier).dailySendCap;
+  let dailyCapacity: number | null = dailyLimit;
   if (dailyLimit !== null) {
     const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     const dailyPeriod = { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000) };
     const dailyUsage = await orgAcceptedLiveInPeriod(db, organizationId, dailyPeriod);
-    if (dailyUsage + incoming > dailyLimit) {
+    const burstCapacity = await activeBurstCapacity(db, organizationId, now);
+    dailyCapacity = dailyLimit + burstCapacity;
+    if (dailyUsage + incoming > dailyCapacity) {
+      const passesToday = await burstPassesToday(db, organizationId, now);
       return {
         allowed: false,
         tier,
@@ -143,6 +184,13 @@ export async function checkOrganizationQuota(
         usage: dailyUsage,
         period: dailyPeriod,
         window: "daily",
+        includedUsage: usage,
+        creditUnits,
+        creditsAvailable,
+        dailyLimit,
+        burstCapacity,
+        dailyCapacity,
+        passAvailable: passesToday < DAILY_BURST_PASS.maxPerUtcDay,
       };
     }
   }
@@ -153,6 +201,12 @@ export async function checkOrganizationQuota(
     usage,
     period,
     window: "billing_period",
+    includedUsage: usage,
+    creditUnits,
+    creditsAvailable,
+    ...(dailyLimit !== null && dailyCapacity !== null
+      ? { dailyLimit, burstCapacity: dailyCapacity - dailyLimit, dailyCapacity }
+      : {}),
     ...(limit === null ? { reason: "unlimited-tier" as const } : {}),
   };
 }
@@ -257,34 +311,38 @@ export async function orgUsageSnapshot(
     start: dailyStart,
     end: new Date(dailyStart.getTime() + 24 * 60 * 60 * 1000),
   };
-  const [tier, accepted, dailyAccepted, ledger, summary] = await Promise.all([
-    resolveOrgTier(db, organizationId),
-    orgAcceptedLiveInPeriod(db, organizationId, period),
-    orgAcceptedLiveInPeriod(db, organizationId, dailyPeriod),
-    db
-      .select({ value: sql<number>`coalesce(sum(${usageRecords.quantity}), 0)` })
-      .from(usageRecords)
-      .where(
-        and(
-          eq(usageRecords.organizationId, organizationId),
-          eq(usageRecords.metric, METRIC_EMAILS_SENT),
-          eq(usageRecords.periodStart, period.start)
+  const [tier, accepted, dailyAccepted, ledger, summary, credits, burstCapacity, passesToday] =
+    await Promise.all([
+      resolveOrgTier(db, organizationId),
+      orgAcceptedLiveInPeriod(db, organizationId, period),
+      orgAcceptedLiveInPeriod(db, organizationId, dailyPeriod),
+      db
+        .select({ value: sql<number>`coalesce(sum(${usageRecords.quantity}), 0)` })
+        .from(usageRecords)
+        .where(
+          and(
+            eq(usageRecords.organizationId, organizationId),
+            eq(usageRecords.metric, METRIC_EMAILS_SENT),
+            eq(usageRecords.periodStart, period.start)
+          )
         )
-      )
-      .then((r) => r[0]),
-    db
-      .select()
-      .from(usageSummaries)
-      .where(
-        and(
-          eq(usageSummaries.organizationId, organizationId),
-          eq(usageSummaries.metric, METRIC_EMAILS_SENT),
-          eq(usageSummaries.periodStart, period.start)
+        .then((r) => r[0]),
+      db
+        .select()
+        .from(usageSummaries)
+        .where(
+          and(
+            eq(usageSummaries.organizationId, organizationId),
+            eq(usageSummaries.metric, METRIC_EMAILS_SENT),
+            eq(usageSummaries.periodStart, period.start)
+          )
         )
-      )
-      .limit(1)
-      .then((r) => r[0] ?? null),
-  ]);
+        .limit(1)
+        .then((r) => r[0] ?? null),
+      creditBalance(db, organizationId, now),
+      activeBurstCapacity(db, organizationId, now),
+      burstPassesToday(db, organizationId, now),
+    ]);
   return {
     tier,
     period,
@@ -294,5 +352,14 @@ export async function orgUsageSnapshot(
     dailyLimit: planFor(tier).dailySendCap,
     metered: Number(ledger?.value ?? 0),
     summaryQuantity: summary?.quantity ?? null,
+    creditsAvailable: credits.available,
+    creditsExpiringSoon: credits.expiringSoon,
+    burstCapacityToday: burstCapacity,
+    burstPassesToday: passesToday,
+    burstPassLimit: DAILY_BURST_PASS.maxPerUtcDay,
+    dailyCapacity:
+      planFor(tier).dailySendCap === null
+        ? null
+        : (planFor(tier).dailySendCap ?? 0) + burstCapacity,
   };
 }

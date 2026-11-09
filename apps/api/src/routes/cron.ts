@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from "../app.js";
 import { getDb } from "@calder/db";
+import { sql } from "drizzle-orm";
 import { logger } from "@calder/observability";
 import { drainPendingEmails } from "../lib/drain.js";
 import { runCompanyEmailSweep } from "../lib/company-email-sweep.js";
@@ -21,6 +22,44 @@ function authorized(c: { req: { header: (n: string) => string | undefined } }): 
   if (!cronSecret && c.req.header("x-vercel-cron") === "1") return true;
   return false;
 }
+
+// GET /v1/cron/maintenance — expire unused credits, reap crashed processor
+// leases and re-verify payments that are still pending. Every step is
+// idempotent, so overlapping runs are harmless.
+cron.on(["GET", "POST"], "/maintenance", async (c) => {
+  if (!authorized(c))
+    return c.json({ error: { code: "unauthorized", message: "Invalid cron secret" } }, 401);
+  const db = getDb();
+  const { expireCredits, reapExpiredLeases, payments } = await import("@calder/db");
+  const { verifyAndFulfil } = await import("../services/billing.js");
+  const expired = await expireCredits(db);
+  const reaped = await reapExpiredLeases(db);
+  let reconciled = 0;
+  let reconcileFailed = 0;
+  if (process.env.PAYSTACK_SECRET_KEY && process.env.PAYSTACK_USD_ENABLED === "true") {
+    const stale = await db
+      .select({ reference: payments.reference })
+      .from(payments)
+      .where(
+        sql`${payments.status} = 'pending' and ${payments.createdAt} < now() - interval '30 minutes'`
+      )
+      .limit(10);
+    for (const row of stale) {
+      try {
+        await verifyAndFulfil(db, row.reference);
+        reconciled++;
+      } catch {
+        reconcileFailed++;
+      }
+    }
+  }
+  return c.json({
+    expiredCreditPurchases: expired,
+    reapedLeases: reaped,
+    reconciled,
+    reconcileFailed,
+  });
+});
 
 // GET /v1/cron/drain — Vercel Cron hits this on a schedule (Vercel Cron sends
 // GET). POST is the queue wake-up (`kickDrain` nudges the drain right after a

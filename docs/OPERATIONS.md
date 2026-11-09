@@ -375,3 +375,22 @@ claim browser E2E coverage.
 | Approve RPO/RTO targets                         | Business               | Sign off §7 numbers or replace them                                                     | Recovery expectations must be owned, not assumed            | Approval recorded here with a date                                                  |
 | Rehearse rollback once                          | Hosting                | Deploy to preview, run `pnpm verify:deploy -- --url <preview>`, roll back, verify again | The rollback runbook is unexercised                         | Record the rehearsal date and outcome                                               |
 | Verify production env after first deploy        | Hosting                | `vercel env pull .env.production.local --environment=production && pnpm launch-check`   | Missing credentials are the historical launch risk          | launch-check exits 0                                                                |
+
+## Round 4 operations: credits, payments and the durable queue
+
+- **Daily checks**: `jobMetrics().oldestPendingAgeSeconds`, dead-letter count,
+  pending payments older than 30 minutes, webhook receipts without
+  `processed_at`.
+- **Expiry**: run `expireCredits()` from the maintenance job/cron. It is
+  idempotent and writes one `expiry` ledger row per purchase.
+- **Processor**: `POST /v1/jobs/process` with
+  `Authorization: Bearer $QUEUE_PROCESSOR_SECRET`. Bounded batch, safe to run
+  concurrently, exits after the batch.
+- **Dead letters**: inspect `last_error`, fix the cause, then
+  `requeueDeadLetter(id)`. Never delete job rows to "clear" an alert.
+- **Payment reconciliation**: replaying a webhook or calling
+  `POST /v1/billing/verify/:reference` is safe; fulfilment is idempotent and
+  never grants before server-side verification.
+- **Refunds**: refunds mark the payment `refunded`, zero unused credits from that
+  purchase and mark a burst pass refunded. Consumed credits are not clawed back.
+- **Never** treat mocked Paystack tests as evidence of a live merchant account.

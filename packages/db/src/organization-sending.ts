@@ -268,7 +268,12 @@ export async function withOrganizationSendingEligibility<T>(
     incoming?: number;
     now?: Date;
   },
-  persist: (tx: DbTransaction, organization: Organization, admittedAt: Date) => Promise<T>
+  persist: (
+    tx: DbTransaction,
+    organization: Organization,
+    admittedAt: Date,
+    decision: OrganizationSendingDecision
+  ) => Promise<T>
 ): Promise<
   | { allowed: true; value: T; decision: OrganizationSendingDecision }
   | {
@@ -299,7 +304,7 @@ export async function withOrganizationSendingEligibility<T>(
         decision: { allowed: false, reason: "organization_not_found" },
       } as const;
     }
-    const value = await persist(tx, organization, decision.evaluatedAt!);
+    const value = await persist(tx, organization, decision.evaluatedAt!, decision);
     return { allowed: true, value, decision } as const;
   });
 }
@@ -328,7 +333,12 @@ export async function checkProjectSendingEligibility(
 export async function withProjectSendingEligibility<T>(
   db: DbClient,
   input: { projectId: string; env: "test" | "live"; incoming?: number; now?: Date },
-  persist: (tx: DbTransaction, organizationId: string, admittedAt: Date) => Promise<T>
+  persist: (
+    tx: DbTransaction,
+    organizationId: string,
+    admittedAt: Date,
+    decision: OrganizationSendingDecision
+  ) => Promise<T>
 ): Promise<
   | { allowed: true; value: T; decision: OrganizationSendingDecision }
   | { allowed: false; decision: OrganizationSendingDecision }
@@ -358,7 +368,7 @@ export async function withProjectSendingEligibility<T>(
       true
     );
     if (!decision.allowed) return { allowed: false, decision } as const;
-    const value = await persist(tx, project.organizationId, decision.evaluatedAt!);
+    const value = await persist(tx, project.organizationId, decision.evaluatedAt!, decision);
     return { allowed: true, value, decision } as const;
   });
 }

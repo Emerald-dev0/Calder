@@ -1238,3 +1238,75 @@ product that does not exist.
 plan labels, admin API, seed and docs all agree on three plans; a test fails if
 "Premium" or "Scale" reappears in marketing data; and historical accounts keep
 working without a data migration.
+
+## ADR-058 — USD-only commercial pricing with prepaid credits and daily burst passes (2026-11-08)
+
+**Context.** Round 4 moves Calder from "three plans, billing not configured" to a
+purchasable product. Two constraints shape it: customers need a way to exceed the
+monthly allowance without an overage surprise, and the daily cap must keep
+protecting sending reputation. Paystack is the payment provider.
+
+**Decision.**
+
+1. Commercial prices are **USD only**: Beginner $0 / 5,000 monthly / 500 daily,
+   Starter $5 / 10,000 / 2,000, Pro $18 / 50,000 / 5,000. The NGN catalogue
+   values remain in `plan-limits.ts` as owner-held data but are not displayed or
+   charged. This supersedes the dual-currency presentation for the commercial
+   surface.
+2. **Monthly credits** are prepaid packs (Small $2/1,000, Medium $5/3,000,
+   Large $15/10,000). Included allowance first, credits second, FIFO by expiry,
+   each purchase expires 12 months after purchase, balances stack, never
+   negative, no auto-purchase.
+3. **Daily Burst Pass** is $1 for +1,000 submissions today only, expires
+   23:59:59 UTC, no rollover, maximum 2 per account per UTC day, sold only when
+   the daily limit is reached or insufficient. It does not add monthly credits
+   and cannot bypass monthly limits, suspension, compliance, provider limits or
+   anti-abuse controls.
+4. **Recipient-level accounting**: one recipient is one unit across single,
+   batch, scheduled, retry and failure paths. Pre-provider rejections are
+   released; the database is the source of truth.
+5. **The ledger is authoritative**: `credit_purchases` plus append-only
+   `credit_transactions` (purchase, reservation, consumption, release, refund,
+   adjustment, expiry). The frontend never grants capacity.
+
+**Consequences.** `plan_limit_reached` remains the stable error code, with
+`window: "daily" | "billing_period"` and additive detail fields so existing SDK
+clients keep working. Public copy must say that a pass is daily capacity and that
+credits do not bypass daily limits.
+
+## ADR-059 — Durable PostgreSQL job queue instead of an always-on worker (2026-11-08)
+
+**Context.** The deployment has no worker host and no funded scheduler. BullMQ
+needs Redis and a process that stays alive; the current cron only runs daily.
+
+**Decision.** A `jobs` table with `SELECT … FOR UPDATE SKIP LOCKED` claiming,
+leases with crash recovery, retry classification with caller-supplied backoff,
+dead-letter inspection and requeue, and idempotency on
+`(job_type, idempotency_key)`. Execution happens through a short-lived
+authenticated `POST /v1/jobs/process` with a dedicated `QUEUE_PROCESSOR_SECRET`.
+Email rows stay the durable record; jobs are wake-ups. The system does **not**
+claim exactly-once delivery. BullMQ remains until the replacement is verified,
+then its producers, workers and dependencies are removed after pending/delayed
+jobs are drained.
+
+**Consequences.** No paid worker is required. On free hosting there is no
+reliable minute-level scheduler: Vercel Hobby cron is daily, GitHub Actions
+schedules are delayed and best-effort. Delivery latency for idle accounts is
+therefore not guaranteed; this is documented rather than claimed away.
+
+## ADR-060 — Paystack is gated on verified USD/merchant capability (2026-11-08)
+
+**Context.** Paystack documents USD as a transaction currency, but USD acceptance
+and settlement depend on the merchant account. Calders' USD prices must not be
+silently converted to NGN.
+
+**Decision.** Use only documented Paystack endpoints and events. Require
+`PAYSTACK_USD_ENABLED=true`, `PAYSTACK_PLAN_STARTER` and `PAYSTACK_PLAN_PRO`
+before checkout. Verify webhook HMAC-SHA512 over the raw body, dedupe by raw-body
+hash, re-verify every transaction server-side, and compare integer amount and
+currency against our own payment row before granting anything. If USD is not
+enabled, refuse with `usd_not_enabled`.
+
+**Consequences.** Live USD sales remain blocked until the owner confirms account
+enablement, settlement currency, fees and recurring-USD support. Mocked tests do
+not prove a live merchant account.

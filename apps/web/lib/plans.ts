@@ -19,6 +19,7 @@
  */
 
 import { PLAN_LIMITS, formatPlanPrice, type PlanTier } from "@calder/config/plan-limits";
+import { CREDIT_PACKS, DAILY_BURST_PASS, formatUsdCents } from "@calder/config";
 import { SIGNUP_URL } from "./site";
 
 export type Currency = "NGN" | "USD";
@@ -77,6 +78,8 @@ export interface Plan {
   price: { NGN: string; USD: string };
   /** Emails per month, already formatted. */
   volume: string;
+  /** Daily submission ceiling, already formatted ("500 / day"). */
+  daily: string;
   volumeRaw: number | null;
   projects: string;
   domains: string;
@@ -103,6 +106,7 @@ export const PLANS: Plan[] = [
     price: { NGN: price("beginner", "NGN"), USD: price("beginner", "USD") },
     volume: volumeText("beginner"),
     volumeRaw: catalogue("beginner").emailsPerMonth,
+    daily: `${count(catalogue("beginner").dailySendCap)} / day`,
     projects: count(catalogue("beginner").projects),
     domains: count(catalogue("beginner").domains),
     team: count(catalogue("beginner").seats),
@@ -132,6 +136,7 @@ export const PLANS: Plan[] = [
     price: { NGN: price("starter", "NGN"), USD: price("starter", "USD") },
     volume: volumeText("starter"),
     volumeRaw: catalogue("starter").emailsPerMonth,
+    daily: `${count(catalogue("starter").dailySendCap)} / day`,
     projects: count(catalogue("starter").projects),
     domains: count(catalogue("starter").domains),
     team: count(catalogue("starter").seats),
@@ -148,7 +153,7 @@ export const PLANS: Plan[] = [
       "Batch and scheduled sending",
       `${count(catalogue("starter").seats)} team members`,
     ],
-    cta: "Get started",
+    cta: "Choose Starter",
     ctaHref: SIGNUP_URL,
   },
   {
@@ -159,6 +164,7 @@ export const PLANS: Plan[] = [
     price: { NGN: price("pro", "NGN"), USD: price("pro", "USD") },
     volume: volumeText("pro"),
     volumeRaw: catalogue("pro").emailsPerMonth,
+    daily: `${count(catalogue("pro").dailySendCap)} / day`,
     projects: count(catalogue("pro").projects),
     domains: count(catalogue("pro").domains),
     team: count(catalogue("pro").seats),
@@ -357,6 +363,27 @@ export const MARKETING_ALLOWANCES: ComparisonRow[] = [
   },
 ];
 
+/**
+ * Prepaid capacity offers. Prices and quantities come from the same catalogue
+ * the API uses to charge and credit accounts, never from this file.
+ */
+export const CREDIT_OFFERS = CREDIT_PACKS.map((pack) => ({
+  id: pack.id,
+  name: pack.name,
+  price: formatUsdCents(pack.amountCents),
+  credits: pack.credits.toLocaleString("en-US"),
+  cta: `Buy ${pack.credits.toLocaleString("en-US")} credits`,
+  ctaHref: `${SIGNUP_URL}?intent=credits&pack=${pack.id}`,
+}));
+
+export const BURST_OFFER = {
+  price: formatUsdCents(DAILY_BURST_PASS.amountCents),
+  capacity: DAILY_BURST_PASS.additionalCapacity.toLocaleString("en-US"),
+  maxPerDay: DAILY_BURST_PASS.maxPerUtcDay,
+  cta: "Get a Daily Burst Pass",
+  ctaHref: `${SIGNUP_URL}?intent=burst_pass`,
+};
+
 /** Plain-language answers. Short, specific, no hedging. */
 export const PRICING_FAQS: Array<{ q: string; a: string }> = [
   {
@@ -368,8 +395,16 @@ export const PRICING_FAQS: Array<{ q: string; a: string }> = [
     a: "Sending pauses. The API returns a clear error showing the limit, your current usage, and when the quota resets. There are no automatic overage charges.",
   },
   {
-    q: "Are the naira and dollar prices converted?",
-    a: `No. ${price("pro", "NGN")} and ${price("pro", "USD")} are intentionally separate prices for the same plan. They aren't tied to a daily exchange-rate calculation.`,
+    q: "What currency am I charged in?",
+    a: "US dollars. Prices are fixed USD amounts, not currency conversions. If USD payments are not enabled on our Paystack merchant account, checkout refuses rather than charging you in another currency.",
+  },
+  {
+    q: "What are monthly credits?",
+    a: "Prepaid packs you buy once and use after your included monthly allowance is exhausted. They carry forward and each purchase expires 12 months after you buy it. Credits never extend your daily limit.",
+  },
+  {
+    q: "What is a Daily Burst Pass?",
+    a: `A ${BURST_OFFER.price} one-time purchase that adds ${BURST_OFFER.capacity} submissions for the rest of the current UTC day. It expires at 23:59:59 UTC, does not roll over, does not add monthly credits, and is capped at ${BURST_OFFER.maxPerDay} per account per UTC day.`,
   },
   {
     q: "What happened to Premium and Scale?",
@@ -377,7 +412,7 @@ export const PRICING_FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "Can I change plans?",
-    a: "Not yet. Paid billing and self-service upgrades are not available in this release, so there is no checkout and no plan change to make. Launch accounts keep their assigned limits; paid-tier allowances are not granted automatically.",
+    a: "Yes. Starter and Pro are monthly subscriptions billed in USD through Paystack. Cancelling stops the next renewal; your data is never deleted and your account moves to the Beginner limits when the paid period ends.",
   },
   {
     q: "Do I need a domain to start?",

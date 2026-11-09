@@ -1,5 +1,11 @@
 import { desc, inArray } from "drizzle-orm";
-import { getDb, usageSummaries, orgUsageSnapshot } from "@calder/db";
+import {
+  getDb,
+  usageSummaries,
+  orgUsageSnapshot,
+  creditSnapshot,
+  billingSummary,
+} from "@calder/db";
 import { planEmailsLimit } from "@calder/config";
 import { getTenantContext } from "../../../lib/auth";
 import { Gauge } from "lucide-react";
@@ -19,6 +25,8 @@ export default async function UsagePage() {
       orgName: m.organization.name,
       orgId: m.organization.id,
       snap: await orgUsageSnapshot(db, m.organization.id),
+      credits: await creditSnapshot(db, m.organization.id),
+      billing: await billingSummary(db, m.organization.id),
     })),
   );
   const sentThisMonth = snapshots.reduce((n, s) => n + s.snap.acceptedLive, 0);
@@ -62,7 +70,7 @@ export default async function UsagePage() {
         />
       </div>
 
-      {snapshots.map(({ orgName, orgId, snap }) => {
+      {snapshots.map(({ orgName, orgId, snap, credits }) => {
         const limit = planEmailsLimit(snap.tier);
         const pct =
           limit === null ? 0 : Math.min(100, Math.round((snap.acceptedLive / limit) * 100));
@@ -99,8 +107,24 @@ export default async function UsagePage() {
 
             <div className="ds-card-body">
               {snap.dailyLimit !== null && (
-                <p>Daily live sends: {snap.dailyAcceptedLive.toLocaleString()} / {snap.dailyLimit.toLocaleString()} · resets {snap.dailyPeriod.end.toISOString()} (UTC). Queued and failed sends count once accepted; test-key sends do not.</p>
+                <p>
+                  Daily live submissions: {snap.dailyAcceptedLive.toLocaleString()} /{" "}
+                  {(snap.dailyCapacity ?? snap.dailyLimit).toLocaleString()} used
+                  {snap.burstCapacityToday > 0
+                    ? ` (${snap.burstCapacityToday.toLocaleString()} from ${snap.burstPassesToday} Daily Burst Pass${snap.burstPassesToday === 1 ? "" : "es"})`
+                    : ""}{" "}
+                  · resets {snap.dailyPeriod.end.toISOString()} (UTC). A pass adds daily capacity
+                  only — it never adds monthly credits.
+                </p>
               )}
+              <p>
+                Prepaid credits: <strong>{snap.creditsAvailable.toLocaleString()}</strong> available.
+                Included monthly allowance is always consumed first; credits cover only the
+                overage above it and never extend the daily limit.
+                {credits.expiringSoon.length > 0
+                  ? ` Next expiry: ${credits.expiringSoon[0]!.remaining.toLocaleString()} credits on ${credits.expiringSoon[0]!.expiresAt.toISOString().slice(0, 10)}.`
+                  : ""}
+              </p>
               <div
                 style={{
                   height: 10,
@@ -130,24 +154,104 @@ export default async function UsagePage() {
                 Period {snap.period.start.toISOString().slice(0, 10)} →{" "}
                 {snap.period.end.toISOString().slice(0, 10)} · test-key sends are never metered ·{" "}
                 {exhausted
-                  ? "Sending is paused at your current limit. Wait for the period reset or contact support@calder.click."
-                  : "Current limits still apply. Paid checkout and self-service upgrades are not available yet."}
+                  ? "Sending is paused at your current limit. Buy prepaid credits or a Daily Burst Pass, or wait for the reset."
+                  : "Included allowance is consumed first; prepaid credits cover only overage above it."}{" "}
+                <a href="https://calder.click/pricing#capacity">View credits and passes →</a>
               </p>
             </div>
           </section>
         );
       })}
 
-      <section className="ds-card" style={{ marginBottom: 20 }} aria-label="Billing availability">
-        <div className="ds-card-body">
-          <h2 className="ds-card-title">Billing is not available yet</h2>
-          <p style={{ color: "var(--color-muted)", fontSize: 13 }}>
-            Paid checkout, subscriptions, and self-service upgrades are not available during
-            the initial public launch. Your organization’s current sending and resource limits
-            still apply. Usage shown here is not an invoice.
-          </p>
-        </div>
-      </section>
+      {snapshots.map(({ orgName, orgId, credits, billing }) => (
+        <section key={`${orgId}-credits`} className="ds-card" style={{ marginBottom: 20 }}>
+          <div className="ds-card-header">
+            <h2 className="ds-card-title">{orgName}: credits, passes & payments</h2>
+            <StatusPill
+              status={billing.subscription?.status === "active" ? "active" : "neutral"}
+              label={billing.subscription ? billing.subscription.status.replace("_", " ") : "free"}
+            />
+          </div>
+          <div className="ds-card-body">
+            <p>
+              Plan: <strong>{billing.subscription?.tier ?? "free"}</strong>
+              {billing.subscription?.currentPeriodEnd
+                ? ` · renews or ends ${billing.subscription.currentPeriodEnd.toISOString().slice(0, 10)}`
+                : " · no paid subscription"}
+            </p>
+            <p>
+              Daily Burst Passes today: {credits.burstPassesToday} of {credits.burstPassLimit} ·
+              current extra daily capacity {credits.burstCapacityToday.toLocaleString()}.
+            </p>
+            <p style={{ color: "var(--color-muted)", fontSize: 13 }}>
+              A Daily Burst Pass costs $1 and adds 1,000 submissions for today only, expiring at
+              23:59:59 UTC. It does not roll over, does not add monthly credits, and cannot
+              bypass the monthly allowance, account suspension, compliance checks, provider
+              limits, or anti-abuse controls.
+            </p>
+
+            {credits.purchases.length > 0 && (
+              <div className="ds-table-scroll" style={{ marginTop: 12 }}>
+                <table className="ds-table">
+                  <thead>
+                    <tr>
+                      <th>Credit purchase</th>
+                      <th>Purchased</th>
+                      <th>Expires</th>
+                      <th style={{ textAlign: "right" }}>Remaining</th>
+                      <th style={{ textAlign: "right" }}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {credits.purchases.map((p) => (
+                      <tr key={p.id}>
+                        <td className="mono">{p.packId}</td>
+                        <td className="mono">{p.purchasedAt.toISOString().slice(0, 10)}</td>
+                        <td className="mono">{p.expiresAt.toISOString().slice(0, 10)}</td>
+                        <td className="mono tabular-nums" style={{ textAlign: "right" }}>
+                          {p.creditsRemaining.toLocaleString()} / {p.creditsPurchased.toLocaleString()}
+                        </td>
+                        <td className="mono tabular-nums" style={{ textAlign: "right" }}>
+                          ${(p.amountCents / 100).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {billing.history.length > 0 && (
+              <div className="ds-table-scroll" style={{ marginTop: 16 }}>
+                <table className="ds-table">
+                  <thead>
+                    <tr>
+                      <th>Payment</th>
+                      <th>Kind</th>
+                      <th>Status</th>
+                      <th>Date</th>
+                      <th style={{ textAlign: "right" }}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {billing.history.map((h) => (
+                      <tr key={h.reference}>
+                        <td className="mono">{h.reference}</td>
+                        <td>{h.kind.replace("_", " ")}</td>
+                        <td>{h.status}</td>
+                        <td className="mono">{h.createdAt.toISOString().slice(0, 10)}</td>
+                        <td className="mono tabular-nums" style={{ textAlign: "right" }}>
+                          ${(h.amountCents / 100).toFixed(2)} {h.currency}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
+      ))}
 
       {aggregated.length > 0 && (
         <div className="ds-table-shell">

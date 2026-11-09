@@ -1,12 +1,12 @@
 # Calder Pricing, Architecture & Unit Economics Gate
 
-> Launch status (2026-11-08): paid billing is not configured. The catalogue below
-> is planning/configuration, not an offer of working checkout or invoices. Usage
-> hides the paid comparison and upgrade CTAs while preserving actual limits.
-> Free launch access does not automatically grant paid-tier quotas. Feature
-> availability per plan is reconciled in
-> [MVP-FEATURE-MATRIX.md](MVP-FEATURE-MATRIX.md); see
-> [LAUNCH-STATUS.md](LAUNCH-STATUS.md) for evidence.
+> Round-4 status (2026-11-08): commercial pricing is **USD only**. Checkout runs
+> through Paystack; paid checkout stays disabled unless the merchant account has
+> USD enabled (`PAYSTACK_USD_ENABLED=true`) and plan codes are configured. The
+> catalogue in `packages/config/src/plan-limits.ts` and `credits.ts` is the
+> single source of every limit and price. See [BILLING.md](BILLING.md),
+> [CREDITS.md](CREDITS.md), [PAYSTACK.md](PAYSTACK.md) and
+> [API-LIMITS.md](API-LIMITS.md).
 
 Status: **revised 2026-11-08** (three commercial plans; Premium and Scale
 retired). The catalogue itself lives
@@ -18,15 +18,16 @@ five-tier revision, and **ADR-057** for the retirement of Premium and Scale.
 
 ## 1. The model
 
-|                   |    Beginner |         Starter |               Pro |
-| ----------------- | ----------: | --------------: | ----------------: |
-| Price             | **$0 / ₦0** | **$5 / ₦5,000** | **$18 / ₦20,000** |
-| Emails / month    |       5,000 |          10,000 |            50,000 |
-| Projects          |           3 |               3 |                10 |
-| Domains           |           2 |               3 |                10 |
-| Sender identities |           5 |              10 |                25 |
-| Team seats        |           1 |               2 |                 5 |
-| Support           |   Community |           Email |             Email |
+|                   |  Beginner | Starter |     Pro |
+| ----------------- | --------: | ------: | ------: |
+| Price (USD)       |    **$0** |  **$5** | **$18** |
+| Emails / month    |     5,000 |  10,000 |  50,000 |
+| Submissions / day |       500 |   2,000 |   5,000 |
+| Projects          |         3 |       3 |      10 |
+| Domains           |         2 |       3 |      10 |
+| Sender identities |         5 |      10 |      25 |
+| Team seats        |         1 |       2 |       5 |
+| Support           | Community |   Email |   Email |
 
 Premium (250,000) and Scale (custom) are **retired from the commercial
 offering**. Their catalogue entries and database enum values are retained so
@@ -83,8 +84,9 @@ retired, so the upgrade pointer stops at Pro and says so.
 
 ## 2. Currency rules
 
-- ₦ and $ figures are **two separate price points**, not an FX conversion. A
-  Nigerian customer pays the naira price regardless of what the dollar is doing;
+- **Public pricing is USD only** (Round 4). The NGN figures retained in the
+  catalogue are historical/owner-held data and are not shown or charged. A
+  naira price would be a separate price point, not an FX conversion;
   the US customer pays the dollar price. Both are shown honestly on the pricing
   page, and the currency toggle never implies a rate.
 - The naira price exists for the local market's advantage (local rails, lower

@@ -121,7 +121,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimit> = {
     seats: 2,
     retentionDays: 14,
     gmailSenders: 2,
-    dailySendCap: null,
+    dailySendCap: 2_000,
     contacts: { limit: 10_000, approved: false },
   },
   pro: {
@@ -136,7 +136,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimit> = {
     seats: 5,
     retentionDays: 30,
     gmailSenders: 2,
-    dailySendCap: null,
+    dailySendCap: 5_000,
     contacts: { limit: 50_000, approved: false },
   },
   premium: {

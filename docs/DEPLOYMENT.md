@@ -578,3 +578,25 @@ Deploy both applications after configuring matching production `CRON_SECRET`
 and `API_URL=https://api.calder.click`. Test one new dashboard email and one API
 send without manually invoking the drain. Inspect wake-up logs for 401, missing
 configuration or request failure; verify sent/delivery events separately.
+
+## Round 4: billing and queue environment
+
+| Variable                 | Required when        | Notes                                                   |
+| ------------------------ | -------------------- | ------------------------------------------------------- |
+| `PAYSTACK_SECRET_KEY`    | Selling anything     | Webhook signature uses this key                         |
+| `PAYSTACK_PUBLIC_KEY`    | Hosted checkout      | Public, not secret                                      |
+| `PAYSTACK_USD_ENABLED`   | Selling anything     | Must be exactly `true`; otherwise `409 usd_not_enabled` |
+| `PAYSTACK_PLAN_STARTER`  | Selling Starter      | Paystack plan code for $5                               |
+| `PAYSTACK_PLAN_PRO`      | Selling Pro          | Paystack plan code for $18                              |
+| `PAYSTACK_CALLBACK_URL`  | Optional             | Return URL after checkout                               |
+| `QUEUE_PROCESSOR_SECRET` | Durable processor    | Dedicated; unset disables `/v1/jobs/process`            |
+| `REDIS_URL`              | Until BullMQ removal | Legacy wake-up only                                     |
+
+Run migrations before deploying the code: `0036_cute_bastion.sql` creates the
+queue/payment/credit tables and `0037_luxuriant_meteorite.sql` adjusts the credit
+ledger index. Neither is destructive: no rows are dropped.
+
+Scheduling: Vercel Hobby cron runs at most daily, so it cannot provide
+minute-level delivery. The request-triggered drain handles active traffic; the
+processor must be pinged by an external scheduler for idle accounts. This is an
+honest limitation, not an SLA. See [QUEUE.md](QUEUE.md) §8.

@@ -2,11 +2,13 @@
 
 import * as React from "react";
 import { Reveal } from "./reveal";
-import { PLANS, PROGRESSION, type Currency } from "../lib/plans";
+import { PLANS, PROGRESSION, CREDIT_OFFERS, BURST_OFFER } from "../lib/plans";
 
 /**
- * Planned plan catalogue, not a purchasable offer; billing is not configured.
- * Limits remain sourced from configuration (see lib/plans.ts).
+ * Public pricing. Amounts and limits come from the configuration catalogue so
+ * this page cannot drift from what the API enforces. Checkout runs through
+ * Paystack in USD; when USD is not enabled on the merchant account the pricing
+ * page still renders but checkout refuses instead of converting currency.
  */
 /**
  * How many bullets fit on a card. Three plans share one row: the card carries
@@ -16,54 +18,26 @@ import { PLANS, PROGRESSION, type Currency } from "../lib/plans";
 const CARD_HIGHLIGHTS = 5;
 
 export function Pricing() {
-  const [currency, setCurrency] = React.useState<Currency>("NGN");
-
   return (
     <section className="section" id="pricing" style={{ paddingTop: 0 }}>
       <div className="wrap wrap-wide">
         <Reveal>
           <p className="eyebrow">Pricing</p>
           <h2 className="h2">
-            Start free. <em>Grow when you need to.</em>
+            Email infrastructure that <em>grows with your application.</em>
           </h2>
           <p className="lede" style={{ marginTop: "1.2rem" }}>
-            Five thousand emails every month. No card. No sales call. No artificial &ldquo;try
-            it&rdquo; experience. Build, ship, and grow without paying before you need to.
+            Start with 5,000 emails a month on Beginner. Move to Starter or Pro when your volume
+            grows. No surprise overage charges, ever: when you reach a limit, sending pauses and
+            tells you exactly why, when it resets, and what to do next.
           </p>
         </Reveal>
 
         <Reveal delay={70}>
-          {/* Payments are not live, and a price with a "Choose Pro" button next
-              to it reads as a bill. Say it once, plainly, above the cards. */}
-          <div className="pricing-soon" role="note">
-            <span className="pricing-soon-tag">Coming soon</span>
-            <p>
-              Calder is not taking money yet. Card checkout and invoicing are still being built, so
-              the prices below are planned catalogue figures, not purchasable subscriptions or an
-              invoice. Launch accounts retain their assigned limits; paid-tier allowances are not
-              automatically granted.
-            </p>
-          </div>
-        </Reveal>
-
-        <Reveal delay={80}>
-          <div style={{ marginTop: "1.8rem" }} role="group" aria-label="Display currency">
-            <div className="currency-toggle">
-              {(["NGN", "USD"] as const).map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  aria-pressed={currency === c}
-                  onClick={() => setCurrency(c)}
-                >
-                  {c === "NGN" ? "₦ Naira" : "$ Dollars"}
-                </button>
-              ))}
-            </div>
-            <p className="caption" style={{ marginTop: "0.6rem" }}>
-              Planned NGN and USD prices. No paid checkout is available.
-            </p>
-          </div>
+          <p className="caption" style={{ marginTop: "1rem" }}>
+            All prices in US dollars. Monthly plans bill until you cancel; prepaid credits and Daily
+            Burst Passes are one-time purchases.
+          </p>
         </Reveal>
 
         <div className="pricing-grid">
@@ -79,14 +53,15 @@ export function Pricing() {
             >
               <div className="price-head">
                 <div className="price-tier">{plan.name}</div>
-                {plan.popular && <span className="price-flag">Planned</span>}
+                {plan.popular && <span className="price-flag">Most popular</span>}
               </div>
               <div className="price-amount">
-                {plan.price[currency]}
+                {plan.price.USD}
                 {plan.volumeRaw !== null && <small>/ month</small>}
               </div>
               <p className="price-promise">{plan.promise}</p>
               <p className="price-quota">{plan.volume}</p>
+              <p className="price-quota">Daily submission limit: {plan.daily}</p>
               <ul>
                 {plan.highlights.slice(0, CARD_HIGHLIGHTS).map((f) => (
                   <li key={f}>{f}</li>
@@ -103,13 +78,12 @@ export function Pricing() {
                   <span aria-hidden="true"> ↓</span>
                 </a>
               )}
-              {plan.id === "beginner" ? (
-                <a className="btn btn-secondary" href={plan.ctaHref}>
-                  {plan.cta}
-                </a>
-              ) : (
-                <span className="caption">Planned · not available yet</span>
-              )}
+              <a
+                className={plan.popular ? "btn btn-primary" : "btn btn-secondary"}
+                href={plan.ctaHref}
+              >
+                {plan.cta}
+              </a>
             </Reveal>
           ))}
         </div>
@@ -125,11 +99,68 @@ export function Pricing() {
           </div>
         </Reveal>
 
+        <Reveal delay={110}>
+          <div style={{ marginTop: "3rem" }} id="capacity">
+            <p className="eyebrow">Need more email capacity?</p>
+            <h3 className="h3">Two ways to send more. Neither one is an overage charge.</h3>
+            <p className="lede" style={{ marginTop: "0.8rem" }}>
+              <strong>Monthly credits</strong> are prepaid packs you buy once and use after your
+              included monthly allowance is exhausted. Credits carry forward and each purchase
+              expires 12 months after the date you bought it. They never extend your daily limit.
+            </p>
+            <div className="pricing-grid" style={{ marginTop: "1.4rem" }}>
+              {CREDIT_OFFERS.map((offer) => (
+                <div className="price-card" key={offer.id}>
+                  <div className="price-head">
+                    <div className="price-tier">{offer.name}</div>
+                  </div>
+                  <div className="price-amount">
+                    {offer.price}
+                    <small>one-time</small>
+                  </div>
+                  <p className="price-quota">{offer.credits} emails</p>
+                  <ul>
+                    <li>Used only after your monthly allowance</li>
+                    <li>Carries forward, expires 12 months after purchase</li>
+                    <li>Stackable with other packs</li>
+                  </ul>
+                  <a className="btn btn-secondary" href={offer.ctaHref}>
+                    {offer.cta}
+                  </a>
+                </div>
+              ))}
+            </div>
+
+            <div className="ds-card" style={{ marginTop: "2rem" }}>
+              <div className="ds-card-body">
+                <p className="eyebrow">Daily Burst Pass</p>
+                <h3 className="h3">
+                  {BURST_OFFER.price} → {BURST_OFFER.capacity} more submissions today
+                </h3>
+                <p>
+                  A Daily Burst Pass adds daily capacity only. It expires at 23:59:59 UTC on the day
+                  you buy it, does not roll over, and never becomes monthly credits. You can buy at
+                  most two per account per UTC day, and only when your daily limit has been reached
+                  or is insufficient for the request.
+                </p>
+                <p className="caption">
+                  A pass cannot bypass your monthly allowance, an account suspension, compliance
+                  requirements, provider limits, or anti-abuse controls.
+                </p>
+                <a className="btn btn-secondary btn-sm" href={BURST_OFFER.ctaHref}>
+                  {BURST_OFFER.cta}
+                </a>
+              </div>
+            </div>
+          </div>
+        </Reveal>
+
         <Reveal delay={120}>
           <div className="pricing-foot">
             <p className="caption">
-              Limits are hard limits. When you reach one, sending pauses with an error that names
-              it, your usage, and when it resets. Nothing is charged without you choosing it.
+              No automatic overage charges, no auto-purchase, and no auto-upgrade. When you reach a
+              limit, sending pauses with an error that names it, your usage, and when it resets.
+              Nothing is charged without you choosing it.
             </p>
             {/* This block only ever renders on /pricing, so the button used to
                 link to the page it was already on. Jump to the table instead. */}

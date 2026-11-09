@@ -23,6 +23,9 @@ import suppressions from "./routes/suppressions.js";
 import batch from "./routes/batch.js";
 import cron from "./routes/cron.js";
 import sesEvents from "./routes/ses-events.js";
+import paystack from "./routes/paystack.js";
+import jobsRoute from "./routes/jobs.js";
+import billingRoute from "./routes/billing.js";
 
 export interface Env {
   Variables: {
@@ -106,6 +109,9 @@ export function createApp() {
   app.route("/v1/emails/batch", batch);
   app.route("/v1/cron", cron);
   app.route("/v1/ses", sesEvents);
+  app.route("/v1/paystack", paystack);
+  app.route("/v1/jobs", jobsRoute);
+  app.route("/v1/billing", billingRoute);
 
   // 404
   app.notFound((c) => {

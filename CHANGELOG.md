@@ -5,6 +5,25 @@ Selected changes reconstructed from the GitHub `main` commit history through
 not a claim that every implemented feature is configured or available in production.
 No release tags or semantic versions are invented. See [launch availability](docs/LAUNCH-STATUS.md).
 
+## 2026-11-08 — Round 4: prepaid credits, burst passes, Paystack, Postgres queue
+
+- USD-only commercial pricing: Beginner $0 / 5,000 monthly / 500 daily, Starter
+  $5 / 10,000 / 2,000, Pro $18 / 50,000 / 5,000.
+- Prepaid monthly credits (Small $2/1,000, Medium $5/3,000, Large $15/10,000),
+  consumed after the included allowance, FIFO by expiry, 12-month expiry, no
+  negative balances, no auto-purchase.
+- Daily Burst Pass ($1 → +1,000 daily submissions, expires 23:59:59 UTC, max 2
+  per UTC day, never monthly credits, never bypasses daily/monthly/suspension).
+- Recipient-level accounting with transactional credit reservation and
+  idempotent release on pre-provider failures.
+- Durable PostgreSQL job queue with SKIP LOCKED claiming, leases, crash
+  recovery, retry/backoff, dead-letter requeue and idempotency. Short-lived
+  processor endpoint with a dedicated secret. No exactly-once claim.
+- Paystack checkout, server-side verification, signed webhook handling, replay
+  dedupe, subscription lifecycle and refunds. Live USD capability remains
+  unverified and blocked on merchant access.
+- New docs: BILLING, CREDITS, ACCOUNTING, API-LIMITS, QUEUE, PAYSTACK.
+
 ## 2026-11-08 — Three-plan commercial launch (Premium and Scale retired)
 
 - The commercial catalogue is now exactly three plans: Beginner (free, 5,000

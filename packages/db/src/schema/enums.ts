@@ -225,3 +225,26 @@ export type UnsubscribeScope = (typeof unsubscribeScopeEnum.enumValues)[number];
 export type ResubscribeSource = (typeof resubscribeSourceEnum.enumValues)[number];
 
 export type PlatformRole = (typeof platformRoleEnum.enumValues)[number];
+export const jobStatusEnum = pgEnum("job_status", [
+  "pending",
+  "processing",
+  "completed",
+  "failed",
+  "dead_letter",
+]);
+export const creditTransactionTypeEnum = pgEnum("credit_transaction_type", [
+  "purchase",
+  "consumption",
+  "release",
+  "refund",
+  "adjustment",
+  "expiry",
+]);
+export const paymentStatusEnum = pgEnum("payment_status", [
+  "pending",
+  "success",
+  "failed",
+  "refunded",
+  "abandoned",
+]);
+export const paymentKindEnum = pgEnum("payment_kind", ["subscription", "credits", "burst_pass"]);

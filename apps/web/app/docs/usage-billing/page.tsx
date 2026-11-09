@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   alternates: { canonical: "https://calder.click/docs/usage-billing" },
   title: "Usage & Billing Status, Calder Docs",
-  description: "Current usage limits and billing availability for the initial public launch.",
+  description: "How Calder counts usage, limits sends, and sells prepaid capacity.",
 };
 
 export default function UsageBilling() {
@@ -12,8 +12,9 @@ export default function UsageBilling() {
     <>
       <h1>Usage &amp; Billing Status</h1>
       <p className="docs-lede">
-        Paid checkout, subscriptions, and self-service upgrades are not available yet. Current
-        sending and resource limits still apply; this is not unlimited sending.
+        Calder prices in US dollars and enforces hard monthly and daily limits. There are no
+        automatic overage charges. When a limit is reached, sending pauses and the API returns a
+        stable error that names the limit, your usage and the reset time.
       </p>
       <h2>What the counters mean</h2>
       <ul>
@@ -30,11 +31,31 @@ export default function UsageBilling() {
         </li>
       </ul>
       <p>Usage counters are not an invoice, and a 202 response is not confirmation of delivery.</p>
+      <h2>Plans</h2>
+      <p>
+        Beginner is free with 5,000 emails a month and 500 submissions a day. Starter is $5 for
+        10,000 and 2,000 a day; Pro is $18 for 50,000 and 5,000 a day. Monthly subscriptions bill
+        in USD through Paystack until cancelled.
+      </p>
+      <h2>Monthly credits</h2>
+      <p>
+        Prepaid packs add capacity after your included monthly allowance is used: 1,000 emails for
+        $2, 3,000 for $5, or 10,000 for $15. Credits carry forward, each purchase expires 12 months
+        after you buy it, and credits never extend your daily limit. There is no auto-purchase.
+      </p>
+      <h2>Daily Burst Passes</h2>
+      <p>
+        A $1 Daily Burst Pass adds 1,000 submissions for the rest of the current UTC day. It
+        expires at 23:59:59 UTC, does not roll over, adds no monthly credits, and is capped at two
+        per account per UTC day. It cannot bypass your monthly allowance, a suspension, compliance
+        checks, provider limits, or anti-abuse controls.
+      </p>
       <h2>When you reach a limit</h2>
       <p>
-        The API can return <code>plan_limit_reached</code> with limit and period details. Check your
-        organization’s current Usage page. Wait for the period reset or contact
-        support@calder.click; do not rely on an upgrade checkout being available.
+        The API returns <code>plan_limit_reached</code> with a <code>window</code> of{" "}
+        <code>daily</code> or <code>billing_period</code>, plus the limit, usage and reset time. A
+        daily refusal may offer a Daily Burst Pass; a monthly refusal may require credits. See{" "}
+        <Link href="/docs/errors">error responses</Link> for the exact bodies.
       </p>
       <h2>Sending verification</h2>
       <p>
