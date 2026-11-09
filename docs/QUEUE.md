@@ -97,9 +97,10 @@ poison job eventually dead-letters.
 - Unset secret → `503 processor_disabled` (the endpoint is inert).
 - One invocation: reap leases, claim at most 25 jobs, execute, return JSON.
 - Bounded batch; no daemon, no timers, no in-process loop.
-- Job types currently executed: `email.send` (drains a bounded email batch),
-  `webhook.deliver`, `billing.maintenance` (claimed; handlers for the last two
-  are follow-up work).
+- Job types currently executed: `email.send` (drains a bounded email batch) and
+  `billing.maintenance` (expires unused credits). `webhook.deliver` rows stay
+  durable and pending until their handler ships; the processor deliberately does
+  not claim a type it cannot execute.
 - Safe to call concurrently and from multiple schedulers.
 
 ## 8. Scheduling: honest limits

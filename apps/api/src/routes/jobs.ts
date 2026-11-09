@@ -51,7 +51,10 @@ jobs.post("/process", async (c) => {
     workerId,
     limit: 25,
     leaseSeconds: 120,
-    types: ["email.send", "webhook.deliver", "billing.maintenance"],
+    // Only types with a real handler here. `webhook.deliver` rows are durable
+    // and remain pending until a handler exists; claiming them without
+    // delivering would silently consume the wake-up.
+    types: ["email.send", "billing.maintenance"],
   });
 
   let completed = 0;
