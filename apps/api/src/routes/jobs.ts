@@ -57,7 +57,12 @@ jobs.post("/process", async (c) => {
     requested === "scheduler" || requested === "cron" || requested === "traffic"
       ? requested
       : "manual";
-  const summary = await runQueueProcessor(getDb(), { trigger });
+  // cron-job.org's free tier times out at 30s. Keep scheduler invocations well
+  // under that (one in-flight webhook can take up to 10s), so the scheduler
+  // never records a false failure while work is still running. Manual calls
+  // keep the larger platform-safe budget.
+  const runtimeBudgetMs = trigger === "manual" ? 45_000 : 15_000;
+  const summary = await runQueueProcessor(getDb(), { trigger, runtimeBudgetMs });
   return c.json(summary);
 });
 

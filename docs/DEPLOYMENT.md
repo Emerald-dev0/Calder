@@ -593,13 +593,23 @@ configuration or request failure; verify sent/delivery events separately.
 | `QUEUE_SCHEDULER_MODE`   | Optional             | Label in `/v1/jobs/status` (default `external-best-effort`) |
 | `REDIS_URL`              | Until BullMQ removal | Legacy email wake-up only; webhooks use Postgres            |
 
-Scheduler setup (Round 5): add `QUEUE_PROCESSOR_SECRET` as a **GitHub Actions
-secret** for the `queue-processor` workflow, and optionally `CALDER_API_URL` as
-a repository variable (defaults to `https://api.calder.click`). The workflow
-runs every five minutes and fails visibly on a non-2xx response. This is
-best-effort, not a guarantee. Vercel Hobby cron additionally calls
-`/v1/cron/drain` daily as a backstop (that handler also runs a 20s processor
-pass); no third cron job is registered. See `docs/QUEUE.md` §8.
+Scheduler setup (Round 5):
+
+1. **cron-job.org (recommended primary, free):** create a job every minute,
+   `POST https://api.calder.click/v1/jobs/process`, header
+   `Authorization: Bearer $QUEUE_PROCESSOR_SECRET`, header
+   `x-calder-trigger: scheduler`, no body. Enable failure notifications. The
+   route uses a 15s budget so its 30s free-tier timeout cannot cut off a run.
+   It has no SLA; use the dedicated processor secret because cron-job.org stores
+   job headers.
+2. **GitHub Actions (secondary):** add `QUEUE_PROCESSOR_SECRET` as a repository
+   secret and optionally `CALDER_API_URL` as a variable (defaults to
+   `https://api.calder.click`). The five-minute workflow fails visibly on a
+   non-2xx response.
+3. **Vercel:** the existing daily `/v1/cron/drain` also runs a 20s processor
+   pass. Vercel Hobby allows only two cron jobs, so no third schedule exists.
+
+All three are best-effort; none is a guarantee. See `docs/QUEUE.md` §8.
 
 Run migrations before deploying the code. Round 5 adds
 `0038_silly_iron_man.sql` (`queue_processor_runs`, `webhook_delivery_attempts`,

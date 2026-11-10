@@ -63,8 +63,12 @@ gate("authenticated processor trigger (live Postgres)", () => {
       trigger: string;
       claimed: number;
       durationMs: number;
+      runtimeBudgetMs: number;
     };
     expect(body.trigger).toBe("scheduler");
+    // cron-job.org's free tier times out at 30s; the scheduler path must stay
+    // well inside it.
+    expect(body.runtimeBudgetMs).toBe(15_000);
     expect(body.runId).toMatch(/^qpr_/);
     expect(body.durationMs).toBeGreaterThanOrEqual(0);
 
@@ -75,7 +79,9 @@ gate("authenticated processor trigger (live Postgres)", () => {
         "x-calder-trigger": "scheduler-but-actually-free-text",
       },
     });
-    expect(((await forged.json()) as { trigger: string }).trigger).toBe("manual");
+    const forgedBody = (await forged.json()) as { trigger: string; runtimeBudgetMs: number };
+    expect(forgedBody.trigger).toBe("manual");
+    expect(forgedBody.runtimeBudgetMs).toBe(45_000);
   });
 
   it("exposes pending/due/lease/retry/dead-letter and last-run observability", async () => {

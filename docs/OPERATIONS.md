@@ -396,11 +396,18 @@ claim browser E2E coverage.
   (`webhook_delivery_attempts`) for the response code; a crash after the receiver
   accepted the request is ambiguous and will be retried. Receivers must dedupe
   on `webhook-id`.
-- **Honest latency**: the five-minute GitHub Action is best-effort. Typical
-  delay is 0–10 minutes; it can be delayed indefinitely and GitHub disables
-  schedules after 60 days without repository activity. The daily Vercel cron is
-  the only backstop. A guarantee requires a paid scheduler or an always-on
-  worker. Do not describe this as guaranteed delivery.
+- **Honest latency**: cron-job.org every minute gives typical delay of 5–60
+  seconds plus processing, but it is a community service with no SLA, 4–40s
+  jitter, no retries, and 2-day history. GitHub Actions (five minutes) and the
+  daily Vercel drain are secondary backstops. If cron-job.org is down or the job
+  is suspended, latency is unbounded. A guarantee requires a paid scheduler or
+  an always-on worker. Do not describe this as guaranteed delivery.
+- **If cron-job.org fails repeatedly**: check its execution history and email
+  alerts, confirm `GET /v1/jobs/status` still shows advancing
+  `processor.lastSuccess`, and trigger manually with
+  `POST /v1/jobs/process` + `x-calder-trigger: manual`. Rotate
+  `QUEUE_PROCESSOR_SECRET` if the third-party account is compromised, then
+  update cron-job.org and GitHub.
 
 ## Round 4 operations: credits, payments and the durable queue
 

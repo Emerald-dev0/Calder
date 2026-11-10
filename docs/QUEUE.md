@@ -141,13 +141,15 @@ not create new events. Exactly-once is not claimed.
 
 There is **no reliable free per-minute scheduler** in the current hosting plan.
 
-| Option                       | Real limit                                                                                  | Verdict                           |
-| ---------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------- |
-| Vercel Cron (Hobby)          | Cron jobs run at most **once per day**; 2 jobs                                              | Cannot meet send latency          |
-| Vercel Cron (Pro, $20/mo)    | Minute-level schedules; 40 jobs                                                             | Not $0                            |
-| GitHub Actions `schedule`    | Minimum 5 minutes; frequently delayed 10–30+ min, disabled after 60 days of repo inactivity | Best-effort only, not a guarantee |
-| External free uptime monitor | Some allow 5-minute HTTP pings                                                              | Vendor-dependent, not a scheduler |
-| Request-triggered drain      | Fires on send, but no traffic means no drain                                                | Works for active traffic only     |
+| Option                       | Real limit                                                                                  | Verdict                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Vercel Cron (Hobby)          | Cron jobs run at most **once per day**; 2 jobs                                              | Cannot meet send latency                 |
+| Vercel Cron (Pro, $20/mo)    | Minute-level schedules; 40 jobs                                                             | Not $0                                   |
+| GitHub Actions `schedule`    | Minimum 5 minutes; frequently delayed 10–30+ min, disabled after 60 days of repo inactivity | Best-effort only, not a guarantee        |
+| cron-job.org (free)          | 1-minute HTTP scheduler; no SLA, 4–40s jitter, 30s timeout, email alerts, no retries        | **Best $0 scheduler; still best-effort** |
+| Other free external cron     | 1–5 minute HTTP scheduling, vendor-dependent limits                                         | Best-effort only                         |
+| External free uptime monitor | Some allow 5-minute HTTP pings                                                              | Not a scheduler                          |
+| Request-triggered drain      | Fires on send, but no traffic means no drain                                                | Works for active traffic only            |
 
 Therefore: delivery latency is **not guaranteed** on $0 infrastructure. The
 request-triggered drain (`kickDrain`) handles active traffic immediately; the
@@ -157,6 +159,16 @@ limitation. We do not claim a "$0 always-on worker".
 
 **Chosen outcome: B — best-effort $0 scheduling, no guarantee.** Implemented:
 
+- **Recommended primary clock: cron-job.org**, every minute, `POST
+https://api.calder.click/v1/jobs/process` with
+  `Authorization: Bearer $QUEUE_PROCESSOR_SECRET` and
+  `x-calder-trigger: scheduler`. Scheduler-triggered calls use a 15s runtime
+  budget so the free tier's 30s timeout cannot fire mid-run; the response is
+  small JSON. Enable failure notifications. It is a real cron scheduler (not an
+  uptime pinger), but it is a community service with **no SLA**, 4–40s jitter,
+  no retries, one region (Germany), and 2-day history. It also stores the
+  processor secret in its job configuration — use the dedicated, rotatable
+  `QUEUE_PROCESSOR_SECRET` and nothing broader.
 - `.github/workflows/queue-processor.yml` calls the authenticated
   `POST /v1/jobs/process` every 5 minutes (`x-calder-trigger: scheduler`),
   with concurrency 1 and a hard failure when the call is non-2xx or the secret
@@ -170,9 +182,10 @@ limitation. We do not claim a "$0 always-on worker".
   failed processor run. A stale `lastSuccess` is the signal that the scheduler
   itself stopped.
 
-Observed delay is therefore **typically 0–10 minutes, unbounded under GitHub
-load or after schedule disablement**; the daily cron bounds the worst case at
-about 24 hours only while it keeps running. A guarantee requires one of:
+Observed delay with cron-job.org is **typically 5–60 seconds**, plus processing
+time; it is still unbounded if the third-party service is down, delays, or
+suspends the job, and there is no retry. GitHub Actions and the daily Vercel
+cron remain secondary backstops. A guarantee requires one of:
 
 1. Vercel Pro ($20/mo) minute-level cron plus monitoring, or
 2. a small always-on worker (paid host) consuming the same table, or

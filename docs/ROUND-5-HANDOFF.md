@@ -51,8 +51,12 @@ Evidence labels used below:
   letter counts, oldest pending/due age, webhook backlog, and last successful and
   failed runs.
 - New `GET /v1/jobs/dead-letter` plus reprocess endpoints for jobs and deliveries.
+- Recommended primary $0 clock: **cron-job.org every minute**, authenticated
+  with `QUEUE_PROCESSOR_SECRET`; scheduler-triggered runs use a 15s budget so
+  its 30s free-tier timeout cannot cut off work. It is a real scheduler but has
+  no SLA and no retries.
 - `.github/workflows/queue-processor.yml` (every 5 minutes, authenticated with
-  `QUEUE_PROCESSOR_SECRET`) calls the same bounded processor.
+  `QUEUE_PROCESSOR_SECRET`) calls the same bounded processor as a secondary.
 - The existing daily `/v1/cron/drain` also runs a 20-second processor pass.
   Vercel Hobby allows only two cron jobs, so no third schedule was added;
   `POST /v1/cron/process` exists for manual use but is not scheduled.
@@ -64,9 +68,10 @@ Actions schedules are best-effort, can be delayed indefinitely and are disabled
 after 60 days of repository inactivity; uptime pings are not schedulers.
 Chosen outcome is **B**: the safest best-effort mechanism above, with:
 
-- typical latency **0–10 minutes**;
-- worst case **unbounded** if GitHub delays or disables the workflow, bounded to
-  ~24 hours only by the daily Vercel cron;
+- typical latency **5–60 seconds + processing** with cron-job.org, **0–10
+  minutes** with GitHub Actions;
+- worst case **unbounded** if the external scheduler is down, delays, or
+  suspends the job; the daily Vercel cron is the only long-stop;
 - a guarantee requires Vercel Pro minute cron, an always-on worker, or another
   paid scheduler, each with its own alerting.
 
@@ -174,8 +179,10 @@ with the real bounded run, trigger label sanitization, status/dead-letter shape)
 
 ## 5. Owner actions required before a guarantee can be claimed
 
-1. Add `QUEUE_PROCESSOR_SECRET` as a GitHub Actions secret and
-   `CALDER_API_URL` (optional; defaults to `https://api.calder.click`).
+1. Create the cron-job.org job (every minute, POST, bearer header,
+   `x-calder-trigger: scheduler`, failure notifications), and add
+   `QUEUE_PROCESSOR_SECRET` as a GitHub Actions secret plus optional
+   `CALDER_API_URL`.
 2. Deploy the API and confirm `vercel.json` accepts the two existing cron paths.
 3. Curl `GET /v1/jobs/status` with the secret after 10 minutes and confirm
    `processor.lastSuccess` advances.

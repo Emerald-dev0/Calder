@@ -61,6 +61,7 @@ export interface ProcessorSummary {
   webhooksDelivered: number;
   webhooksRetried: number;
   durationMs: number;
+  runtimeBudgetMs: number;
   budgetExhausted: boolean;
   errors: string[];
 }
@@ -181,6 +182,7 @@ export async function runQueueProcessor(
     webhooksDelivered: 0,
     webhooksRetried: 0,
     durationMs: 0,
+    runtimeBudgetMs: budget,
     budgetExhausted: false,
     errors: [],
   };
