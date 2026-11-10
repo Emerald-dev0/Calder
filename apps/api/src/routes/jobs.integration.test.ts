@@ -117,7 +117,7 @@ gate("authenticated processor trigger (live Postgres)", () => {
     expect(body.processor).toHaveProperty("lastSuccess");
     expect(body.processor).toHaveProperty("lastFailure");
     expect(Array.isArray(body.processor.recent)).toBe(true);
-    expect(body.processor.schedulerMode).toBe("external-best-effort");
+    expect(body.processor.schedulerMode).toBe("cron-job.org+github-actions");
   });
 
   it("exposes dead letters and refuses to reprocess an unknown id", async () => {

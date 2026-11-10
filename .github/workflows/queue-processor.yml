@@ -1,11 +1,11 @@
-name: Queue processor (best-effort scheduler)
+name: Queue processor (5-minute backstop)
 
 # HONEST SCOPE: GitHub's scheduled workflows are best-effort. GitHub documents
 # that runs may be delayed or dropped under load, and schedules are disabled
-# after 60 days without repository activity. This is NOT a hard guarantee; it
-# is a $0 wake-up that is far better than "only when a customer sends mail".
-# A guarantee needs an always-on worker or a scheduler that can page when it
-# fails (see docs/QUEUE.md, outcome B).
+# after 60 days without repository activity. This is the SECONDARY trigger:
+# cron-job.org runs every minute as the primary $0 clock (docs/QUEUE.md §8).
+# Neither is a hard guarantee; a guarantee needs an always-on worker or a
+# scheduler with an SLA that can page when it fails.
 
 on:
   schedule:

@@ -51,7 +51,8 @@ Evidence labels used below:
   letter counts, oldest pending/due age, webhook backlog, and last successful and
   failed runs.
 - New `GET /v1/jobs/dead-letter` plus reprocess endpoints for jobs and deliveries.
-- Recommended primary $0 clock: **cron-job.org every minute**, authenticated
+- **Owner decision: cron-job.org every minute (primary) + GitHub Actions every
+  five minutes (secondary).** cron-job.org is authenticated
   with `QUEUE_PROCESSOR_SECRET`; scheduler-triggered runs use a 15s budget so
   its 30s free-tier timeout cannot cut off work. It is a real scheduler but has
   no SLA and no retries.

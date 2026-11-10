@@ -157,7 +157,11 @@ scheduled processor is a safety net, not a latency SLA. If a minute-level
 guarantee is required, either pay for a scheduler/worker or accept the honest
 limitation. We do not claim a "$0 always-on worker".
 
-**Chosen outcome: B — best-effort $0 scheduling, no guarantee.** Implemented:
+**Operating decision (owner, Round 5): cron-job.org every minute + GitHub
+Actions every five minutes.** Both are free and externally hosted; the daily
+Vercel drain remains a backstop. This is the accepted setup for now. It is
+still outcome **B** — best-effort, no guarantee — because neither external
+service has an SLA that covers Calder. Implemented:
 
 - **Recommended primary clock: cron-job.org**, every minute, `POST
 https://api.calder.click/v1/jobs/process` with

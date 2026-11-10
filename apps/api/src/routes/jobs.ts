@@ -94,7 +94,7 @@ jobs.get("/status", async (c) => {
       lastFailure: last.lastFailure,
       recent,
       schedulerConfigured: Boolean(process.env.QUEUE_PROCESSOR_SECRET),
-      schedulerMode: process.env.QUEUE_SCHEDULER_MODE ?? "external-best-effort",
+      schedulerMode: process.env.QUEUE_SCHEDULER_MODE ?? "cron-job.org+github-actions",
     },
   });
 });

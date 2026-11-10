@@ -396,6 +396,10 @@ claim browser E2E coverage.
   (`webhook_delivery_attempts`) for the response code; a crash after the receiver
   accepted the request is ambiguous and will be retried. Receivers must dedupe
   on `webhook-id`.
+- **Chosen schedulers**: cron-job.org every minute (primary) and GitHub
+  Actions every five minutes (secondary). Both are configured outside this
+  repository except the workflow file; confirm them in the owner accounts after
+  deploy.
 - **Honest latency**: cron-job.org every minute gives typical delay of 5–60
   seconds plus processing, but it is a community service with no SLA, 4–40s
   jitter, no retries, and 2-day history. GitHub Actions (five minutes) and the
