@@ -14,7 +14,7 @@
 import { randomUUID } from "node:crypto";
 import { and, count, eq, sql } from "drizzle-orm";
 import type { DbClient, DbExecutor } from "./client.js";
-import { jobs, type Job } from "./schema/queue.js";
+import { jobs, queueProcessorRuns, type Job } from "./schema/queue.js";
 
 export const JOB_STATUS = {
   pending: "pending",
@@ -171,6 +171,78 @@ function normalizeClaimedRows(result: unknown): Job[] {
   }));
 }
 
+/**
+ * Exponential backoff with jitter. Attempt 1 (first failure) waits ~30s;
+ * the ceiling is one hour. Jitter prevents a batch of jobs that failed together
+ * from retrying in lockstep and re-creating the same spike.
+ */
+export function retryDelayForAttempt(
+  attempt: number,
+  opts: { baseMs?: number; capMs?: number; random?: () => number } = {}
+): number {
+  const base = opts.baseMs ?? 30_000;
+  const cap = opts.capMs ?? 3_600_000;
+  const exponent = Math.max(1, Math.min(attempt, 10)) - 1;
+  const raw = Math.min(cap, base * 2 ** exponent);
+  const jitter = 0.2;
+  const factor = 1 - jitter + (opts.random ?? Math.random)() * jitter * 2;
+  return Math.max(1_000, Math.round(raw * factor));
+}
+
+/** Keep a long-running job's lease alive so another processor cannot take it. */
+export async function renewLease(
+  db: DbClient,
+  opts: { id: string; workerId: string; seconds?: number }
+): Promise<boolean> {
+  const seconds = Math.max(5, Math.min(opts.seconds ?? 120, 3600));
+  const rows = await db
+    .update(jobs)
+    .set({
+      lockedUntil: sql`now() + (${seconds} * interval '1 second')`,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(jobs.id, opts.id),
+        eq(jobs.status, JOB_STATUS.processing),
+        eq(jobs.lockedBy, opts.workerId)
+      )
+    )
+    .returning({ id: jobs.id });
+  return rows.length > 0;
+}
+
+/**
+ * Return a claimed but unstarted job to the queue without counting the claim as
+ * an attempt. Used when the processor is about to hit its runtime budget: the
+ * job must be eligible again immediately, not after the full lease window.
+ */
+export async function releaseClaim(
+  db: DbClient,
+  opts: { id: string; workerId: string }
+): Promise<boolean> {
+  const rows = await db
+    .update(jobs)
+    .set({
+      status: JOB_STATUS.pending,
+      availableAt: sql`now()`,
+      lockedAt: null,
+      lockedUntil: null,
+      lockedBy: null,
+      attempts: sql`greatest(${jobs.attempts} - 1, 0)`,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(jobs.id, opts.id),
+        eq(jobs.status, JOB_STATUS.processing),
+        eq(jobs.lockedBy, opts.workerId)
+      )
+    )
+    .returning({ id: jobs.id });
+  return rows.length > 0;
+}
+
 export async function completeJob(
   db: DbClient,
   opts: { id: string; workerId: string }
@@ -227,9 +299,8 @@ export async function failJob(
   }
   const exhausted = job.attempts >= job.maxAttempts;
   const retryable = opts.retryable && !exhausted;
-  const availableAt = retryable
-    ? new Date(Date.now() + Math.max(1_000, opts.retryDelayMs ?? 5_000))
-    : null;
+  const delay = opts.retryDelayMs ?? retryDelayForAttempt(job.attempts);
+  const availableAt = retryable ? new Date(Date.now() + Math.max(1_000, delay)) : null;
   await db
     .update(jobs)
     .set({
@@ -305,7 +376,14 @@ export interface JobMetrics {
   completed: number;
   failed: number;
   deadLetter: number;
+  /** Pending jobs whose available_at has passed and that nobody has claimed. */
+  duePending: number;
+  /** Pending jobs that have already failed at least once. */
+  retrying: number;
+  /** Processing jobs whose lease has expired (crash awaiting recovery). */
+  expiredLeases: number;
   oldestPendingAgeSeconds: number | null;
+  oldestDueAgeSeconds: number | null;
 }
 
 export async function jobMetrics(db: DbExecutor): Promise<JobMetrics> {
@@ -318,12 +396,183 @@ export async function jobMetrics(db: DbExecutor): Promise<JobMetrics> {
     .select({ seconds: sql<number>`extract(epoch from (now() - min(${jobs.createdAt})))` })
     .from(jobs)
     .where(eq(jobs.status, JOB_STATUS.pending));
+  const [aggregates] = await db
+    .select({
+      duePending: sql<number>`count(*) filter (where status = 'pending' and available_at <= now())`,
+      retrying: sql<number>`count(*) filter (where status = 'pending' and attempts > 0)`,
+      expiredLeases: sql<number>`count(*) filter (where status = 'processing' and locked_until < now())`,
+      oldestDueAge: sql<
+        number | null
+      >`extract(epoch from (now() - min(available_at) filter (where status = 'pending' and available_at <= now())))`,
+    })
+    .from(jobs);
   return {
     pending: byStatus.pending ?? 0,
     processing: byStatus.processing ?? 0,
     completed: byStatus.completed ?? 0,
     failed: byStatus.failed ?? 0,
     deadLetter: byStatus.dead_letter ?? 0,
+    duePending: Number(aggregates?.duePending ?? 0),
+    retrying: Number(aggregates?.retrying ?? 0),
+    expiredLeases: Number(aggregates?.expiredLeases ?? 0),
+    oldestDueAgeSeconds:
+      aggregates?.oldestDueAge === null || aggregates?.oldestDueAge === undefined
+        ? null
+        : Number(aggregates.oldestDueAge),
     oldestPendingAgeSeconds: oldest?.seconds == null ? null : Number(oldest.seconds),
   };
+}
+
+export interface ProcessorRunInput {
+  workerId: string;
+  trigger: string;
+}
+
+/** Start a durable processor-run record. Returns its id. */
+export async function startProcessorRun(db: DbClient, input: ProcessorRunInput): Promise<string> {
+  const id = `qpr_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
+  await db.insert(queueProcessorRuns).values({
+    id,
+    workerId: input.workerId,
+    trigger: input.trigger.slice(0, 32),
+    status: "running",
+  });
+  return id;
+}
+
+/** Finish a run. Failures are recorded, not thrown away. */
+export async function finishProcessorRun(
+  db: DbClient,
+  id: string,
+  result: {
+    status: "completed" | "failed" | "partial";
+    claimed: number;
+    completed: number;
+    failed: number;
+    released: number;
+    reapedLeases: number;
+    emailsSent: number;
+    webhooksDelivered: number;
+    webhooksRetried: number;
+    durationMs: number;
+    error?: string | null;
+  }
+): Promise<void> {
+  await db
+    .update(queueProcessorRuns)
+    .set({
+      finishedAt: new Date(),
+      status: result.status,
+      claimed: result.claimed,
+      completed: result.completed,
+      failed: result.failed,
+      released: result.released,
+      reapedLeases: result.reapedLeases,
+      emailsSent: result.emailsSent,
+      webhooksDelivered: result.webhooksDelivered,
+      webhooksRetried: result.webhooksRetried,
+      durationMs: result.durationMs,
+      error: result.error ? result.error.slice(0, 4000) : null,
+    })
+    .where(eq(queueProcessorRuns.id, id));
+}
+
+export interface ProcessorRunSummary {
+  id: string;
+  trigger: string;
+  status: string;
+  startedAt: Date;
+  finishedAt: Date | null;
+  claimed: number;
+  emailsSent: number;
+  webhooksDelivered: number;
+  failed: number;
+  error: string | null;
+}
+
+export async function recentProcessorRuns(
+  db: DbExecutor,
+  limit = 20
+): Promise<ProcessorRunSummary[]> {
+  const rows = await db
+    .select({
+      id: queueProcessorRuns.id,
+      trigger: queueProcessorRuns.trigger,
+      status: queueProcessorRuns.status,
+      startedAt: queueProcessorRuns.startedAt,
+      finishedAt: queueProcessorRuns.finishedAt,
+      claimed: queueProcessorRuns.claimed,
+      emailsSent: queueProcessorRuns.emailsSent,
+      webhooksDelivered: queueProcessorRuns.webhooksDelivered,
+      failed: queueProcessorRuns.failed,
+      error: queueProcessorRuns.error,
+    })
+    .from(queueProcessorRuns)
+    .orderBy(sql`${queueProcessorRuns.startedAt} desc`)
+    .limit(Math.max(1, Math.min(limit, 100)));
+  return rows;
+}
+
+/** Last successful and failed run, for alerts and the status endpoint. */
+export async function lastProcessorRuns(
+  db: DbExecutor
+): Promise<{ lastSuccess: ProcessorRunSummary | null; lastFailure: ProcessorRunSummary | null }> {
+  const runs = await recentProcessorRuns(db, 50);
+  return {
+    lastSuccess: runs.find((r) => r.status === "completed") ?? null,
+    lastFailure: runs.find((r) => r.status === "failed" || r.status === "partial") ?? null,
+  };
+}
+
+export interface DeadLetterJob {
+  id: string;
+  jobType: string;
+  accountId: string | null;
+  attempts: number;
+  lastError: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export async function listDeadLetterJobs(db: DbExecutor, limit = 50): Promise<DeadLetterJob[]> {
+  return db
+    .select({
+      id: jobs.id,
+      jobType: jobs.jobType,
+      accountId: jobs.accountId,
+      attempts: jobs.attempts,
+      lastError: jobs.lastError,
+      createdAt: jobs.createdAt,
+      updatedAt: jobs.updatedAt,
+    })
+    .from(jobs)
+    .where(eq(jobs.status, JOB_STATUS.deadLetter))
+    .orderBy(sql`${jobs.updatedAt} desc`)
+    .limit(Math.max(1, Math.min(limit, 200)));
+}
+
+/**
+ * Operator action: put a dead-lettered job back in the queue. The original
+ * error stays in logs; the row's `last_error` is cleared so the next failure is
+ * attributable to the new run.
+ */
+export async function requeueDeadLetterJob(
+  db: DbClient,
+  id: string
+): Promise<{ requeued: boolean; reason?: string }> {
+  const rows = await db
+    .update(jobs)
+    .set({
+      status: JOB_STATUS.pending,
+      attempts: 0,
+      availableAt: sql`now()`,
+      lockedAt: null,
+      lockedUntil: null,
+      lockedBy: null,
+      lastError: null,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(jobs.id, id), eq(jobs.status, JOB_STATUS.deadLetter)))
+    .returning({ id: jobs.id });
+  return rows.length > 0 ? { requeued: true } : { requeued: false, reason: "not_dead_letter" };
 }

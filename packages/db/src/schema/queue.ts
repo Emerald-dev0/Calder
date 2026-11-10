@@ -57,3 +57,36 @@ export const jobs = pgTable(
 );
 
 export type Job = typeof jobs.$inferSelect;
+
+/**
+ * One row per processor invocation. The processor endpoint is short-lived and
+ * stateless, so this table is the operator's only durable answer to "is the
+ * scheduler actually running, and what did the last run do?". A failed run is
+ * recorded here too; silence is itself a signal (see operational alerts).
+ */
+export const queueProcessorRuns = pgTable(
+  "queue_processor_runs",
+  {
+    id: text("id").primaryKey(),
+    workerId: varchar("worker_id", { length: 128 }).notNull(),
+    /** `github-actions`, `vercel-cron`, `manual`, `test`. Untrusted hint only. */
+    trigger: varchar("trigger", { length: 32 }).notNull().default("manual"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    /** running | completed | failed | partial */
+    status: varchar("status", { length: 16 }).notNull().default("running"),
+    claimed: integer("claimed").notNull().default(0),
+    completed: integer("completed").notNull().default(0),
+    failed: integer("failed").notNull().default(0),
+    released: integer("released").notNull().default(0),
+    reapedLeases: integer("reaped_leases").notNull().default(0),
+    emailsSent: integer("emails_sent").notNull().default(0),
+    webhooksDelivered: integer("webhooks_delivered").notNull().default(0),
+    webhooksRetried: integer("webhooks_retried").notNull().default(0),
+    durationMs: integer("duration_ms"),
+    error: text("error"),
+  },
+  (t) => [index("queue_processor_runs_started_idx").on(t.startedAt)]
+);
+
+export type QueueProcessorRun = typeof queueProcessorRuns.$inferSelect;

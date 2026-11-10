@@ -62,6 +62,7 @@ export const webhookEventEnum = pgEnum("webhook_event", [
 ]);
 export const webhookDeliveryStatusEnum = pgEnum("webhook_delivery_status", [
   "pending",
+  "sending",
   "delivered",
   "failed",
   "exhausted",

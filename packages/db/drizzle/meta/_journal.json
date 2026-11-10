@@ -267,6 +267,20 @@
       "when": 1794235831720,
       "tag": "0037_luxuriant_meteorite",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1794258603839,
+      "tag": "0038_silly_iron_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1794258712085,
+      "tag": "0039_white_lady_mastermind",
+      "breakpoints": true
     }
   ]
 }

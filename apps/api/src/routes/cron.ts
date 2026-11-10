@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import { logger } from "@calder/observability";
 import { drainPendingEmails } from "../lib/drain.js";
 import { runCompanyEmailSweep } from "../lib/company-email-sweep.js";
+import { runQueueProcessor } from "../lib/processor.js";
 
 const cron = new Hono<Env>();
 
@@ -72,8 +73,32 @@ cron.on(["GET", "POST"], "/maintenance", async (c) => {
 cron.on(["GET", "POST"], "/drain", async (c) => {
   if (!authorized(c))
     return c.json({ error: { code: "unauthorized", message: "Invalid cron secret" } }, 401);
-  const result = await drainPendingEmails(getDb());
-  return c.json(result);
+  const db = getDb();
+  const result = await drainPendingEmails(db);
+  // The same daily invocation also runs a short bounded processor pass so
+  // webhook retries and scheduled jobs are not left entirely to the external
+  // five-minute workflow. Vercel Hobby allows only two cron jobs, so this must
+  // stay part of the existing drain entry rather than a third schedule.
+  const processor = await runQueueProcessor(db, {
+    trigger: "cron",
+    maxJobs: 10,
+    runtimeBudgetMs: 20_000,
+  });
+  return c.json({ ...result, processor });
+});
+
+/**
+ * GET/POST /v1/cron/process — the platform-owned backstop trigger for the
+ * bounded queue processor. Vercel Hobby cron can only run daily, so this is a
+ * safety net, not the primary scheduler: the external five-minute workflow
+ * (`QUEUE_PROCESSOR_SECRET`) is the best-effort clock. Both call the same
+ * bounded processor and are safe to overlap.
+ */
+cron.on(["GET", "POST"], "/process", async (c) => {
+  if (!authorized(c))
+    return c.json({ error: { code: "unauthorized", message: "Invalid cron secret" } }, 401);
+  const summary = await runQueueProcessor(getDb(), { trigger: "cron" });
+  return c.json(summary);
 });
 
 /**

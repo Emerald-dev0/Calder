@@ -53,6 +53,9 @@ describe("API deployment config", () => {
   });
 
   it("declares its cron jobs", () => {
+    // Vercel Hobby permits two cron jobs. The daily drain also runs a short
+    // processor pass for webhooks/scheduled work; the five-minute GitHub
+    // workflow is the best-effort primary clock (docs/QUEUE.md §8).
     expect(api.crons?.map((c) => c.path)).toEqual(["/v1/cron/drain", "/v1/cron/company-email"]);
   });
 

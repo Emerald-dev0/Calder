@@ -539,8 +539,15 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
     expect(requeued?.attemptCount).toBeGreaterThanOrEqual(1);
     expect(String(requeued?.lastError ?? "")).toMatch(/rate|throttl|TooManyRequests/i);
 
-    // Recovery: the rate clears, the same row delivers without a re-send.
+    // Recovery: the rate clears and the backoff window elapses, then the same
+    // row delivers without a re-send. Retries now carry exponential backoff, so
+    // the test advances the eligibility clock instead of expecting an instant
+    // second claim (which would have meant the backoff was not applied).
     mode = "ok";
+    await getDb()
+      .update(emails)
+      .set({ nextAttemptAt: new Date(Date.now() - 1_000) })
+      .where(eq(emails.id, id));
     await drainPendingEmails(getDb(), { batch: 20 }).catch(() => {});
     const delivered = await waitSettled(id);
     expect(delivered?.status).toBe("sent");

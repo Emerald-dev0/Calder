@@ -353,7 +353,9 @@ export async function claimDrainBatch(
     WHERE id IN (
       SELECT id FROM emails
       WHERE
-        (status = 'queued' AND (scheduled_for IS NULL OR scheduled_for <= now()))
+        (status = 'queued'
+          AND (scheduled_for IS NULL OR scheduled_for <= now())
+          AND (next_attempt_at IS NULL OR next_attempt_at <= now()))
         OR (status = 'sending' AND updated_at < now() - make_interval(mins => ${staleMinutes}))
       ORDER BY created_at
       LIMIT ${limit}
@@ -716,9 +718,16 @@ export async function drainPendingEmails(
     if (transient && (row.attemptCount ?? 0) + 1 < DRAIN_MAX_ATTEMPTS) {
       // Release the claim back to the pool: row returns to "queued" for the
       // next tick instead of hanging on this drain's lease.
+      const { retryDelayForAttempt } = await import("@calder/db");
+      const delay = retryDelayForAttempt((row.attemptCount ?? 0) + 1);
       await db
         .update(emails)
-        .set({ status: "queued", lastError: reason, updatedAt: new Date() })
+        .set({
+          status: "queued",
+          lastError: reason,
+          nextAttemptAt: new Date(Date.now() + delay),
+          updatedAt: new Date(),
+        })
         .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
       failed++;
       continue;

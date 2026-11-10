@@ -581,20 +581,33 @@ configuration or request failure; verify sent/delivery events separately.
 
 ## Round 4: billing and queue environment
 
-| Variable                 | Required when        | Notes                                                   |
-| ------------------------ | -------------------- | ------------------------------------------------------- |
-| `PAYSTACK_SECRET_KEY`    | Selling anything     | Webhook signature uses this key                         |
-| `PAYSTACK_PUBLIC_KEY`    | Hosted checkout      | Public, not secret                                      |
-| `PAYSTACK_USD_ENABLED`   | Selling anything     | Must be exactly `true`; otherwise `409 usd_not_enabled` |
-| `PAYSTACK_PLAN_STARTER`  | Selling Starter      | Paystack plan code for $5                               |
-| `PAYSTACK_PLAN_PRO`      | Selling Pro          | Paystack plan code for $18                              |
-| `PAYSTACK_CALLBACK_URL`  | Optional             | Return URL after checkout                               |
-| `QUEUE_PROCESSOR_SECRET` | Durable processor    | Dedicated; unset disables `/v1/jobs/process`            |
-| `REDIS_URL`              | Until BullMQ removal | Legacy wake-up only                                     |
+| Variable                 | Required when        | Notes                                                       |
+| ------------------------ | -------------------- | ----------------------------------------------------------- |
+| `PAYSTACK_SECRET_KEY`    | Selling anything     | Webhook signature uses this key                             |
+| `PAYSTACK_PUBLIC_KEY`    | Hosted checkout      | Public, not secret                                          |
+| `PAYSTACK_USD_ENABLED`   | Selling anything     | Must be exactly `true`; otherwise `409 usd_not_enabled`     |
+| `PAYSTACK_PLAN_STARTER`  | Selling Starter      | Paystack plan code for $5                                   |
+| `PAYSTACK_PLAN_PRO`      | Selling Pro          | Paystack plan code for $18                                  |
+| `PAYSTACK_CALLBACK_URL`  | Optional             | Return URL after checkout                                   |
+| `QUEUE_PROCESSOR_SECRET` | Durable processor    | Dedicated; unset disables `/v1/jobs/process`                |
+| `QUEUE_SCHEDULER_MODE`   | Optional             | Label in `/v1/jobs/status` (default `external-best-effort`) |
+| `REDIS_URL`              | Until BullMQ removal | Legacy email wake-up only; webhooks use Postgres            |
 
-Run migrations before deploying the code: `0036_cute_bastion.sql` creates the
+Scheduler setup (Round 5): add `QUEUE_PROCESSOR_SECRET` as a **GitHub Actions
+secret** for the `queue-processor` workflow, and optionally `CALDER_API_URL` as
+a repository variable (defaults to `https://api.calder.click`). The workflow
+runs every five minutes and fails visibly on a non-2xx response. This is
+best-effort, not a guarantee. Vercel Hobby cron additionally calls
+`/v1/cron/drain` daily as a backstop (that handler also runs a 20s processor
+pass); no third cron job is registered. See `docs/QUEUE.md` §8.
+
+Run migrations before deploying the code. Round 5 adds
+`0038_silly_iron_man.sql` (`queue_processor_runs`, `webhook_delivery_attempts`,
+`webhook_delivery_status.sending`, delivery lease columns) and
+`0039_white_lady_mastermind.sql` (`emails.next_attempt_at`). Both are additive:
+no table, column, or row is dropped. `0036_cute_bastion.sql` creates the
 queue/payment/credit tables and `0037_luxuriant_meteorite.sql` adjusts the credit
-ledger index. Neither is destructive: no rows are dropped.
+ledger index.
 
 Scheduling: Vercel Hobby cron runs at most daily, so it cannot provide
 minute-level delivery. The request-triggered drain handles active traffic; the

@@ -376,6 +376,32 @@ claim browser E2E coverage.
 | Rehearse rollback once                          | Hosting                | Deploy to preview, run `pnpm verify:deploy -- --url <preview>`, roll back, verify again | The rollback runbook is unexercised                         | Record the rehearsal date and outcome                                               |
 | Verify production env after first deploy        | Hosting                | `vercel env pull .env.production.local --environment=production && pnpm launch-check`   | Missing credentials are the historical launch risk          | launch-check exits 0                                                                |
 
+## Round 5 operations: scheduling and webhook delivery
+
+- **Scheduler health**: `GET /v1/jobs/status` with
+  `Authorization: Bearer $QUEUE_PROCESSOR_SECRET`. Check
+  `processor.lastSuccess` (should be within ~15 minutes),
+  `jobs.oldestDueAgeSeconds`, `jobs.duePending`, `jobs.expiredLeases`,
+  `webhooks.exhausted`. A stale last success means the scheduler stopped, not
+  that the queue is empty.
+- **Manual recovery**: `POST /v1/jobs/process` with
+  `x-calder-trigger: manual`. Safe while the scheduler is also running.
+- **Dead letters**: `GET /v1/jobs/dead-letter`; requeue a job with
+  `POST /v1/jobs/dead-letter/jobs/:id/reprocess`, or give a failed/exhausted
+  webhook delivery a new audited cycle with
+  `POST /v1/jobs/dead-letter/webhooks/:id/reprocess`. Delivered events are
+  refused (409) — replaying an accepted event is an explicit business decision.
+- **Webhook stuck in `sending`**: the 120s lease expires and the next processor
+  run returns it to `pending`. Check attempt history
+  (`webhook_delivery_attempts`) for the response code; a crash after the receiver
+  accepted the request is ambiguous and will be retried. Receivers must dedupe
+  on `webhook-id`.
+- **Honest latency**: the five-minute GitHub Action is best-effort. Typical
+  delay is 0–10 minutes; it can be delayed indefinitely and GitHub disables
+  schedules after 60 days without repository activity. The daily Vercel cron is
+  the only backstop. A guarantee requires a paid scheduler or an always-on
+  worker. Do not describe this as guaranteed delivery.
+
 ## Round 4 operations: credits, payments and the durable queue
 
 - **Daily checks**: `jobMetrics().oldestPendingAgeSeconds`, dead-letter count,

@@ -577,6 +577,11 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
         payload: { emailId, projectId },
         idempotencyKey: `email:${emailId}`,
         priority: 0,
+        // A scheduled send must not become claimable before its send time.
+        // (Previously the job was runnable immediately, the drain skipped the
+        // not-yet-due row, and the job completed — leaving the email with no
+        // wake-up at all until the daily cron.)
+        delayMs: delayMs !== undefined && delayMs > 0 ? delayMs : 0,
       });
     } catch (jobErr) {
       logger.warn({ err: jobErr, emailId }, "Postgres job enqueue failed; drain backstop remains");

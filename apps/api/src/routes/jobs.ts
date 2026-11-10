@@ -1,15 +1,17 @@
 import { Hono } from "hono";
 import type { Env } from "../app.js";
-import { logger } from "@calder/observability";
 import {
   getDb,
-  claimJobs,
-  completeJob,
-  expireCredits,
-  failJob,
-  reapExpiredLeases,
+  jobMetrics,
+  lastProcessorRuns,
+  listDeadLetterJobs,
+  listFailedWebhookDeliveries,
+  recentProcessorRuns,
+  requeueDeadLetterJob,
+  reprocessWebhookDelivery,
+  webhookQueueMetrics,
 } from "@calder/db";
-import { drainPendingEmails } from "../lib/drain.js";
+import { runQueueProcessor } from "../lib/processor.js";
 
 const jobs = new Hono<Env>();
 
@@ -25,73 +27,104 @@ function authorized(header: string | undefined): boolean {
   return header === `Bearer ${secret}`;
 }
 
+function disabled(c: { json: (body: unknown, status: 503) => Response }) {
+  return c.json(
+    { error: { code: "processor_disabled", message: "QUEUE_PROCESSOR_SECRET is not set" } },
+    503
+  );
+}
+
+function unauthorized(c: { json: (body: unknown, status: 401) => Response }) {
+  return c.json({ error: { code: "unauthorized", message: "Invalid processor secret" } }, 401);
+}
+
 /**
  * POST /v1/jobs/process
  *
- * One short-lived invocation: recover expired leases, claim a bounded batch,
- * execute, record outcomes, return. No long-running worker, no in-process
- * timer. Safe to trigger concurrently: SKIP LOCKED prevents double claiming
- * and the email drain has its own lease.
+ * One short-lived invocation: recover expired leases, repair missing
+ * wake-ups, claim a bounded batch, execute, record outcomes, return.
+ *
+ * Safe to trigger concurrently. `x-calder-trigger` is recorded only as a
+ * coarse label (`scheduler`, `manual`, `cron`) — never as free text, so a
+ * caller cannot forge misleading history.
  */
 jobs.post("/process", async (c) => {
-  const secretConfigured = Boolean(process.env.QUEUE_PROCESSOR_SECRET);
-  if (!secretConfigured) {
-    return c.json(
-      { error: { code: "processor_disabled", message: "QUEUE_PROCESSOR_SECRET is not set" } },
-      503
-    );
-  }
-  if (!authorized(c.req.header("authorization"))) {
-    return c.json({ error: { code: "unauthorized", message: "Invalid processor secret" } }, 401);
-  }
+  if (!process.env.QUEUE_PROCESSOR_SECRET) return disabled(c);
+  if (!authorized(c.req.header("authorization"))) return unauthorized(c);
+
+  const requested = c.req.header("x-calder-trigger");
+  const trigger =
+    requested === "scheduler" || requested === "cron" || requested === "traffic"
+      ? requested
+      : "manual";
+  const summary = await runQueueProcessor(getDb(), { trigger });
+  return c.json(summary);
+});
+
+/**
+ * GET /v1/jobs/status
+ *
+ * The observability contract for scheduling and delivery:
+ * pending count, oldest pending age, due-but-unclaimed work, processing with
+ * expired leases, retry counts, dead letters, webhook backlog, and the last
+ * successful/failed processor run. If the scheduler never runs, the last-run
+ * timestamps are what make that visible.
+ */
+jobs.get("/status", async (c) => {
+  if (!process.env.QUEUE_PROCESSOR_SECRET) return disabled(c);
+  if (!authorized(c.req.header("authorization"))) return unauthorized(c);
+
   const db = getDb();
-  const workerId = `proc_${crypto.randomUUID().slice(0, 12)}`;
-  const reaped = await reapExpiredLeases(db);
-  const claimed = await claimJobs(db, {
-    workerId,
-    limit: 25,
-    leaseSeconds: 120,
-    // Only types with a real handler here. `webhook.deliver` rows are durable
-    // and remain pending until a handler exists; claiming them without
-    // delivering would silently consume the wake-up.
-    types: ["email.send", "billing.maintenance"],
-  });
-
-  let completed = 0;
-  let failed = 0;
-  let drained = 0;
-  for (const job of claimed) {
-    try {
-      if (job.jobType === "email.send") {
-        const result = await drainPendingEmails(db, { batch: 25 });
-        drained += result.sent;
-      } else if (job.jobType === "billing.maintenance") {
-        await expireCredits(db);
-      }
-      const ok = await completeJob(db, { id: job.id, workerId });
-      if (ok) completed++;
-    } catch (err) {
-      failed++;
-      await failJob(db, {
-        id: job.id,
-        workerId,
-        error: err instanceof Error ? err.message : String(err),
-        // Transient by default: the lease reaper and attempt cap bound the
-        // damage, and dead-lettered work stays inspectable.
-        retryable: true,
-      });
-      logger.warn({ jobId: job.id, jobType: job.jobType }, "job execution failed");
-    }
-  }
-
+  const [metrics, webhooks, last, recent] = await Promise.all([
+    jobMetrics(db),
+    webhookQueueMetrics(db),
+    lastProcessorRuns(db),
+    recentProcessorRuns(db, 10),
+  ]);
   return c.json({
-    workerId,
-    reapedLeases: reaped,
-    claimed: claimed.length,
-    completed,
-    failed,
-    emailsSent: drained,
+    jobs: metrics,
+    webhooks,
+    processor: {
+      lastSuccess: last.lastSuccess,
+      lastFailure: last.lastFailure,
+      recent,
+      schedulerConfigured: Boolean(process.env.QUEUE_PROCESSOR_SECRET),
+      schedulerMode: process.env.QUEUE_SCHEDULER_MODE ?? "external-best-effort",
+    },
   });
+});
+
+/** GET /v1/jobs/dead-letter — inspect jobs and webhook deliveries that stopped. */
+jobs.get("/dead-letter", async (c) => {
+  if (!process.env.QUEUE_PROCESSOR_SECRET) return disabled(c);
+  if (!authorized(c.req.header("authorization"))) return unauthorized(c);
+
+  const db = getDb();
+  const [deadJobs, deadDeliveries] = await Promise.all([
+    listDeadLetterJobs(db, 100),
+    listFailedWebhookDeliveries(db, 100),
+  ]);
+  return c.json({ jobs: deadJobs, webhookDeliveries: deadDeliveries });
+});
+
+/** POST /v1/jobs/dead-letter/jobs/:id/reprocess — requeue a dead-lettered job. */
+jobs.post("/dead-letter/jobs/:id/reprocess", async (c) => {
+  if (!process.env.QUEUE_PROCESSOR_SECRET) return disabled(c);
+  if (!authorized(c.req.header("authorization"))) return unauthorized(c);
+  const result = await requeueDeadLetterJob(getDb(), c.req.param("id"));
+  return c.json(result, result.requeued ? 200 : 409);
+});
+
+/**
+ * POST /v1/jobs/dead-letter/webhooks/:id/reprocess — give a failed/exhausted
+ * webhook delivery a fresh, fully-audited retry cycle. Delivered rows are
+ * refused: replaying an accepted event is a business decision, not a retry.
+ */
+jobs.post("/dead-letter/webhooks/:id/reprocess", async (c) => {
+  if (!process.env.QUEUE_PROCESSOR_SECRET) return disabled(c);
+  if (!authorized(c.req.header("authorization"))) return unauthorized(c);
+  const result = await reprocessWebhookDelivery(getDb(), c.req.param("id"));
+  return c.json(result, result.requeued ? 200 : 409);
 });
 
 export default jobs;

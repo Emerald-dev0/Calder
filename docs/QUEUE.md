@@ -97,11 +97,45 @@ poison job eventually dead-letters.
 - Unset secret → `503 processor_disabled` (the endpoint is inert).
 - One invocation: reap leases, claim at most 25 jobs, execute, return JSON.
 - Bounded batch; no daemon, no timers, no in-process loop.
-- Job types currently executed: `email.send` (drains a bounded email batch) and
-  `billing.maintenance` (expires unused credits). `webhook.deliver` rows stay
-  durable and pending until their handler ships; the processor deliberately does
-  not claim a type it cannot execute.
+- Job types executed: `email.send` (drains a bounded email batch),
+  `webhook.deliver` (one attempt, see §7a), and `billing.maintenance` (expires
+  unused credits).
+- Each invocation first reaps expired **job** leases, recovers expired **webhook
+  delivery** leases, and repairs missing wake-ups: queued emails with no live
+  job, and pending deliveries with no live job. This is what makes due work
+  discoverable with no customer traffic.
+- Runtime budget is 45s (the platform hard stop is 60s). Claims are taken in
+  chunks of 5; if the budget is reached between jobs, unstarted claims are
+  released without consuming an attempt.
+- Records one `queue_processor_runs` row per invocation (trigger, counts,
+  duration, error).
 - Safe to call concurrently and from multiple schedulers.
+
+## 7a. Webhook delivery on the queue
+
+A **delivery** (`webhook_deliveries`) is the durable event for one endpoint; its
+id is the `webhook-id` and never changes across retries. An **attempt**
+(`webhook_delivery_attempts`) is one HTTP request. Retries add attempts; they do
+not create new events. Exactly-once is not claimed.
+
+- Enqueue: `enqueueWebhookDeliveries` writes the delivery row then a
+  `webhook.deliver` job whose payload is `{deliveryId, projectId}`.
+- Claim: `pending` → `sending` with a 120s lease. A crash leaves `sending`
+  behind; `recoverExpiredWebhookDeliveries` returns it to `pending`.
+- Response policy: 2xx delivered; 400/401/403/404/405/410/413/414/415/422
+  permanent (`failed`, no retry); everything else retryable.
+- Budget: 8 attempts, delays `5s, 30s, 120s, 600s, 1800s, 7200s, 21600s`.
+  Attempt 8 without success → `exhausted` and the job completes.
+- Disabled/deleted endpoint or undecryptable secret → permanent, explicit error;
+  no requests are made.
+- The body is the stored envelope, so retries send identical bytes. Headers:
+  `webhook-id`, `webhook-signature: t=<unix>,v1=<hmac-sha256(t.body)>`.
+- Operator actions: `GET /v1/jobs/dead-letter`,
+  `POST /v1/jobs/dead-letter/jobs/:id/reprocess`,
+  `POST /v1/jobs/dead-letter/webhooks/:id/reprocess`. Delivered events are
+  refused (409); replaying an accepted event is a business decision, not a retry.
+- Secrets are decrypted only at send time and never written to attempt rows or
+  logs. Endpoint URLs are redacted to origin+path in logs.
 
 ## 8. Scheduling: honest limits
 
@@ -121,18 +155,43 @@ scheduled processor is a safety net, not a latency SLA. If a minute-level
 guarantee is required, either pay for a scheduler/worker or accept the honest
 limitation. We do not claim a "$0 always-on worker".
 
-Recommended $0 setup: keep the daily Vercel cron plus a GitHub Actions workflow
-(if the repository is public) or a 5-minute uptime ping to
-`/v1/jobs/process`. Document the observed delay. Failure to run must be visible:
-`/v1/cron/alerts` reports queue age, and `jobMetrics().oldestPendingAgeSeconds`
-is exposed there.
+**Chosen outcome: B — best-effort $0 scheduling, no guarantee.** Implemented:
+
+- `.github/workflows/queue-processor.yml` calls the authenticated
+  `POST /v1/jobs/process` every 5 minutes (`x-calder-trigger: scheduler`),
+  with concurrency 1 and a hard failure when the call is non-2xx or the secret
+  is missing. GitHub explicitly does not guarantee schedule timing and disables
+  schedules after 60 days of repository inactivity.
+- Vercel Hobby cron calls the existing daily `/v1/cron/drain` at 00:00 UTC,
+  which now also runs a short (20s) processor pass as a second backstop.
+  Vercel Hobby allows only two cron jobs, so no third schedule was added.
+- `GET /v1/jobs/status` exposes pending/due/retrying/expired-lease/dead-letter
+  counts, oldest pending/due age, webhook backlog, and the last successful and
+  failed processor run. A stale `lastSuccess` is the signal that the scheduler
+  itself stopped.
+
+Observed delay is therefore **typically 0–10 minutes, unbounded under GitHub
+load or after schedule disablement**; the daily cron bounds the worst case at
+about 24 hours only while it keeps running. A guarantee requires one of:
+
+1. Vercel Pro ($20/mo) minute-level cron plus monitoring, or
+2. a small always-on worker (paid host) consuming the same table, or
+3. an external scheduler with its own alerting contract (not a free uptime ping).
+
+Failure to run is visible at `/v1/jobs/status` (`processor.lastSuccess`,
+`jobs.oldestDueAgeSeconds`) and `/v1/cron/alerts` (queued email age).
 
 ## 9. Migration from BullMQ/Redis
 
-Current state: **dual-write**, not removal.
+Current state: **dual-write for email; webhooks are Postgres-only**, not removal.
 
-1. Send paths commit the email row, then enqueue the Postgres job, then enqueue
-   the legacy BullMQ job as the immediate wake-up.
+1. Email send paths commit the email row, then enqueue the Postgres job
+   (`available_at = scheduled_at` for scheduled sends), then enqueue the legacy
+   BullMQ job as the immediate wake-up.
+   Webhook deliveries are enqueued only on the Postgres queue. The legacy
+   `apps/worker` consumer is not deployed; any Redis jobs still queued from
+   before this change may deliver once in parallel with the new processor, so
+   receivers must dedupe on `webhook-id` during the transition.
 2. The Postgres processor drains the same `emails` rows; the BullMQ worker and
    API drain remain active.
 3. Removal gates (all required):
@@ -153,6 +212,7 @@ Until those gates pass, Redis stays a supported dependency.
 | `QUEUE_PROCESSOR_SECRET` | yes for processor        | Dedicated processor bearer token        |
 | `CRON_SECRET`            | yes                      | Legacy drain/alerts cron auth           |
 | `REDIS_URL`              | until migration complete | Legacy BullMQ only                      |
+| `QUEUE_SCHEDULER_MODE`   | no                       | Label shown in `/v1/jobs/status`        |
 
 ## 11. Troubleshooting
 
@@ -164,5 +224,6 @@ Until those gates pass, Redis stays a supported dependency.
 | Jobs stay `processing`                  | Processor crashed; wait for the lease to expire or run the endpoint again                                                   |
 | `oldestPendingAgeSeconds` keeps growing | Alert: scheduled fallback is failing (`/v1/cron/alerts`)                                                                    |
 | Email queued but not sent               | Check the `emails` row lease, `last_error`, and suppression state; the job is only a wake-up                                |
-| Dead-lettered job                       | Inspect `last_error`; `requeueDeadLetter(id)` retries once                                                                  |
+| Dead-lettered job                       | Inspect `last_error`; `GET /v1/jobs/dead-letter`, then `POST …/jobs/:id/reprocess`                                          |
+| Webhook stuck `sending`                 | Check `lock_expires_at`; recovery returns it to `pending` after the lease                                                   |
 | Duplicate deliveries                    | Not an exactly-once system. Verify provider ids and email attempt counts; do not assume the queue deduped a provider accept |
