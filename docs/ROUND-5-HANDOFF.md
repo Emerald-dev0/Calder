@@ -178,6 +178,8 @@ with the real bounded run, trigger label sanitization, status/dead-letter shape)
 | Vercel Hobby cron configuration accepted by Vercel | **Blocked** (needs deploy)            |
 | GitHub `QUEUE_PROCESSOR_SECRET` configured         | **Blocked** (needs owner)             |
 
+Setup runbook: [`docs/SCHEDULER-SETUP.md`](./SCHEDULER-SETUP.md).
+
 ## 5. Owner actions required before a guarantee can be claimed
 
 1. Create the cron-job.org job (every minute, POST, bearer header,

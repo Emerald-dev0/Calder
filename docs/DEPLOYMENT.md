@@ -609,7 +609,8 @@ Scheduler setup (Round 5):
 3. **Vercel:** the existing daily `/v1/cron/drain` also runs a 20s processor
    pass. Vercel Hobby allows only two cron jobs, so no third schedule exists.
 
-All three are best-effort; none is a guarantee. See `docs/QUEUE.md` §8.
+All three are best-effort; none is a guarantee. See `docs/QUEUE.md` §8 and the
+step-by-step [`docs/SCHEDULER-SETUP.md`](./SCHEDULER-SETUP.md).
 
 Run migrations before deploying the code. Round 5 adds
 `0038_silly_iron_man.sql` (`queue_processor_runs`, `webhook_delivery_attempts`,

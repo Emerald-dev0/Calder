@@ -198,6 +198,9 @@ cron remain secondary backstops. A guarantee requires one of:
 Failure to run is visible at `/v1/jobs/status` (`processor.lastSuccess`,
 `jobs.oldestDueAgeSeconds`) and `/v1/cron/alerts` (queued email age).
 
+Step-by-step account, environment and verification instructions:
+[`docs/SCHEDULER-SETUP.md`](./SCHEDULER-SETUP.md).
+
 ## 9. Migration from BullMQ/Redis
 
 Current state: **dual-write for email; webhooks are Postgres-only**, not removal.
