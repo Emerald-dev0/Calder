@@ -339,7 +339,7 @@ await calder.emails.send({
               {
                 id: "curl",
                 label: "cURL",
-                code: `curl -X POST https://api.calder.build/v1/emails \\
+                code: `curl -X POST https://api.calder.click/v1/emails \\
   -H "Authorization: Bearer $CALDER_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"from":"ada@analytical.dev","to":["charles@babbage.org"],"subject":"Hello"}'`,

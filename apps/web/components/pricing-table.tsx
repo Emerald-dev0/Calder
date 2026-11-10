@@ -7,9 +7,9 @@ import { COMPARISON, MARKETING_ALLOWANCES, PLANS, type ComparisonRow } from "../
  * into "50,000 emails minus your newsletter list".
  */
 
-function StatusTag({ status }: { status?: "today" | "dev" }) {
-  if (status !== "dev") return null;
-  return <span className="plan-tag">in development</span>;
+function StatusTag({ status }: { status?: "today" | "soon" }) {
+  if (status !== "soon") return null;
+  return <span className="plan-tag">coming soon</span>;
 }
 
 function Cell({ value }: { value: string }) {
@@ -26,7 +26,7 @@ function Row({ row }: { row: ComparisonRow }) {
     <tr>
       <th scope="row">
         <span className="cmp-label">{row.label}</span>
-        {row.status === "dev" && (
+        {row.status === "soon" && (
           <>
             {" "}
             <StatusTag status={row.status} />
@@ -67,7 +67,7 @@ function PlanHead() {
 function ComparisonTable({ rows, label }: { rows: ComparisonRow[]; label: string }) {
   return (
     <>
-      <p className="cmp-hint">Swipe to compare all four plans</p>
+      <p className="cmp-hint">Swipe to compare all {PLANS.length} plans</p>
       <div className="cmp-scroll">
         <table className="cmp-table">
           <PlanHead />
@@ -93,9 +93,9 @@ export function PlanComparison() {
             Compare properly, <em>not by checkmarks alone.</em>
           </h2>
           <p className="lede" style={{ marginTop: "1.2rem" }}>
-            Anything marked <span className="plan-tag">in development</span> ships inside the plan
-            you are already paying for. We would rather show you the roadmap than a checkmark we
-            have not earned yet.
+            Anything marked <span className="plan-tag">coming soon</span> is not in this release and
+            cannot be used today, on any plan. We would rather show you the roadmap than a checkmark
+            we have not earned.
           </p>
         </Reveal>
 
@@ -112,11 +112,11 @@ export function PlanComparison() {
         <Reveal>
           <div className="cmp-group">
             <h3 className="cmp-group-title">
-              Marketing allowances <span className="plan-tag">in development</span>
+              Marketing suite <span className="plan-tag">coming soon</span>
             </h3>
             <p className="cmp-group-desc">
-              Counted in contacts, not sends, and kept apart from your transactional volume. A big
-              list never eats the budget that keeps logins working.
+              Planned only. Broadcasts and audiences are excluded from this release; the rows below
+              describe the intended shape, not a purchasable capability.
             </p>
             <ComparisonTable rows={MARKETING_ALLOWANCES} label="Marketing allowances" />
           </div>

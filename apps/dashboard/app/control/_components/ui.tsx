@@ -312,7 +312,10 @@ export function Planned({
 }) {
   const label = state === "gated" ? "Gated" : state === "disabled" ? "Disabled" : "Not enabled";
   return (
-    <div className="ds-card" style={{ borderStyle: "dashed", background: "var(--color-surface-elevated)" }}>
+    <div
+      className="ds-card"
+      style={{ borderStyle: "dashed", background: "var(--color-surface-elevated)" }}
+    >
       <div className="ds-card-body">
         <div
           className="mono"
@@ -328,11 +331,20 @@ export function Planned({
           {label}
         </div>
         <div style={{ fontWeight: 700, color: "var(--color-ink)", fontSize: 14 }}>{title}</div>
-        <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--color-muted)", lineHeight: 1.55 }}>
+        <p
+          style={{ margin: "6px 0 0", fontSize: 13, color: "var(--color-muted)", lineHeight: 1.55 }}
+        >
           {children}
         </p>
         {bullets?.length ? (
-          <ul style={{ margin: "10px 0 0", paddingLeft: 18, fontSize: 12.5, color: "var(--color-muted)" }}>
+          <ul
+            style={{
+              margin: "10px 0 0",
+              paddingLeft: 18,
+              fontSize: 12.5,
+              color: "var(--color-muted)",
+            }}
+          >
             {bullets.map((b) => (
               <li key={b} style={{ padding: "2px 0" }}>
                 {b}
@@ -370,7 +382,14 @@ export function BarList({
             fontSize: 13,
           }}
         >
-          <span style={{ color: "var(--color-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span
+            style={{
+              color: "var(--color-muted)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
             {i.href ? (
               <Link href={i.href} style={{ color: "inherit" }}>
                 {i.label}
@@ -393,8 +412,7 @@ export function BarList({
                 display: "block",
                 height: "100%",
                 borderRadius: 999,
-                background:
-                  i.dim || showOtherTone ? "var(--color-subtle)" : "var(--color-accent)",
+                background: i.dim || showOtherTone ? "var(--color-subtle)" : "var(--color-accent)",
                 opacity: i.dim || showOtherTone ? 0.45 : 0.7,
                 width: `${Math.max(2, (i.count / top) * 100)}%`,
               }}

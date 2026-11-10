@@ -53,9 +53,9 @@ export default function WebhooksPage() {
                 Every lifecycle event, <em>and exactly which ones fire today.</em>
               </h2>
               <p className="lede" style={{ marginTop: "1.2rem" }}>
-                Calder records the full lifecycle. Two of these are wired to webhooks right now, and
-                the rest are marked where they stand, because an event table that oversells itself
-                is worse than a short one.
+                Calder records the full lifecycle. Two events are emitted without any extra
+                configuration; the rest depend on provider feedback (SES event notifications) being
+                configured on the deployment, so they are marked rather than shown as live.
               </p>
             </Reveal>
             <Reveal delay={100}>
@@ -76,7 +76,7 @@ export default function WebhooksPage() {
                       <span className="addr">
                         <b className="mono">{name}</b>, {desc}
                       </span>
-                      <span className="tag info">in development</span>
+                      <span className="tag info">provider setup</span>
                     </div>
                   ))}
                 </div>

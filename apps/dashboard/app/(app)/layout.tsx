@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq, inArray, count, isNull, and } from "drizzle-orm";
-import { PLAN_LIMITS, getConfig, planDisplayName, planEmailsLimit } from "@calder/config";
+import { PLAN_LIMITS, getConfig, planDisplayLabel, planEmailsLimit } from "@calder/config";
 import { getDb, users, emails, domains, apiKeys, orgUsageSnapshot } from "@calder/db";
 import { getTenantContext } from "../../lib/auth";
 import { OnboardingGate } from "../../components/onboarding-gate";
@@ -56,7 +56,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     try {
       const snap = await orgUsageSnapshot(db, firstOrg.id);
       monthlyQuota = planEmailsLimit(snap.tier);
-      planName = planDisplayName(snap.tier);
+      planName = planDisplayLabel(snap.tier);
     } catch {
       // keep the Beginner defaults
     }

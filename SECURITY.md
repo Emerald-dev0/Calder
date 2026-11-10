@@ -181,3 +181,53 @@ belong in the §11 audit log event set once implemented.
   **Owner:** repository security maintainer/founder. **Review expires:**
   2026-11-05. Track the major-version adapter upgrade and rerun route/protocol
   tests; this note is not a high/critical exception or evidence of zero risk.
+
+## 16. Source-integrity repair — 2026-11-08
+
+The source-integrity gate (`scripts/source-integrity-gate.mjs`,
+`apps/api/src/lib/source-integrity.ts`) failed on this checkout: eleven
+toolchain-executed files carried an appended obfuscated payload behind ~2,000
+spaces of padding, and the gate's own positive-control test had been truncated
+so it no longer parsed.
+
+Affected files: `apps/api/scripts/bundle-serverless.mjs`,
+`apps/api/src/scripts/launch-check.ts`, `apps/api/src/scripts/verify-deploy.ts`,
+`apps/dashboard/next.config.mjs`, `apps/web/next.config.mjs`,
+`packages/db/src/migrate-status.ts`, `packages/db/src/migrate.ts`,
+`packages/db/src/schema-drift.ts`, `packages/db/src/seed-demo.ts`,
+`packages/db/src/seed.ts`, `scripts/ensure-workspace-built.mjs`.
+
+Remediation: the appended code and the unused two-line `createRequire` preamble
+were removed, restoring each file's original body, and the truncated test was
+repaired with equivalent positive controls. Nothing in history was rewritten,
+and no credential, dependency or security control was changed. The gate now
+reports `source-integrity: clean`, and `tsc` builds the workspace again (the
+payload had also duplicated a `createRequire` declaration in `schema-drift.ts`).
+
+Operating rules unchanged: run the gate before any install or build in CI, treat
+every finding as a stop, and never let a cleanup leave a require shim behind
+(the `unusedRequireShim` structural check exists for that half-finished shape).
+
+### Second payload found in the gate's own test file (same day)
+
+The first pass missed one file because the gate and its vitest twin both
+exempted `apps/api/src/lib/source-integrity.test.ts` from scanning. That file
+carried a second appended obfuscated payload (base64 decoded and executed with
+`eval`), which ran whenever the test module was imported — including in CI.
+
+Remediation:
+
+- The appended `eval`/`atob` block was removed; the file ends at the closing
+  brace of its test suite. Nothing in history was rewritten.
+- The positive-control samples that must trip a rule are now assembled at
+  runtime (`["console", ".log = ..."].join("")`), so the literal pattern no
+  longer appears in source.
+- The gate no longer exempts its own test file, and the vitest helper no longer
+  filters it out. The gate now scans 668 files (previously 667) and reports
+  `source-integrity: clean`; the 42 gate tests pass.
+
+**Status:** the repository is clean under the current rules, but the presence of
+two independent payloads is treated as a compromise indicator. Rotate any
+credential that was present in this checkout or its CI, and review CI run logs
+for unexpected network activity. This note records what was observed and fixed;
+it is not evidence that the source of the injection was identified.

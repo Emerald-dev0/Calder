@@ -341,3 +341,5 @@ export function redisTargetLabel(url: string | null): string {
 }
 
 export * from "./plan-limits.js";
+export * from "./credits.js";
+export * from "./features.js";

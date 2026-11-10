@@ -56,6 +56,12 @@ export const emails = pgTable(
     }> | null>(),
     // hold delivery until this time (scheduled sends ride delayed queue jobs)
     scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
+    /**
+     * Earliest time a transient failure may be retried. Separate from
+     * `scheduled_for` (the customer's requested send time): retry backoff must
+     * not rewrite when the customer asked for the mail.
+     */
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
     // Reputation lane this send belongs to. Defaults to transactional: bulk
     // and promotional traffic must opt in to `marketing` explicitly. Purely
     // an annotation — it never bypasses suppression, quotas, consent, or

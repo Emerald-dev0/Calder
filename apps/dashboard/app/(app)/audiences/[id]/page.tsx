@@ -11,6 +11,8 @@ import {
 import { getTenantContext, resolveProject } from "../../../../lib/auth";
 import { DsPageHeader, StatCard, StatusPill } from "../../../../components/design-system";
 import { addContactsAction, importCsvAction } from "../actions";
+import { ComingSoon } from "../../../../components/coming-soon";
+import { isDashboardFeatureAvailable } from "../../../../lib/features";
 
 export const metadata = { title: "Calder — Audience" };
 
@@ -21,6 +23,9 @@ export default async function AudienceDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ project?: string; q?: string; status?: string }>;
 }) {
+  if (!isDashboardFeatureAvailable("audiences")) {
+    return <ComingSoon feature="audiences" />;
+  }
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const ctx = await getTenantContext();
   const scope = resolveProject(ctx, query.project);

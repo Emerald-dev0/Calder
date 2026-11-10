@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { randomUUID } from "node:crypto";
 import { notFound } from "next/navigation";
-import { planDisplayName } from "@calder/config";
+import { planDisplayLabel } from "@calder/config";
 import { fmtAgo, fmtDate, fmtInt, fmtMoney } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
 import { orgDetail } from "@/lib/control/queries";
@@ -62,7 +62,7 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
               sending: {org.sendingStatus.replace(/_/g, " ")}
             </Badge>
             {plan ? (
-              <Badge tone="accent">{plan.name}</Badge>
+              <Badge tone="accent">{planDisplayLabel(plan.tier)}</Badge>
             ) : (
               <Badge>no active subscription</Badge>
             )}
@@ -73,7 +73,7 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
       <div className="cp-stats">
         <Stat
           label="Plan"
-          value={plan?.name ?? planDisplayName(null)}
+          value={plan ? planDisplayLabel(plan.tier) : "No active plan"}
           hint={
             activeSubscription && activeSubscription.currentPeriodEnd
               ? `renews ${fmtDate(new Date(activeSubscription.currentPeriodEnd))}`
@@ -313,10 +313,14 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
               defaultValue={plan?.tier ?? "free"}
               aria-label="Plan tier"
             >
-              <option value="free">Free</option>
-              <option value="starter">Builder</option>
+              {(plan?.tier === "premium" || plan?.tier === "scale") && (
+                <option value={plan.tier} disabled>
+                  {planDisplayLabel(plan.tier)} — retired
+                </option>
+              )}
+              <option value="free">Beginner</option>
+              <option value="starter">Starter</option>
               <option value="pro">Pro</option>
-              <option value="scale">Scale</option>
             </select>
             <input
               className="cp-input"

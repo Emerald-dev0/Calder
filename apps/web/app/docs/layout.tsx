@@ -32,6 +32,7 @@ const SECTIONS: Array<{ title: string; links: Array<{ label: string; href: strin
       { label: "Idempotency", href: "/docs/idempotency" },
       { label: "Suppression", href: "/docs/suppression" },
       { label: "Usage & Billing", href: "/docs/usage-billing" },
+      { label: "Limit & payment errors", href: "/docs/errors" },
       { label: "Templates", href: "/docs/templates" },
       { label: "OTP (soon)", href: "/docs/otp" },
       { label: "Core concepts", href: "/docs/concepts" },

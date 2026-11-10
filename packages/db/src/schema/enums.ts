@@ -62,11 +62,21 @@ export const webhookEventEnum = pgEnum("webhook_event", [
 ]);
 export const webhookDeliveryStatusEnum = pgEnum("webhook_delivery_status", [
   "pending",
+  "sending",
   "delivered",
   "failed",
   "exhausted",
 ]);
-export const planTierEnum = pgEnum("plan_tier", ["free", "starter", "pro", "scale"]);
+/**
+ * Stored plan tiers. `free` is the database value for the plan a customer sees
+ * as Beginner; the display name lives in `@calder/config`.
+ *
+ * `premium` was missing from this enum while the catalogue, the pricing page
+ * and ADR-045 all sold it. That made a Premium subscription unstorable: the
+ * tier could be advertised and enforced-on-paper but never assigned. Adding an
+ * enum value is additive and needs no backfill (migration 0035).
+ */
+export const planTierEnum = pgEnum("plan_tier", ["free", "starter", "pro", "premium", "scale"]);
 export const subscriptionStatusEnum = pgEnum("subscription_status", [
   "active",
   "past_due",
@@ -216,3 +226,26 @@ export type UnsubscribeScope = (typeof unsubscribeScopeEnum.enumValues)[number];
 export type ResubscribeSource = (typeof resubscribeSourceEnum.enumValues)[number];
 
 export type PlatformRole = (typeof platformRoleEnum.enumValues)[number];
+export const jobStatusEnum = pgEnum("job_status", [
+  "pending",
+  "processing",
+  "completed",
+  "failed",
+  "dead_letter",
+]);
+export const creditTransactionTypeEnum = pgEnum("credit_transaction_type", [
+  "purchase",
+  "consumption",
+  "release",
+  "refund",
+  "adjustment",
+  "expiry",
+]);
+export const paymentStatusEnum = pgEnum("payment_status", [
+  "pending",
+  "success",
+  "failed",
+  "refunded",
+  "abandoned",
+]);
+export const paymentKindEnum = pgEnum("payment_kind", ["subscription", "credits", "burst_pass"]);

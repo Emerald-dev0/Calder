@@ -967,11 +967,11 @@ export async function dispatchTestEmail(
   }
 
   const emailId = `em_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
-  const { withProjectSendingEligibility } = await import("@calder/db");
+  const { withProjectSendingEligibility, consumeAdmissionCredits } = await import("@calder/db");
   const admission = await withProjectSendingEligibility(
     db,
     { projectId: sender.projectId, env: "live" },
-    async (tx, _organization, admittedAt) => {
+    async (tx, _organization, admittedAt, decision) => {
       await tx.insert(emails).values({
         createdAt: admittedAt,
         id: emailId,
@@ -991,6 +991,11 @@ export async function dispatchTestEmail(
         projectId: sender.projectId,
         type: "queued",
         data: { via: "dashboard-test-send" },
+      });
+      await consumeAdmissionCredits(tx, {
+        organizationId: _organization,
+        emailId,
+        decision: decision.quota ?? {},
       });
       return emailId;
     }

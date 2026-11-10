@@ -309,7 +309,8 @@ re-runnable, resumable. Server actions enforce membership on every step.
   mail wraps in `brandEmail` (`packages/email/src/brand.ts`); broadcast accepts
   optional `from`, validated against `INTERNAL_FROM` + active Gmail transports;
   `founder-intro` campaign registered; plan catalog seeded (`seedPlans`,
-  free/starter/pro/scale, NGN amounts in kobo); founder sets plan + duration
+  free/starter/pro — Premium and Scale are retired but their rows are retained,
+  NGN amounts in kobo); founder sets plan + duration
   (1-36 months) from `/admin` (server action, audited) or
   `POST /v1/admin/organizations/:orgId/subscription`. Neon is the live database
   (connection string in local `.env` only, never committed).

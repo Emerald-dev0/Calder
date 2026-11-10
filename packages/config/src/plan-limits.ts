@@ -23,6 +23,13 @@
  *
  * Prices are stored in minor units (kobo, cents) so no float ever touches
  * money. ₦ and $ are independent price points, not conversions.
+ *
+ * **Commercial vs historical tiers.** Only Beginner, Starter and Pro are sold
+ * today (`COMMERCIAL_PLAN_ORDER`). Premium and Scale are retired from the
+ * commercial catalogue: their enum values, rows, limits and prices stay in the
+ * system so historical subscriptions keep resolving to exactly what they
+ * bought, but no assignment path may use them (`assertAssignableTier`).
+ * Retiring a tier is a configuration change, never a data deletion.
  */
 
 export type PlanTier = "free" | "starter" | "pro" | "premium" | "scale";
@@ -40,6 +47,11 @@ export interface PlanLimit {
   tier: PlanTier;
   /** What a customer sees. The only name any surface may print. */
   displayName: string;
+  /**
+   * Retired from the commercial catalogue. Historical subscriptions still
+   * resolve with these limits; new assignments are rejected.
+   */
+  retired: boolean;
   price: PriceMinor;
   /** Monthly email allowance. `null` = custom/contract (no platform ceiling). */
   emailsPerMonth: number | null;
@@ -62,13 +74,30 @@ export interface PlanLimit {
   contacts: { limit: number | null; approved: false };
 }
 
-/** Ordered from smallest to largest; used for upgrade pointers. */
-export const PLAN_ORDER: readonly PlanTier[] = ["free", "starter", "pro", "premium", "scale"];
+/** The three plans Calder sells. Smallest first; the only assignable tiers. */
+export const COMMERCIAL_PLAN_ORDER = ["free", "starter", "pro"] as const;
+export type CommercialPlanTier = (typeof COMMERCIAL_PLAN_ORDER)[number];
+
+/**
+ * Every tier the system understands, including retired ones. Entitlement
+ * resolution and historical rows must use this, never the commercial list.
+ */
+export const KNOWN_TIERS = ["free", "starter", "pro", "premium", "scale"] as const;
+
+/** Tiers kept for historical subscriptions but no longer sold. */
+export const RETIRED_TIERS = ["premium", "scale"] as const;
+
+/**
+ * Commercial order, kept under the old name for upgrade pointers and callers
+ * that legitimately mean "the plans on sale". Entitlement code must not use it.
+ */
+export const PLAN_ORDER: readonly PlanTier[] = COMMERCIAL_PLAN_ORDER;
 
 export const PLAN_LIMITS: Record<PlanTier, PlanLimit> = {
   free: {
     tier: "free",
     displayName: "Beginner",
+    retired: false,
     price: { NGN: 0, USD: 0 },
     emailsPerMonth: 5_000,
     projects: 3,
@@ -83,6 +112,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimit> = {
   starter: {
     tier: "starter",
     displayName: "Starter",
+    retired: false,
     price: { NGN: 500_000, USD: 500 },
     emailsPerMonth: 10_000,
     projects: 3,
@@ -91,12 +121,13 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimit> = {
     seats: 2,
     retentionDays: 14,
     gmailSenders: 2,
-    dailySendCap: null,
+    dailySendCap: 2_000,
     contacts: { limit: 10_000, approved: false },
   },
   pro: {
     tier: "pro",
     displayName: "Pro",
+    retired: false,
     price: { NGN: 2_000_000, USD: 1_800 },
     emailsPerMonth: 50_000,
     projects: 10,
@@ -105,12 +136,13 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimit> = {
     seats: 5,
     retentionDays: 30,
     gmailSenders: 2,
-    dailySendCap: null,
+    dailySendCap: 5_000,
     contacts: { limit: 50_000, approved: false },
   },
   premium: {
     tier: "premium",
     displayName: "Premium",
+    retired: true,
     price: { NGN: 7_500_000, USD: 6_500 },
     emailsPerMonth: 250_000,
     projects: 50,
@@ -125,6 +157,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimit> = {
   scale: {
     tier: "scale",
     displayName: "Scale",
+    retired: true,
     price: { NGN: null, USD: null },
     emailsPerMonth: null,
     projects: null,
@@ -151,10 +184,57 @@ export type UnenforcedPlanLimit = (typeof UNENFORCED_PLAN_LIMITS)[number];
  * a bad tier must never become unlimited.
  */
 export function planFor(tier: string | null | undefined): PlanLimit {
-  if (tier && (PLAN_ORDER as readonly string[]).includes(tier)) {
+  // Resolve against every known tier, not the commercial list: a retired tier
+  // must keep its own limits. Using PLAN_ORDER here would silently downgrade
+  // a Premium organization to Beginner — forbidden by design.
+  if (tier && Object.prototype.hasOwnProperty.call(PLAN_LIMITS, tier)) {
     return PLAN_LIMITS[tier as PlanTier];
   }
   return PLAN_LIMITS.free;
+}
+
+/** True only for the three plans on sale. */
+export function isCommercialTier(tier: string | null | undefined): tier is CommercialPlanTier {
+  return Boolean(tier) && (COMMERCIAL_PLAN_ORDER as readonly string[]).includes(tier as string);
+}
+
+/** True for a tier kept only for historical subscriptions. */
+export function isRetiredTier(tier: string | null | undefined): boolean {
+  return planFor(tier).retired;
+}
+
+/** What a customer sees, with " (retired)" appended for legacy subscriptions. */
+export function planDisplayLabel(tier: string | null | undefined): string {
+  const plan = planFor(tier);
+  return plan.retired ? `${plan.displayName} (retired)` : plan.displayName;
+}
+
+export class UnassignablePlanTierError extends Error {
+  readonly code = "plan_not_assignable" as const;
+  readonly tier: string | null | undefined;
+  readonly retired: boolean;
+
+  constructor(tier: string | null | undefined) {
+    const retired = Boolean(tier) && isRetiredTier(tier);
+    super(
+      retired
+        ? `${planFor(tier).displayName} is retired and cannot be assigned. Choose Beginner, Starter or Pro.`
+        : "Unknown plan tier. Choose Beginner, Starter or Pro."
+    );
+    this.name = "UnassignablePlanTierError";
+    this.tier = tier;
+    this.retired = retired;
+  }
+}
+
+/**
+ * Guard for every plan-assignment path. Throws for unknown and retired tiers;
+ * callers must run this BEFORE any database read/write that would create a
+ * subscription.
+ */
+export function assertAssignableTier(tier: string | null | undefined): CommercialPlanTier {
+  if (!isCommercialTier(tier)) throw new UnassignablePlanTierError(tier);
+  return tier;
 }
 
 /** The name to print for a tier. Never returns a raw database value. */
@@ -259,8 +339,12 @@ export function upgradeTierFor(
 ): PlanTier | null {
   const current = planFor(tier);
   const here = resourceLimit(current.tier, resource) ?? Number.POSITIVE_INFINITY;
-  const start = PLAN_ORDER.indexOf(current.tier);
-  for (const candidate of PLAN_ORDER.slice(start + 1)) {
+  // Retired tiers have no commercial successor. A grandfathered Premium org is
+  // above every plan on sale, so there is nothing honest to recommend.
+  const start = isCommercialTier(current.tier)
+    ? COMMERCIAL_PLAN_ORDER.indexOf(current.tier)
+    : COMMERCIAL_PLAN_ORDER.length;
+  for (const candidate of COMMERCIAL_PLAN_ORDER.slice(start + 1)) {
     const limit = resourceLimit(candidate, resource);
     if (limit === null) return candidate; // custom/contract — always a way up
     if (limit > here) return candidate;

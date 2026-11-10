@@ -1,57 +1,28 @@
-import { Inbox } from "lucide-react";
-import { PlanGate } from "../../../components/plan-gate";
-import { DsPageHeader, StatusPill } from "../../../components/design-system";
+import { ComingSoon } from "../../../components/coming-soon";
 
 export const metadata = { title: "Calder — Inbox" };
 
+/**
+ * Inbound email does not exist in this release.
+ *
+ * This page previously rendered an "Inbound Inbox" PRO badge, a fake webhook
+ * preview and a plan gate selling inbound routing that has no ingestion
+ * pipeline, no MX handling and no inbound event. Outbound webhooks are real;
+ * receiving mail is not. The honest surface is Coming Soon with a pointer to
+ * what does work.
+ */
 export default function InboxPage() {
   return (
-    <div>
-      <DsPageHeader
-        icon={<Inbox size={18} />}
-        title="Inbound Inbox"
-        badge={<StatusPill status="pro" label="PRO Feature" hideIcon />}
-        description="Receive, parse, and route incoming emails directly into your application via signed webhooks."
-      />
-      <PlanGate
-        title="Inbound email routing is available on Pro"
-        description="Accept replies, support tickets, and inbound workflows on your custom domain. Calder parses MIME headers, attachments, and reply chains into clean JSON webhooks."
-        tier="PRO"
-        hideIcons
-        features={[
-          "Custom MX inbound domains & address wildcards",
-          "HMAC-signed JSON webhook for every inbound email",
-          "Raw MIME + parsed HTML/Text & attachment extraction",
-          "Unified correlation IDs matching outbound threads",
-        ]}
-        preview={
-          <div style={{ textAlign: "left", fontSize: 12 }}>
-            <div
-              className="mono"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                padding: "6px 8px",
-                borderBottom: "1px solid var(--color-border)",
-              }}
-            >
-              <span>inbound.received · reply+ticket_849@mail.acme.com</span>
-              <span>200 OK · 94ms</span>
-            </div>
-            <div
-              className="mono"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                padding: "6px 8px",
-              }}
-            >
-              <span>inbound.received · billing@mail.acme.com</span>
-              <span>200 OK · 112ms</span>
-            </div>
-          </div>
-        }
-      />
-    </div>
+    <ComingSoon
+      feature="inbound_email"
+      title="Inbound Inbox"
+      description="Receiving email is not part of the Calder MVP. Outbound email delivery, templates, signed webhooks and transactional suppression are available today."
+      alternative={{ href: "/emails", label: "View outbound email" }}
+      checklist={[
+        "No MX or inbound ingestion endpoint exists",
+        "No inbound webhook event is emitted",
+        "Outbound webhooks are available under Webhooks",
+      ]}
+    />
   );
 }

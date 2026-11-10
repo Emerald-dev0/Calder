@@ -10,6 +10,7 @@ import {
   projectTransports,
   senderIdentities,
   recordSendUsage,
+  releaseCreditsForEmail,
   type DbClient,
 } from "@calder/db";
 import {
@@ -352,7 +353,9 @@ export async function claimDrainBatch(
     WHERE id IN (
       SELECT id FROM emails
       WHERE
-        (status = 'queued' AND (scheduled_for IS NULL OR scheduled_for <= now()))
+        (status = 'queued'
+          AND (scheduled_for IS NULL OR scheduled_for <= now())
+          AND (next_attempt_at IS NULL OR next_attempt_at <= now()))
         OR (status = 'sending' AND updated_at < now() - make_interval(mins => ${staleMinutes}))
       ORDER BY created_at
       LIMIT ${limit}
@@ -396,6 +399,7 @@ export async function drainPendingEmails(
         .update(emails)
         .set({ status: "failed", lastError: "Exhausted retries", updatedAt: now })
         .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
+      await releaseCreditsForEmail(db, { emailId: row.id, reason: "exhausted before provider" });
       failed++;
       continue;
     }
@@ -413,6 +417,7 @@ export async function drainPendingEmails(
         .update(emails)
         .set({ status: "suppressed", lastError: blocked.reason, updatedAt: now })
         .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
+      await releaseCreditsForEmail(db, { emailId: row.id, reason: "suppressed at delivery" });
       await recordDrainEvent(db, {
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
@@ -441,6 +446,7 @@ export async function drainPendingEmails(
         .update(emails)
         .set({ status: "failed", lastError: message, updatedAt: now })
         .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
+      await releaseCreditsForEmail(db, { emailId: row.id, reason: "organization unavailable" });
       await recordDrainEvent(db, {
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
@@ -522,6 +528,7 @@ export async function drainPendingEmails(
         .update(emails)
         .set({ status: "failed", lastError: code, updatedAt: new Date() })
         .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
+      await releaseCreditsForEmail(db, { emailId: row.id, reason: "transport resolution failed" });
       await recordDrainEvent(db, {
         id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
         emailId: row.id,
@@ -711,9 +718,16 @@ export async function drainPendingEmails(
     if (transient && (row.attemptCount ?? 0) + 1 < DRAIN_MAX_ATTEMPTS) {
       // Release the claim back to the pool: row returns to "queued" for the
       // next tick instead of hanging on this drain's lease.
+      const { retryDelayForAttempt } = await import("@calder/db");
+      const delay = retryDelayForAttempt((row.attemptCount ?? 0) + 1);
       await db
         .update(emails)
-        .set({ status: "queued", lastError: reason, updatedAt: new Date() })
+        .set({
+          status: "queued",
+          lastError: reason,
+          nextAttemptAt: new Date(Date.now() + delay),
+          updatedAt: new Date(),
+        })
         .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
       failed++;
       continue;

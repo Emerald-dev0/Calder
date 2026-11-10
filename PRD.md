@@ -8,6 +8,18 @@ setup are not launch-certified. See `docs/LAUNCH-STATUS.md` for current evidence
 Category: Developer infrastructure / application communication
 Primitives: Transactional email (live) + marketing email (in development)
 
+> **Implementation reconciliation (2026-11-08).** The launch MVP is transactional
+> email only and is enumerated in [docs/MVP-FEATURE-MATRIX.md](docs/MVP-FEATURE-MATRIX.md).
+> SMTP (§10b), Gmail, inbound email and the marketing suite (§18) are specified
+> and in some cases partly coded, but they are **not in this release**: their
+> APIs and dashboard surfaces are disabled and labelled Coming Soon.
+>
+> Pricing in §11 is reconciled with `packages/config/src/plan-limits.ts` and
+> ADR-057 (2026-11-08): exactly **three commercial plans** — Beginner, Starter and
+> Pro. Premium and Scale are **retired**; their historical rows and limits remain
+> readable but they are not sold or assignable. Log-retention periods and
+> per-plan environments are no longer claimed because no code enforces them.
+
 ## 1. Summary
 
 Calder is developer-first communication infrastructure, starting with transactional email and designed to expand into a broader communication layer (OTP, SMS, push) without architectural rework.
@@ -66,22 +78,32 @@ Versioned from first release (`/v1/...`). Predictable error shape: `{ error: { c
 
 Calder exposes **REST API** (modern applications, SDKs) and **SMTP** (`smtp.calder.com:587`, STARTTLS; project-scoped username + generated secret) for existing stacks and SMTP-native libraries (Nodemailer, smtplib, Laravel/Django mailers, etc.). Both converge into the same ingestion → queue → worker → provider pipeline: one email model, one event lifecycle, one usage meter, one billable event. SMTP is a standard-protocol interface, not a second delivery system. No anonymous relay, ever, authentication and TLS are mandatory. Full spec: `docs/SMTP.md`.
 
-## 11. Pricing (locked for launch, 2026-09-14)
+## 11. Pricing (reconciled 2026-11-08; originally locked 2026-09-14)
 
 Free plan and no-domain project emails carry a “Sent with Calder” footer and abuse reporting link. Paid projects with a verified domain may remove it in settings; eligibility is checked at delivery.
 
-| Plan     | USD    | NGN     | Emails / month | Projects | Domains | Team   | Environments               | Logs    | Support   |
-| -------- | ------ | ------- | -------------- | -------- | ------- | ------ | -------------------------- | ------- | --------- |
-| Beginner | $0     | ₦0      | 5,000          | 3        | 2       | 1      | Development                | 7 days  | Community |
-| Pro      | $15    | ₦25,000 | 50,000         | 10       | 10      | 5      | Dev + Staging + Production | 30 days | Email     |
-| Premium  | $49    | ₦75,000 | 250,000        | 50       | 50      | 15     | Dev + Staging + Production | 90 days | Priority  |
-| Scale    | Custom | Custom  | Custom         | Custom   | Custom  | Custom | Custom                     | Custom  | Dedicated |
+| Plan     | USD | NGN     | Emails / month | Projects | Domains | Team | Support   |
+| -------- | --- | ------- | -------------- | -------- | ------- | ---- | --------- |
+| Beginner | $0  | ₦0      | 5,000          | 3        | 2       | 1    | Community |
+| Starter  | $5  | ₦5,000  | 10,000         | 3        | 3       | 2    | Email     |
+| Pro      | $18 | ₦20,000 | 50,000         | 10       | 10      | 5    | Email     |
 
-Marketing allowances, counted in **contacts** and separate from transactional
-send volume: 1,000 / 10,000 / 50,000 / Custom. The marketing suite (campaigns,
-audiences, segments, automations, preference center, transaction/marketing
-stream separation) is included in **every plan including Beginner**, and is
-labeled "in development" on public surfaces until it ships.
+Premium and Scale are **retired from the commercial offering** (ADR-057). Existing
+subscriptions on those tiers keep their limits and are not downgraded, but the
+tiers are not sold, not shown on `/pricing` and cannot be assigned. No annual,
+usage or overage tiers are offered. Payments are not live: these are catalogue
+prices, not a working checkout.
+
+Not claimed on any plan because nothing enforces it: log-retention periods,
+per-plan environments, tier-restricted key scopes or webhook replay. Scoped API
+keys, webhook replay and audit logs are available on every plan today.
+
+Marketing allowances, counted in **contacts**, are **not part of this release**.
+The marketing suite (campaigns, audiences, segments, automations, preference
+centre) is Coming Soon on every plan, including Beginner; its API returns
+`403 feature_not_available` and its dashboard surfaces are disabled. When it
+ships, transactional and marketing streams keep separate suppression, consent,
+rate limits and allowances.
 
 Rules (unchanged, and now enforced by ADR-024):
 
@@ -115,7 +137,7 @@ Per-account/project/transport limits, rate limiting, suppression, bounce/complai
 Subscriptions aren't the only way to pay, critical where cards are scarce:
 
 - **Email packs** (e.g. 10k sends, no expiry for 12 months): consumed after plan quota. Prepaid via bank transfer or card. The core NGN-friendly mechanic.
-- **Domain slots** beyond plan limits, **extended log retention**, **priority support incidents**, small, legible, one-click.
+- **Domain slots** beyond plan limits, **extended log retention** (only once a purge/retention mechanism exists), **priority support incidents**, small, legible, one-click.
 - **Credits ledger** (specified, built with billing): purchase → ledger credit → consumed by metered sends → auditable. Never negative, never estimated; reconciliation identical to subscriptions.
 - Never: ads in emails, selling data, throttling free into uselessness to force upgrades.
 

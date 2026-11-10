@@ -14,6 +14,10 @@
     "./plan-limits": {
       "types": "./dist/plan-limits.d.ts",
       "default": "./dist/plan-limits.js"
+    },
+    "./features": {
+      "types": "./dist/features.d.ts",
+      "default": "./dist/features.js"
     }
   },
   "scripts": {

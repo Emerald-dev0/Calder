@@ -24,8 +24,8 @@ export default async function EntitlementsPage() {
             "Meter/quota enforcement uses the same authoritative source",
           ]}
         >
-          Temporary plan grants can be handled from the organization page with an audit reason.
-          Ad hoc entitlement overrides remain gated.
+          Temporary plan grants can be handled from the organization page with an audit reason. Ad
+          hoc entitlement overrides remain gated.
         </Planned>
       </Panel>
     </>

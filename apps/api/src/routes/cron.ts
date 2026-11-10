@@ -1,9 +1,11 @@
 import { Hono } from "hono";
 import type { Env } from "../app.js";
 import { getDb } from "@calder/db";
+import { sql } from "drizzle-orm";
 import { logger } from "@calder/observability";
 import { drainPendingEmails } from "../lib/drain.js";
 import { runCompanyEmailSweep } from "../lib/company-email-sweep.js";
+import { runQueueProcessor } from "../lib/processor.js";
 
 const cron = new Hono<Env>();
 
@@ -22,6 +24,44 @@ function authorized(c: { req: { header: (n: string) => string | undefined } }): 
   return false;
 }
 
+// GET /v1/cron/maintenance — expire unused credits, reap crashed processor
+// leases and re-verify payments that are still pending. Every step is
+// idempotent, so overlapping runs are harmless.
+cron.on(["GET", "POST"], "/maintenance", async (c) => {
+  if (!authorized(c))
+    return c.json({ error: { code: "unauthorized", message: "Invalid cron secret" } }, 401);
+  const db = getDb();
+  const { expireCredits, reapExpiredLeases, payments } = await import("@calder/db");
+  const { verifyAndFulfil } = await import("../services/billing.js");
+  const expired = await expireCredits(db);
+  const reaped = await reapExpiredLeases(db);
+  let reconciled = 0;
+  let reconcileFailed = 0;
+  if (process.env.PAYSTACK_SECRET_KEY && process.env.PAYSTACK_USD_ENABLED === "true") {
+    const stale = await db
+      .select({ reference: payments.reference })
+      .from(payments)
+      .where(
+        sql`${payments.status} = 'pending' and ${payments.createdAt} < now() - interval '30 minutes'`
+      )
+      .limit(10);
+    for (const row of stale) {
+      try {
+        await verifyAndFulfil(db, row.reference);
+        reconciled++;
+      } catch {
+        reconcileFailed++;
+      }
+    }
+  }
+  return c.json({
+    expiredCreditPurchases: expired,
+    reapedLeases: reaped,
+    reconciled,
+    reconcileFailed,
+  });
+});
+
 // GET /v1/cron/drain — Vercel Cron hits this on a schedule (Vercel Cron sends
 // GET). POST is the queue wake-up (`kickDrain` nudges the drain right after a
 // send is accepted so confirmations leave immediately). Same handler, both
@@ -33,8 +73,32 @@ function authorized(c: { req: { header: (n: string) => string | undefined } }): 
 cron.on(["GET", "POST"], "/drain", async (c) => {
   if (!authorized(c))
     return c.json({ error: { code: "unauthorized", message: "Invalid cron secret" } }, 401);
-  const result = await drainPendingEmails(getDb());
-  return c.json(result);
+  const db = getDb();
+  const result = await drainPendingEmails(db);
+  // The same daily invocation also runs a short bounded processor pass so
+  // webhook retries and scheduled jobs are not left entirely to the external
+  // five-minute workflow. Vercel Hobby allows only two cron jobs, so this must
+  // stay part of the existing drain entry rather than a third schedule.
+  const processor = await runQueueProcessor(db, {
+    trigger: "cron",
+    maxJobs: 10,
+    runtimeBudgetMs: 20_000,
+  });
+  return c.json({ ...result, processor });
+});
+
+/**
+ * GET/POST /v1/cron/process — the platform-owned backstop trigger for the
+ * bounded queue processor. Vercel Hobby cron can only run daily, so this is a
+ * safety net, not the primary scheduler: the external five-minute workflow
+ * (`QUEUE_PROCESSOR_SECRET`) is the best-effort clock. Both call the same
+ * bounded processor and are safe to overlap.
+ */
+cron.on(["GET", "POST"], "/process", async (c) => {
+  if (!authorized(c))
+    return c.json({ error: { code: "unauthorized", message: "Invalid cron secret" } }, 401);
+  const summary = await runQueueProcessor(getDb(), { trigger: "cron" });
+  return c.json(summary);
 });
 
 /**

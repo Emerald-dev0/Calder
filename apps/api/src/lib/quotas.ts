@@ -8,7 +8,7 @@
  */
 
 import { AppError } from "../errors/index.js";
-import { planDisplayName, type UsagePeriod } from "@calder/config";
+import { planDisplayLabel, type UsagePeriod } from "@calder/config";
 import {
   checkOrganizationQuota,
   INTERNAL_ORGANIZATION_ID,
@@ -37,7 +37,7 @@ export function assertQuotaAllowed(decision: QuotaDecision, incoming = 1): void 
   if (decision.allowed) return;
   const { limit, usage, tier, period } = decision;
   // Display names come from the catalogue, never from the raw database value.
-  const display = planDisplayName(tier);
+  const display = planDisplayLabel(tier);
   if (decision.window === "daily") {
     throw new AppError(
       "plan_limit_reached",
@@ -48,10 +48,17 @@ export function assertQuotaAllowed(decision: QuotaDecision, incoming = 1): void 
         usage,
         tier,
         window: "daily",
+        dailyLimit: decision.dailyLimit ?? limit,
+        burstCapacity: decision.burstCapacity ?? 0,
+        dailyCapacity: decision.dailyCapacity ?? limit,
+        passAvailable: decision.passAvailable ?? true,
+        creditsAvailable: decision.creditsAvailable ?? 0,
         periodStart: period.start.toISOString(),
         periodEnd: period.end.toISOString(),
       },
-      `Wait until the daily reset at ${period.end.toISOString()}.`
+      decision.passAvailable
+        ? `Buy a Daily Burst Pass to add ${(1000).toLocaleString("en-US")} submissions for the rest of today, or wait for the reset at ${period.end.toISOString()}. A pass never adds monthly credits.`
+        : `The Daily Burst Pass limit for today has been reached. Wait for the reset at ${period.end.toISOString()}.`
     );
   }
   throw new AppError(
@@ -64,9 +71,15 @@ export function assertQuotaAllowed(decision: QuotaDecision, incoming = 1): void 
       limit,
       usage,
       tier,
+      window: "billing_period",
+      creditUnitsRequired: decision.creditUnits ?? 0,
+      creditsAvailable: decision.creditsAvailable ?? 0,
+      creditsExhausted: (decision.creditUnits ?? 0) > (decision.creditsAvailable ?? 0),
       periodStart: period.start.toISOString(),
       periodEnd: period.end.toISOString(),
     },
-    `Wait for the period reset at ${period.end.toISOString()}.`
+    (decision.creditUnits ?? 0) > 0
+      ? `Purchase prepaid credits to cover ${(decision.creditUnits ?? 0).toLocaleString("en-US")} more emails, or wait for the period reset at ${period.end.toISOString()}.`
+      : `Wait for the period reset at ${period.end.toISOString()}.`
   );
 }

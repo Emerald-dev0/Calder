@@ -1,38 +1,51 @@
 # Calder Pricing, Architecture & Unit Economics Gate
 
-> Launch status (2026-10-29): paid billing is not configured. The catalogue below
-> is planning/configuration, not an offer of working checkout or invoices. Usage
-> hides the paid comparison and upgrade CTAs while preserving actual limits.
-> Free launch access does not automatically grant paid-tier quotas. See
-> [LAUNCH-STATUS.md](LAUNCH-STATUS.md).
+> Round-4 status (2026-11-08): commercial pricing is **USD only**. Checkout runs
+> through Paystack; paid checkout stays disabled unless the merchant account has
+> USD enabled (`PAYSTACK_USD_ENABLED=true`) and plan codes are configured. The
+> catalogue in `packages/config/src/plan-limits.ts` and `credits.ts` is the
+> single source of every limit and price. See [BILLING.md](BILLING.md),
+> [CREDITS.md](CREDITS.md), [PAYSTACK.md](PAYSTACK.md) and
+> [API-LIMITS.md](API-LIMITS.md).
 
-Status: **revised 2026-10-22** (five-tier catalogue). The catalogue itself lives
+Status: **revised 2026-11-08** (three commercial plans; Premium and Scale
+retired). The catalogue itself lives
 in `packages/config/src/plan-limits.ts` — limits, prices and display names — and
 every surface reads from there: the dashboard, the API's quota errors, the
 marketing site (`apps/web/lib/plans.ts` is a projection of it) and the database
-seed. See `docs/DECISIONS.md` ADR-024 for the original decision and ADR-045 for
-this revision.
+seed. See `docs/DECISIONS.md` ADR-024 for the original decision, ADR-045 for the
+five-tier revision, and **ADR-057** for the retirement of Premium and Scale.
 
 ## 1. The model
 
-|                   |    Beginner |         Starter |                        Pro |                    Premium |      Scale |
-| ----------------- | ----------: | --------------: | -------------------------: | -------------------------: | ---------: |
-| Price             | **$0 / ₦0** | **$5 / ₦5,000** |          **$18 / ₦20,000** |          **$65 / ₦75,000** | **Custom** |
-| Emails / month    |       5,000 |          10,000 |                     50,000 |                    250,000 |     Custom |
-| Projects          |           3 |               3 |                         10 |                         50 |     Custom |
-| Domains           |           2 |               3 |                         10 |                         50 |     Custom |
-| Sender identities |           5 |              10 |                         25 |                        100 |     Custom |
-| Team seats        |           1 |               2 |                          5 |                         15 |     Custom |
-| Environments      | Development |           TBD ‡ | Dev + Staging + Production | Dev + Staging + Production |     Custom |
-| Log retention     |      7 days |         14 days |                    30 days |                    90 days |     Custom |
-| Support           |   Community |           Email |                      Email |                   Priority |  Dedicated |
+|                   |  Beginner | Starter |     Pro |
+| ----------------- | --------: | ------: | ------: |
+| Price (USD)       |    **$0** |  **$5** | **$18** |
+| Emails / month    |     5,000 |  10,000 |  50,000 |
+| Submissions / day |       500 |   2,000 |   5,000 |
+| Projects          |         3 |       3 |      10 |
+| Domains           |         2 |       3 |      10 |
+| Sender identities |         5 |      10 |      25 |
+| Team seats        |         1 |       2 |       5 |
+| Support           | Community |   Email |   Email |
 
-‡ Starter's environment matrix is not decided yet. It is recorded as unset and
-is enforced nowhere; the pricing-page pass will settle it.
+Premium (250,000) and Scale (custom) are **retired from the commercial
+offering**. Their catalogue entries and database enum values are retained so
+existing subscriptions keep resolving to their real limits; they are not sold,
+not shown on `/pricing`, and cannot be assigned through any workflow. See §6.
+
+Not claimed on any plan, because nothing enforces it: log retention periods,
+per-plan environments, tier-restricted key scopes, or webhook replay as a paid
+feature. Scoped keys, webhook replay and audit logs work on every plan today.
 
 Marketing allowances (contacts, not sends): 1,000 / 10,000 / 50,000 / Custom.
 **Unapproved draft** — carried in config as `contacts` with `approved: false`,
 never rendered in the Usage UI, not enforced.
+
+Marketing itself is **not part of this release**. The suite is no longer
+described as "in development and included"; every public column, the dashboard
+and the API state Coming Soon. Broadcast and audience endpoints return
+`403 feature_not_available`, and their dashboard destinations are disabled.
 
 ### What is enforced, and when
 
@@ -49,29 +62,31 @@ routes share this limit; connected Gmail has additional account-level limits.
 Recorded but not enforced: log retention and Gmail sender count.
 
 Usage warnings are computed from the allowance at 50% and 80% — 2,500 / 4,000
-on Beginner, 5,000 / 8,000 on Starter, 25,000 / 40,000 on Pro and 125,000 /
-200,000 on Premium. No per-plan threshold is ever typed by hand.
+on Beginner, 5,000 / 8,000 on Starter and 25,000 / 40,000 on Pro. A grandfathered
+Premium subscription keeps its 125,000 / 200,000 thresholds. No per-plan
+threshold is ever typed by hand.
 
 **Positioning rule.** The tiers are not a volume ladder. They are a capability
 ladder, and every public surface must read that way:
 
 ```
 Beginner → I can build.
+Starter  → I can grow.
 Pro      → I can ship.
-Premium  → I can operate.
-Scale    → I can depend on this.
 ```
 
-Concretely: Beginner is a real plan (API, SMTP, templates, logs, webhooks,
-analytics at a small scale) because the developer who evaluates Calder must not
-need a card to find out whether it works. Premium is won on control,
-deliverability and observability, not on "more emails". Scale has no arbitrary
-ceiling; it is sold as dedicated capacity, SLA and architecture.
+Concretely: Beginner is a real plan (API, templates, logs, webhooks, analytics
+at a small scale) because the developer who evaluates Calder must not need a
+card to find out whether it works. Starter raises the ceiling for a project
+that has outgrown it. Pro is the top plan: higher volume and resource limits,
+same product. There is no "contact us" tier while Premium and Scale are
+retired, so the upgrade pointer stops at Pro and says so.
 
 ## 2. Currency rules
 
-- ₦ and $ figures are **two separate price points**, not an FX conversion. A
-  Nigerian customer pays the naira price regardless of what the dollar is doing;
+- **Public pricing is USD only** (Round 4). The NGN figures retained in the
+  catalogue are historical/owner-held data and are not shown or charged. A
+  naira price would be a separate price point, not an FX conversion;
   the US customer pays the dollar price. Both are shown honestly on the pricing
   page, and the currency toggle never implies a rate.
 - The naira price exists for the local market's advantage (local rails, lower
@@ -109,9 +124,11 @@ separate rate limits, separate allowance.
   the transactional quota that keeps logins working.
 - Conversely, campaign volume never inflates the transactional bill.
 - The marketing suite (campaigns, audiences, segments, automations, preference
-  center) is included in **every plan, including Beginner**. It is marked
-  "in development" on public surfaces until it ships; that label is removed in
-  the same commit that ships it (`apps/web/lib/site.ts` → `MARKETING_SUITE`).
+  center) is **planned for every plan, including Beginner**, and is excluded
+  from this release. Public surfaces, the dashboard and the API all say Coming
+  Soon; the marketing API is disabled server-side. That status changes only with
+  a product launch decision and campaign acceptance evidence
+  (`apps/web/lib/site.ts` → `MARKETING_SUITE`, `packages/config/src/features.ts`).
 
 ## 4. Unit-economics model (still the gate for any change)
 
@@ -165,33 +182,45 @@ are modelled separately: contacts cost storage and support, not delivery.
 - Test-key sends stamp `env='test'` at ingest, deliver only through the mock
   provider (`transport:'mock'` on the record is the auditable proof), and
   are excluded from every count in this file.
-- Plan ceilings: 5,000 / 50,000 / 250,000 / custom (Scale). The single
+- Plan ceilings: 5,000 / 10,000 / 50,000 for the three commercial plans; the
+  retired Premium (250,000) and Scale (custom) values remain resolvable. The single
   machine-readable copy is `PLAN_LIMITS` in `@calder/config`; anything else
   quoting a number is a bug.
 
 ## 6. Open items
 
 - Payment provider integration (Bachs) validation before paid plans are
-  chargeable; until then Pro/Premium are listed with their real prices and the
-  checkout path is the billing work in progress.
+  chargeable; until then Starter and Pro are listed with their planned prices
+  and the checkout path is the billing work in progress.
 - Annual billing, and VAT display treatment on the pricing page.
 - Marketing allowance enforcement once campaigns ship (contact counting and
   consent state are the same meter question, tracked in the roadmap).
 
 ## Follow-ups this revision deliberately leaves open
 
-1. **`premium` in `plan_tier`.** The enum is `free | starter | pro | scale`.
-   Nothing can store a Premium subscription yet. The migration belongs to the
-   billing phase, alongside the checkout that would write it; it is additive
-   (`ALTER TYPE plan_tier ADD VALUE 'premium'`), and its rollback is "recreate
-   the type without the value", which requires no rows to use it.
-2. **Existing subscriptions.** Tier keys did not move, so a workspace on
-   `starter` now reads Starter's allowance (10,000) rather than the old
-   catalogue's 50,000, and one on `pro` reads Pro's (50,000) rather than
-   250,000. Nobody's resources are touched, but their monthly ceiling changes at
-   the next period. Remapping or grandfathered quotas is a commercial decision
-   for the billing phase; see the phase report.
-3. **Starter on the marketing page.** `apps/web` still renders four cards, so
-   Starter (₦5,000/$5) is sellable in config but absent from `/pricing`. Adding
-   it is a pricing-page change, explicitly out of scope here.
-4. **Starter's environments.** Unset above; it is enforced nowhere today.
+1. **Retirement, not deletion — resolved 2026-11-08.** Premium and Scale stay in
+   `plan_tier` and in `PLAN_LIMITS` with `retired: true`. The seed only inserts
+   Beginner, Starter and Pro (`onConflictDoNothing`), so historical rows and
+   subscriptions survive and `resolveOrgTier` still returns the real tier.
+   `assertAssignableTier` rejects `premium`, `scale` and unknown strings before
+   any write, in both the admin API (`400 plan_not_assignable`) and the
+   control-plane grant action. `upgradeTierFor` never points at a retired tier.
+2. **Existing subscriptions.** Starter and Pro keep their current catalogue
+   values (10,000 and 50,000). Existing Premium (250,000) and Scale (custom)
+   organizations are not downgraded, not migrated and not re-priced by this
+   change; they are displayed as "Premium (retired)" / "Scale (retired)" and
+   keep their limits. Any future remapping is an owner decision with notice.
+3. **Starter on the marketing page — resolved 2026-11-08.** `/pricing` renders
+   the three commercial cards from the catalogue, and a test fails if a retired
+   tier reappears in the marketing data.
+4. **Starter's environments.** Dropped from the catalogue and the comparison
+   table: it was never enforced, so it is not claimed.
+5. **Price discrepancy with `PRD.md` §11 — resolved 2026-11-08.** The PRD now
+   matches this catalogue and ADR-057: Beginner ₦0/$0, Starter ₦5,000/$5, Pro
+   ₦20,000/$18; Premium and Scale are retired. No prices changed.
+6. **Advertised but unenforced distinctions.** Scoped keys, webhook replay,
+   audit logs and per-plan environments were available to every organization
+   regardless of tier. They are now either described as available on every plan
+   (scoped keys, webhook replay, audit logs) or removed (environments, log
+   retention). `UNENFORCED_PLAN_DIFFERENCES` in
+   `packages/config/src/features.ts` records the remaining decisions.

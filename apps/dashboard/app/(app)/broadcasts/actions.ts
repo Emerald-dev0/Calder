@@ -13,6 +13,7 @@ import {
   senderIdentities,
 } from "@calder/db";
 import { getTenantContext, resolveProject } from "../../../lib/auth";
+import { assertDashboardFeature } from "../../../lib/features";
 import {
   cancelBroadcast,
   dispatchBroadcast,
@@ -20,6 +21,9 @@ import {
 } from "../../../lib/broadcasts/dispatch";
 
 async function requireProject(projectId: string) {
+  // Marketing is not in this release: refuse before any read or write, the
+  // same way /v1/broadcasts does. A server action is a public endpoint.
+  assertDashboardFeature("broadcasts");
   const ctx = await getTenantContext();
   const scope = resolveProject(ctx, projectId);
   if (!scope) throw new Error("Project not found.");

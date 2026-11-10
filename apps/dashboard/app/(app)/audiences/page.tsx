@@ -6,6 +6,8 @@ import { getTenantContext, resolveProject } from "../../../lib/auth";
 import { DsPageHeader, StatCard } from "../../../components/design-system";
 import { EmptyState } from "../../../components/empty-state";
 import { archiveAudienceAction, createAudienceAction } from "./actions";
+import { ComingSoon } from "../../../components/coming-soon";
+import { isDashboardFeatureAvailable } from "../../../lib/features";
 
 export const metadata = { title: "Calder — Audiences" };
 
@@ -14,6 +16,9 @@ export default async function AudiencesPage({
 }: {
   searchParams: Promise<{ project?: string }>;
 }) {
+  if (!isDashboardFeatureAvailable("audiences")) {
+    return <ComingSoon feature="audiences" />;
+  }
   const query = await searchParams;
   const ctx = await getTenantContext();
   const scope = resolveProject(ctx, query.project);

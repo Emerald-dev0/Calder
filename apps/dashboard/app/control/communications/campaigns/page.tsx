@@ -14,7 +14,9 @@ export default async function CampaignsPage() {
         subtitle="Customer marketing campaigns are gated. Internal broadcasts are the only active operator broadcast path and use Calder-managed sending, not connected Gmail."
       />
       <Panel title="Active operator path" caption="Use existing audited surfaces">
-        <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: "0 0 12px", lineHeight: 1.6 }}>
+        <p
+          style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: "0 0 12px", lineHeight: 1.6 }}
+        >
           Use <Link href="/control/communications">Broadcasts</Link> for internal waitlist/broadcast
           operations and <Link href="/control/communications/delivery">Internal delivery</Link> to
           inspect outcomes. Gmail transports are never a campaign path.

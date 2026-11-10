@@ -74,6 +74,11 @@ interface NavItem {
   href: string;
   icon: React.ReactNode;
   tier?: "PRO" | "PREMIUM" | "SCALE";
+  /**
+   * Not in this release. Rendered muted and non-interactive; the destination
+   * page repeats the honest explanation. See `lib/features.ts`.
+   */
+  soon?: boolean;
   founder?: boolean;
   badge?: string | number;
   badgeWarn?: boolean;
@@ -223,9 +228,14 @@ export function AppShell({
             icon: <Globe size={16} />,
             badgeWarn: usageSummary.verifiedDomains === 0 && memberships.length > 0,
           },
-          { label: "Broadcasts", href: "/broadcasts", icon: <Megaphone size={16} /> },
-          { label: "Audiences", href: "/audiences", icon: <Users size={16} /> },
-          { label: "Analytics", href: "/analytics", icon: <BarChart3 size={16} />, tier: "PRO" },
+          {
+            label: "Broadcasts",
+            href: "/broadcasts",
+            icon: <Megaphone size={16} />,
+            soon: true,
+          },
+          { label: "Audiences", href: "/audiences", icon: <Users size={16} />, soon: true },
+          { label: "Analytics", href: "/analytics", icon: <BarChart3 size={16} />, soon: true },
           { label: "Logs", href: "/logs", icon: <ScrollText size={16} /> },
         ],
       },
@@ -234,7 +244,7 @@ export function AppShell({
         items: [
           { label: "API keys", href: "/keys", icon: <KeyRound size={16} /> },
           { label: "Webhooks", href: "/webhooks", icon: <Webhook size={16} /> },
-          { label: "SMTP", href: "/smtp", icon: <Server size={16} /> },
+          { label: "SMTP", href: "/smtp", icon: <Server size={16} />, soon: true },
           { label: "SDKs", href: "/sdks", icon: <Code2 size={16} /> },
           { label: "Integrations", href: "/integrations", icon: <Puzzle size={16} /> },
         ],
@@ -245,7 +255,7 @@ export function AppShell({
           { label: "Deliveries", href: "/deliveries", icon: <Send size={16} /> },
           { label: "Senders", href: "/senders", icon: <UserCheck size={16} /> },
           { label: "Suppressions", href: "/suppressions", icon: <ShieldBan size={16} /> },
-          { label: "Inbox", href: "/inbox", icon: <Inbox size={16} />, tier: "PRO" },
+          { label: "Inbox", href: "/inbox", icon: <Inbox size={16} />, soon: true },
         ],
       },
       {
@@ -371,6 +381,33 @@ export function AppShell({
               )}
               {group.items.map((item) => {
                 const active = isItemActive(item.href);
+                if (item.soon) {
+                  return (
+                    <span
+                      key={item.label}
+                      className="shell-nav-link is-soon"
+                      aria-disabled="true"
+                      title={item.label + " — coming soon"}
+                    >
+                      <span className="shell-nav-icon">{item.icon}</span>
+                      {!collapsed && (
+                        <>
+                          <span
+                            style={{
+                              flex: 1,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {item.label}
+                          </span>
+                          <span className="shell-nav-soon">Soon</span>
+                        </>
+                      )}
+                    </span>
+                  );
+                }
                 return (
                   <Link
                     key={item.label}

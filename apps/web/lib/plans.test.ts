@@ -7,51 +7,63 @@ import { pricingJsonLd } from "./seo";
 /**
  * The marketing site is a projection of the plan catalogue. These assertions
  * exist so a stray literal in a card or a table cannot quietly contradict the
- * limits the API enforces.
+ * limits the API enforces, and so a retired tier cannot reappear as a
+ * purchasable plan.
  */
-describe("marketing plans match the catalogue", () => {
+describe("marketing plans match the commercial catalogue", () => {
+  const TIER_OF = { beginner: "free", starter: "starter", pro: "pro" } as const;
+
+  it("renders exactly the three commercial plans", () => {
+    expect(PLANS.map((p) => p.id)).toEqual(["beginner", "starter", "pro"]);
+    expect(PLANS.map((p) => p.name)).toEqual(["Beginner", "Starter", "Pro"]);
+    expect(PLAN_ORDER).toEqual(["free", "starter", "pro"]);
+  });
+
+  it("never renders Premium or Scale anywhere in the marketing catalogue", () => {
+    const serialized = JSON.stringify({ PLANS, COMPARISON, MARKETING_ALLOWANCES });
+    expect(serialized).not.toMatch(/Premium/);
+    expect(serialized).not.toMatch(/\bScale\b/);
+    expect(PLANS.map((p) => p.name)).not.toContain("Premium");
+    expect(PLANS.map((p) => p.name)).not.toContain("Scale");
+  });
+
+  it("keeps the retired tiers resolvable and their historical limits intact", () => {
+    expect(PLAN_LIMITS.premium.retired).toBe(true);
+    expect(PLAN_LIMITS.scale.retired).toBe(true);
+    expect(PLAN_LIMITS.premium.emailsPerMonth).toBe(250_000);
+    expect(PLAN_LIMITS.premium.projects).toBe(50);
+    expect(PLAN_LIMITS.scale.emailsPerMonth).toBeNull();
+    // They are not part of the commercial order the page iterates.
+    expect(PLAN_ORDER).not.toContain("premium");
+    expect(PLAN_ORDER).not.toContain("scale");
+  });
+
   it("prices every plan from the catalogue", () => {
-    const expected = {
-      beginner: "free",
-      starter: "starter",
-      pro: "pro",
-      premium: "premium",
-      scale: "scale",
-    } as const;
     for (const plan of PLANS) {
-      const tier = expected[plan.id as keyof typeof expected];
+      const tier = TIER_OF[plan.id];
       expect(plan.price.NGN, `${plan.id} NGN`).toBe(formatPlanPrice(tier, "NGN"));
       expect(plan.price.USD, `${plan.id} USD`).toBe(formatPlanPrice(tier, "USD"));
     }
-  });
-
-  it("never prints the superseded Pro or Premium dollar prices", () => {
+    expect(planPrice("starter", "NGN")).toBe("₦5,000");
+    expect(planPrice("starter", "USD")).toBe("$5");
     expect(planPrice("pro", "NGN")).toBe("₦20,000");
     expect(planPrice("pro", "USD")).toBe("$18");
-    expect(planPrice("premium", "USD")).toBe("$65");
-    for (const plan of PLANS) {
-      expect(plan.price.USD).not.toBe("$15");
-      expect(plan.price.NGN).not.toBe("₦25,000");
-      expect(plan.price.USD).not.toBe("$49");
-    }
   });
 
-  it("prints the catalogue's volumes, seats and retention", () => {
+  it("prints the catalogue's volumes and resource counts", () => {
     const beginner = PLANS.find((p) => p.id === "beginner")!;
     expect(beginner.volume).toContain("5,000");
     expect(beginner.domains).toBe("2");
     expect(beginner.team).toBe("1");
-    expect(beginner.logs).toBe("7 days");
 
-    const premium = PLANS.find((p) => p.id === "premium")!;
-    expect(premium.volume).toContain("250,000");
-    expect(premium.projects).toBe("50");
-    expect(premium.team).toBe("15");
-    expect(premium.logs).toBe("90 days");
+    const starter = PLANS.find((p) => p.id === "starter")!;
+    expect(starter.volume).toContain("10,000");
+    expect(starter.projects).toBe("3");
 
-    const scale = PLANS.find((p) => p.id === "scale")!;
-    expect(scale.projects).toBe("Custom");
-    expect(scale.volume).toBe("Custom volume");
+    const pro = PLANS.find((p) => p.id === "pro")!;
+    expect(pro.volume).toContain("50,000");
+    expect(pro.projects).toBe("10");
+    expect(pro.team).toBe("5");
   });
 
   it("summarises Beginner exactly as the docs quote it", () => {
@@ -59,9 +71,6 @@ describe("marketing plans match the catalogue", () => {
   });
 
   it("shows one value per plan in every comparison row", () => {
-    // The table renders a column per plan. `values` used to be a 4-tuple while
-    // five plans existed, so the last column was empty on every row and the
-    // emails row sat under the wrong headings.
     const groups = [...COMPARISON, { group: "Marketing", rows: MARKETING_ALLOWANCES }];
     for (const group of groups) {
       for (const row of group.rows) {
@@ -70,39 +79,33 @@ describe("marketing plans match the catalogue", () => {
     }
   });
 
+  it("does not advertise retention, environments or tier-restricted tools", () => {
+    const highlights = PLANS.flatMap((p) => p.highlights).join(" | ");
+    expect(highlights).not.toMatch(/retention/i);
+    expect(highlights).not.toMatch(/environment/i);
+    expect(highlights).not.toMatch(/webhook replay/i);
+
+    const rows = COMPARISON.flatMap((group) => group.rows);
+    expect(rows.some((row) => /retention/i.test(row.label))).toBe(false);
+    expect(rows.some((row) => /^environments$/i.test(row.label))).toBe(false);
+    // Tools available to everyone may be listed, but never as a tier difference.
+    for (const label of ["Scoped API keys", "Webhook replay and delivery history"]) {
+      const row = rows.find((r) => r.label === label);
+      if (row) expect(new Set(row.values).size, label).toBe(1);
+    }
+  });
+
   it("recommends exactly one plan", () => {
-    // Two featured cards is not a recommendation; it also rendered as no
-    // featured card at all while the class name was malformed.
     expect(PLANS.filter((p) => p.popular)).toHaveLength(1);
   });
 
-  it("has a plan for every tier the site names", () => {
-    expect(PLANS.map((p) => p.name)).toEqual(PLAN_ORDER.map((t) => PLAN_LIMITS[t].displayName));
+  it("sends every plan CTA to signup", () => {
     for (const plan of PLANS) {
-      expect(plan.highlights.length, plan.id).toBeGreaterThan(0);
+      expect(plan.ctaHref, plan.id).toBe(SIGNUP_URL);
     }
-  });
-
-  it("sends every plan CTA somewhere that exists", () => {
-    // A bare "/signup" used to pass, and every card on /pricing 404'd: signup
-    // lives on the dashboard origin, not on calder.click. Plan CTAs must be
-    // absolute, an in-page anchor, or mailto — never a path into this app
-    // unless a route actually exists for it.
-    for (const plan of PLANS) {
-      expect(plan.ctaHref, plan.id).toMatch(/^(https:\/\/|mailto:|#)/);
-    }
-    expect(PLANS.filter((p) => p.id !== "scale").every((p) => p.ctaHref === SIGNUP_URL)).toBe(true);
-  });
-
-  it("keeps every catalogue tier named the same everywhere", () => {
-    const names = PLAN_ORDER.map((t) => PLAN_LIMITS[t].displayName);
-    expect(names).toEqual(["Beginner", "Starter", "Pro", "Premium", "Scale"]);
-    expect(PLANS.map((p) => p.name)).toEqual(["Beginner", "Starter", "Pro", "Premium", "Scale"]);
   });
 
   it("emits only offers a crawler can price", () => {
-    // Scale is quoted, so schema.org must not hear about a null price; Google
-    // flags such an Offer with "Missing field 'price'".
     const data = pricingJsonLd(PLANS) as {
       offers: { name: string; price?: string; priceCurrency?: string }[];
     };
@@ -111,6 +114,7 @@ describe("marketing plans match the catalogue", () => {
       expect(offer.price, offer.name).toMatch(/^\d+(\.\d+)?$/);
       expect(offer.priceCurrency, offer.name).toMatch(/^(NGN|USD)$/);
     }
+    // Paid checkout is unavailable, so only the free plan is a live offer.
     expect(data.offers.every((o) => o.name.startsWith("Beginner"))).toBe(true);
   });
 });

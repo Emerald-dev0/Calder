@@ -4,6 +4,7 @@ import { requestIdMiddleware } from "./middleware/request-id.js";
 import { errorMiddleware } from "./middleware/error.js";
 import { loggerMiddleware } from "./middleware/logger.js";
 import { securityHeaders } from "./middleware/security.js";
+import { requireFeature } from "./middleware/feature-gate.js";
 import health from "./routes/health.js";
 import emails from "./routes/emails.js";
 import domains from "./routes/domains.js";
@@ -22,6 +23,9 @@ import suppressions from "./routes/suppressions.js";
 import batch from "./routes/batch.js";
 import cron from "./routes/cron.js";
 import sesEvents from "./routes/ses-events.js";
+import paystack from "./routes/paystack.js";
+import jobsRoute from "./routes/jobs.js";
+import billingRoute from "./routes/billing.js";
 
 export interface Env {
   Variables: {
@@ -80,6 +84,13 @@ export function createApp() {
   app.onError(errorMiddleware);
 
   // Routes
+  // Features excluded from this release refuse at the boundary, before auth and
+  // before any handler touches data. Hiding navigation is not enforcement.
+  app.use("/v1/broadcasts", requireFeature("broadcasts"));
+  app.use("/v1/broadcasts/*", requireFeature("broadcasts"));
+  app.use("/v1/audiences", requireFeature("audiences"));
+  app.use("/v1/audiences/*", requireFeature("audiences"));
+
   app.route("/", health);
   app.route("/v1/emails", emails);
   app.route("/v1/domains", domains);
@@ -98,6 +109,9 @@ export function createApp() {
   app.route("/v1/emails/batch", batch);
   app.route("/v1/cron", cron);
   app.route("/v1/ses", sesEvents);
+  app.route("/v1/paystack", paystack);
+  app.route("/v1/jobs", jobsRoute);
+  app.route("/v1/billing", billingRoute);
 
   // 404
   app.notFound((c) => {

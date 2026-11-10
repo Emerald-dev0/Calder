@@ -2,6 +2,7 @@ import Link from "next/link";
 import { fmtAgo, fmtInt, fmtMoney } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
 import { organizationRows } from "@/lib/control/queries";
+import { planDisplayLabel } from "@calder/config";
 import { Badge, Empty, PageHeader, Panel, Stat } from "@/control/_components/ui";
 
 export const dynamic = "force-dynamic";
@@ -65,10 +66,11 @@ export default async function OrganizationsPage({
             aria-label="Plan"
           >
             <option value="">All plans</option>
-            <option value="free">Free</option>
-            <option value="starter">Builder</option>
+            <option value="free">Beginner</option>
+            <option value="starter">Starter</option>
             <option value="pro">Pro</option>
-            <option value="scale">Scale</option>
+            <option value="premium">Premium (retired)</option>
+            <option value="scale">Scale (retired)</option>
           </select>
           <button className="cp-btn primary" type="submit">
             Apply
@@ -111,7 +113,7 @@ export default async function OrganizationsPage({
                     <td>
                       {o.plan ? (
                         <Badge tone={o.plan === "free" ? undefined : "accent"}>
-                          {o.planName ?? o.plan}
+                          {planDisplayLabel(o.plan)}
                         </Badge>
                       ) : (
                         <span style={{ color: "var(--cp-faint)" }}>none</span>

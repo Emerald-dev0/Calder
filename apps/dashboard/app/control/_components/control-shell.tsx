@@ -132,7 +132,7 @@ export function ControlShell({
   const flat = groups.flatMap((g) => g.items.map((i) => ({ ...i, group: g.heading })));
   const activeHref = activeControlHref(
     pathname,
-    groups.flatMap((g) => g.items),
+    groups.flatMap((g) => g.items)
   );
   const active = flat.find((i) => i.href === activeHref) ?? flat[0];
   const displayName = name?.trim() || email.split("@")[0] || "Operator";
@@ -376,7 +376,11 @@ export function ControlShell({
                   <span>API docs & SDKs</span>
                 </Link>
                 <div
-                  style={{ borderTop: "1px solid var(--color-border)", marginTop: 6, paddingTop: 6 }}
+                  style={{
+                    borderTop: "1px solid var(--color-border)",
+                    marginTop: 6,
+                    paddingTop: 6,
+                  }}
                 >
                   <form action="/api/auth/logout" method="POST" style={{ margin: 0 }}>
                     <button

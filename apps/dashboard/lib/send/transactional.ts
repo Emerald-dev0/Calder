@@ -8,6 +8,7 @@ import {
   findBlockingSuppression,
   describeBlock,
   withProjectSendingEligibility,
+  consumeAdmissionCredits,
 } from "@calder/db";
 import { sendEmailSchema } from "@calder/validation";
 import { createQueue } from "@calder/queue";
@@ -137,7 +138,7 @@ export async function sendTransactional(
   const admission = await withProjectSendingEligibility(
     db,
     { projectId: input.projectId, env: "live" },
-    async (tx, _organization, admittedAt) => {
+    async (tx, _organization, admittedAt, decision) => {
       await tx.insert(emails).values({
         createdAt: admittedAt,
         id: emailId,
@@ -171,6 +172,11 @@ export async function sendTransactional(
           via: "dashboard",
           ...(input.resendOf ? { resendOf: input.resendOf } : {}),
         },
+      });
+      await consumeAdmissionCredits(tx, {
+        organizationId: _organization,
+        emailId,
+        decision: decision.quota ?? {},
       });
       return true;
     }

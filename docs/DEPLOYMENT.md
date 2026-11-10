@@ -578,3 +578,49 @@ Deploy both applications after configuring matching production `CRON_SECRET`
 and `API_URL=https://api.calder.click`. Test one new dashboard email and one API
 send without manually invoking the drain. Inspect wake-up logs for 401, missing
 configuration or request failure; verify sent/delivery events separately.
+
+## Round 4: billing and queue environment
+
+| Variable                 | Required when        | Notes                                                       |
+| ------------------------ | -------------------- | ----------------------------------------------------------- |
+| `PAYSTACK_SECRET_KEY`    | Selling anything     | Webhook signature uses this key                             |
+| `PAYSTACK_PUBLIC_KEY`    | Hosted checkout      | Public, not secret                                          |
+| `PAYSTACK_USD_ENABLED`   | Selling anything     | Must be exactly `true`; otherwise `409 usd_not_enabled`     |
+| `PAYSTACK_PLAN_STARTER`  | Selling Starter      | Paystack plan code for $5                                   |
+| `PAYSTACK_PLAN_PRO`      | Selling Pro          | Paystack plan code for $18                                  |
+| `PAYSTACK_CALLBACK_URL`  | Optional             | Return URL after checkout                                   |
+| `QUEUE_PROCESSOR_SECRET` | Durable processor    | Dedicated; unset disables `/v1/jobs/process`                |
+| `QUEUE_SCHEDULER_MODE`   | Optional             | Label in `/v1/jobs/status` (default `external-best-effort`) |
+| `REDIS_URL`              | Until BullMQ removal | Legacy email wake-up only; webhooks use Postgres            |
+
+Scheduler setup (Round 5):
+
+1. **cron-job.org (recommended primary, free):** create a job every minute,
+   `POST https://api.calder.click/v1/jobs/process`, header
+   `Authorization: Bearer $QUEUE_PROCESSOR_SECRET`, header
+   `x-calder-trigger: scheduler`, no body. Enable failure notifications. The
+   route uses a 15s budget so its 30s free-tier timeout cannot cut off a run.
+   It has no SLA; use the dedicated processor secret because cron-job.org stores
+   job headers.
+2. **GitHub Actions (secondary):** add `QUEUE_PROCESSOR_SECRET` as a repository
+   secret and optionally `CALDER_API_URL` as a variable (defaults to
+   `https://api.calder.click`). The five-minute workflow fails visibly on a
+   non-2xx response.
+3. **Vercel:** the existing daily `/v1/cron/drain` also runs a 20s processor
+   pass. Vercel Hobby allows only two cron jobs, so no third schedule exists.
+
+All three are best-effort; none is a guarantee. See `docs/QUEUE.md` §8 and the
+step-by-step [`docs/SCHEDULER-SETUP.md`](./SCHEDULER-SETUP.md).
+
+Run migrations before deploying the code. Round 5 adds
+`0038_silly_iron_man.sql` (`queue_processor_runs`, `webhook_delivery_attempts`,
+`webhook_delivery_status.sending`, delivery lease columns) and
+`0039_white_lady_mastermind.sql` (`emails.next_attempt_at`). Both are additive:
+no table, column, or row is dropped. `0036_cute_bastion.sql` creates the
+queue/payment/credit tables and `0037_luxuriant_meteorite.sql` adjusts the credit
+ledger index.
+
+Scheduling: Vercel Hobby cron runs at most daily, so it cannot provide
+minute-level delivery. The request-triggered drain handles active traffic; the
+processor must be pinged by an external scheduler for idle accounts. This is an
+honest limitation, not an SLA. See [QUEUE.md](QUEUE.md) §8.

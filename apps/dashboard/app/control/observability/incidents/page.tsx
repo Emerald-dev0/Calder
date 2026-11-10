@@ -13,8 +13,13 @@ export default async function IncidentsPage() {
         title="Incidents"
         subtitle="Incident records are not yet backed by a durable incident system. Use live alerts and logs for current investigations."
       />
-      <Panel title="Current operating surface" caption="Use real signals while incident records are gated">
-        <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: "0 0 12px", lineHeight: 1.6 }}>
+      <Panel
+        title="Current operating surface"
+        caption="Use real signals while incident records are gated"
+      >
+        <p
+          style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: "0 0 12px", lineHeight: 1.6 }}
+        >
           No fabricated incident timeline is shown. Investigate active conditions through{" "}
           <Link href="/control/observability/alerts">Alerts</Link>,{" "}
           <Link href="/control/observability">Logs</Link>,{" "}

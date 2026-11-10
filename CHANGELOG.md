@@ -5,6 +5,73 @@ Selected changes reconstructed from the GitHub `main` commit history through
 not a claim that every implemented feature is configured or available in production.
 No release tags or semantic versions are invented. See [launch availability](docs/LAUNCH-STATUS.md).
 
+## 2026-11-08 — Round 4: prepaid credits, burst passes, Paystack, Postgres queue
+
+- USD-only commercial pricing: Beginner $0 / 5,000 monthly / 500 daily, Starter
+  $5 / 10,000 / 2,000, Pro $18 / 50,000 / 5,000.
+- Prepaid monthly credits (Small $2/1,000, Medium $5/3,000, Large $15/10,000),
+  consumed after the included allowance, FIFO by expiry, 12-month expiry, no
+  negative balances, no auto-purchase.
+- Daily Burst Pass ($1 → +1,000 daily submissions, expires 23:59:59 UTC, max 2
+  per UTC day, never monthly credits, never bypasses daily/monthly/suspension).
+- Recipient-level accounting with transactional credit reservation and
+  idempotent release on pre-provider failures.
+- Durable PostgreSQL job queue with SKIP LOCKED claiming, leases, crash
+  recovery, retry/backoff, dead-letter requeue and idempotency. Short-lived
+  processor endpoint with a dedicated secret. No exactly-once claim.
+- Paystack checkout, server-side verification, signed webhook handling, replay
+  dedupe, subscription lifecycle and refunds. Live USD capability remains
+  unverified and blocked on merchant access.
+- New docs: BILLING, CREDITS, ACCOUNTING, API-LIMITS, QUEUE, PAYSTACK.
+
+## 2026-11-08 — Three-plan commercial launch (Premium and Scale retired)
+
+- The commercial catalogue is now exactly three plans: Beginner (free, 5,000
+  emails/month), Starter (₦5,000 / $5, 10,000) and Pro (₦20,000 / $18, 50,000).
+  Prices are unchanged.
+- Premium and Scale are retired, not deleted. Their `PlanTier` values,
+  `PLAN_LIMITS` entries (`retired: true`), enum values and historical plan rows
+  remain, so existing subscriptions still resolve to 250,000 / custom limits.
+  No migration was added and no historical row is updated or removed.
+- New assignments fail closed. `assertAssignableTier` rejects retired and
+  unknown tiers before any database access: the admin API returns
+  `400 plan_not_assignable` and the founder-only control-plane action returns a
+  refusal. `upgradeTierFor` stops at Pro and never points at a retired tier.
+- The seed inserts only the three commercial plans (additively), and the control
+  plane shows historical subscriptions as "Premium (retired)" / "Scale (retired)"
+  with their limits intact.
+- Public pricing, comparison, structured data and the what-is-Calder FAQ render
+  three plans. Log-retention periods, per-plan environments and tier-restricted
+  key scopes/webhook replay are no longer advertised; scoped keys, webhook
+  replay and audit logs are documented as available on every plan.
+- Docs: PRICING.md, MVP-FEATURE-MATRIX.md, LAUNCH-STATUS.md and ADR-057 updated.
+
+## 2026-11-08 — MVP feature reconciliation, plan entitlements, source-integrity repair
+
+- Added `packages/config/src/features.ts`: one registry for feature existence, MVP
+  scope, plan entitlement and availability, plus `UNENFORCED_PLAN_DIFFERENCES`.
+- Marketing (broadcasts, audiences, campaigns) is disabled server-side:
+  `/v1/broadcasts*` and `/v1/audiences*` return `403 feature_not_available`; the
+  dashboard pages render Coming Soon and their server actions refuse before any
+  read or write. Data and code are untouched.
+- Corrected dashboard availability: Inbox (inbound email), SMTP, advanced
+  Analytics and marketing destinations are disabled and labelled Coming Soon;
+  the fake "PRO" inbound webhook preview and the analytics upgrade gate are gone.
+- Templates: added search and cursor pagination to the library, fixed dashboard
+  test sends to use a verified project sender instead of a hardcoded Calder
+  address, and added an end-to-end API journey test (create, version, render,
+  send, log, replay, tenant isolation, delete).
+- Plan catalogue: added `premium` to the `plan_tier` enum (migration 0035), made
+  `seed.ts` seed all five tiers and tolerate a pre-existing plan id for a tier.
+  Superseded by the three-plan entry above: Premium and Scale are now retired and
+  only Beginner, Starter and Pro are seeded or assignable.
+- Public site: marketing rows now say Coming soon, unimplemented premium/scale
+  capabilities moved to a muted planned list, SMTP relabelled as planned, and
+  Templates described as live.
+- Repository source-integrity repair: removed appended obfuscated payloads from
+  eleven build/migration/config files and repaired the mangled positive-control
+  test. The gate now passes clean (see SECURITY.md §16).
+
 ## Unreleased — this PR (#87)
 
 - Fix dashboard/API automatic drain wake-up lifecycle. Requires API and dashboard

@@ -92,8 +92,8 @@ export default async function ReferralsPage() {
           ]}
         />
         <p className="cp-panel-caption" style={{ marginTop: 10 }}>
-          Referral relationships are derived from live waitlist data. Reward automation is not exposed
-          until implemented and audited.
+          Referral relationships are derived from live waitlist data. Reward automation is not
+          exposed until implemented and audited.
         </p>
       </Panel>
     </>

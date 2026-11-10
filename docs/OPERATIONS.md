@@ -375,3 +375,59 @@ claim browser E2E coverage.
 | Approve RPO/RTO targets                         | Business               | Sign off §7 numbers or replace them                                                     | Recovery expectations must be owned, not assumed            | Approval recorded here with a date                                                  |
 | Rehearse rollback once                          | Hosting                | Deploy to preview, run `pnpm verify:deploy -- --url <preview>`, roll back, verify again | The rollback runbook is unexercised                         | Record the rehearsal date and outcome                                               |
 | Verify production env after first deploy        | Hosting                | `vercel env pull .env.production.local --environment=production && pnpm launch-check`   | Missing credentials are the historical launch risk          | launch-check exits 0                                                                |
+
+## Round 5 operations: scheduling and webhook delivery
+
+- **Scheduler health**: `GET /v1/jobs/status` with
+  `Authorization: Bearer $QUEUE_PROCESSOR_SECRET`. Check
+  `processor.lastSuccess` (should be within ~15 minutes),
+  `jobs.oldestDueAgeSeconds`, `jobs.duePending`, `jobs.expiredLeases`,
+  `webhooks.exhausted`. A stale last success means the scheduler stopped, not
+  that the queue is empty.
+- **Manual recovery**: `POST /v1/jobs/process` with
+  `x-calder-trigger: manual`. Safe while the scheduler is also running.
+- **Dead letters**: `GET /v1/jobs/dead-letter`; requeue a job with
+  `POST /v1/jobs/dead-letter/jobs/:id/reprocess`, or give a failed/exhausted
+  webhook delivery a new audited cycle with
+  `POST /v1/jobs/dead-letter/webhooks/:id/reprocess`. Delivered events are
+  refused (409) — replaying an accepted event is an explicit business decision.
+- **Webhook stuck in `sending`**: the 120s lease expires and the next processor
+  run returns it to `pending`. Check attempt history
+  (`webhook_delivery_attempts`) for the response code; a crash after the receiver
+  accepted the request is ambiguous and will be retried. Receivers must dedupe
+  on `webhook-id`.
+- **Chosen schedulers**: cron-job.org every minute (primary) and GitHub
+  Actions every five minutes (secondary). Both are configured outside this
+  repository except the workflow file; confirm them in the owner accounts after
+  deploy.
+- **Honest latency**: cron-job.org every minute gives typical delay of 5–60
+  seconds plus processing, but it is a community service with no SLA, 4–40s
+  jitter, no retries, and 2-day history. GitHub Actions (five minutes) and the
+  daily Vercel drain are secondary backstops. If cron-job.org is down or the job
+  is suspended, latency is unbounded. A guarantee requires a paid scheduler or
+  an always-on worker. Do not describe this as guaranteed delivery.
+- **If cron-job.org fails repeatedly**: check its execution history and email
+  alerts, confirm `GET /v1/jobs/status` still shows advancing
+  `processor.lastSuccess`, and trigger manually with
+  `POST /v1/jobs/process` + `x-calder-trigger: manual`. Rotate
+  `QUEUE_PROCESSOR_SECRET` if the third-party account is compromised, then
+  update cron-job.org and GitHub.
+
+## Round 4 operations: credits, payments and the durable queue
+
+- **Daily checks**: `jobMetrics().oldestPendingAgeSeconds`, dead-letter count,
+  pending payments older than 30 minutes, webhook receipts without
+  `processed_at`.
+- **Expiry**: run `expireCredits()` from the maintenance job/cron. It is
+  idempotent and writes one `expiry` ledger row per purchase.
+- **Processor**: `POST /v1/jobs/process` with
+  `Authorization: Bearer $QUEUE_PROCESSOR_SECRET`. Bounded batch, safe to run
+  concurrently, exits after the batch.
+- **Dead letters**: inspect `last_error`, fix the cause, then
+  `requeueDeadLetter(id)`. Never delete job rows to "clear" an alert.
+- **Payment reconciliation**: replaying a webhook or calling
+  `POST /v1/billing/verify/:reference` is safe; fulfilment is idempotent and
+  never grants before server-side verification.
+- **Refunds**: refunds mark the payment `refunded`, zero unused credits from that
+  purchase and mark a burst pass refunded. Consumed credits are not clawed back.
+- **Never** treat mocked Paystack tests as evidence of a live merchant account.

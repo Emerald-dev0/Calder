@@ -281,359 +281,355 @@ export default async function GrowthOverviewPage({
         customFrom={query.from}
         customTo={query.to}
       />
-        <PageHeader
-          eyebrow="Growth"
-          title="How Calder is growing"
-          subtitle="Where people come from, what they do, and what turns a visit into a signup."
-        />
+      <PageHeader
+        eyebrow="Growth"
+        title="How Calder is growing"
+        subtitle="Where people come from, what they do, and what turns a visit into a signup."
+      />
 
-        <SectionLabel
-          right={
-            <span className="cp-caption" style={{ margin: 0 }}>
-              {window.compareLabel}
-            </span>
+      <SectionLabel
+        right={
+          <span className="cp-caption" style={{ margin: 0 }}>
+            {window.compareLabel}
+          </span>
+        }
+      >
+        Core growth
+      </SectionLabel>
+      <div className="cp-stats">
+        <Stat
+          label="Visitors"
+          value={hasTrafficData ? fmtInt(visitors) : "—"}
+          delta={dVisitors}
+          basis={window.compareLabel}
+          hint={
+            hasTrafficData
+              ? "unique visitors in range"
+              : "first-party analytics is collecting its first data"
           }
-        >
-          Core growth
-        </SectionLabel>
-        <div className="cp-stats">
-          <Stat
-            label="Visitors"
-            value={hasTrafficData ? fmtInt(visitors) : "—"}
-            delta={dVisitors}
-            basis={window.compareLabel}
-            hint={
-              hasTrafficData
-                ? "unique visitors in range"
-                : "first-party analytics is collecting its first data"
-            }
-            spark={series.slice(-14).map((r) => r.visitors)}
-          />
-          <Stat
-            label="Sessions"
-            value={hasTrafficData ? fmtInt(sessions) : "—"}
-            delta={dSessions}
-            basis={window.compareLabel}
-            hint={
-              hasTrafficData
-                ? `${fmtInt(pageviews)} pageviews`
-                : "sessions begin accruing with traffic"
-            }
-          />
-          <Stat
-            label="Submissions"
-            value={fmtInt(submissions)}
-            delta={dSubmissions}
-            basis={window.compareLabel}
-            hint="completed waitlist submissions"
-            spark={wlDense.slice(-14).map((d) => d.count)}
-          />
-          <Stat
-            label="Confirmed"
-            value={fmtInt(confirmed)}
-            delta={pctChange(confirmed, convPrev)}
-            basis={window.compareLabel}
-            hint="now hold accounts"
-          />
-          <Stat
-            label="Visitor → confirmed"
-            value={convRate !== null ? fmtPct(convRate) : "—"}
-            hint={
-              dConvRate !== null
-                ? `${fmtDeltaPp(dConvRate)} ${window.compareLabel.replace("vs ", "")}`
-                : "rate needs visitor data"
-            }
-          />
-        </div>
+          spark={series.slice(-14).map((r) => r.visitors)}
+        />
+        <Stat
+          label="Sessions"
+          value={hasTrafficData ? fmtInt(sessions) : "—"}
+          delta={dSessions}
+          basis={window.compareLabel}
+          hint={
+            hasTrafficData
+              ? `${fmtInt(pageviews)} pageviews`
+              : "sessions begin accruing with traffic"
+          }
+        />
+        <Stat
+          label="Submissions"
+          value={fmtInt(submissions)}
+          delta={dSubmissions}
+          basis={window.compareLabel}
+          hint="completed waitlist submissions"
+          spark={wlDense.slice(-14).map((d) => d.count)}
+        />
+        <Stat
+          label="Confirmed"
+          value={fmtInt(confirmed)}
+          delta={pctChange(confirmed, convPrev)}
+          basis={window.compareLabel}
+          hint="now hold accounts"
+        />
+        <Stat
+          label="Visitor → confirmed"
+          value={convRate !== null ? fmtPct(convRate) : "—"}
+          hint={
+            dConvRate !== null
+              ? `${fmtDeltaPp(dConvRate)} ${window.compareLabel.replace("vs ", "")}`
+              : "rate needs visitor data"
+          }
+        />
+      </div>
 
-        <SectionLabel>Growth over time</SectionLabel>
+      <SectionLabel>Growth over time</SectionLabel>
+      <Panel
+        title="Growth over time"
+        caption="Toggle series · hover for per-day detail · comparison basis shown on each metric"
+      >
+        <TrendChart
+          data={chartData}
+          height={340}
+          series={[
+            { key: "visitors", label: "Visitors", color: "#0b0c0e" },
+            { key: "sessions", label: "Sessions", color: "#3d5afe" },
+            { key: "clicks", label: "CTA clicks", color: "#a3a094" },
+            { key: "submissions", label: "Submissions", color: "#7c86f8" },
+            { key: "confirmed", label: "Confirmed", color: "#1f9d5b" },
+          ]}
+          footer={{
+            label: "Conversion that day",
+            numerator: "confirmed",
+            denominator: "visitors",
+          }}
+        />
+      </Panel>
+
+      <div className="cp-grid cp-grid-2">
         <Panel
-          title="Growth over time"
-          caption="Toggle series · hover for per-day detail · comparison basis shown on each metric"
+          title="Growth velocity"
+          caption={`Momentum within this window · ${window.compareLabel}`}
         >
-          <TrendChart
-            data={chartData}
-            height={340}
-            series={[
-              { key: "visitors", label: "Visitors", color: "#0b0c0e" },
-              { key: "sessions", label: "Sessions", color: "#3d5afe" },
-              { key: "clicks", label: "CTA clicks", color: "#a3a094" },
-              { key: "submissions", label: "Submissions", color: "#7c86f8" },
-              { key: "confirmed", label: "Confirmed", color: "#1f9d5b" },
-            ]}
-            footer={{
-              label: "Conversion that day",
-              numerator: "confirmed",
-              denominator: "visitors",
-            }}
+          <Stat
+            label="Week over week (window halves)"
+            value={wow !== null ? fmtDeltaPct(wow) : "—"}
+            hint="second half vs first half"
           />
+          <Stat
+            label="Average daily submissions"
+            value={avgDaily.toFixed(1)}
+            hint="across the selected range"
+          />
+          <Stat
+            label="Best day"
+            value={best ? fmtInt(best.count) : "—"}
+            hint={best ? `${best.day} · most submissions` : "no submissions in range"}
+          />
+          <Stat
+            label="Lowest day"
+            value={lowest ? fmtInt(lowest.count) : "—"}
+            hint={lowest ? `${lowest.day} · fewest submissions` : "no submissions in range"}
+          />
+          <div style={{ height: 10 }} />
+          <Panel title="Daily activity" caption="Submissions per day · hover for detail" flush>
+            <div style={{ padding: "14px 16px" }}>
+              <ActivityHeatmap data={wlDense.map((d) => ({ day: d.day, value: d.count }))} />
+            </div>
+          </Panel>
+          <div style={{ height: 10 }} />
+          <Panel title="Best performing periods" caption="Where the peaks actually are" flush>
+            <div style={{ padding: "6px 0 2px" }}>
+              <Stat
+                label="Highest traffic day"
+                value={bestTraffic ? fmtInt(bestTraffic.value) : "—"}
+                hint={bestTraffic ? bestTraffic.day : "needs traffic data"}
+              />
+              <Stat
+                label="Highest signup day"
+                value={bestSubmissions ? fmtInt(bestSubmissions.count) : "—"}
+                hint={bestSubmissions ? bestSubmissions.day : "no signups in range"}
+              />
+            </div>
+          </Panel>
         </Panel>
 
-        <div className="cp-grid cp-grid-2">
-          <Panel
-            title="Growth velocity"
-            caption={`Momentum within this window · ${window.compareLabel}`}
-          >
-            <Stat
-              label="Week over week (window halves)"
-              value={wow !== null ? fmtDeltaPct(wow) : "—"}
-              hint="second half vs first half"
-            />
-            <Stat
-              label="Average daily submissions"
-              value={avgDaily.toFixed(1)}
-              hint="across the selected range"
-            />
-            <Stat
-              label="Best day"
-              value={best ? fmtInt(best.count) : "—"}
-              hint={best ? `${best.day} · most submissions` : "no submissions in range"}
-            />
-            <Stat
-              label="Lowest day"
-              value={lowest ? fmtInt(lowest.count) : "—"}
-              hint={lowest ? `${lowest.day} · fewest submissions` : "no submissions in range"}
-            />
-            <div style={{ height: 10 }} />
-            <Panel title="Daily activity" caption="Submissions per day · hover for detail" flush>
-              <div style={{ padding: "14px 16px" }}>
-                <ActivityHeatmap data={wlDense.map((d) => ({ day: d.day, value: d.count }))} />
-              </div>
-            </Panel>
-            <div style={{ height: 10 }} />
-            <Panel title="Best performing periods" caption="Where the peaks actually are" flush>
-              <div style={{ padding: "6px 0 2px" }}>
-                <Stat
-                  label="Highest traffic day"
-                  value={bestTraffic ? fmtInt(bestTraffic.value) : "—"}
-                  hint={bestTraffic ? bestTraffic.day : "needs traffic data"}
-                />
-                <Stat
-                  label="Highest signup day"
-                  value={bestSubmissions ? fmtInt(bestSubmissions.count) : "—"}
-                  hint={bestSubmissions ? bestSubmissions.day : "no signups in range"}
-                />
-              </div>
-            </Panel>
-          </Panel>
+        <Panel
+          title="Conversion journey"
+          caption="Visitor → confirmed, with the drop-offs made visible"
+        >
+          {visitors > 0 || submissions > 0 ? (
+            <div className="cp-funnel">
+              {funnel.map((step, i) => {
+                const prev = i > 0 ? (funnel[i - 1]?.value ?? 0) : null;
+                const rate = prev && prev > 0 ? (step.value / prev) * 100 : null;
+                const lost = i > 0 ? Math.max(0, (funnel[i - 1]?.value ?? 0) - step.value) : null;
+                return (
+                  <div className="cp-funnel-step" key={step.label}>
+                    <span className="cp-funnel-label">{step.label}</span>
+                    <span className="cp-funnel-value">{fmtInt(step.value)}</span>
+                    <span className="cp-funnel-meta">
+                      {i > 0
+                        ? rate !== null
+                          ? `${fmtPct(rate)} of previous step · ${fmtInt(lost ?? 0)} lost before this stage`
+                          : "no upstream data yet"
+                        : convRate !== null
+                          ? `${fmtPct(convRate)} overall visitor → confirmed`
+                          : "overall conversion needs visitor data"}
+                    </span>
+                    <span className="cp-funnel-track">
+                      <span
+                        className="cp-funnel-fill"
+                        style={{ width: `${Math.max(2, rate ?? 100)}%` }}
+                      />
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <Empty title="Growth data will appear here">
+              Once visitors start interacting with Calder, the journey from visit to confirmed shows
+              here.
+            </Empty>
+          )}
+        </Panel>
+      </div>
 
-          <Panel
-            title="Conversion journey"
-            caption="Visitor → confirmed, with the drop-offs made visible"
-          >
-            {visitors > 0 || submissions > 0 ? (
-              <div className="cp-funnel">
-                {funnel.map((step, i) => {
-                  const prev = i > 0 ? (funnel[i - 1]?.value ?? 0) : null;
-                  const rate = prev && prev > 0 ? (step.value / prev) * 100 : null;
-                  const lost = i > 0 ? Math.max(0, (funnel[i - 1]?.value ?? 0) - step.value) : null;
-                  return (
-                    <div className="cp-funnel-step" key={step.label}>
-                      <span className="cp-funnel-label">{step.label}</span>
-                      <span className="cp-funnel-value">{fmtInt(step.value)}</span>
-                      <span className="cp-funnel-meta">
-                        {i > 0
-                          ? rate !== null
-                            ? `${fmtPct(rate)} of previous step · ${fmtInt(lost ?? 0)} lost before this stage`
-                            : "no upstream data yet"
-                          : convRate !== null
-                            ? `${fmtPct(convRate)} overall visitor → confirmed`
-                            : "overall conversion needs visitor data"}
-                      </span>
-                      <span className="cp-funnel-track">
-                        <span
-                          className="cp-funnel-fill"
-                          style={{ width: `${Math.max(2, rate ?? 100)}%` }}
-                        />
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <Empty title="Growth data will appear here">
-                Once visitors start interacting with Calder, the journey from visit to confirmed
-                shows here.
-              </Empty>
-            )}
-          </Panel>
-        </div>
-
-        <SectionLabel>Acquisition & geography</SectionLabel>
-        <div className="cp-grid cp-grid-2">
-          <Panel
-            title="Where growth comes from"
-            caption="Traffic from the event layer; submissions captured at signup"
-          >
-            {sourceRows.length === 0 ? (
-              <Empty title="No source data yet" />
-            ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table className="cp-table">
-                  <thead>
-                    <tr>
-                      <th>Source</th>
-                      <th className="cp-num">Visitors</th>
-                      <th className="cp-num">Clicks</th>
-                      <th className="cp-num">Submissions</th>
+      <SectionLabel>Acquisition & geography</SectionLabel>
+      <div className="cp-grid cp-grid-2">
+        <Panel
+          title="Where growth comes from"
+          caption="Traffic from the event layer; submissions captured at signup"
+        >
+          {sourceRows.length === 0 ? (
+            <Empty title="No source data yet" />
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table className="cp-table">
+                <thead>
+                  <tr>
+                    <th>Source</th>
+                    <th className="cp-num">Visitors</th>
+                    <th className="cp-num">Clicks</th>
+                    <th className="cp-num">Submissions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sourceRows.map((r) => (
+                    <tr key={r.source}>
+                      <td>{SOURCE_LABELS[r.source] ?? r.source}</td>
+                      <td className="cp-num">{r.visitors === null ? "—" : fmtInt(r.visitors)}</td>
+                      <td className="cp-num">{r.clicks === null ? "—" : fmtInt(r.clicks)}</td>
+                      <td className="cp-num">{fmtInt(r.submissions)}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {sourceRows.map((r) => (
-                      <tr key={r.source}>
-                        <td>{SOURCE_LABELS[r.source] ?? r.source}</td>
-                        <td className="cp-num">{r.visitors === null ? "—" : fmtInt(r.visitors)}</td>
-                        <td className="cp-num">{r.clicks === null ? "—" : fmtInt(r.clicks)}</td>
-                        <td className="cp-num">{fmtInt(r.submissions)}</td>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
+
+        <Panel title="Where growth is happening" caption="Country-level aggregates only">
+          {countries.length === 0 && wlCountries.length === 0 ? (
+            <Empty title="No geography data yet" />
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table className="cp-table">
+                <thead>
+                  <tr>
+                    <th>Country</th>
+                    <th className="cp-num">Visitors</th>
+                    <th className="cp-num">Submissions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {countries.map((c) => (
+                    <tr key={`t-${c.country}`}>
+                      <td>{c.country}</td>
+                      <td className="cp-num">{fmtInt(c.visitors)}</td>
+                      <td className="cp-num">
+                        {fmtInt(wlCountries.find((w) => w.country === c.country)?.submissions ?? 0)}
+                      </td>
+                    </tr>
+                  ))}
+                  {wlCountries
+                    .filter((w) => !countries.some((c) => c.country === w.country))
+                    .map((w) => (
+                      <tr key={`w-${w.country}`}>
+                        <td>{w.country}</td>
+                        <td className="cp-num">—</td>
+                        <td className="cp-num">{fmtInt(w.submissions)}</td>
                       </tr>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Panel>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
+      </div>
 
-          <Panel title="Where growth is happening" caption="Country-level aggregates only">
-            {countries.length === 0 && wlCountries.length === 0 ? (
-              <Empty title="No geography data yet" />
-            ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table className="cp-table">
-                  <thead>
-                    <tr>
-                      <th>Country</th>
-                      <th className="cp-num">Visitors</th>
-                      <th className="cp-num">Submissions</th>
+      <SectionLabel>Content & behavior</SectionLabel>
+      <div className="cp-grid cp-grid-2">
+        <Panel title="What people are looking at" caption="Top public pages by views">
+          {pages.length === 0 ? (
+            <Empty title="No page data yet" />
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table className="cp-table">
+                <thead>
+                  <tr>
+                    <th>Page</th>
+                    <th className="cp-num">Views</th>
+                    <th className="cp-num">Visitors</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pages.map((p) => (
+                    <tr key={p.path}>
+                      <td className="mono" style={{ fontSize: 12.5 }}>
+                        {p.path}
+                      </td>
+                      <td className="cp-num">{fmtInt(p.views)}</td>
+                      <td className="cp-num">{fmtInt(p.visitors)}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {countries.map((c) => (
-                      <tr key={`t-${c.country}`}>
-                        <td>{c.country}</td>
-                        <td className="cp-num">{fmtInt(c.visitors)}</td>
-                        <td className="cp-num">
-                          {fmtInt(
-                            wlCountries.find((w) => w.country === c.country)?.submissions ?? 0
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                    {wlCountries
-                      .filter((w) => !countries.some((c) => c.country === w.country))
-                      .map((w) => (
-                        <tr key={`w-${w.country}`}>
-                          <td>{w.country}</td>
-                          <td className="cp-num">—</td>
-                          <td className="cp-num">{fmtInt(w.submissions)}</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Panel>
-        </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
 
-        <SectionLabel>Content & behavior</SectionLabel>
-        <div className="cp-grid cp-grid-2">
-          <Panel title="What people are looking at" caption="Top public pages by views">
-            {pages.length === 0 ? (
-              <Empty title="No page data yet" />
-            ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table className="cp-table">
-                  <thead>
-                    <tr>
-                      <th>Page</th>
-                      <th className="cp-num">Views</th>
-                      <th className="cp-num">Visitors</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pages.map((p) => (
-                      <tr key={p.path}>
-                        <td className="mono" style={{ fontSize: 12.5 }}>
-                          {p.path}
-                        </td>
-                        <td className="cp-num">{fmtInt(p.views)}</td>
-                        <td className="cp-num">{fmtInt(p.visitors)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Panel>
-
-          <Panel title="What people are doing" caption="CTA performance with impression context">
-            {ctas.length === 0 ? (
-              <Empty title="No CTA data yet" />
-            ) : (
-              <div>
-                {ctas.map((c) => {
-                  const impressionsFor = impressions.get(c.label) ?? 0;
-                  const ctr = impressionsFor > 0 ? (c.clicks / impressionsFor) * 100 : null;
-                  return (
-                    <div className="cp-kv" key={c.label}>
-                      <span className="k">
-                        {CTA_LABELS[c.label] ?? c.label}
-                        <span style={{ color: "var(--cp-faint)", marginLeft: 6, fontSize: 11.5 }}>
-                          {impressionsFor > 0
-                            ? `${fmtInt(impressionsFor)} impressions`
-                            : "impressions pending"}
-                          {ctr !== null ? ` · ${fmtPct(ctr)} CTR` : ""}
-                        </span>
+        <Panel title="What people are doing" caption="CTA performance with impression context">
+          {ctas.length === 0 ? (
+            <Empty title="No CTA data yet" />
+          ) : (
+            <div>
+              {ctas.map((c) => {
+                const impressionsFor = impressions.get(c.label) ?? 0;
+                const ctr = impressionsFor > 0 ? (c.clicks / impressionsFor) * 100 : null;
+                return (
+                  <div className="cp-kv" key={c.label}>
+                    <span className="k">
+                      {CTA_LABELS[c.label] ?? c.label}
+                      <span style={{ color: "var(--cp-faint)", marginLeft: 6, fontSize: 11.5 }}>
+                        {impressionsFor > 0
+                          ? `${fmtInt(impressionsFor)} impressions`
+                          : "impressions pending"}
+                        {ctr !== null ? ` · ${fmtPct(ctr)} CTR` : ""}
                       </span>
-                      <span className="v mono">{fmtInt(c.clicks)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </Panel>
-        </div>
+                    </span>
+                    <span className="v mono">{fmtInt(c.clicks)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Panel>
+      </div>
 
-        <SectionLabel>Engagement</SectionLabel>
-        <div className="cp-stats">
-          <Stat
-            label="Avg session duration"
-            value={
-              traffic?.avgSessionSeconds != null ? fmtDuration(traffic.avgSessionSeconds) : "—"
-            }
-            hint="sessions with multiple pageviews"
-          />
-          <Stat
-            label="Pages / session"
-            value={traffic?.pagesPerSession != null ? traffic.pagesPerSession.toFixed(1) : "—"}
-            hint="pageviews over sessions"
-          />
-          <Stat
-            label="Returning visitors"
-            value={returningShare !== null ? fmtPct(returningShare) : "—"}
-            hint="seen in a previous period"
-          />
-          <Stat
-            label="Bounce rate"
-            value="—"
-            hint="not yet reliably defined — shown only when it is"
-          />
-        </div>
+      <SectionLabel>Engagement</SectionLabel>
+      <div className="cp-stats">
+        <Stat
+          label="Avg session duration"
+          value={traffic?.avgSessionSeconds != null ? fmtDuration(traffic.avgSessionSeconds) : "—"}
+          hint="sessions with multiple pageviews"
+        />
+        <Stat
+          label="Pages / session"
+          value={traffic?.pagesPerSession != null ? traffic.pagesPerSession.toFixed(1) : "—"}
+          hint="pageviews over sessions"
+        />
+        <Stat
+          label="Returning visitors"
+          value={returningShare !== null ? fmtPct(returningShare) : "—"}
+          hint="seen in a previous period"
+        />
+        <Stat
+          label="Bounce rate"
+          value="—"
+          hint="not yet reliably defined — shown only when it is"
+        />
+      </div>
 
-        <SectionLabel>Notable changes</SectionLabel>
-        {notes.length > 0 ? (
-          <Panel flush>
-            <InsightList items={notes} />
-          </Panel>
-        ) : (
-          <Empty title="Nothing notable this period">
-            Observations appear here when the data shows a real shift worth your attention.
-          </Empty>
-        )}
+      <SectionLabel>Notable changes</SectionLabel>
+      {notes.length > 0 ? (
+        <Panel flush>
+          <InsightList items={notes} />
+        </Panel>
+      ) : (
+        <Empty title="Nothing notable this period">
+          Observations appear here when the data shows a real shift worth your attention.
+        </Empty>
+      )}
 
-        <p className="cp-caption">
-          Comparisons are {window.compareLabel.replace("vs ", "")}. Dashes mean the metric does not
-          exist yet — never a fabricated value.
-        </p>
+      <p className="cp-caption">
+        Comparisons are {window.compareLabel.replace("vs ", "")}. Dashes mean the metric does not
+        exist yet — never a fabricated value.
+      </p>
     </>
   );
 }

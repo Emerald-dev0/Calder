@@ -17,7 +17,27 @@ export type ErrorCode =
   | "idempotency_conflict"
   | "sender_not_ready"
   | "plan_limit_reached"
-  | "organization_sending_unavailable";
+  | "organization_sending_unavailable"
+  /** The feature exists in code but is not part of this release. 403. */
+  | "feature_not_available"
+  /** The requested plan is retired or unknown and cannot be assigned. 400. */
+  | "plan_not_assignable"
+  // Billing / payments (Round 4)
+  | "payments_unavailable"
+  | "usd_not_enabled"
+  | "plan_not_configured"
+  | "price_not_configured"
+  | "unknown_pack"
+  | "tier_not_purchasable"
+  | "payment_not_found"
+  | "payment_pending"
+  | "payment_failed"
+  | "not_refundable"
+  | "invalid_refund_amount"
+  | "invalid_signature"
+  | "invalid_payload"
+  | "webhook_failed"
+  | "processor_disabled";
 
 export class AppError extends Error {
   constructor(

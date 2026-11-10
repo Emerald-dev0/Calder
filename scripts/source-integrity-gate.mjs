@@ -23,8 +23,14 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO_ROOT = fileURLToPath(new URL("../", import.meta.url));
 const rulesModule = pathToFileURL(join(REPO_ROOT, "apps/api/src/lib/source-integrity.ts")).href;
-const { RULES, fileViolates, hasFolderOpenTask, fontSignatureProblem, configTailPadding, unusedRequireShim } =
-  await import(rulesModule);
+const {
+  RULES,
+  fileViolates,
+  hasFolderOpenTask,
+  fontSignatureProblem,
+  configTailPadding,
+  unusedRequireShim,
+} = await import(rulesModule);
 
 const SOURCE_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
 const SKIP_DIRS = new Set([
@@ -40,7 +46,6 @@ const SKIP_DIRS = new Set([
   ".cache",
 ]);
 const BASE64_ALLOWED = [/apps\/api\/src\/assets\//, /\.png$|\.jpg$|\.webp$/];
-const GATE_TEST_FILE = "apps/api/src/lib/source-integrity.test.ts";
 /** Rules that need the whole file rather than one line: folder-open, font
  * signature, config tail padding, unused require shim. */
 const STRUCTURAL_CHECKS = 4;
@@ -91,7 +96,6 @@ for (const file of files) {
   const abs = join(REPO_ROOT, file);
   const isSource = SOURCE_EXT.test(file);
   if (isSource) {
-    if (file === GATE_TEST_FILE) continue;
     if (BASE64_ALLOWED.some((re) => re.test(file))) continue;
     const text = readFileSync(abs, "utf8");
     for (const rule of RULES) {

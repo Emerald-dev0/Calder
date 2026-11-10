@@ -10,6 +10,8 @@ import {
   sendBroadcastAction,
   testBroadcastAction,
 } from "../actions";
+import { ComingSoon } from "../../../../components/coming-soon";
+import { isDashboardFeatureAvailable } from "../../../../lib/features";
 
 export const metadata = { title: "Calder — Broadcast" };
 
@@ -22,6 +24,9 @@ export default async function BroadcastDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ project?: string }>;
 }) {
+  if (!isDashboardFeatureAvailable("broadcasts")) {
+    return <ComingSoon feature="broadcasts" />;
+  }
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const ctx = await getTenantContext();
   const scope = resolveProject(ctx, query.project);

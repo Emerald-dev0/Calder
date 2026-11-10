@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://calder.click/templates" },
   title: "Templates, Calder",
   description:
-    "Versioned email templates with variables, previews, and safe publishing. In development now, send any HTML today.",
+    "Versioned email templates with variables, previews, immutable versions, and send-by-alias. Available now through the API and the dashboard.",
 };
 
 export default function TemplatesPage() {
@@ -19,29 +19,29 @@ export default function TemplatesPage() {
       <Navigation />
       <main>
         <PageHero
-          eyebrow="Templates · in development"
+          eyebrow="Templates · live"
           title={
             <>
               Emails your designer <em>would sign off on.</em>
             </>
           }
-          lede="Versioned templates with variables, previews and one-click publishing, so editing the copy in a receipt stops being a deploy. We are finishing the delivery core first; sending raw HTML works today and will keep working."
+          lede="Versioned templates with variables, previews and immutable versions, so editing the copy in a receipt stops being a deploy. Send by alias through the API or from the dashboard, and see the resulting delivery in your logs."
         />
         <section className="section" style={{ paddingTop: 0 }}>
           <div className="wrap">
             <div className="ed-row">
               <Reveal className="ed-copy">
-                <div className="ed-index">How it will work</div>
+                <div className="ed-index">How it works</div>
                 <h3>Write once, render everywhere</h3>
                 <p>
-                  Define a template with named variables, preview it against real sample data, then
-                  publish a version. Sends reference the template and the version they used, so
-                  rolling back is a click instead of a deploy.
+                  Define a template with named variables, preview it against sample values, then
+                  save a version. Every save appends an immutable version; API sends always resolve
+                  the latest, and a missing variable is rejected instead of rendering a placeholder.
                 </p>
                 <ul className="ed-list">
-                  <li>Variables with safe defaults, no broken {"{{ }}"} in inboxes</li>
-                  <li>Every version kept, every send traceable to its version</li>
-                  <li>Test sends to yourself before anything goes live</li>
+                  <li>Missing variables fail the send with the variable names</li>
+                  <li>Every version kept; the sent email stores its rendered content</li>
+                  <li>Sandbox test sends from the dashboard before anything goes live</li>
                 </ul>
               </Reveal>
               <Reveal delay={120} className="ed-visual">
@@ -50,12 +50,12 @@ export default function TemplatesPage() {
             </div>
             <div className="ed-row flip">
               <Reveal className="ed-copy">
-                <div className="ed-index">Today</div>
-                <h3>Or bring your own HTML today</h3>
+                <div className="ed-index">Optional</div>
+                <h3>Or bring your own HTML</h3>
                 <p>
-                  Templates are not a prerequisite for anything. Send rendered HTML now: React
-                  Email, MJML output, table markup from a design tool. When templates ship they are
-                  available, not mandatory, and the sends you have already written keep working
+                  Templates are not a prerequisite for anything. Send rendered HTML directly: React
+                  Email, MJML output, table markup from a design tool. Both paths use the same
+                  ingest, queue, delivery and event pipeline, and existing sends keep working
                   unchanged.
                 </p>
               </Reveal>

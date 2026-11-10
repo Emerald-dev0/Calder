@@ -974,7 +974,9 @@ Redis/provider fixtures, and browser-runner ownership.
 
 ## ADR-045: Plan catalogue becomes five tiers and one config file
 
-**Status:** Accepted (2026-10-22). Supersedes the prices in ADR-024.
+**Status:** Accepted (2026-10-22); **commercial scope superseded by ADR-057**
+(2026-11-08). Premium and Scale are retired; the single-source-of-truth and
+resource-enforcement decisions below still stand. Supersedes the prices in ADR-024.
 
 **Decision:** Calder sells five tiers — Beginner (free), Starter, Pro, Premium
 and Scale. `packages/config/src/plan-limits.ts` is the single source of truth
@@ -1135,3 +1137,176 @@ temporary pause. A simulated test is never described as inbox delivery.
 ## ADR-054: Beginner daily live-send ceiling
 
 Enforce 500 accepted live emails per organization per UTC calendar day in the shared, locked admission transaction across projects, API and dashboard; the monthly limit remains independent. Test keys and the internal organization are exempt. Queued and failed emails count; retries of accepted messages do not consume additional admissions and idempotent replays are not new sends. Gmail has its additional account-level limits. Reset at UTC midnight. Paid checkout remains unverified.
+
+## ADR-055: One feature-availability registry; non-MVP products fail closed
+
+**Status:** Accepted (2026-11-08).
+
+Availability used to be decided per surface: the sidebar hardcoded a `PRO`
+badge, the Inbox page sold inbound routing that had no implementation, and
+console code and pricing-page checkmarks disagreed about marketing. That is not
+a styling problem; it is three different answers to "does this exist".
+
+Decision:
+
+1. `packages/config/src/features.ts` is the single inventory. It records, per
+   feature, `status` (`ready` | `coming_soon` | `not_supported`), `mvp` scope,
+   plan entitlement, surfaces, a customer-safe note and the blocker/owner action.
+2. These questions stay separate: existence, MVP scope, and plan entitlement.
+   `available` is only true when a feature is ready **and** entitled.
+3. The API enforces availability (`requireFeature` → `403
+feature_not_available`) for features absent from the release. Hiding a nav
+   item is not a security control, and Next server actions are public endpoints,
+   so the dashboard calls `assertDashboardFeature` before touching data too.
+4. Marketing (broadcasts, audiences, campaigns) is implemented in this
+   repository and excluded from the MVP. Its endpoints and actions are disabled
+   by the registry; its data and code are preserved. Re-enabling is a product
+   decision, not a rewrite.
+5. Advertised-but-unenforced tier distinctions are listed in
+   `UNENFORCED_PLAN_DIFFERENCES` rather than silently implemented or silently
+   dropped. A paid checkout must not launch while that list is unresolved.
+
+**Consequences:** flipping a feature to `ready` changes the dashboard, the API
+and the docs from one edit; a half-built feature can no longer be reachable by
+URL or `curl`; and marketing cannot be sold by accident.
+
+## ADR-056: `premium` is storable; seeds resolve plans by tier
+
+**Status:** Accepted (2026-11-08). Completes the follow-up in ADR-045/PRICING §6.
+**Superseded in part by ADR-057:** the enum value and historical resolution still
+stand, but `premium` is retired and the seed now inserts only the three commercial
+tiers.
+
+The catalogue, the pricing page and ADR-045 all sold a five-tier structure while
+`plan_tier` was `free | starter | pro | scale`. Premium could be advertised,
+priced, printed and reasoned about, but never written to a subscription row, so
+`resolveOrgTier` could never return `premium`.
+
+Decision: add `premium` to the enum (migration `0035_quick_harrier.sql`,
+additive, no backfill), seed all five tiers from `PLAN_LIMITS`, and make the
+seed resolve an existing plan row **by tier** before inserting prices. `tier` is
+the unique key; a row created earlier under a different id previously made the
+price insert violate its foreign key and stop the whole catalogue from seeding.
+
+No tier is assigned automatically. Premium remains a billing-phase action; this
+change only removes the impossibility. Prices are unchanged by this ADR.
+
+**Consequences:** Premium is storable and resolvable; `pnpm db:seed` is
+idempotent against a database that already contains a plan per tier; the
+catalogue and the enum can no longer disagree about which plans exist.
+
+## ADR-057: Premium and Scale are retired from the commercial offering
+
+**Status:** Accepted (2026-11-08). Supersedes the commercial scope of ADR-045
+and ADR-056; their storage/compatibility decisions stand.
+
+Calder now sells exactly **three** plans: Beginner (free, 5,000 emails/month),
+Starter (₦5,000 / $5, 10,000) and Pro (₦20,000 / $18, 50,000). Premium and Scale
+had no implemented differentiation beyond higher numeric ceilings, no working
+checkout, and no customers on this database. Keeping them advertised implied a
+product that does not exist.
+
+**Decision.**
+
+1. `PlanTier` keeps all five values and `PLAN_LIMITS` keeps all five entries.
+   `premium` and `scale` carry `retired: true`. No enum value is removed and no
+   migration is added: deleting values is destructive and would orphan any
+   historical subscription.
+2. `planFor()` resolves by own-property lookup, so a historical Premium
+   subscription still returns 250,000 emails and 50 projects. Unknown or typo
+   values still fall back to Beginner (fail closed for reads).
+3. `COMMERCIAL_PLAN_ORDER = ["free", "starter", "pro"]` drives every commercial
+   surface, including `PLAN_ORDER`, the marketing page and the seed. The seed is
+   additive (`onConflictDoNothing`): it inserts the three commercial rows and
+   never deletes or updates a historical Premium/Scale row.
+4. New assignments fail closed. `assertAssignableTier` throws
+   `UnassignablePlanTierError` (`plan_not_assignable`) for retired and unknown
+   tiers. The admin API validates it before any org lookup or write (HTTP 400)
+   and the control-plane grant action does the same (founder-only).
+   `upgradeTierFor` iterates commercial plans only and returns `null` past Pro;
+   a limit message on a retired tier says "Contact us", never "upgrade to Pro".
+5. Existing Premium/Scale organizations are **not** downgraded, migrated,
+   re-priced or deleted. Control-plane surfaces label them "Premium (retired)" /
+   "Scale (retired)" and display their real limits. Any future remapping or
+   re-pricing requires an explicit owner decision and notice.
+6. Public copy advertises only implemented capability. Log-retention periods,
+   per-plan environments, tier-restricted key scopes and webhook replay as a
+   paid feature are removed; scoped keys, webhook replay and audit logs are
+   documented as available on every plan.
+
+**Consequences:** the pricing page, comparison table, structured data, dashboard
+plan labels, admin API, seed and docs all agree on three plans; a test fails if
+"Premium" or "Scale" reappears in marketing data; and historical accounts keep
+working without a data migration.
+
+## ADR-058 — USD-only commercial pricing with prepaid credits and daily burst passes (2026-11-08)
+
+**Context.** Round 4 moves Calder from "three plans, billing not configured" to a
+purchasable product. Two constraints shape it: customers need a way to exceed the
+monthly allowance without an overage surprise, and the daily cap must keep
+protecting sending reputation. Paystack is the payment provider.
+
+**Decision.**
+
+1. Commercial prices are **USD only**: Beginner $0 / 5,000 monthly / 500 daily,
+   Starter $5 / 10,000 / 2,000, Pro $18 / 50,000 / 5,000. The NGN catalogue
+   values remain in `plan-limits.ts` as owner-held data but are not displayed or
+   charged. This supersedes the dual-currency presentation for the commercial
+   surface.
+2. **Monthly credits** are prepaid packs (Small $2/1,000, Medium $5/3,000,
+   Large $15/10,000). Included allowance first, credits second, FIFO by expiry,
+   each purchase expires 12 months after purchase, balances stack, never
+   negative, no auto-purchase.
+3. **Daily Burst Pass** is $1 for +1,000 submissions today only, expires
+   23:59:59 UTC, no rollover, maximum 2 per account per UTC day, sold only when
+   the daily limit is reached or insufficient. It does not add monthly credits
+   and cannot bypass monthly limits, suspension, compliance, provider limits or
+   anti-abuse controls.
+4. **Recipient-level accounting**: one recipient is one unit across single,
+   batch, scheduled, retry and failure paths. Pre-provider rejections are
+   released; the database is the source of truth.
+5. **The ledger is authoritative**: `credit_purchases` plus append-only
+   `credit_transactions` (purchase, reservation, consumption, release, refund,
+   adjustment, expiry). The frontend never grants capacity.
+
+**Consequences.** `plan_limit_reached` remains the stable error code, with
+`window: "daily" | "billing_period"` and additive detail fields so existing SDK
+clients keep working. Public copy must say that a pass is daily capacity and that
+credits do not bypass daily limits.
+
+## ADR-059 — Durable PostgreSQL job queue instead of an always-on worker (2026-11-08)
+
+**Context.** The deployment has no worker host and no funded scheduler. BullMQ
+needs Redis and a process that stays alive; the current cron only runs daily.
+
+**Decision.** A `jobs` table with `SELECT … FOR UPDATE SKIP LOCKED` claiming,
+leases with crash recovery, retry classification with caller-supplied backoff,
+dead-letter inspection and requeue, and idempotency on
+`(job_type, idempotency_key)`. Execution happens through a short-lived
+authenticated `POST /v1/jobs/process` with a dedicated `QUEUE_PROCESSOR_SECRET`.
+Email rows stay the durable record; jobs are wake-ups. The system does **not**
+claim exactly-once delivery. BullMQ remains until the replacement is verified,
+then its producers, workers and dependencies are removed after pending/delayed
+jobs are drained.
+
+**Consequences.** No paid worker is required. On free hosting there is no
+reliable minute-level scheduler: Vercel Hobby cron is daily, GitHub Actions
+schedules are delayed and best-effort. Delivery latency for idle accounts is
+therefore not guaranteed; this is documented rather than claimed away.
+
+## ADR-060 — Paystack is gated on verified USD/merchant capability (2026-11-08)
+
+**Context.** Paystack documents USD as a transaction currency, but USD acceptance
+and settlement depend on the merchant account. Calders' USD prices must not be
+silently converted to NGN.
+
+**Decision.** Use only documented Paystack endpoints and events. Require
+`PAYSTACK_USD_ENABLED=true`, `PAYSTACK_PLAN_STARTER` and `PAYSTACK_PLAN_PRO`
+before checkout. Verify webhook HMAC-SHA512 over the raw body, dedupe by raw-body
+hash, re-verify every transaction server-side, and compare integer amount and
+currency against our own payment row before granting anything. If USD is not
+enabled, refuse with `usd_not_enabled`.
+
+**Consequences.** Live USD sales remain blocked until the owner confirms account
+enablement, settlement currency, fees and recurring-USD support. Mocked tests do
+not prove a live merchant account.
