@@ -60,6 +60,13 @@ describe("/ready delivery_events check", () => {
     expect(check.detail).not.toContain("not reaching this endpoint");
   });
 
+  it("reports whether the allowlist is set, the fact the wiring script gates on", () => {
+    expect(deliveryEventsCheck(classifyDeliveryEvents(facts())).configured).toBe(true);
+    expect(
+      deliveryEventsCheck(classifyDeliveryEvents(facts({ topicArnsConfigured: false }))).configured
+    ).toBe(false);
+  });
+
   it("carries no provider-shaped detail, only our own words", () => {
     const check = deliveryEventsCheck(
       classifyDeliveryEvents(facts({ topicArnsConfigured: false, lastEventAt: null }))
