@@ -106,9 +106,7 @@ function die(line) {
  */
 function aws(argv, { mutating = true, allowFailure = false } = {}) {
   const full = ["aws", ...argv, "--region", REGION, "--output", "json"];
-  const printable = full
-    .map((a) => (/[\s{]/.test(a) ? `'${a}'` : a))
-    .join(" ");
+  const printable = full.map((a) => (/[\s{]/.test(a) ? `'${a}'` : a)).join(" ");
 
   if (mutating && dryRun) {
     console.log(`  would run  ${printable}`);

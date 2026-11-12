@@ -275,6 +275,10 @@ health.get("/ready", async (c) => {
       topicArnsConfigured: hasSesTopicArns(),
       lastEventAt: ingress.lastDeliveryEventAt,
       acceptedInWindow: ingress.acceptedInWindow,
+      // Raw ingress separates "SNS never called us" from "SNS called us and
+      // nothing matched", which are different repairs.
+      lastRawEventAt: ingress.lastRawEventAt,
+      unmatchedInWindow: ingress.unmatchedInWindow,
       windowStart: since,
       now,
     });

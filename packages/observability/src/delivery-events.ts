@@ -32,6 +32,12 @@ export type DeliveryEventState =
   | "stale"
   /** `SES_SNS_TOPIC_ARNS` is unset, so nothing can report back. */
   | "unconfigured"
+  /**
+   * Events reached the ingestion endpoint but none matched a message Calder
+   * sent. Ingestion is healthy; attribution is not. Distinct from `stale` on
+   * purpose: `stale` means nothing arrived at all, which is a wiring problem.
+   */
+  | "unattributed"
   /** Nothing was accepted in the window, so there is nothing to report on. */
   | "idle";
 
@@ -61,6 +67,14 @@ export interface DeliveryEventFacts {
   lastEventAt: Date | null;
   /** Messages the provider accepted inside the window. */
   acceptedInWindow: number;
+  /**
+   * Newest raw event in `provider_events`, matched or not. When this is recent
+   * but `lastEventAt` is not, the subscription works and the message ids do
+   * not — a very different fix from "SES is not reporting back".
+   */
+  lastRawEventAt?: Date | null;
+  /** Unmatched raw events in the window, for the unattributed sentence. */
+  unmatchedInWindow?: number;
   /** Start of the window the accepted count covers. */
   windowStart: Date;
   /** Injectable for tests; defaults to now. */
@@ -107,6 +121,33 @@ export function classifyDeliveryEvents(facts: DeliveryEventFacts): DeliveryEvent
 
   const fresh = lastEventAt !== null && lastEventAt >= windowStart;
   if (!fresh) {
+    // Before blaming the wiring, check whether events arrived at all. Sending
+    // straight from the SES console (or any client that is not Calder) puts
+    // real events in the ledger that can never match an email row; reporting
+    // that as "the SNS topic is not reaching this endpoint" sends an operator
+    // to rebuild a subscription that is working perfectly.
+    const rawAt = facts.lastRawEventAt ?? null;
+    if (rawAt !== null && rawAt >= windowStart) {
+      const unmatched = facts.unmatchedInWindow ?? 0;
+      const counted =
+        unmatched > 0
+          ? `${unmatched.toLocaleString("en-US")} event${unmatched === 1 ? "" : "s"}`
+          : "Events";
+      return {
+        state: "unattributed",
+        zerosTrusted: false,
+        headline: "Delivery events are arriving, but none match a Calder send.",
+        detail:
+          `${counted} reached this endpoint ${describeAge(
+            Math.max(0, now.getTime() - rawAt.getTime())
+          )} and none matched a message Calder sent, so no email status changed. ` +
+          "Ingestion is working; the events belong to mail sent outside the API. " +
+          "Send through Calder and the counts below become real.",
+        setupHref: DELIVERY_SETUP_HREF,
+        lastEventAt: lastEventIso,
+        configured: true,
+      };
+    }
     const sent = acceptedInWindow.toLocaleString("en-US");
     return {
       state: "stale",
@@ -114,8 +155,8 @@ export function classifyDeliveryEvents(facts: DeliveryEventFacts): DeliveryEvent
       headline: DELIVERY_UNKNOWN_HEADLINE,
       detail:
         `${sent} message${acceptedInWindow === 1 ? " was" : "s were"} accepted for delivery in this ` +
-        "window and no delivery event arrived for any of them. The SNS topic is configured but " +
-        "not reaching this endpoint, so delivery is not being observed.",
+        "window and nothing at all arrived at the feedback endpoint. The SNS topic is configured " +
+        "but not reaching this endpoint, so delivery is not being observed.",
       setupHref: DELIVERY_SETUP_HREF,
       lastEventAt: lastEventIso,
       configured: true,

@@ -16,6 +16,7 @@
 import { and, count, eq, gte, inArray, sql } from "drizzle-orm";
 import type { DbClient } from "./client.js";
 import { emailEvents, emails } from "./schema/emails.js";
+import { providerEvents } from "./schema/providers.js";
 
 /**
  * Event types that mean SES reported back. Only the SES feedback ingress
@@ -28,10 +29,25 @@ export const DELIVERY_EVENT_TYPES = ["delivered", "bounced", "complained"] as co
 export const ACCEPTED_DELIVERY_STATUSES = ["sent", "delivered", "bounced", "complained"] as const;
 
 export interface DeliveryEventIngress {
-  /** Newest delivery event, or null when none has ever arrived. */
+  /** Newest *applied* delivery event (one that reached a Calder email row). */
   lastDeliveryEventAt: Date | null;
   /** Messages accepted for delivery since `since`. */
   acceptedInWindow: number;
+  /**
+   * Newest raw SES event in the ledger, matched or not.
+   *
+   * This is the fact that separates two completely different failures that used
+   * to look identical: "SNS is not reaching us" (nothing in the ledger) versus
+   * "SNS reaches us but nothing matches a Calder send" (ledger full, no email
+   * touched). Only the first is a wiring problem.
+   */
+  lastRawEventAt: Date | null;
+  /**
+   * Raw events in the window that matched no Calder email. Unattributed rows
+   * carry no project, so this is only counted for account-wide (unscoped)
+   * callers; a tenant dashboard cannot honestly claim them.
+   */
+  unmatchedInWindow: number;
 }
 
 export async function deliveryEventIngress(
@@ -40,7 +56,7 @@ export async function deliveryEventIngress(
 ): Promise<DeliveryEventIngress> {
   const scope = opts.projectId;
 
-  const [lastEventRows, acceptedRows] = await Promise.all([
+  const [lastEventRows, acceptedRows, lastRawRows, unmatchedRows] = await Promise.all([
     db
       .select({ at: sql<Date | null>`max(${emailEvents.createdAt})` })
       .from(emailEvents)
@@ -60,13 +76,32 @@ export async function deliveryEventIngress(
           ...(scope ? [eq(emails.projectId, scope)] : [])
         )
       ),
+    // Raw ingress, matched or not. Scoped when a project is asked about, so a
+    // tenant only ever sees its own traffic.
+    db
+      .select({ at: sql<Date | null>`max(${providerEvents.createdAt})` })
+      .from(providerEvents)
+      .where(scope ? eq(providerEvents.projectId, scope) : undefined),
+    // Unattributed rows carry no project, so only an account-wide caller can
+    // count them; a project-scoped caller gets zero rather than a guess.
+    scope
+      ? Promise.resolve([{ value: 0 }])
+      : db
+          .select({ value: count() })
+          .from(providerEvents)
+          .where(
+            and(gte(providerEvents.createdAt, opts.since), eq(providerEvents.unmatched, true))
+          ),
   ]);
 
   const raw = lastEventRows[0]?.at ?? null;
+  const rawAny = lastRawRows[0]?.at ?? null;
   return {
     // The driver can hand back a string for an aggregate; normalise once here
     // rather than at every call site.
     lastDeliveryEventAt: raw ? new Date(raw) : null,
     acceptedInWindow: Number(acceptedRows[0]?.value ?? 0),
+    lastRawEventAt: rawAny ? new Date(rawAny) : null,
+    unmatchedInWindow: Number(unmatchedRows[0]?.value ?? 0),
   };
 }

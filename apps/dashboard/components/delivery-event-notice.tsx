@@ -96,5 +96,12 @@ export function DeliveryEventNotice({
  * Kept next to the components so the wording cannot drift between pages.
  */
 export function deliverySubline(health: DeliveryEventHealth, fallback: string): string {
-  return health.zerosTrusted ? fallback : "Unknown — no delivery events received";
+  if (health.zerosTrusted) return fallback;
+  // "Events arriving but unattributed" is a different fact from "nothing ever
+  // arrived", and telling an owner the wrong one sends them to fix the wrong
+  // thing.
+  if (health.state === "unattributed") {
+    return "Unknown — events arrive, but none match a Calder send";
+  }
+  return "Unknown — no delivery events received";
 }

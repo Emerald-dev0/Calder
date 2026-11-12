@@ -323,6 +323,11 @@ export async function deliveryEventHealth(
     topicArnsConfigured: hasSesTopicArns(),
     lastEventAt: ingress.lastDeliveryEventAt,
     acceptedInWindow: ingress.acceptedInWindow,
+    // Project-scoped raw ingress only sees this tenant's matched events, so a
+    // tenant can never be told "events are arriving" on another project's
+    // traffic.
+    lastRawEventAt: ingress.lastRawEventAt,
+    unmatchedInWindow: ingress.unmatchedInWindow,
     windowStart: since,
     now,
   });

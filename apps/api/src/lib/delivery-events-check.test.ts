@@ -41,6 +41,25 @@ describe("/ready delivery_events check", () => {
     expect(check.detail).toContain("3 messages were accepted");
   });
 
+  it("says events arrived but matched nothing, instead of blaming the wiring", () => {
+    // The exact situation the owner hit: SES console / CLI sends put real rows
+    // in provider_events, none of which can join an email. Wiring is fine.
+    const check = deliveryEventsCheck(
+      classifyDeliveryEvents(
+        facts({
+          lastEventAt: null,
+          acceptedInWindow: 35,
+          lastRawEventAt: new Date(),
+          unmatchedInWindow: 6,
+        })
+      )
+    );
+    expect(check.state).toBe("degraded");
+    expect(check.detail).toContain("6 events");
+    expect(check.detail).toContain("none matched a message Calder sent");
+    expect(check.detail).not.toContain("not reaching this endpoint");
+  });
+
   it("carries no provider-shaped detail, only our own words", () => {
     const check = deliveryEventsCheck(
       classifyDeliveryEvents(facts({ topicArnsConfigured: false, lastEventAt: null }))
