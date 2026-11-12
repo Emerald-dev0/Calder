@@ -510,6 +510,22 @@ Every PR: secret scan → dependency audit (`node scripts/security-audit.mjs`) �
      check fails on any pending migration or any regenerated timestamp, so a
      schema-behind deploy cannot pass the gate.
 
+  Where the credential lives: CI runs this as the `migrate` job on every push
+  to `main`, reading `secrets.MIGRATION_DATABASE_URL`. It is **not** an
+  application variable — `calder-api` and `calder-dashboard` keep the pooled
+  `DATABASE_URL` (pooler host, `channel_binding=require`) and nothing at
+  runtime reads `MIGRATION_DATABASE_URL`. The secret is the same Neon database
+  with two edits, both required:
+
+  1. drop `-pooler` from the host — DDL and advisory locks need the direct
+     endpoint, not the pooler;
+  2. drop `channel_binding=require` — gotcha 1 above (the driver times out
+     with it, which reads like a network problem).
+
+  The job's first step fails with one sentence if the secret is empty, points
+  at `localhost`/`127.0.0.1`, or still carries a `-pooler` host, so a missing
+  secret never shows up as a bare `ECONNREFUSED`.
+
 - [ ] Performance budget thresholds (LCP/CLS/bundle size)
 
 ## Rollback (§19)
