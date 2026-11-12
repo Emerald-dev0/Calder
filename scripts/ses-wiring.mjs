@@ -15,7 +15,7 @@
  *   node scripts/ses-wiring.mjs apply [--dry-run]     # topic + config set + destination + attach
  *   node scripts/ses-wiring.mjs subscribe [--dry-run] # gate on /ready, then subscribe and confirm
  *   node scripts/ses-wiring.mjs check                 # what the deployed API says right now
- *   node scripts/ses-wiring.mjs test <from@address>   # simulator hard bounce
+ *   node scripts/ses-wiring.mjs test <from> [kind]    # simulator bounce|success|complaint
  *   node scripts/ses-wiring.mjs policy                # IAM policy if you hit AccessDenied
  *
  * ORDER MATTERS: `subscribe` refuses to run until the deployed API reports the
@@ -52,6 +52,24 @@ const EVENT_TYPES = [
   "CLICK",
   "RENDERING_FAILURE",
 ];
+
+// SES simulator destinations produce real, deterministic events without
+// touching a real inbox. This is how delivery truth gets proven rather than
+// asserted: each kind exercises a different branch of applySesEvent.
+const SIMULATORS = {
+  bounce: {
+    address: "bounce@simulator.amazonses.com",
+    expect: "BOUNCE -> email.status bounced, suppressions row auto-created",
+  },
+  success: {
+    address: "success@simulator.amazonses.com",
+    expect: "DELIVERY -> email.status delivered",
+  },
+  complaint: {
+    address: "complaint@simulator.amazonses.com",
+    expect: "COMPLAINT -> suppressions row + organization reputation counter",
+  },
+};
 
 const AUTH_DENIED = /AuthorizationError|AccessDenied|not authorized|UnauthorizedOperation/i;
 
@@ -415,25 +433,34 @@ async function check() {
 // ── test ────────────────────────────────────────────────────────────────────
 async function test() {
   const from = args[1];
-  if (!from) die("usage: node scripts/ses-wiring.mjs test <verified-from-address>");
+  const kind = (args[2] ?? "bounce").toLowerCase();
+  if (!from) {
+    die("usage: node scripts/ses-wiring.mjs test <from@address> [bounce|success|complaint]");
+  }
+  if (!SIMULATORS[kind]) {
+    die(`unknown kind '${kind}'. Use one of: ${Object.keys(SIMULATORS).join(", ")}`);
+  }
   requireAws();
-  head(`Simulator hard bounce  from ${from}`);
+  const simulator = SIMULATORS[kind];
+  head(`Simulator ${kind}  from ${from}  ->  ${simulator.address}`);
   const out = aws([
     "sesv2",
     "send-email",
     "--from-email-address",
     from,
     "--destination",
-    "ToAddresses=bounce@simulator.amazonses.com",
+    `ToAddresses=${simulator.address}`,
     "--configuration-set-name",
     CONFIG_SET,
     "--content",
     JSON.stringify({
       Simple: {
-        Subject: { Data: "Calder SES wiring test" },
+        Subject: { Data: `Calder SES feedback check (${kind})` },
         Body: {
           Text: {
-            Data: "Simulated hard bounce. Simulator addresses never reach a real inbox.",
+            Data:
+              "SES simulator message. It never reaches a real inbox; it exists to " +
+              "prove delivery feedback reaches Calder.",
           },
         },
       },
@@ -441,10 +468,9 @@ async function test() {
   ]);
   ok(`accepted, MessageId ${out?.MessageId ?? "(dry run)"}`);
   say("");
-  say("  Within a minute these should all be true:");
-  say("    - provider_events has a BOUNCE row with unmatched=false");
-  say("    - the email flips to bounced and a suppressions row appears by itself");
-  say(`    - ${API_URL}/ready shows delivery_events as a measurement, not 'unknown'`);
+  say(`  Expected within ~60s: ${simulator.expect}`);
+  say("  Ledger:   provider_events row with unmatched=false");
+  say(`  API:      ${API_URL}/ready delivery_events becomes a measurement, not 'unknown'`);
   say("");
   say("  node scripts/ses-wiring.mjs check");
 }
@@ -524,10 +550,10 @@ if (!command || !commands[command]) {
   say("usage: node scripts/ses-wiring.mjs <plan|apply|subscribe|check|test|policy> [--dry-run]");
   say("");
   say("  plan       read-only inventory: identities, topic, config set, deployed API");
-  say("  apply      create topic + config set + event destination, attach to identities");
+  say("  apply      topic + config set + event destination + attach to identities");
   say("  subscribe  gate on the deployed allowlist, then subscribe and wait for confirmation");
   say("  check      what the deployed API reports right now");
-  say("  test       send a simulator hard bounce through the configuration set");
+  say("  test       simulator send: bounce | success | complaint (default bounce)");
   say("  policy     print the least-privilege IAM policy this setup needs");
   say("");
   say(`  region ${REGION}   api ${API_URL}   config set ${CONFIG_SET}`);

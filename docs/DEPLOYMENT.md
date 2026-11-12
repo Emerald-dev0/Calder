@@ -398,7 +398,10 @@ vercel env add SES_CONFIGURATION_SET production <<< "calder-default"
 ```
 
 Verification (SES sandbox-safe): send to the simulator addresses, then check
-`provider_events` and the email's status:
+`provider_events` and the email's status. `node scripts/ses-wiring.mjs test
+<from-address> [bounce|success|complaint]` does each of the three, one branch
+of `applySesEvent` per run — bounce proves suppression, success proves delivery,
+complaint proves the reputation counter:
 
 ```bash
 # hard bounce → status bounced + suppression row auto-created
