@@ -59,15 +59,18 @@ const EVENT_TYPES = [
 const SIMULATORS = {
   bounce: {
     address: "bounce@simulator.amazonses.com",
-    expect: "BOUNCE -> email.status bounced, suppressions row auto-created",
+    event: "bounce",
+    expect: "BOUNCE event -> provider_events(event_type=bounce)",
   },
   success: {
     address: "success@simulator.amazonses.com",
-    expect: "DELIVERY -> email.status delivered",
+    event: "delivery",
+    expect: "DELIVERY event -> provider_events(event_type=delivery)",
   },
   complaint: {
     address: "complaint@simulator.amazonses.com",
-    expect: "COMPLAINT -> suppressions row + organization reputation counter",
+    event: "complaint",
+    expect: "COMPLAINT event -> provider_events(event_type=complaint)",
   },
 };
 
@@ -467,10 +470,14 @@ async function test() {
   ok(`accepted, MessageId ${out?.MessageId ?? "(dry run)"}`);
   say("");
   say(`  Expected within ~60s: ${simulator.expect}`);
-  say("  Ledger:   provider_events row with unmatched=false");
+  say("  Ledger:   provider_events row for this MessageId. This send did NOT come");
+  say("            through Calder, so there is no email row to update: the event");
+  say("            lands unmatched=true, which is correct for a CLI-origin send,");
+  say("            not a join failure. The suppression and reputation branches");
+  say("            only run for sends Calder itself made.");
   say(`  API:      ${API_URL}/ready delivery_events becomes a measurement, not 'unknown'`);
   say("");
-  say("  node scripts/ses-wiring.mjs check");
+  say("  Then: node scripts/ses-wiring.mjs check");
 }
 
 // ── policy ──────────────────────────────────────────────────────────────────
