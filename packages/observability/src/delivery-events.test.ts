@@ -64,6 +64,41 @@ describe("classifyDeliveryEvents", () => {
     expect(health.state).toBe("stale");
   });
 
+  it("separates events that arrived but matched nothing from a dead subscription", () => {
+    // The failure that looks like a wiring bug and is not: SES console sends
+    // (or any client that is not Calder) put real events in the ledger that can
+    // never match an email row. Telling the operator "the SNS topic is not
+    // reaching this endpoint" would send them to rebuild a working subscription.
+    const health = classifyDeliveryEvents(
+      facts({
+        lastEventAt: null,
+        lastRawEventAt: new Date("2026-10-28T11:59:00.000Z"),
+        unmatchedInWindow: 3,
+      })
+    );
+    expect(health.state).toBe("unattributed");
+    expect(health.zerosTrusted).toBe(false);
+    expect(health.detail).toContain("3 events");
+    expect(health.detail).toContain("none matched a message Calder sent");
+    expect(health.detail).toContain("Ingestion is working");
+    expect(health.detail).not.toContain("not reaching this endpoint");
+  });
+
+  it("still blames the wiring when nothing at all arrived", () => {
+    const health = classifyDeliveryEvents(
+      facts({ lastEventAt: null, lastRawEventAt: null, unmatchedInWindow: 0 })
+    );
+    expect(health.state).toBe("stale");
+    expect(health.detail).toContain("nothing at all arrived");
+  });
+
+  it("ignores raw events that predate the window", () => {
+    const health = classifyDeliveryEvents(
+      facts({ lastEventAt: null, lastRawEventAt: new Date(windowStart.getTime() - 1) })
+    );
+    expect(health.state).toBe("stale");
+  });
+
   it("calls it fresh when an event landed inside the window", () => {
     const health = classifyDeliveryEvents(facts());
     expect(health.state).toBe("fresh");
