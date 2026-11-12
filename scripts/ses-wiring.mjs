@@ -16,6 +16,7 @@
  *   node scripts/ses-wiring.mjs subscribe [--dry-run] # gate on /ready, then subscribe and confirm
  *   node scripts/ses-wiring.mjs check                 # what the deployed API says right now
  *   node scripts/ses-wiring.mjs test <from@address>   # simulator hard bounce
+ *   node scripts/ses-wiring.mjs policy                # IAM policy if you hit AccessDenied
  *
  * ORDER MATTERS: `subscribe` refuses to run until the deployed API reports the
  * topic allowlist as configured. That is not a bug being worked around — the
@@ -51,6 +52,8 @@ const EVENT_TYPES = [
   "CLICK",
   "RENDERING_FAILURE",
 ];
+
+const AUTH_DENIED = /AuthorizationError|AccessDenied|not authorized|UnauthorizedOperation/i;
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -103,6 +106,13 @@ function aws(argv, { mutating = true, allowFailure = false } = {}) {
   } catch (err) {
     const stderr = String(err.stderr ?? err.message).trim();
     if (allowFailure) return { __error: stderr };
+    if (AUTH_DENIED.test(stderr)) {
+      console.error(
+        "\n  The credentials in use are not allowed to do that. Nothing changed.\n" +
+          "  Attach the policy printed by `node scripts/ses-wiring.mjs policy` to this user,\n" +
+          "  or run the command as an admin/root principal."
+      );
+    }
     die(`${printable}\n       ${stderr}`);
   }
 }
@@ -439,15 +449,86 @@ async function test() {
   say("  node scripts/ses-wiring.mjs check");
 }
 
-const commands = { plan, apply, subscribe, check, test };
+// ── policy ──────────────────────────────────────────────────────────────────
+/**
+ * The least-privilege IAM policy this setup needs. Printed rather than applied:
+ * attaching IAM policy is an account-level decision, and a script that silently
+ * widens its own permissions is a bad neighbour.
+ */
+function policyDocument() {
+  const acct = account();
+  const topic = `arn:aws:sns:${REGION}:${acct}:${TOPIC_NAME}`;
+  return {
+    Version: "2012-10-17",
+    Statement: [
+      {
+        Sid: "ReadSesAndSnsState",
+        Effect: "Allow",
+        Action: [
+          "sns:ListTopics",
+          "sns:GetTopicAttributes",
+          "sns:ListSubscriptionsByTopic",
+          "ses:GetAccount",
+          "ses:ListEmailIdentities",
+          "ses:GetEmailIdentity",
+          "ses:ListConfigurationSets",
+          "ses:GetConfigurationSetEventDestinations",
+        ],
+        Resource: "*",
+      },
+      {
+        // CreateTopic does not support resource-level permissions.
+        Sid: "CreateTopic",
+        Effect: "Allow",
+        Action: ["sns:CreateTopic"],
+        Resource: "*",
+      },
+      {
+        Sid: "SubscribeOurTopic",
+        Effect: "Allow",
+        Action: ["sns:Subscribe"],
+        Resource: topic,
+      },
+      {
+        Sid: "ConfigurationSetWiring",
+        Effect: "Allow",
+        Action: [
+          "ses:CreateConfigurationSet",
+          "ses:PutConfigurationSetEventDestination",
+          "ses:PutEmailIdentityConfigurationSetAttributes",
+        ],
+        Resource: "*",
+      },
+      {
+        Sid: "SimulatorTestSend",
+        Effect: "Allow",
+        Action: ["ses:SendEmail"],
+        Resource: "*",
+      },
+    ],
+  };
+}
+
+function policy() {
+  requireAws();
+  head("Attach this to the IAM user running the setup");
+  say("  Console -> IAM -> Users -> <user> -> Add permissions -> Create inline policy -> JSON");
+  say("");
+  say(JSON.stringify(policyDocument(), null, 2));
+  say("");
+  say("  Then: node scripts/ses-wiring.mjs apply");
+}
+
+const commands = { plan, apply, subscribe, check, test, policy };
 if (!command || !commands[command]) {
-  say("usage: node scripts/ses-wiring.mjs <plan|apply|subscribe|check|test> [--dry-run]");
+  say("usage: node scripts/ses-wiring.mjs <plan|apply|subscribe|check|test|policy> [--dry-run]");
   say("");
   say("  plan       read-only inventory: identities, topic, config set, deployed API");
   say("  apply      create topic + config set + event destination, attach to identities");
   say("  subscribe  gate on the deployed allowlist, then subscribe and wait for confirmation");
   say("  check      what the deployed API reports right now");
   say("  test       send a simulator hard bounce through the configuration set");
+  say("  policy     print the least-privilege IAM policy this setup needs");
   say("");
   say(`  region ${REGION}   api ${API_URL}   config set ${CONFIG_SET}`);
   process.exit(command ? 1 : 0);
