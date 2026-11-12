@@ -138,6 +138,12 @@ function aws(argv, { mutating = true, allowFailure = false } = {}) {
 
 const read = (argv) => aws(argv, { mutating: false, allowFailure: true });
 
+const failed = (out) => Boolean(out?.__error);
+const firstLine = (s) =>
+  String(s ?? "")
+    .split("\n")[0]
+    .trim();
+
 function requireAws() {
   try {
     execFileSync("aws", ["--version"], { stdio: "ignore" });
@@ -157,18 +163,26 @@ function topicArn() {
   return `arn:aws:sns:${REGION}:${account()}:${TOPIC_NAME}`;
 }
 
+/**
+ * Every read below answers three ways: present, absent, or unknown. Collapsing
+ * "this role may not look" into "it does not exist" is not a cosmetic bug — it
+ * tells an operator to run `apply`, which then tries to create a resource that
+ * already exists. A refused read is never evidence of absence.
+ */
 function findTopic() {
   const out = read(["sns", "list-topics"]);
-  const topics = (out?.Topics ?? []).map((t) => t.TopicArn);
-  return topics.find((a) => a.endsWith(`:${TOPIC_NAME}`)) ?? null;
+  if (failed(out)) return { state: "unknown", reason: firstLine(out.__error) };
+  const arns = (out?.Topics ?? []).map((t) => t.TopicArn);
+  return arns.some((a) => a.endsWith(`:${TOPIC_NAME}`))
+    ? { state: "present", reason: null }
+    : { state: "absent", reason: null };
 }
 
-function findConfigSet() {
-  const out = read(["sesv2", "list-configuration-sets"]);
-  const names = (out?.ConfigurationSets ?? []).map((c) => c.ConfigurationSetName);
-  return names.includes(CONFIG_SET) ? CONFIG_SET : null;
-}
-
+/**
+ * Probed through the event-destination read rather than
+ * list-configuration-sets: the narrower action is the one an operator role is
+ * likely to hold, and its ResourceNotFound genuinely means "no such set".
+ */
 function eventDestinations() {
   const out = read([
     "sesv2",
@@ -176,12 +190,23 @@ function eventDestinations() {
     "--configuration-set-name",
     CONFIG_SET,
   ]);
-  return out?.EventDestinations ?? [];
+  if (failed(out)) {
+    const absent = /ResourceNotFound|NotFound|does not exist/i.test(String(out.__error));
+    return {
+      state: absent ? "absent" : "unknown",
+      reason: absent ? null : firstLine(out.__error),
+      destinations: [],
+    };
+  }
+  return { state: "present", reason: null, destinations: out?.EventDestinations ?? [] };
 }
 
 function subscriptions(arn) {
   const out = read(["sns", "list-subscriptions-by-topic", "--topic-arn", arn]);
-  return out?.Subscriptions ?? [];
+  if (failed(out)) {
+    return { state: "unknown", reason: firstLine(out.__error), subscriptions: [] };
+  }
+  return { state: "present", reason: null, subscriptions: out?.Subscriptions ?? [] };
 }
 
 function identityState(identity) {
@@ -215,7 +240,7 @@ async function plan() {
   for (const identity of IDENTITIES) {
     const state = identityState(identity);
     if (!state || state.__error) {
-      missing(`${identity} — not found in ${REGION}`);
+      warn(`${identity} — cannot read: ${firstLine(state?.__error) || "no output"}`);
       continue;
     }
     const dkim = state.DkimAttributes?.Status ?? "unknown";
@@ -227,28 +252,46 @@ async function plan() {
     }
   }
 
-  head("SNS topic");
-  const topic = findTopic();
-  if (!topic) {
-    missing(`topic ${TOPIC_NAME} does not exist`);
+  head("Configuration set");
+  const dest = eventDestinations();
+  if (dest.state === "absent") {
+    missing(`configuration set ${CONFIG_SET} does not exist`);
+  } else if (dest.state === "unknown") {
+    warn(`cannot read ${CONFIG_SET} — ${dest.reason}`);
   } else {
-    ok(`exists ${topic}`);
-    const subs = subscriptions(topic).filter((s) => s.Protocol === "https");
-    if (subs.length === 0) missing(`no HTTPS subscription — /v1/ses/events is not wired`);
-    for (const sub of subs) {
-      if (isConfirmed(sub)) ok(`confirmed ${sub.Endpoint}`);
-      else missing(`pending confirmation ${sub.Endpoint}`);
+    ok(`exists ${CONFIG_SET}`);
+    const sns = dest.destinations.filter((d) => d.SnsDestination?.TopicArn);
+    if (sns.length === 0) missing("no SNS event destination — SES events go nowhere");
+    for (const d of sns) {
+      const types = (d.MatchingEventTypes ?? []).length;
+      ok(`destination ${d.Name} -> ${d.SnsDestination.TopicArn}`);
+      say(`       ${d.Enabled === false ? "DISABLED" : "enabled"}, ${types} event types`);
     }
   }
 
-  head("Configuration set");
-  if (!findConfigSet()) {
-    missing(`configuration set ${CONFIG_SET} does not exist`);
+  head("SNS topic");
+  const topic = findTopic();
+  const destinationArn = dest.destinations.find((d) => d.SnsDestination?.TopicArn)?.SnsDestination
+    ?.TopicArn;
+  if (topic.state === "absent") {
+    missing(`topic ${TOPIC_NAME} does not exist`);
+  } else if (topic.state === "unknown") {
+    warn(`cannot list topics — ${topic.reason}`);
+    say("       not the same as missing: the config set above publishes to");
+    say(`       ${destinationArn ?? topicArn()}`);
   } else {
-    ok(`exists ${CONFIG_SET}`);
-    const sns = eventDestinations().filter((d) => d.SnsDestination?.TopicArn);
-    if (sns.length === 0) missing("no SNS event destination — SES events go nowhere");
-    for (const d of sns) ok(`destination ${d.Name} -> ${d.SnsDestination.TopicArn}`);
+    const subState = subscriptions(topicArn());
+    if (subState.state === "unknown") {
+      warn(`cannot list subscriptions — ${subState.reason}`);
+      say(`       check by hand that this endpoint is subscribed: ${API_URL}/v1/ses/events`);
+    } else {
+      const subs = subState.subscriptions.filter((s) => s.Protocol === "https");
+      if (subs.length === 0) missing(`no HTTPS subscription — /v1/ses/events is not wired`);
+      for (const sub of subs) {
+        if (isConfirmed(sub)) ok(`confirmed ${sub.Endpoint}`);
+        else missing(`pending confirmation ${sub.Endpoint}`);
+      }
+    }
   }
 
   head("Deployed API");
@@ -263,9 +306,16 @@ async function plan() {
   }
 
   head("Next");
-  say("  node scripts/ses-wiring.mjs apply        AWS side, idempotent, safe to re-run");
-  say("  ...then set the two env vars in Vercel Production and redeploy calder-api");
-  say("  node scripts/ses-wiring.mjs subscribe    refuses until that redeploy is live");
+  if (topic.state === "absent" || dest.state === "absent") {
+    say("  node scripts/ses-wiring.mjs apply        AWS side, idempotent, safe to re-run");
+    say("  ...then set SES_SNS_TOPIC_ARNS and SES_CONFIGURATION_SET in Vercel Production");
+    say("  node scripts/ses-wiring.mjs subscribe    refuses until that redeploy is live");
+  } else {
+    say("  Nothing above needs creating. The unresolved link is topic -> API:");
+    say(`    subscription endpoint  ${API_URL}/v1/ses/events`);
+    say("  Confirm it on the topic's Subscriptions tab in the SNS console, or grant");
+    say("  the read actions with:  node scripts/ses-wiring.mjs policy");
+  }
   say("  node scripts/ses-wiring.mjs test <verified-from-address>");
 }
 
@@ -275,14 +325,27 @@ async function apply() {
   const topic = topicArn();
 
   head(`1/4  SNS topic  ${topic}`);
-  if (findTopic()) ok("already exists, leaving it alone");
+  const topicState = findTopic();
+  if (topicState.state === "present") ok("already exists, leaving it alone");
+  else if (topicState.state === "unknown")
+    die(
+      `cannot confirm whether ${TOPIC_NAME} exists (${topicState.reason}).\n` +
+        "       Not creating a topic that may already be there. Grant sns:ListTopics\n" +
+        "       (node scripts/ses-wiring.mjs policy) or create it in the console."
+    );
   else {
     aws(["sns", "create-topic", "--name", TOPIC_NAME]);
     ok(dryRun ? "would create" : "created");
   }
 
   head(`2/4  Configuration set  ${CONFIG_SET}`);
-  if (findConfigSet()) ok("already exists, leaving it alone");
+  const destBefore = eventDestinations();
+  if (destBefore.state === "present") ok("already exists, leaving it alone");
+  else if (destBefore.state === "unknown")
+    die(
+      `cannot confirm whether ${CONFIG_SET} exists (${destBefore.reason}).\n` +
+        "       Not creating a set that may already be there."
+    );
   else {
     aws(["sesv2", "create-configuration-set", "--configuration-set-name", CONFIG_SET]);
     ok(dryRun ? "would create" : "created");
@@ -294,22 +357,30 @@ async function apply() {
     MatchingEventTypes: EVENT_TYPES,
     SnsDestination: { TopicArn: topic },
   });
-  const existing = eventDestinations().find((d) => d.Name === DESTINATION_NAME);
-  const destinationAction = existing
-    ? "update-configuration-set-event-destination"
-    : "create-configuration-set-event-destination";
-  aws([
-    "sesv2",
-    destinationAction,
-    "--configuration-set-name",
-    CONFIG_SET,
-    "--event-destination-name",
-    DESTINATION_NAME,
-    "--event-destination",
-    definition,
-  ]);
-  const verb2 = existing ? "update" : "create";
-  ok(dryRun ? `would ${verb2} -> ${topic}` : `${verb2}d -> ${topic}`);
+  const current = eventDestinations().destinations;
+  const publishing = current.find((d) => d.SnsDestination?.TopicArn === topic);
+  if (publishing && publishing.Name !== DESTINATION_NAME) {
+    // Two destinations for one topic publish every event twice.
+    ok(`destination '${publishing.Name}' already publishes to ${topic}`);
+    say("       leaving it alone instead of adding a duplicate");
+  } else {
+    const existing = current.find((d) => d.Name === DESTINATION_NAME);
+    const destinationAction = existing
+      ? "update-configuration-set-event-destination"
+      : "create-configuration-set-event-destination";
+    aws([
+      "sesv2",
+      destinationAction,
+      "--configuration-set-name",
+      CONFIG_SET,
+      "--event-destination-name",
+      DESTINATION_NAME,
+      "--event-destination",
+      definition,
+    ]);
+    const verb2 = existing ? "update" : "create";
+    ok(dryRun ? `would ${verb2} -> ${topic}` : `${verb2}d -> ${topic}`);
+  }
 
   head("4/4  Attach configuration set to sending identities");
   for (const identity of IDENTITIES) {
@@ -374,7 +445,19 @@ async function subscribe() {
   ok("allowlist is live");
 
   head("Subscribe");
-  const already = subscriptions(topic).find((s) => s.Endpoint === endpoint);
+  const before = subscriptions(topic);
+  if (before.state === "unknown") {
+    die(
+      [
+        `cannot list subscriptions on ${topic} (${before.reason}).`,
+        "       Without sns:ListSubscriptionsByTopic this cannot tell an existing",
+        "       subscription from a missing one, and a blind Subscribe doubles the",
+        "       delivery. Grant it (node scripts/ses-wiring.mjs policy) or subscribe",
+        `       in the SNS console: HTTPS -> ${endpoint}`,
+      ].join("\n")
+    );
+  }
+  const already = before.subscriptions.find((s) => s.Endpoint === endpoint);
   if (already && isConfirmed(already)) {
     ok(`already subscribed and confirmed: ${endpoint}`);
     return;
@@ -395,7 +478,7 @@ async function subscribe() {
 
   head("Wait for the API to confirm (up to 90s)");
   for (let attempt = 1; attempt <= 18; attempt++) {
-    const sub = subscriptions(topic).find((s) => s.Endpoint === endpoint);
+    const sub = subscriptions(topic).subscriptions.find((s) => s.Endpoint === endpoint);
     if (isConfirmed(sub)) {
       ok(`confirmed: ${sub.SubscriptionArn}`);
       say("\n  Next: node scripts/ses-wiring.mjs test <verified-from-address>");
