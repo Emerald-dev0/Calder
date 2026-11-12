@@ -386,8 +386,34 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # A missing secret used to surface as ECONNREFUSED on localhost:5432
+      # (the client falls back to a dev URL), which reads like a code failure.
+      # Say it plainly instead.
+      - name: Require MIGRATION_DATABASE_URL
+        env:
+          DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::MIGRATION_DATABASE_URL is not configured. Add it as a repository secret (or on the production-migrations environment): the direct, unpooled connection string for the production database."
+            exit 1
+          fi
+          case "$DATABASE_URL" in
+            *localhost*|*127.0.0.1*)
+              echo "::error::MIGRATION_DATABASE_URL points at localhost. This job has no database service; it must be the direct production connection string."
+              exit 1
+              ;;
+            *-pooler.*)
+              echo "::error::MIGRATION_DATABASE_URL uses a pooled host. Migrations take DDL and advisory locks; use the direct host (drop the -pooler segment)."
+              exit 1
+              ;;
+          esac
+          echo "MIGRATION_DATABASE_URL is configured"
+
+      # db:migrate (tsx src/migrate.ts) is the same runner the operator uses per
+      # docs/DEPLOYMENT.md, so CI exercises the documented path rather than a
+      # second one. drizzle-kit stays for generate/drift only.
       - name: Apply migrations
-        run: pnpm --filter @calder/db exec drizzle-kit migrate
+        run: pnpm --filter @calder/db db:migrate
         env:
           DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
 
