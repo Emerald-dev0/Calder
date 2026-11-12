@@ -347,6 +347,12 @@ Delivery truth (ADR-035) requires SNS to reach the API. This is the ONE piece
 of the Phase 1 milestone that cannot be done from code — it is AWS console /
 CLI work, done once per environment.
 
+`node scripts/ses-wiring.mjs plan|apply|subscribe|check|test` performs the same
+steps idempotently and enforces the ordering below: it refuses to subscribe
+until the deployed API reports `SES_SNS_TOPIC_ARNS` as configured, because the
+endpoint will not auto-confirm a topic it was not told to trust. `plan` is
+read-only; `apply --dry-run` prints the exact AWS calls first.
+
 ```bash
 # 1. Create the SNS topic (one topic carries all SES event types)
 aws sns create-topic --name calder-ses-events
