@@ -998,93 +998,113 @@ export async function platformPulse(): Promise<PlatformPulse> {
     eq(emails.env, "live")
   );
 
-  const [
-    emailsAllTime,
-    emailsToday,
-    emailRows,
-    signupsToday,
-    signupsWeek,
-    signupsTotal,
-    orgsToday,
-    orgsTotal,
-    projectsTotal,
-    domainsToday,
-    domainsTotal,
-    domainsVerified,
-    sendersToday,
-    sendersTotal,
-    sendersUsable,
-    invitesToday,
-    invitesTotal,
-    invitesPending,
-    contactsToday,
-    contactsTotal,
-    activeKeys,
-    totalKeys,
-    webhooksTotal,
-  ] = await Promise.all([
-    scalar(db.select({ value: count() }).from(emails).where(liveAccepted)),
-    scalar(
-      db
-        .select({ value: count() })
-        .from(emails)
-        .where(and(liveAccepted, gte(emails.createdAt, today)))
-    ),
-    scalar(db.select({ value: count() }).from(emails)),
-    scalar(db.select({ value: count() }).from(users).where(gte(users.createdAt, today))),
-    scalar(db.select({ value: count() }).from(users).where(gte(users.createdAt, weekAgo))),
-    scalar(db.select({ value: count() }).from(users)),
-    scalar(
-      db.select({ value: count() }).from(organizations).where(gte(organizations.createdAt, today))
-    ),
-    scalar(db.select({ value: count() }).from(organizations)),
-    scalar(db.select({ value: count() }).from(projects)),
-    scalar(db.select({ value: count() }).from(domains).where(gte(domains.createdAt, today))),
-    scalar(db.select({ value: count() }).from(domains)),
-    scalar(db.select({ value: count() }).from(domains).where(eq(domains.status, "verified"))),
-    scalar(
-      db
-        .select({ value: count() })
-        .from(senderIdentities)
-        .where(gte(senderIdentities.createdAt, today))
-    ),
-    scalar(db.select({ value: count() }).from(senderIdentities)),
-    scalar(
-      db
-        .select({ value: count() })
-        .from(senderIdentities)
-        .where(inArray(senderIdentities.status, ["verified", "connected"]))
-    ),
-    scalar(
-      db.select({ value: count() }).from(orgInvitations).where(gte(orgInvitations.createdAt, today))
-    ),
-    scalar(db.select({ value: count() }).from(orgInvitations)),
-    scalar(
-      db.select({ value: count() }).from(orgInvitations).where(isNull(orgInvitations.acceptedAt))
-    ),
-    scalar(db.select({ value: count() }).from(contacts).where(gte(contacts.createdAt, today))),
-    scalar(db.select({ value: count() }).from(contacts)),
-    scalar(db.select({ value: count() }).from(apiKeys).where(isNull(apiKeys.revokedAt))),
-    scalar(db.select({ value: count() }).from(apiKeys)),
-    scalar(db.select({ value: count() }).from(webhooks)),
-  ]);
+  // One snapshot for every count. Each group below reports "this many, out of
+  // that many", and those two numbers are only ordered if nothing commits
+  // between the reads. The integration suites create and delete organizations
+  // — cascading to their keys and senders — while the Command Center is being
+  // read, so a repeatable-read transaction is what makes the page's invariant
+  // true rather than merely probable.
+  return db.transaction(
+    async (tx) => {
+      const [
+        emailsAllTime,
+        emailsToday,
+        emailRows,
+        signupsToday,
+        signupsWeek,
+        signupsTotal,
+        orgsToday,
+        orgsTotal,
+        projectsTotal,
+        domainsToday,
+        domainsTotal,
+        domainsVerified,
+        sendersToday,
+        sendersTotal,
+        sendersUsable,
+        invitesToday,
+        invitesTotal,
+        invitesPending,
+        contactsToday,
+        contactsTotal,
+        activeKeys,
+        totalKeys,
+        webhooksTotal,
+      ] = await Promise.all([
+        scalar(tx.select({ value: count() }).from(emails).where(liveAccepted)),
+        scalar(
+          tx
+            .select({ value: count() })
+            .from(emails)
+            .where(and(liveAccepted, gte(emails.createdAt, today)))
+        ),
+        scalar(tx.select({ value: count() }).from(emails)),
+        scalar(tx.select({ value: count() }).from(users).where(gte(users.createdAt, today))),
+        scalar(tx.select({ value: count() }).from(users).where(gte(users.createdAt, weekAgo))),
+        scalar(tx.select({ value: count() }).from(users)),
+        scalar(
+          tx
+            .select({ value: count() })
+            .from(organizations)
+            .where(gte(organizations.createdAt, today))
+        ),
+        scalar(tx.select({ value: count() }).from(organizations)),
+        scalar(tx.select({ value: count() }).from(projects)),
+        scalar(tx.select({ value: count() }).from(domains).where(gte(domains.createdAt, today))),
+        scalar(tx.select({ value: count() }).from(domains)),
+        scalar(tx.select({ value: count() }).from(domains).where(eq(domains.status, "verified"))),
+        scalar(
+          tx
+            .select({ value: count() })
+            .from(senderIdentities)
+            .where(gte(senderIdentities.createdAt, today))
+        ),
+        scalar(tx.select({ value: count() }).from(senderIdentities)),
+        scalar(
+          tx
+            .select({ value: count() })
+            .from(senderIdentities)
+            .where(inArray(senderIdentities.status, ["verified", "connected"]))
+        ),
+        scalar(
+          tx
+            .select({ value: count() })
+            .from(orgInvitations)
+            .where(gte(orgInvitations.createdAt, today))
+        ),
+        scalar(tx.select({ value: count() }).from(orgInvitations)),
+        scalar(
+          tx
+            .select({ value: count() })
+            .from(orgInvitations)
+            .where(isNull(orgInvitations.acceptedAt))
+        ),
+        scalar(tx.select({ value: count() }).from(contacts).where(gte(contacts.createdAt, today))),
+        scalar(tx.select({ value: count() }).from(contacts)),
+        scalar(tx.select({ value: count() }).from(apiKeys).where(isNull(apiKeys.revokedAt))),
+        scalar(tx.select({ value: count() }).from(apiKeys)),
+        scalar(tx.select({ value: count() }).from(webhooks)),
+      ]);
 
-  return {
-    emails: {
-      acceptedAllTime: emailsAllTime,
-      acceptedToday: emailsToday,
-      rowsEverCreated: emailRows,
+      return {
+        emails: {
+          acceptedAllTime: emailsAllTime,
+          acceptedToday: emailsToday,
+          rowsEverCreated: emailRows,
+        },
+        signups: { today: signupsToday, week: signupsWeek, total: signupsTotal },
+        organizations: { today: orgsToday, total: orgsTotal },
+        projects: { total: projectsTotal },
+        domains: { today: domainsToday, total: domainsTotal, verified: domainsVerified },
+        senderIdentities: { today: sendersToday, total: sendersTotal, usable: sendersUsable },
+        teamInvites: { today: invitesToday, total: invitesTotal, pending: invitesPending },
+        contacts: { today: contactsToday, total: contactsTotal },
+        apiKeys: { active: activeKeys, total: totalKeys },
+        webhooks: { total: webhooksTotal },
+      };
     },
-    signups: { today: signupsToday, week: signupsWeek, total: signupsTotal },
-    organizations: { today: orgsToday, total: orgsTotal },
-    projects: { total: projectsTotal },
-    domains: { today: domainsToday, total: domainsTotal, verified: domainsVerified },
-    senderIdentities: { today: sendersToday, total: sendersTotal, usable: sendersUsable },
-    teamInvites: { today: invitesToday, total: invitesTotal, pending: invitesPending },
-    contacts: { today: contactsToday, total: contactsTotal },
-    apiKeys: { active: activeKeys, total: totalKeys },
-    webhooks: { total: webhooksTotal },
-  };
+    { isolationLevel: "repeatable read" }
+  );
 }
 
 /* ── Platform-wide email volume ─────────────────────────────────────────── */
