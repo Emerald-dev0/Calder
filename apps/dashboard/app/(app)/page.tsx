@@ -20,7 +20,6 @@ import {
   type BucketCountRow,
   type StatusCountRow,
 } from "../../lib/overview-series";
-import { pricingUrl } from "../../lib/pricing";
 
 const DAY_MS = 86_400_000;
 
@@ -395,9 +394,9 @@ export default async function OverviewPage() {
                 <Link href="/usage" className="ov-link">
                   Usage details <ArrowRight size={13} />
                 </Link>
-                <a href={pricingUrl()} className="ov-link is-muted">
-                  Compare plans <ArrowUpRight size={13} />
-                </a>
+                <Link href="/billing" className="ov-link is-muted">
+                  Upgrade or buy credits <ArrowUpRight size={13} />
+                </Link>
               </div>
             </div>
           </section>

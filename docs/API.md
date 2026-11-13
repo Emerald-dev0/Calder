@@ -125,7 +125,7 @@ known remedy add `fix` (plain language, safe to show a user):
       "periodStart": "2026-09-01T00:00:00.000Z",
       "periodEnd": "2026-10-01T00:00:00.000Z"
     },
-    "fix": "Upgrade at https://app.calder.click/usage or wait for the period reset."
+    "fix": "Upgrade at https://app.calder.click/billing or wait for the period reset."
   }
 }
 ```

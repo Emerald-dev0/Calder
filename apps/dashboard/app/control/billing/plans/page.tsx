@@ -1,10 +1,10 @@
 import { asc, eq } from "drizzle-orm";
 import { plans, planPrices, subscriptions } from "@calder/db";
 import { getDb } from "@calder/db";
+import { COMMERCIAL_PLAN_ORDER, PLAN_LIMITS, formatUsdCents, planFor } from "@calder/config";
 import { fmtInt, fmtMoney } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
-import { PageHeader, Panel, Stat } from "@/control/_components/ui";
-import { BillingSoon } from "../_components/soon";
+import { Badge, PageHeader, Panel, Stat } from "@/control/_components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,6 @@ export default async function PlansPage() {
 
   return (
     <>
-      <BillingSoon where="This plan catalogue" />
       <PageHeader
         eyebrow="Billing"
         title="Plans"
@@ -56,19 +55,45 @@ export default async function PlansPage() {
                 <span className="k">Active subscriptions</span>
                 <span className="v mono">{fmtInt(activeByPlan.get(p.id) ?? 0)}</span>
               </div>
+              <div className="cp-kv">
+                <span className="k">Sold at checkout</span>
+                <span className="v mono">
+                  {planFor(p.tier).retired ? (
+                    <Badge tone="warn">retired</Badge>
+                  ) : p.tier === "free" ? (
+                    <Badge>included</Badge>
+                  ) : (
+                    formatUsdCents(PLAN_LIMITS[planFor(p.tier).tier].price.USD ?? 0)
+                  )}
+                </span>
+              </div>
             </Panel>
           );
         })}
       </div>
 
-      <Panel title="Plan controls" caption="founder-level, deliberate about when">
-        <div className="cp-planned">
-          <b>Plan editing &amp; entitlements configuration</b>
-          <p>
-            Editing prices, quotas, and limits is a founder-only action and lands with the billing
-            integration (Bachs) — a price change without a billing provider to reconcile against is
-            a half-action. The catalog above is the live source of truth; plan assignment already
-            works from any organization page.
+      <Panel title="Plan controls" caption="what a price change actually does">
+        <div style={{ padding: "12px 16px 16px", fontSize: 13, lineHeight: 1.7 }}>
+          <p style={{ marginTop: 0 }}>
+            Two values have to agree before a customer is charged the number you expect:
+          </p>
+          <ul style={{ margin: "0 0 12px", paddingLeft: 18 }}>
+            <li>
+              <b>The catalogue row above</b> (database) decides what the product enforces — the
+              monthly allowance, daily cap, seats and sender limits.
+            </li>
+            <li>
+              <b>The USD list price in configuration</b> plus the Paystack plan code (
+              <span className="mono">PAYSTACK_PLAN_STARTER</span> /{" "}
+              <span className="mono">PAYSTACK_PLAN_PRO</span>) decides what checkout charges.
+            </li>
+          </ul>
+          <p style={{ marginBottom: 0, color: "var(--cp-muted)" }}>
+            Editing either is a founder-only action and belongs in the audit log. A database price
+            change alone never moves money, and a missing plan code makes subscription checkout
+            refuse rather than charge a different amount. Only{" "}
+            {COMMERCIAL_PLAN_ORDER.filter((t) => t !== "free").join(" and ")} can be purchased;
+            retired tiers keep their historical rows and limits.
           </p>
         </div>
       </Panel>

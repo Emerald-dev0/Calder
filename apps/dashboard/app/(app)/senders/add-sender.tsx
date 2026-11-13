@@ -17,7 +17,7 @@ export function AddSender({
   gmail,
   disabled = false,
   limit = null,
-  upgradeHref = "/usage",
+  upgradeHref = "/billing",
 }: {
   projectId: string;
   verifiedDomains: string[];
