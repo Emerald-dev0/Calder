@@ -21,6 +21,11 @@ import { OnboardingWizard, type OnboardingWizardProps } from "./wizard";
 
 const props: OnboardingWizardProps = {
   userEmail: "dev@example.test",
+  gmail: {
+    offered: false,
+    title: "Gmail connection · coming soon",
+    note: "Gmail transport is coming soon and is not available in this release. Use the shared test sender or a verified domain for now.",
+  },
   initialStep: 4,
   initialNotice: null,
   initialProfile: { name: "Developer", username: "dev", role: "Developer" },
@@ -51,5 +56,51 @@ describe("optional onboarding steps", () => {
     expect(send).toContain("Skip test and go to dashboard");
     expect(done).toContain("No email was delivered");
     expect(done).not.toContain("FIRST DELIVERY · VERIFIED");
+  });
+});
+
+/**
+ * The regression this guards: Step 4 showed a "Coming soon" badge on the Gmail
+ * card while still rendering a live "Connect Gmail account →" link, so the
+ * wizard invited a customer into a flow the registry says is not launched.
+ */
+describe("Gmail on-ramp", () => {
+  const gmailTransport = {
+    id: "tr_1",
+    type: "gmail",
+    label: "dev@gmail.com",
+    status: "active",
+    isDefault: true,
+    dailyCap: null,
+  };
+
+  it("does not offer a connect link while the feature is coming soon", () => {
+    const html = renderToStaticMarkup(createElement(OnboardingWizard, props));
+    expect(html).toContain("Coming soon");
+    expect(html).not.toContain("/api/auth/gmail/connect");
+    expect(html).not.toContain("Connect Gmail account");
+  });
+
+  it("refuses the connect link even for a project that already has a connection", () => {
+    // The risky case: a transport exists from before the gate closed, which is
+    // what auto-selects the Gmail card and expands its panel.
+    const html = renderToStaticMarkup(
+      createElement(OnboardingWizard, { ...props, initialTransports: [gmailTransport] })
+    );
+    expect(html).toContain("Coming soon");
+    expect(html).not.toContain("/api/auth/gmail/connect");
+    expect(html).toContain("Gmail transport is coming soon");
+  });
+
+  it("offers the connect link only when the gate is explicitly open", () => {
+    const html = renderToStaticMarkup(
+      createElement(OnboardingWizard, {
+        ...props,
+        initialTransports: [gmailTransport],
+        gmail: { offered: true, title: "Connect Gmail", note: "" },
+      })
+    );
+    expect(html).toContain("up to 100 sends/day");
+    expect(html).not.toContain("20 first-day sends");
   });
 });

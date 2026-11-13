@@ -14,6 +14,7 @@ export function AddSender({
   projectId,
   verifiedDomains,
   gmailTransports,
+  gmail,
   disabled = false,
   limit = null,
   upgradeHref = "/usage",
@@ -21,6 +22,12 @@ export function AddSender({
   projectId: string;
   verifiedDomains: string[];
   gmailTransports: Array<{ id: string; label: string }>;
+  /**
+   * Whether this deployment may offer "Connect Gmail" at all. Resolved on the
+   * server from the feature registry plus OAuth credentials; never inferred
+   * here, so the card cannot claim availability the API would refuse.
+   */
+  gmail: { offered: boolean; title: string; note: string };
   /** True when the plan ceiling is reached: the form stays visible but inert. */
   disabled?: boolean;
   limit?: { used: number; limit: number | null; tier: string } | null;
@@ -128,41 +135,103 @@ export function AddSender({
             </span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setChoice(choice === "gmail" ? null : "gmail")}
-            aria-pressed={choice === "gmail"}
-            style={{
-              textAlign: "left",
-              padding: 16,
-              borderRadius: "var(--radius-lg)",
-              border: `1px solid ${
-                choice === "gmail" ? "var(--color-ink)" : "var(--color-border-strong)"
-              }`,
-              boxShadow:
-                choice === "gmail" ? "inset 0 0 0 1px var(--color-ink)" : "none",
-              background:
-                choice === "gmail"
-                  ? "var(--color-surface-elevated)"
-                  : "var(--color-surface)",
-              color: "var(--color-ink)",
-              cursor: "pointer",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 14 }}>
-                <Mail size={16} style={{ color: "var(--color-muted)" }} />
-                <span>Connect Gmail On-Ramp</span>
+          {gmail.offered ? (
+            <button
+              type="button"
+              onClick={() => setChoice(choice === "gmail" ? null : "gmail")}
+              aria-pressed={choice === "gmail"}
+              style={{
+                textAlign: "left",
+                padding: 16,
+                borderRadius: "var(--radius-lg)",
+                border: `1px solid ${
+                  choice === "gmail" ? "var(--color-ink)" : "var(--color-border-strong)"
+                }`,
+                boxShadow:
+                  choice === "gmail" ? "inset 0 0 0 1px var(--color-ink)" : "none",
+                background:
+                  choice === "gmail"
+                    ? "var(--color-surface-elevated)"
+                    : "var(--color-surface)",
+                color: "var(--color-ink)",
+                cursor: "pointer",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 6,
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontWeight: 700,
+                    fontSize: 14,
+                  }}
+                >
+                  <Mail size={16} style={{ color: "var(--color-muted)" }} />
+                  <span>{gmail.title}</span>
+                </span>
+                <StatusPill status="test" label="Prototype" />
+              </div>
+              <span style={{ display: "block", fontSize: 12.5, color: "var(--color-muted)" }}>
+                Use an existing personal Gmail account for early testing. No DNS records needed.
               </span>
-              <StatusPill status="test" label="Prototype" />
+            </button>
+          ) : (
+            <div
+              data-testid="gmail-coming-soon"
+              aria-disabled="true"
+              style={{
+                textAlign: "left",
+                padding: 16,
+                borderRadius: "var(--radius-lg)",
+                border: "1px dashed var(--color-border-strong)",
+                background: "var(--color-surface)",
+                color: "var(--color-muted)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 6,
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontWeight: 700,
+                    fontSize: 14,
+                    color: "var(--color-ink)",
+                  }}
+                >
+                  <Mail size={16} style={{ color: "var(--color-subtle)" }} />
+                  <span>Connect Gmail</span>
+                </span>
+                <StatusPill status="coming_soon" label="Coming soon" />
+              </div>
+              <span style={{ display: "block", fontSize: 12.5 }}>{gmail.note}</span>
+              {gmailTransports.length > 0 && (
+                <span style={{ display: "block", fontSize: 12.5, marginTop: 6 }}>
+                  {gmailTransports.length} existing Gmail connection
+                  {gmailTransports.length === 1 ? "" : "s"} on this project keep sending; new Gmail
+                  senders are paused.
+                </span>
+              )}
             </div>
-            <span style={{ display: "block", fontSize: 12.5, color: "var(--color-muted)" }}>
-              Use an existing personal Gmail account for early testing. No DNS records needed.
-            </span>
-          </button>
+          )}
         </div>
 
-        {choice === "gmail" && (
+        {gmail.offered && choice === "gmail" && (
           <div
             style={{
               background: "var(--color-surface-elevated)",

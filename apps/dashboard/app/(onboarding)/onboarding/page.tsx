@@ -17,6 +17,7 @@ import { getTenantContext } from "../../../lib/auth";
 import { resolveInitialOnboardingStep } from "../../../lib/onboarding";
 import type { DnsRecord } from "../../(app)/onboarding/actions";
 import { OnboardingWizard } from "./wizard";
+import { gmailGate } from "../../../lib/gmail-gate";
 
 export default async function OnboardingPage({
   searchParams,
@@ -147,6 +148,7 @@ export default async function OnboardingPage({
   return (
     <OnboardingWizard
       userEmail={ctx.user.email}
+      gmail={gmailGate()}
       initialStep={initialStep}
       initialNotice={query?.notice ?? null}
       initialProfile={{

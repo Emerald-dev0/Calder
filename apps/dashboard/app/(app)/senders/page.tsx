@@ -12,6 +12,7 @@ import {
   streamStats,
   unattributedSends,
 } from "./actions";
+import { gmailGate } from "../../../lib/gmail-gate";
 import { AddSender } from "./add-sender";
 import { SenderTable } from "./sender-table";
 import { DsPageHeader, StatusPill, DsBanner, StatCard } from "../../../components/design-system";
@@ -73,6 +74,10 @@ export default async function SendersPage({
       allowance: await gmailAllowanceForTransport(getDb(), projectId, transport.id),
     }))
   );
+  // One answer for every Gmail surface: the registry plus this deployment's
+  // OAuth credentials. Computed here (server) and passed down, so the client
+  // bundle never decides availability on its own.
+  const gmail = gmailGate();
   const activeSenders = allSenders.filter((s) => !s.archivedAt);
   const archivedSenders = allSenders.filter((s) => s.archivedAt);
 
@@ -371,6 +376,7 @@ export default async function SendersPage({
             projectId={projectId}
             verifiedDomains={options.verifiedDomains}
             gmailTransports={options.gmailTransports}
+            gmail={gmail}
             disabled={!limitDecision.allowed}
             limit={
               limitDecision

@@ -35,6 +35,13 @@ import {
 
 export interface OnboardingWizardProps {
   userEmail: string;
+  /**
+   * Whether "Connect Gmail" may be offered at all — registry status plus this
+   * deployment's OAuth credentials, resolved on the server. A coming-soon
+   * badge next to a working connect button is exactly the contradiction this
+   * prop removes.
+   */
+  gmail: { offered: boolean; title: string; note: string };
   initialStep: OnboardingStepNumber;
   initialNotice: string | null;
   initialProfile: {
@@ -123,6 +130,7 @@ function deliveryStepState(
 
 export function OnboardingWizard({
   userEmail,
+  gmail,
   initialStep,
   initialNotice,
   initialProfile,
@@ -1226,14 +1234,21 @@ export function OnboardingWizard({
 
                                 {option.id === "gmail" && (
                                   <div className="onb-inline-panel">
-                                    {hasGmailConnected ? (
+                                    {!gmail.offered && (
+                                      <p className="onb-inline-note" data-testid="onb-gmail-closed">
+                                        {gmail.note}
+                                      </p>
+                                    )}
+                                    {gmail.offered && hasGmailConnected && (
                                       <div className="onb-kv-row">
                                         <span className="onb-kv-label mono">GMAIL OAUTH</span>
                                         <span className="onb-kv-status-ok mono">
-                                          ✓ Connected · 20 first-day sends, then up to 100/day
+                                          ✓ Connected · up to 100 sends/day (Google's free-tier
+                                          cap)
                                         </span>
                                       </div>
-                                    ) : (
+                                    )}
+                                    {gmail.offered && !hasGmailConnected && (
                                       <div className="onb-gmail-setup">
                                         <p className="onb-inline-note">
                                           Authorize <code className="mono">gmail.send</code> via

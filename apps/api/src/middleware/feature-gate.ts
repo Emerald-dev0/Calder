@@ -26,6 +26,27 @@ import type { Env } from "../app.js";
  * Plan-based limits live in `@calder/db`'s quota/resource checks, which are a
  * different question and must not be confused with this one.
  */
+/**
+ * Refuse a feature that is not launched, from inside a handler.
+ *
+ * `requireFeature` guards a whole mount point. Some features live inside a
+ * route that also serves launched workflows — Gmail is one branch of
+ * `POST /v1/senders`, not the whole route — so the same decision has to be
+ * assertable at that branch. Identical code, identical error, so a customer
+ * cannot tell which mechanism refused them.
+ */
+export function assertFeatureAvailable(id: FeatureId): void {
+  const availability = featureAvailability(id, null);
+  if (availability.available) return;
+  throw new AppError(
+    "feature_not_available",
+    featureDisabledMessage(id),
+    403,
+    { feature: id, status: availability.status },
+    "See docs/MVP-FEATURE-MATRIX.md for what is included in this release."
+  );
+}
+
 export function requireFeature(id: FeatureId): MiddlewareHandler<Env> {
   const availability = featureAvailability(id, null);
   if (availability.available) {
@@ -36,12 +57,6 @@ export function requireFeature(id: FeatureId): MiddlewareHandler<Env> {
     };
   }
   return async () => {
-    throw new AppError(
-      "feature_not_available",
-      featureDisabledMessage(id),
-      403,
-      { feature: id, status: availability.status },
-      "See docs/MVP-FEATURE-MATRIX.md for what is included in this release."
-    );
+    assertFeatureAvailable(id);
   };
 }
