@@ -104,6 +104,20 @@ means "no data yet", never a fabricated value.
   (never shown to the person), referrals through this person.
 - CSV export (`/control/growth/waitlist/export`) — 3,839 rows verified.
 
+### Growth / Activation
+
+- The one view that answers "of the accounts created in the last 30 days, how
+  far did each one get": signed up → created a project → held a live API key →
+  sent an email → still sending in the last 7 days `(lib/control/growth-funnel.ts)`.
+- The cohort is fixed at organization creation time and every stage is read
+  from one repeatable-read snapshot, so a stage can never exceed the one before
+  it. Test-mode sends count; the per-account table says whether any was live.
+- Per-account table (newest first) names where each account stopped — signed up
+  only, project only, key but never sent, sending (test), sending live — and
+  links to the organization page.
+- Deliberately not here: visitors → signup (that is the growth overview, and no
+  person-level id joins the two) and revenue (that is billing).
+
 ### Customers
 
 - Users list (plan, orgs, emails sent); Organizations list (MRR, plan, health);
