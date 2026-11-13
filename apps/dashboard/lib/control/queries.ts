@@ -3,7 +3,7 @@ import {
   ACCEPTED_EMAIL_STATUSES,
   summarisePlatformEmailVolume,
   type PlatformEmailVolume,
-} from "./email-volume.js";
+} from "./email-volume";
 import {
   and,
   asc,
@@ -853,7 +853,7 @@ export async function platformPulse(): Promise<PlatformPulse> {
 
 /**
  * All-time volume across every organization. The counting rules (what "sent"
- * means, why test rows are separate) live in `./email-volume.js` so they are
+ * means, why test rows are separate) live in `./email-volume` so they are
  * testable without a database; this only supplies the rows.
  */
 export async function platformEmailVolume(): Promise<PlatformEmailVolume> {
