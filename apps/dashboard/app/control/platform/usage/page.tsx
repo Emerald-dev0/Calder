@@ -2,9 +2,9 @@ import Link from "next/link";
 import { desc, eq, gte, sql } from "drizzle-orm";
 import { organizations, usageRecords } from "@calder/db";
 import { getDb } from "@calder/db";
-import { fmtInt } from "@/lib/control/format";
+import { fmtDate, fmtInt } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
-import { emailTotals } from "@/lib/control/queries";
+import { emailTotals, platformEmailVolume } from "@/lib/control/queries";
 import { Empty, PageHeader, Panel, Stat } from "@/control/_components/ui";
 
 export const dynamic = "force-dynamic";
@@ -13,8 +13,9 @@ export default async function PlatformUsagePage() {
   await requireSection("platform");
   const db = getDb();
   const since = new Date(Date.now() - 90 * 86_400_000);
-  const [totals, metered, byOrg] = await Promise.all([
+  const [totals, volume, metered, byOrg] = await Promise.all([
     emailTotals(30),
+    platformEmailVolume(),
     db
       .select({ metric: usageRecords.metric, quantity: sql<number>`sum(${usageRecords.quantity})` })
       .from(usageRecords)
@@ -43,6 +44,15 @@ export default async function PlatformUsagePage() {
       />
 
       <div className="cp-stats">
+        <Stat
+          label="Emails sent · all time"
+          value={fmtInt(volume.liveAccepted)}
+          hint={
+            volume.firstAcceptedAt
+              ? `since ${fmtDate(volume.firstAcceptedAt)}`
+              : "no send accepted yet"
+          }
+        />
         <Stat label="Emails (30d)" value={fmtInt(totals.total)} hint="authoritative record count" />
         <Stat
           label="Metered (90d)"
@@ -87,6 +97,45 @@ export default async function PlatformUsagePage() {
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
+
+      <Panel
+        title="Emails sent by status"
+        caption={`all time · live keys · ${fmtInt(volume.lifetimeRows)} rows ever created`}
+        flush
+      >
+        {volume.byStatus.length === 0 ? (
+          <Empty title="Nothing has been sent yet">
+            No email has been accepted by the provider from a live key. Queued and suppressed rows
+            never count as sends.
+          </Empty>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table className="cp-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Emails</th>
+                  <th>Share of rows</th>
+                </tr>
+              </thead>
+              <tbody>
+                {volume.byStatus.map((row) => {
+                  const liveRows = volume.byStatus.reduce((sum, r) => sum + r.count, 0);
+                  return (
+                    <tr key={row.status}>
+                      <td>{row.status}</td>
+                      <td className="cp-num">{fmtInt(row.count)}</td>
+                      <td className="cp-num">
+                        {liveRows > 0 ? `${((row.count / liveRows) * 100).toFixed(1)}%` : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

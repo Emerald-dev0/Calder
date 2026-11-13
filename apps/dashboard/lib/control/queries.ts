@@ -1,5 +1,10 @@
 import "../server-only"; // M6: build-time guard — control queries may never enter a client bundle
 import {
+  ACCEPTED_EMAIL_STATUSES,
+  summarisePlatformEmailVolume,
+  type PlatformEmailVolume,
+} from "./email-volume";
+import {
   and,
   asc,
   count,
@@ -11,20 +16,27 @@ import {
   isNotNull,
   isNull,
   lt,
+  max,
+  min,
   ne,
   or,
   sql,
 } from "drizzle-orm";
 import {
+  apiKeys,
   auditLogs,
+  contacts,
+  domains,
   emailEvents,
   emails,
+  orgInvitations,
   organizationMembers,
   organizations,
   planPrices,
   plans,
   projectTransports,
   projects,
+  senderIdentities,
   sessions,
   subscriptions,
   suppressions,
@@ -714,6 +726,168 @@ export async function emailTotals(days: number | null): Promise<EmailTotals> {
     clicked: 0,
     deliveryRate: terminal > 0 ? (delivered / terminal) * 100 : null,
   };
+}
+
+/* ── Platform pulse ─────────────────────────────────────────────────────── */
+
+/**
+ * How much of the product is actually in use, platform-wide.
+ *
+ * Totals carry today's increment beside them because "0 today" and "0 ever"
+ * are different facts, and a dashboard showing only one of them cannot tell
+ * them apart. Every figure is a live count; nothing here is projected or
+ * extrapolated.
+ */
+export interface PlatformPulse {
+  emails: { acceptedAllTime: number; acceptedToday: number; rowsEverCreated: number };
+  signups: { today: number; week: number; total: number };
+  organizations: { today: number; total: number };
+  projects: { total: number };
+  domains: { today: number; total: number; verified: number };
+  senderIdentities: { today: number; total: number; usable: number };
+  teamInvites: { today: number; total: number; pending: number };
+  contacts: { today: number; total: number };
+  apiKeys: { active: number; total: number };
+  webhooks: { total: number };
+}
+
+export async function platformPulse(): Promise<PlatformPulse> {
+  const db = getDb();
+  const today = utcDayStart();
+  const weekAgo = utcDayStart(6);
+  const liveAccepted = and(
+    inArray(emails.status, [...ACCEPTED_EMAIL_STATUSES]),
+    eq(emails.env, "live")
+  );
+
+  const [
+    emailsAllTime,
+    emailsToday,
+    emailRows,
+    signupsToday,
+    signupsWeek,
+    signupsTotal,
+    orgsToday,
+    orgsTotal,
+    projectsTotal,
+    domainsToday,
+    domainsTotal,
+    domainsVerified,
+    sendersToday,
+    sendersTotal,
+    sendersUsable,
+    invitesToday,
+    invitesTotal,
+    invitesPending,
+    contactsToday,
+    contactsTotal,
+    activeKeys,
+    totalKeys,
+    webhooksTotal,
+  ] = await Promise.all([
+    scalar(db.select({ value: count() }).from(emails).where(liveAccepted)),
+    scalar(
+      db
+        .select({ value: count() })
+        .from(emails)
+        .where(and(liveAccepted, gte(emails.createdAt, today)))
+    ),
+    scalar(db.select({ value: count() }).from(emails)),
+    scalar(db.select({ value: count() }).from(users).where(gte(users.createdAt, today))),
+    scalar(db.select({ value: count() }).from(users).where(gte(users.createdAt, weekAgo))),
+    scalar(db.select({ value: count() }).from(users)),
+    scalar(
+      db.select({ value: count() }).from(organizations).where(gte(organizations.createdAt, today))
+    ),
+    scalar(db.select({ value: count() }).from(organizations)),
+    scalar(db.select({ value: count() }).from(projects)),
+    scalar(db.select({ value: count() }).from(domains).where(gte(domains.createdAt, today))),
+    scalar(db.select({ value: count() }).from(domains)),
+    scalar(db.select({ value: count() }).from(domains).where(eq(domains.status, "verified"))),
+    scalar(
+      db
+        .select({ value: count() })
+        .from(senderIdentities)
+        .where(gte(senderIdentities.createdAt, today))
+    ),
+    scalar(db.select({ value: count() }).from(senderIdentities)),
+    scalar(
+      db
+        .select({ value: count() })
+        .from(senderIdentities)
+        .where(inArray(senderIdentities.status, ["verified", "connected"]))
+    ),
+    scalar(
+      db.select({ value: count() }).from(orgInvitations).where(gte(orgInvitations.createdAt, today))
+    ),
+    scalar(db.select({ value: count() }).from(orgInvitations)),
+    scalar(
+      db.select({ value: count() }).from(orgInvitations).where(isNull(orgInvitations.acceptedAt))
+    ),
+    scalar(db.select({ value: count() }).from(contacts).where(gte(contacts.createdAt, today))),
+    scalar(db.select({ value: count() }).from(contacts)),
+    scalar(db.select({ value: count() }).from(apiKeys).where(isNull(apiKeys.revokedAt))),
+    scalar(db.select({ value: count() }).from(apiKeys)),
+    scalar(db.select({ value: count() }).from(webhooks)),
+  ]);
+
+  return {
+    emails: {
+      acceptedAllTime: emailsAllTime,
+      acceptedToday: emailsToday,
+      rowsEverCreated: emailRows,
+    },
+    signups: { today: signupsToday, week: signupsWeek, total: signupsTotal },
+    organizations: { today: orgsToday, total: orgsTotal },
+    projects: { total: projectsTotal },
+    domains: { today: domainsToday, total: domainsTotal, verified: domainsVerified },
+    senderIdentities: { today: sendersToday, total: sendersTotal, usable: sendersUsable },
+    teamInvites: { today: invitesToday, total: invitesTotal, pending: invitesPending },
+    contacts: { today: contactsToday, total: contactsTotal },
+    apiKeys: { active: activeKeys, total: totalKeys },
+    webhooks: { total: webhooksTotal },
+  };
+}
+
+/* ── Platform-wide email volume ─────────────────────────────────────────── */
+
+/**
+ * All-time volume across every organization. The counting rules (what "sent"
+ * means, why test rows are separate) live in `./email-volume` so they are
+ * testable without a database; this only supplies the rows.
+ */
+export async function platformEmailVolume(): Promise<PlatformEmailVolume> {
+  const db = getDb();
+  const accepted = inArray(emails.status, [...ACCEPTED_EMAIL_STATUSES]);
+  const acceptedLive = and(accepted, eq(emails.env, "live"));
+  const [envRows, statusRows, lifetimeRows, span, sendingOrgs] = await Promise.all([
+    db.select({ env: emails.env, value: count() }).from(emails).where(accepted).groupBy(emails.env),
+    db
+      .select({ status: emails.status, value: count() })
+      .from(emails)
+      .where(eq(emails.env, "live"))
+      .groupBy(emails.status),
+    scalar(db.select({ value: count() }).from(emails)),
+    db
+      .select({ first: min(emails.createdAt), last: max(emails.createdAt) })
+      .from(emails)
+      .where(acceptedLive),
+    scalar(
+      db
+        .select({ value: sql<number>`count(distinct ${projects.organizationId})` })
+        .from(emails)
+        .innerJoin(projects, eq(emails.projectId, projects.id))
+        .where(acceptedLive)
+    ),
+  ]);
+  return summarisePlatformEmailVolume({
+    envRows,
+    statusRows,
+    lifetimeRows,
+    firstAcceptedAt: span[0]?.first ?? null,
+    lastAcceptedAt: span[0]?.last ?? null,
+    sendingOrgs,
+  });
 }
 
 export async function transportDistribution() {
