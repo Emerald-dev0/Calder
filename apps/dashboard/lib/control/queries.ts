@@ -1,5 +1,10 @@
 import "../server-only"; // M6: build-time guard — control queries may never enter a client bundle
 import {
+  ACCEPTED_EMAIL_STATUSES,
+  summarisePlatformEmailVolume,
+  type PlatformEmailVolume,
+} from "./email-volume.js";
+import {
   and,
   asc,
   count,
@@ -11,6 +16,8 @@ import {
   isNotNull,
   isNull,
   lt,
+  max,
+  min,
   ne,
   or,
   sql,
@@ -714,6 +721,47 @@ export async function emailTotals(days: number | null): Promise<EmailTotals> {
     clicked: 0,
     deliveryRate: terminal > 0 ? (delivered / terminal) * 100 : null,
   };
+}
+
+/* ── Platform-wide email volume ─────────────────────────────────────────── */
+
+/**
+ * All-time volume across every organization. The counting rules (what "sent"
+ * means, why test rows are separate) live in `./email-volume.js` so they are
+ * testable without a database; this only supplies the rows.
+ */
+export async function platformEmailVolume(): Promise<PlatformEmailVolume> {
+  const db = getDb();
+  const accepted = inArray(emails.status, [...ACCEPTED_EMAIL_STATUSES]);
+  const acceptedLive = and(accepted, eq(emails.env, "live"));
+  const [envRows, statusRows, lifetimeRows, span, sendingOrgs] = await Promise.all([
+    db.select({ env: emails.env, value: count() }).from(emails).where(accepted).groupBy(emails.env),
+    db
+      .select({ status: emails.status, value: count() })
+      .from(emails)
+      .where(eq(emails.env, "live"))
+      .groupBy(emails.status),
+    scalar(db.select({ value: count() }).from(emails)),
+    db
+      .select({ first: min(emails.createdAt), last: max(emails.createdAt) })
+      .from(emails)
+      .where(acceptedLive),
+    scalar(
+      db
+        .select({ value: sql<number>`count(distinct ${projects.organizationId})` })
+        .from(emails)
+        .innerJoin(projects, eq(emails.projectId, projects.id))
+        .where(acceptedLive)
+    ),
+  ]);
+  return summarisePlatformEmailVolume({
+    envRows,
+    statusRows,
+    lifetimeRows,
+    firstAcceptedAt: span[0]?.first ?? null,
+    lastAcceptedAt: span[0]?.last ?? null,
+    sendingOrgs,
+  });
 }
 
 export async function transportDistribution() {

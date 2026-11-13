@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { fmtInt, fmtPct } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
-import { emailTotals, pipelineDaily, transportDistribution } from "@/lib/control/queries";
+import {
+  emailTotals,
+  pipelineDaily,
+  platformEmailVolume,
+  transportDistribution,
+} from "@/lib/control/queries";
 import { AreaChart, BarsChart } from "@/control/_components/charts";
 import { BarList, PageHeader, Panel, Stat } from "@/control/_components/ui";
 
@@ -9,8 +14,9 @@ export const dynamic = "force-dynamic";
 
 export default async function PlatformEmailPage() {
   await requireSection("platform");
-  const [totals, daily, transports] = await Promise.all([
+  const [totals, volume, daily, transports] = await Promise.all([
     emailTotals(30),
+    platformEmailVolume(),
     pipelineDaily(30),
     transportDistribution(),
   ]);
@@ -28,6 +34,15 @@ export default async function PlatformEmailPage() {
       />
 
       <div className="cp-stats">
+        <Stat
+          label="Sent · all time"
+          value={fmtInt(volume.liveAccepted)}
+          hint={
+            volume.testAccepted > 0
+              ? `excludes ${fmtInt(volume.testAccepted)} test sends`
+              : `${fmtInt(volume.sendingOrgs)} organizations sending`
+          }
+        />
         <Stat
           label="Emails (30d)"
           value={fmtInt(totals.total)}
