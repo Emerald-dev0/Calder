@@ -7,6 +7,7 @@ import {
   customerTotals,
   dbHealth,
   evaluateAlerts,
+  platformPulse,
   queueDerived,
   redisHealth,
   waitlistOverview,
@@ -87,6 +88,7 @@ export default async function CommandCenter({
     queue,
     billing,
     customers,
+    pulse,
   ] = await Promise.all([
     safe(trafficTotals(window), null),
     safe(trafficDailySeries(window), []),
@@ -107,6 +109,7 @@ export default async function CommandCenter({
     safe(queueDerived(), null),
     safe(billingOverview(), null),
     safe(customerTotals(), null),
+    safe(platformPulse(), null),
   ]);
 
   const now = new Date();
@@ -348,6 +351,93 @@ export default async function CommandCenter({
           label="Users"
           value={customers ? fmtInt(customers.total) : "—"}
           hint={customers ? `+${fmtInt(customers.new7d)} this week` : undefined}
+        />
+      </div>
+
+      <SectionLabel
+        right={
+          <span className="cp-caption" style={{ margin: 0 }}>
+            live counts
+          </span>
+        }
+      >
+        Platform usage
+      </SectionLabel>
+      <div className="cp-stats">
+        <Stat
+          label="Emails sent · all time"
+          value={pulse ? fmtInt(pulse.emails.acceptedAllTime) : "—"}
+          hint={pulse ? `${fmtInt(pulse.emails.acceptedToday)} today` : undefined}
+        />
+        <Stat
+          label="Emails today"
+          value={pulse ? fmtInt(pulse.emails.acceptedToday) : "—"}
+          hint="accepted by the provider"
+        />
+        <Stat
+          label="Signups"
+          value={pulse ? fmtInt(pulse.signups.total) : "—"}
+          hint={
+            pulse
+              ? `${fmtInt(pulse.signups.today)} today · ${fmtInt(pulse.signups.week)} this week`
+              : undefined
+          }
+        />
+        <Stat
+          label="Organizations"
+          value={pulse ? fmtInt(pulse.organizations.total) : "—"}
+          hint={pulse ? `${fmtInt(pulse.organizations.today)} today` : undefined}
+        />
+        <Stat
+          label="Projects"
+          value={pulse ? fmtInt(pulse.projects.total) : "—"}
+          hint="across all organizations"
+        />
+        <Stat
+          label="Domains added"
+          value={pulse ? fmtInt(pulse.domains.total) : "—"}
+          hint={
+            pulse
+              ? `${fmtInt(pulse.domains.verified)} verified · ${fmtInt(pulse.domains.today)} today`
+              : undefined
+          }
+        />
+        <Stat
+          label="Sender identities"
+          value={pulse ? fmtInt(pulse.senderIdentities.total) : "—"}
+          hint={
+            pulse
+              ? `${fmtInt(pulse.senderIdentities.usable)} usable · ${fmtInt(
+                  pulse.senderIdentities.today
+                )} today`
+              : undefined
+          }
+        />
+        <Stat
+          label="Team invites"
+          value={pulse ? fmtInt(pulse.teamInvites.total) : "—"}
+          hint={
+            pulse
+              ? `${fmtInt(pulse.teamInvites.pending)} pending · ${fmtInt(
+                  pulse.teamInvites.today
+                )} today`
+              : undefined
+          }
+        />
+        <Stat
+          label="Contacts"
+          value={pulse ? fmtInt(pulse.contacts.total) : "—"}
+          hint={pulse ? `${fmtInt(pulse.contacts.today)} today` : undefined}
+        />
+        <Stat
+          label="API keys"
+          value={pulse ? fmtInt(pulse.apiKeys.active) : "—"}
+          hint={pulse ? `active of ${fmtInt(pulse.apiKeys.total)} issued` : undefined}
+        />
+        <Stat
+          label="Webhooks"
+          value={pulse ? fmtInt(pulse.webhooks.total) : "—"}
+          hint="registered endpoints"
         />
       </div>
 

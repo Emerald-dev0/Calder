@@ -23,15 +23,20 @@ import {
   sql,
 } from "drizzle-orm";
 import {
+  apiKeys,
   auditLogs,
+  contacts,
+  domains,
   emailEvents,
   emails,
+  orgInvitations,
   organizationMembers,
   organizations,
   planPrices,
   plans,
   projectTransports,
   projects,
+  senderIdentities,
   sessions,
   subscriptions,
   suppressions,
@@ -720,6 +725,127 @@ export async function emailTotals(days: number | null): Promise<EmailTotals> {
     opened: 0,
     clicked: 0,
     deliveryRate: terminal > 0 ? (delivered / terminal) * 100 : null,
+  };
+}
+
+/* ── Platform pulse ─────────────────────────────────────────────────────── */
+
+/**
+ * How much of the product is actually in use, platform-wide.
+ *
+ * Totals carry today's increment beside them because "0 today" and "0 ever"
+ * are different facts, and a dashboard showing only one of them cannot tell
+ * them apart. Every figure is a live count; nothing here is projected or
+ * extrapolated.
+ */
+export interface PlatformPulse {
+  emails: { acceptedAllTime: number; acceptedToday: number; rowsEverCreated: number };
+  signups: { today: number; week: number; total: number };
+  organizations: { today: number; total: number };
+  projects: { total: number };
+  domains: { today: number; total: number; verified: number };
+  senderIdentities: { today: number; total: number; usable: number };
+  teamInvites: { today: number; total: number; pending: number };
+  contacts: { today: number; total: number };
+  apiKeys: { active: number; total: number };
+  webhooks: { total: number };
+}
+
+export async function platformPulse(): Promise<PlatformPulse> {
+  const db = getDb();
+  const today = utcDayStart();
+  const weekAgo = utcDayStart(6);
+  const liveAccepted = and(
+    inArray(emails.status, [...ACCEPTED_EMAIL_STATUSES]),
+    eq(emails.env, "live")
+  );
+
+  const [
+    emailsAllTime,
+    emailsToday,
+    emailRows,
+    signupsToday,
+    signupsWeek,
+    signupsTotal,
+    orgsToday,
+    orgsTotal,
+    projectsTotal,
+    domainsToday,
+    domainsTotal,
+    domainsVerified,
+    sendersToday,
+    sendersTotal,
+    sendersUsable,
+    invitesToday,
+    invitesTotal,
+    invitesPending,
+    contactsToday,
+    contactsTotal,
+    activeKeys,
+    totalKeys,
+    webhooksTotal,
+  ] = await Promise.all([
+    scalar(db.select({ value: count() }).from(emails).where(liveAccepted)),
+    scalar(
+      db
+        .select({ value: count() })
+        .from(emails)
+        .where(and(liveAccepted, gte(emails.createdAt, today)))
+    ),
+    scalar(db.select({ value: count() }).from(emails)),
+    scalar(db.select({ value: count() }).from(users).where(gte(users.createdAt, today))),
+    scalar(db.select({ value: count() }).from(users).where(gte(users.createdAt, weekAgo))),
+    scalar(db.select({ value: count() }).from(users)),
+    scalar(
+      db.select({ value: count() }).from(organizations).where(gte(organizations.createdAt, today))
+    ),
+    scalar(db.select({ value: count() }).from(organizations)),
+    scalar(db.select({ value: count() }).from(projects)),
+    scalar(db.select({ value: count() }).from(domains).where(gte(domains.createdAt, today))),
+    scalar(db.select({ value: count() }).from(domains)),
+    scalar(db.select({ value: count() }).from(domains).where(eq(domains.status, "verified"))),
+    scalar(
+      db
+        .select({ value: count() })
+        .from(senderIdentities)
+        .where(gte(senderIdentities.createdAt, today))
+    ),
+    scalar(db.select({ value: count() }).from(senderIdentities)),
+    scalar(
+      db
+        .select({ value: count() })
+        .from(senderIdentities)
+        .where(inArray(senderIdentities.status, ["verified", "connected"]))
+    ),
+    scalar(
+      db.select({ value: count() }).from(orgInvitations).where(gte(orgInvitations.createdAt, today))
+    ),
+    scalar(db.select({ value: count() }).from(orgInvitations)),
+    scalar(
+      db.select({ value: count() }).from(orgInvitations).where(isNull(orgInvitations.acceptedAt))
+    ),
+    scalar(db.select({ value: count() }).from(contacts).where(gte(contacts.createdAt, today))),
+    scalar(db.select({ value: count() }).from(contacts)),
+    scalar(db.select({ value: count() }).from(apiKeys).where(isNull(apiKeys.revokedAt))),
+    scalar(db.select({ value: count() }).from(apiKeys)),
+    scalar(db.select({ value: count() }).from(webhooks)),
+  ]);
+
+  return {
+    emails: {
+      acceptedAllTime: emailsAllTime,
+      acceptedToday: emailsToday,
+      rowsEverCreated: emailRows,
+    },
+    signups: { today: signupsToday, week: signupsWeek, total: signupsTotal },
+    organizations: { today: orgsToday, total: orgsTotal },
+    projects: { total: projectsTotal },
+    domains: { today: domainsToday, total: domainsTotal, verified: domainsVerified },
+    senderIdentities: { today: sendersToday, total: sendersTotal, usable: sendersUsable },
+    teamInvites: { today: invitesToday, total: invitesTotal, pending: invitesPending },
+    contacts: { today: contactsToday, total: contactsTotal },
+    apiKeys: { active: activeKeys, total: totalKeys },
+    webhooks: { total: webhooksTotal },
   };
 }
 
