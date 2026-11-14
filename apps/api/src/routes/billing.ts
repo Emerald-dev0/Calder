@@ -9,8 +9,10 @@ import {
   BillingError,
   billingSummary,
   createCheckout,
+  paymentsConfigured,
   verifyAndFulfil,
 } from "../services/billing.js";
+import { PaystackNotConfiguredError } from "../lib/paystack.js";
 
 const billing = new Hono<Env>();
 
@@ -32,13 +34,30 @@ function toHttp(err: unknown): never {
   if (err instanceof BillingError) {
     throw new AppError(err.code as never, err.message, err.status);
   }
+  // An unconfigured provider is a deployment state, not a fault. Reporting it
+  // as a 500 paged whoever watches 5xx for an environment that simply has no
+  // Paystack credentials yet, and told the operator nothing actionable.
+  if (err instanceof PaystackNotConfiguredError) {
+    throw new AppError("payments_unavailable", err.message, 503);
+  }
   throw err;
 }
+
+// Public and unauthenticated on purpose: it discloses only two booleans about
+// the deployment (can it take money, can it take dollars) and lets the
+// dashboard show an honest "payments are not connected yet" state without
+// minting a key just to ask.
+billing.get("/capabilities", (c) => {
+  return c.json({ data: { capabilities: paymentsConfigured() } });
+});
 
 billing.get("/summary", authMiddleware, async (c) => {
   const auth = authOf(c);
   const summary = await billingSummary(getDb(), auth.organizationId);
-  return c.json({ data: summary });
+  // Whether this deployment can take money at all is part of the summary: a
+  // caller that has to discover it by attempting a charge learns it the
+  // expensive way.
+  return c.json({ data: { ...summary, capabilities: paymentsConfigured() } });
 });
 
 billing.post("/checkout", authMiddleware, async (c) => {

@@ -23,6 +23,7 @@ import {
   ScrollText,
   Puzzle,
   Gauge,
+  CreditCard,
   History,
   Settings,
   ShieldAlert,
@@ -262,6 +263,7 @@ export function AppShell({
         heading: "Organization",
         items: [
           { label: "Usage", href: "/usage", icon: <Gauge size={16} /> },
+          { label: "Billing", href: "/billing", icon: <CreditCard size={16} /> },
           { label: "Audit logs", href: "/audit-logs", icon: <History size={16} /> },
           { label: "Settings", href: "/settings", icon: <Settings size={16} /> },
           ...(showAdmin

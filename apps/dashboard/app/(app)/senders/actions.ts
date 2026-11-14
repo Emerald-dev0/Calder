@@ -2,6 +2,7 @@
 
 import type { DeliveryEventHealth } from "@calder/observability";
 import { ResourceLimitError } from "@calder/db";
+import { assertGmailOffered } from "../../../lib/gmail-gate";
 import { getTenantContext } from "../../../lib/auth";
 import {
   SenderInputError,
@@ -146,6 +147,14 @@ export async function createGmailSender(input: {
   transportId: string;
   displayName: string;
 }): Promise<CreateSenderActionResult> {
+  // A server action is a public endpoint: the disabled card above is
+  // presentation, this is the control. The API refuses the same feature
+  // independently, so neither layer alone is load-bearing.
+  try {
+    assertGmailOffered();
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Unavailable." };
+  }
   return createSenderResult(async () => createGmailSenderSvc(await actor(), input));
 }
 

@@ -7,6 +7,7 @@ import { getDb } from "@calder/db";
 import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { getTenantContext } from "../../../../../lib/auth";
 import { clientIp } from "../../../../../lib/client-ip";
+import { gmailGate } from "../../../../../lib/gmail-gate";
 import { recordMilestone } from "../../../../(app)/onboarding/actions";
 
 function statesEqual(a: string, b: string): boolean {
@@ -28,6 +29,23 @@ function clearCookie(name: string): string {
  */
 export async function GET(req: Request): Promise<Response> {
   const url = new URL(req.url);
+  // The connect route refuses when the on-ramp is closed, so this should be
+  // unreachable — but a callback is the step that actually stores a transport,
+  // and it can arrive from a link opened before the gate closed. Refuse here
+  // too rather than persisting a connection the product does not offer.
+  const onRamp = gmailGate();
+  if (!onRamp.offered) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "feature_not_available",
+          message: onRamp.note,
+          details: { feature: "gmail_integration" },
+        },
+      },
+      { status: 403, headers: { "Cache-Control": "no-store" } }
+    );
+  }
   const redirectOrigin =
     getConfig().NODE_ENV === "production" ? new URL(getConfig().DASHBOARD_URL).origin : url.origin;
   const store = await cookies();

@@ -25,6 +25,7 @@ const NAV: Array<{
     heading: "Growth",
     items: [
       { label: "Overview", href: "/control/growth" },
+      { label: "Activation", href: "/control/growth/activation" },
       { label: "Waitlist", href: "/control/growth/waitlist" },
       { label: "Acquisition", href: "/control/growth/acquisition" },
       { label: "Referrals", href: "/control/growth/referrals" },

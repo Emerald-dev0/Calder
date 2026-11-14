@@ -2,8 +2,7 @@ import Link from "next/link";
 import { fmtDate, fmtInt, fmtMoney } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
 import { subscriptionRows } from "@/lib/control/queries";
-import { Badge, Dot, PageHeader, Panel, Stat } from "@/control/_components/ui";
-import { BillingSoon } from "../_components/soon";
+import { Badge, BarList, Dot, PageHeader, Panel, Stat } from "@/control/_components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -20,10 +19,15 @@ export default async function SubscriptionsPage() {
   const rows = await subscriptionRows(100);
   const active = rows.filter((r) => r.subscription.status === "active");
   const pastDue = rows.filter((r) => r.subscription.status === "past_due");
+  const tierMix = new Map<string, { name: string; orgs: number }>();
+  for (const row of active) {
+    const current = tierMix.get(row.plan.tier) ?? { name: row.plan.name, orgs: 0 };
+    current.orgs += 1;
+    tierMix.set(row.plan.tier, current);
+  }
 
   return (
     <>
-      <BillingSoon where="This subscription ledger" />
       <PageHeader
         eyebrow="Billing"
         title="Subscriptions"
@@ -46,6 +50,34 @@ export default async function SubscriptionsPage() {
               : undefined
           }
         />
+      </div>
+
+      <div className="cp-grid cp-grid-2">
+        <Panel
+          title="Active subscriptions by tier"
+          caption="resolved the same way the send path resolves a plan"
+        >
+          <BarList
+            items={[...tierMix.entries()].map(([tier, v]) => ({
+              label: v.name,
+              count: v.orgs,
+              href: `/control/customers/organizations?plan=${tier}`,
+            }))}
+          />
+        </Panel>
+        <Panel title="What this page can and cannot change" caption="read-only by design">
+          <div style={{ padding: "10px 16px 14px", fontSize: 13, lineHeight: 1.7 }}>
+            <p style={{ marginTop: 0 }}>
+              Plan assignments are made on an organization&rsquo;s own page with an explicit
+              duration and an audit record. Nothing on this page writes.
+            </p>
+            <p style={{ marginBottom: 0, color: "var(--cp-muted)" }}>
+              Payments that created a subscription are visible under{" "}
+              <Link href="/control/billing/invoices">Payments</Link> — every row there was verified
+              server-side with the provider for the exact amount and currency.
+            </p>
+          </div>
+        </Panel>
       </div>
 
       <Panel

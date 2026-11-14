@@ -92,7 +92,7 @@ export default async function SettingsPage({
         description="Manage workspace hierarchy, team roles, operator sessions, and billing quotas."
         actions={
           <Link
-            href="/usage"
+            href="/billing"
             className="ds-btn ds-btn-secondary"
             style={{ textDecoration: "none" }}
           >

@@ -1,8 +1,5 @@
-import { randomBytes } from "node:crypto";
 import { getConfig } from "@calder/config";
-import { generateApiKey } from "@calder/auth";
-import { eq } from "drizzle-orm";
-import { getDb, apiKeys, insertApiKeyForActiveOrganization } from "@calder/db";
+import { withTemporaryKey } from "../temporary-key";
 
 /**
  * Trigger a broadcast send in the API.
@@ -12,12 +9,6 @@ import { getDb, apiKeys, insertApiKeyForActiveOrganization } from "@calder/db";
  * session-auth surface. So this mints a short-lived, project-scoped key,
  * calls the endpoint, and revokes the key in `finally` — the same pattern the
  * onboarding flow already uses to make a first send.
- *
- * Two properties matter and are tested by reading, not by hoping:
- *  - the key exists only for the duration of this call, and is revoked even
- *    when the call throws;
- *  - the key is scoped to one project, so a bug here cannot send another
- *    tenant's mail.
  */
 
 export interface DispatchResult {
@@ -27,37 +18,9 @@ export interface DispatchResult {
   data?: Record<string, unknown>;
 }
 
-async function withTemporaryKey<T>(projectId: string, fn: (key: string) => Promise<T>): Promise<T> {
-  const db = getDb();
-  const generated = generateApiKey("live");
-  const keyId = `key_${randomBytes(12).toString("hex")}`;
-
-  await insertApiKeyForActiveOrganization(db, projectId, {
-    id: keyId,
-    projectId,
-    name: "broadcast dispatch (temporary)",
-    keyPrefix: generated.prefix,
-    keyHash: generated.hash,
-    env: "live",
-    scope: "manage",
-  });
-
-  try {
-    return await fn(generated.secret);
-  } finally {
-    // Revoke, never delete: the audit trail of a key that existed for 400ms
-    // is exactly what an incident review needs.
-    await db
-      .update(apiKeys)
-      .set({ revokedAt: new Date() })
-      .where(eq(apiKeys.id, keyId))
-      .catch(() => {});
-  }
-}
-
 async function callApi(path: string, projectId: string, body?: unknown): Promise<DispatchResult> {
   const base = getConfig().API_URL.replace(/\/$/, "");
-  return withTemporaryKey(projectId, async (key) => {
+  return withTemporaryKey(projectId, "broadcast dispatch", async (key) => {
     try {
       const res = await fetch(`${base}${path}`, {
         method: "POST",

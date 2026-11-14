@@ -26,12 +26,15 @@ import {
   apiKeys,
   auditLogs,
   contacts,
+  creditPurchases,
+  creditTransactions,
   domains,
   emailEvents,
   emails,
   orgInvitations,
   organizationMembers,
   organizations,
+  payments,
   planPrices,
   plans,
   projectTransports,
@@ -636,15 +639,250 @@ export async function subscriptionRows(limit = 100) {
 
 export async function planCatalog() {
   const db = getDb();
-  const [planRows, priceRows] = await Promise.all([
+  const [planRows, priceRows, subCounts] = await Promise.all([
     db.select().from(plans).orderBy(asc(plans.createdAt)),
     db.select().from(planPrices),
+    db
+      .select({ planId: subscriptions.planId, value: count() })
+      .from(subscriptions)
+      .where(eq(subscriptions.status, "active"))
+      .groupBy(subscriptions.planId),
   ]);
+  const activeByPlan = new Map(subCounts.map((r) => [r.planId, Number(r.value)]));
   return planRows.map((p) => ({
     plan: p,
     prices: priceRows.filter((pr) => pr.planId === p.id),
-    activeSubs: 0,
+    activeSubs: activeByPlan.get(p.id) ?? 0,
   }));
+}
+
+/* ── Payments, credits, entitlements (operator money views) ─────────────── */
+
+export interface PaymentLedger {
+  totals: {
+    count: number;
+    paidCents: number;
+    pending: number;
+    failed: number;
+    refunded: number;
+    abandoned: number;
+  };
+  /** Verified money in, per UTC day, newest first. */
+  last30: { count: number; cents: number };
+  byKind: Array<{ kind: string; count: number; cents: number }>;
+  byCurrency: Array<{ currency: string; count: number; cents: number }>;
+  byStatus: Array<{ status: string; count: number }>;
+  rows: Array<{
+    payment: typeof payments.$inferSelect;
+    organization: { id: string; name: string };
+  }>;
+}
+
+/**
+ * Payments are the only place real money is recorded: a row reaches `success`
+ * only after the API verified the reference with the provider for the exact
+ * amount and currency. Nothing here is inferred from a browser redirect.
+ */
+export async function paymentLedger(limit = 100): Promise<PaymentLedger> {
+  const db = getDb();
+  const since = new Date(Date.now() - 30 * DAY_MS);
+  const [statusRows, kindRows, currencyRows, recent, paidTotal, last30Rows] = await Promise.all([
+    db.select({ status: payments.status, value: count() }).from(payments).groupBy(payments.status),
+    db
+      .select({
+        kind: payments.kind,
+        count: count(),
+        cents: sql<number>`coalesce(sum(${payments.amountCents}), 0)`,
+      })
+      .from(payments)
+      .groupBy(payments.kind),
+    db
+      .select({
+        currency: payments.currency,
+        count: count(),
+        cents: sql<number>`coalesce(sum(${payments.amountCents}), 0)`,
+      })
+      .from(payments)
+      .where(eq(payments.status, "success"))
+      .groupBy(payments.currency),
+    db
+      .select({
+        payment: payments,
+        organization: { id: organizations.id, name: organizations.name },
+      })
+      .from(payments)
+      .innerJoin(organizations, eq(payments.organizationId, organizations.id))
+      .orderBy(desc(payments.createdAt))
+      .limit(limit),
+    db
+      .select({
+        cents: sql<number>`coalesce(sum(${payments.amountCents}), 0)`,
+        count: count(),
+      })
+      .from(payments)
+      .where(eq(payments.status, "success")),
+    db
+      .select({
+        cents: sql<number>`coalesce(sum(${payments.amountCents}), 0)`,
+        count: count(),
+      })
+      .from(payments)
+      .where(and(eq(payments.status, "success"), gte(payments.createdAt, since))),
+  ]);
+
+  const statusBy = new Map(statusRows.map((r) => [r.status, Number(r.value)]));
+  return {
+    totals: {
+      count: [...statusBy.values()].reduce((a, b) => a + b, 0),
+      paidCents: Number(paidTotal[0]?.cents ?? 0),
+      pending: statusBy.get("pending") ?? 0,
+      failed: statusBy.get("failed") ?? 0,
+      refunded: statusBy.get("refunded") ?? 0,
+      abandoned: statusBy.get("abandoned") ?? 0,
+    },
+    last30: { count: Number(last30Rows[0]?.count ?? 0), cents: Number(last30Rows[0]?.cents ?? 0) },
+    byKind: kindRows.map((r) => ({
+      kind: r.kind,
+      count: Number(r.count),
+      cents: Number(r.cents),
+    })),
+    byCurrency: currencyRows.map((r) => ({
+      currency: r.currency,
+      count: Number(r.count),
+      cents: Number(r.cents),
+    })),
+    byStatus: statusRows.map((r) => ({ status: r.status, count: Number(r.value) })),
+    rows: recent,
+  };
+}
+
+export interface CreditLedger {
+  purchases: { count: number; granted: number; remaining: number; cents: number };
+  transactions: {
+    count: number;
+    granted: number;
+    consumed: number;
+    released: number;
+    expired: number;
+    refunded: number;
+  };
+  byOrg: Array<{ organizationId: string; name: string; remaining: number }>;
+  recentPurchases: Array<{
+    purchase: typeof creditPurchases.$inferSelect;
+    organization: { id: string; name: string };
+  }>;
+  recentTransactions: Array<{
+    transaction: typeof creditTransactions.$inferSelect;
+    organization: { id: string; name: string };
+  }>;
+}
+
+/**
+ * Credits are a real, provider-backed ledger: a purchase row exists only after
+ * a verified payment, and every grant/consume/release/expiry is a signed
+ * transaction. Balances come from the purchases, so an expired pack stops
+ * counting the moment it expires.
+ */
+export async function creditLedger(limit = 50): Promise<CreditLedger> {
+  const db = getDb();
+  const now = new Date();
+  const [purchaseAgg, txAgg, byOrgRows, recentPurchases, recentTransactions] = await Promise.all([
+    db
+      .select({
+        count: count(),
+        granted: sql<number>`coalesce(sum(${creditPurchases.creditsPurchased}), 0)`,
+        remaining: sql<number>`coalesce(sum(${creditPurchases.creditsRemaining}), 0)`,
+        cents: sql<number>`coalesce(sum(${creditPurchases.amountCents}), 0)`,
+      })
+      .from(creditPurchases),
+    db
+      .select({
+        type: creditTransactions.type,
+        count: count(),
+        amount: sql<number>`coalesce(sum(${creditTransactions.amount}), 0)`,
+      })
+      .from(creditTransactions)
+      .groupBy(creditTransactions.type),
+    db
+      .select({
+        organizationId: creditPurchases.organizationId,
+        name: organizations.name,
+        remaining: sql<number>`coalesce(sum(${creditPurchases.creditsRemaining}), 0)`,
+      })
+      .from(creditPurchases)
+      .innerJoin(organizations, eq(creditPurchases.organizationId, organizations.id))
+      .where(gte(creditPurchases.expiresAt, now))
+      .groupBy(creditPurchases.organizationId, organizations.name)
+      .orderBy(sql`coalesce(sum(${creditPurchases.creditsRemaining}), 0) desc`)
+      .limit(10),
+    db
+      .select({
+        purchase: creditPurchases,
+        organization: { id: organizations.id, name: organizations.name },
+      })
+      .from(creditPurchases)
+      .innerJoin(organizations, eq(creditPurchases.organizationId, organizations.id))
+      .orderBy(desc(creditPurchases.purchasedAt))
+      .limit(limit),
+    db
+      .select({
+        transaction: creditTransactions,
+        organization: { id: organizations.id, name: organizations.name },
+      })
+      .from(creditTransactions)
+      .innerJoin(organizations, eq(creditTransactions.organizationId, organizations.id))
+      .orderBy(desc(creditTransactions.createdAt))
+      .limit(limit),
+  ]);
+
+  const byType = new Map(
+    txAgg.map((r) => [r.type, { count: Number(r.count), amount: Number(r.amount) }])
+  );
+  return {
+    purchases: {
+      count: Number(purchaseAgg[0]?.count ?? 0),
+      granted: Number(purchaseAgg[0]?.granted ?? 0),
+      remaining: Number(purchaseAgg[0]?.remaining ?? 0),
+      cents: Number(purchaseAgg[0]?.cents ?? 0),
+    },
+    transactions: {
+      count: [...byType.values()].reduce((a, b) => a + b.count, 0),
+      granted: byType.get("purchase")?.amount ?? 0,
+      consumed: Math.abs(byType.get("consumption")?.amount ?? 0),
+      released: byType.get("release")?.amount ?? 0,
+      expired: Math.abs(byType.get("expiry")?.amount ?? 0),
+      refunded: Math.abs(byType.get("refund")?.amount ?? 0),
+    },
+    byOrg: byOrgRows.map((r) => ({
+      organizationId: r.organizationId,
+      name: r.name,
+      remaining: Number(r.remaining),
+    })),
+    recentPurchases,
+    recentTransactions,
+  };
+}
+
+/**
+ * How many organizations sit on each tier right now. Tier is resolved the same
+ * way the send path resolves it — an active subscription — so this cannot drift
+ * from what the product enforces.
+ */
+export async function organizationsByTier(): Promise<Array<{ tier: string; orgs: number }>> {
+  const db = getDb();
+  const [tiers, total] = await Promise.all([
+    db
+      .select({ tier: plans.tier, value: count() })
+      .from(subscriptions)
+      .innerJoin(plans, eq(plans.id, subscriptions.planId))
+      .where(eq(subscriptions.status, "active"))
+      .groupBy(plans.tier),
+    db.select({ value: count() }).from(organizations),
+  ]);
+  const paid = tiers.map((r) => ({ tier: r.tier, orgs: Number(r.value) }));
+  const paidTotal = paid.reduce((a, b) => a + b.orgs, 0);
+  const free = Math.max(0, Number(total[0]?.value ?? 0) - paidTotal);
+  return [{ tier: "free", orgs: free }, ...paid.sort((a, b) => b.orgs - a.orgs)];
 }
 
 /* ── Email pipeline / platform ───────────────────────────────────────────── */
@@ -760,93 +998,113 @@ export async function platformPulse(): Promise<PlatformPulse> {
     eq(emails.env, "live")
   );
 
-  const [
-    emailsAllTime,
-    emailsToday,
-    emailRows,
-    signupsToday,
-    signupsWeek,
-    signupsTotal,
-    orgsToday,
-    orgsTotal,
-    projectsTotal,
-    domainsToday,
-    domainsTotal,
-    domainsVerified,
-    sendersToday,
-    sendersTotal,
-    sendersUsable,
-    invitesToday,
-    invitesTotal,
-    invitesPending,
-    contactsToday,
-    contactsTotal,
-    activeKeys,
-    totalKeys,
-    webhooksTotal,
-  ] = await Promise.all([
-    scalar(db.select({ value: count() }).from(emails).where(liveAccepted)),
-    scalar(
-      db
-        .select({ value: count() })
-        .from(emails)
-        .where(and(liveAccepted, gte(emails.createdAt, today)))
-    ),
-    scalar(db.select({ value: count() }).from(emails)),
-    scalar(db.select({ value: count() }).from(users).where(gte(users.createdAt, today))),
-    scalar(db.select({ value: count() }).from(users).where(gte(users.createdAt, weekAgo))),
-    scalar(db.select({ value: count() }).from(users)),
-    scalar(
-      db.select({ value: count() }).from(organizations).where(gte(organizations.createdAt, today))
-    ),
-    scalar(db.select({ value: count() }).from(organizations)),
-    scalar(db.select({ value: count() }).from(projects)),
-    scalar(db.select({ value: count() }).from(domains).where(gte(domains.createdAt, today))),
-    scalar(db.select({ value: count() }).from(domains)),
-    scalar(db.select({ value: count() }).from(domains).where(eq(domains.status, "verified"))),
-    scalar(
-      db
-        .select({ value: count() })
-        .from(senderIdentities)
-        .where(gte(senderIdentities.createdAt, today))
-    ),
-    scalar(db.select({ value: count() }).from(senderIdentities)),
-    scalar(
-      db
-        .select({ value: count() })
-        .from(senderIdentities)
-        .where(inArray(senderIdentities.status, ["verified", "connected"]))
-    ),
-    scalar(
-      db.select({ value: count() }).from(orgInvitations).where(gte(orgInvitations.createdAt, today))
-    ),
-    scalar(db.select({ value: count() }).from(orgInvitations)),
-    scalar(
-      db.select({ value: count() }).from(orgInvitations).where(isNull(orgInvitations.acceptedAt))
-    ),
-    scalar(db.select({ value: count() }).from(contacts).where(gte(contacts.createdAt, today))),
-    scalar(db.select({ value: count() }).from(contacts)),
-    scalar(db.select({ value: count() }).from(apiKeys).where(isNull(apiKeys.revokedAt))),
-    scalar(db.select({ value: count() }).from(apiKeys)),
-    scalar(db.select({ value: count() }).from(webhooks)),
-  ]);
+  // One snapshot for every count. Each group below reports "this many, out of
+  // that many", and those two numbers are only ordered if nothing commits
+  // between the reads. The integration suites create and delete organizations
+  // — cascading to their keys and senders — while the Command Center is being
+  // read, so a repeatable-read transaction is what makes the page's invariant
+  // true rather than merely probable.
+  return db.transaction(
+    async (tx) => {
+      const [
+        emailsAllTime,
+        emailsToday,
+        emailRows,
+        signupsToday,
+        signupsWeek,
+        signupsTotal,
+        orgsToday,
+        orgsTotal,
+        projectsTotal,
+        domainsToday,
+        domainsTotal,
+        domainsVerified,
+        sendersToday,
+        sendersTotal,
+        sendersUsable,
+        invitesToday,
+        invitesTotal,
+        invitesPending,
+        contactsToday,
+        contactsTotal,
+        activeKeys,
+        totalKeys,
+        webhooksTotal,
+      ] = await Promise.all([
+        scalar(tx.select({ value: count() }).from(emails).where(liveAccepted)),
+        scalar(
+          tx
+            .select({ value: count() })
+            .from(emails)
+            .where(and(liveAccepted, gte(emails.createdAt, today)))
+        ),
+        scalar(tx.select({ value: count() }).from(emails)),
+        scalar(tx.select({ value: count() }).from(users).where(gte(users.createdAt, today))),
+        scalar(tx.select({ value: count() }).from(users).where(gte(users.createdAt, weekAgo))),
+        scalar(tx.select({ value: count() }).from(users)),
+        scalar(
+          tx
+            .select({ value: count() })
+            .from(organizations)
+            .where(gte(organizations.createdAt, today))
+        ),
+        scalar(tx.select({ value: count() }).from(organizations)),
+        scalar(tx.select({ value: count() }).from(projects)),
+        scalar(tx.select({ value: count() }).from(domains).where(gte(domains.createdAt, today))),
+        scalar(tx.select({ value: count() }).from(domains)),
+        scalar(tx.select({ value: count() }).from(domains).where(eq(domains.status, "verified"))),
+        scalar(
+          tx
+            .select({ value: count() })
+            .from(senderIdentities)
+            .where(gte(senderIdentities.createdAt, today))
+        ),
+        scalar(tx.select({ value: count() }).from(senderIdentities)),
+        scalar(
+          tx
+            .select({ value: count() })
+            .from(senderIdentities)
+            .where(inArray(senderIdentities.status, ["verified", "connected"]))
+        ),
+        scalar(
+          tx
+            .select({ value: count() })
+            .from(orgInvitations)
+            .where(gte(orgInvitations.createdAt, today))
+        ),
+        scalar(tx.select({ value: count() }).from(orgInvitations)),
+        scalar(
+          tx
+            .select({ value: count() })
+            .from(orgInvitations)
+            .where(isNull(orgInvitations.acceptedAt))
+        ),
+        scalar(tx.select({ value: count() }).from(contacts).where(gte(contacts.createdAt, today))),
+        scalar(tx.select({ value: count() }).from(contacts)),
+        scalar(tx.select({ value: count() }).from(apiKeys).where(isNull(apiKeys.revokedAt))),
+        scalar(tx.select({ value: count() }).from(apiKeys)),
+        scalar(tx.select({ value: count() }).from(webhooks)),
+      ]);
 
-  return {
-    emails: {
-      acceptedAllTime: emailsAllTime,
-      acceptedToday: emailsToday,
-      rowsEverCreated: emailRows,
+      return {
+        emails: {
+          acceptedAllTime: emailsAllTime,
+          acceptedToday: emailsToday,
+          rowsEverCreated: emailRows,
+        },
+        signups: { today: signupsToday, week: signupsWeek, total: signupsTotal },
+        organizations: { today: orgsToday, total: orgsTotal },
+        projects: { total: projectsTotal },
+        domains: { today: domainsToday, total: domainsTotal, verified: domainsVerified },
+        senderIdentities: { today: sendersToday, total: sendersTotal, usable: sendersUsable },
+        teamInvites: { today: invitesToday, total: invitesTotal, pending: invitesPending },
+        contacts: { today: contactsToday, total: contactsTotal },
+        apiKeys: { active: activeKeys, total: totalKeys },
+        webhooks: { total: webhooksTotal },
+      };
     },
-    signups: { today: signupsToday, week: signupsWeek, total: signupsTotal },
-    organizations: { today: orgsToday, total: orgsTotal },
-    projects: { total: projectsTotal },
-    domains: { today: domainsToday, total: domainsTotal, verified: domainsVerified },
-    senderIdentities: { today: sendersToday, total: sendersTotal, usable: sendersUsable },
-    teamInvites: { today: invitesToday, total: invitesTotal, pending: invitesPending },
-    contacts: { today: contactsToday, total: contactsTotal },
-    apiKeys: { active: activeKeys, total: totalKeys },
-    webhooks: { total: webhooksTotal },
-  };
+    { isolationLevel: "repeatable read" }
+  );
 }
 
 /* ── Platform-wide email volume ─────────────────────────────────────────── */

@@ -3,6 +3,7 @@ import type { Env } from "../app.js";
 import { createSenderSchema, patchSenderSchema } from "@calder/validation";
 import { authMiddleware, requireScope, type AuthContext } from "../middleware/auth.js";
 import { AppError, validationError } from "../errors/index.js";
+import { assertFeatureAvailable } from "../middleware/feature-gate.js";
 import { decodeApiCursor, encodeApiCursor } from "../lib/pagination.js";
 
 const senders = new Hono<Env>();
@@ -112,6 +113,13 @@ senders.post("/", authMiddleware, async (c) => {
     }
     status = "verified";
   } else if (type === "gmail") {
+    // The Gmail on-ramp is registry-owned: the transport code works, but the
+    // product is not launched (Google production approval and a verified
+    // end-to-end send are outstanding). Refusing here — not only in the
+    // dashboard — means a direct curl cannot create a Gmail sender that the UI
+    // pretends does not exist. Flipping `gmail_integration` to `ready` in
+    // @calder/config/features is the single launch switch.
+    assertFeatureAvailable("gmail_integration");
     if (!transport_id) throw validationError("transport_id is required for gmail senders");
     const [t] = await db
       .select()

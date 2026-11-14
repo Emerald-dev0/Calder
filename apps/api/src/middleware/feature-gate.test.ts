@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { requireFeature } from "./feature-gate.js";
+import { assertFeatureAvailable, requireFeature } from "./feature-gate.js";
 
 /**
  * The gate is the difference between "the dashboard hides it" and "the API
@@ -40,5 +40,34 @@ describe("requireFeature", () => {
     await expect(middleware({} as never, vi.fn() as never)).rejects.toMatchObject({
       status: 403,
     });
+  });
+});
+
+/**
+ * `requireFeature` guards a mount point; `assertFeatureAvailable` guards one
+ * branch of a route that also serves launched workflows. Gmail is the case that
+ * forced it: `POST /v1/senders` must keep serving domain senders while refusing
+ * `type: "gmail"`, so the decision had to become callable inside the handler.
+ */
+describe("assertFeatureAvailable", () => {
+  it("allows a ready feature", () => {
+    expect(() => assertFeatureAvailable("sender_identities")).not.toThrow();
+  });
+
+  it("refuses the Gmail on-ramp with the same 403 the middleware returns", () => {
+    expect(() => assertFeatureAvailable("gmail_integration")).toThrowError(
+      expect.objectContaining({ code: "feature_not_available", status: 403 })
+    );
+  });
+
+  it("names the feature and its status in details, so support can act on it", () => {
+    try {
+      assertFeatureAvailable("gmail_integration");
+      throw new Error("expected a refusal");
+    } catch (error) {
+      const details = (error as { details?: { feature?: string; status?: string } }).details;
+      expect(details?.feature).toBe("gmail_integration");
+      expect(details?.status).toBe("coming_soon");
+    }
   });
 });
