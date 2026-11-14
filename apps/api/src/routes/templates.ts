@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "../app.js";
 import { createTemplateSchema, createTemplateVersionSchema } from "@calder/validation";
 import { authMiddleware, requireScope, type AuthContext } from "../middleware/auth.js";
+import { rateLimitMiddleware } from "../middleware/rate-limit.js";
 import { AppError, validationError } from "../errors/index.js";
 import { decodeApiCursor, encodeApiCursor } from "../lib/pagination.js";
 
@@ -56,7 +57,7 @@ async function latestVersion(
 }
 
 // GET /v1/templates
-templates.get("/", authMiddleware, async (c) => {
+templates.get("/", authMiddleware, rateLimitMiddleware("read"), async (c) => {
   const a = auth(c);
   const { getDb, templates: templatesTable } = await import("@calder/db");
   const { and, desc, eq, lt, or } = await import("drizzle-orm");

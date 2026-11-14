@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import type { Env } from "../app.js";
 import { createDomainSchema } from "@calder/validation";
 import { authMiddleware, requireScope, type AuthContext } from "../middleware/auth.js";
+import { rateLimitMiddleware } from "../middleware/rate-limit.js";
 import { AppError, validationError } from "../errors/index.js";
 import { getDb, domains as domainsTable } from "@calder/db";
 import { and, desc, eq, lt, or } from "drizzle-orm";
@@ -110,7 +111,7 @@ domains.post("/", authMiddleware, async (c) => {
   );
 });
 
-domains.get("/", authMiddleware, async (c) => {
+domains.get("/", authMiddleware, rateLimitMiddleware("read"), async (c) => {
   const auth = c.get("auth" as never) as { projectId: string };
   const db = getDb();
   await sweepExpiredChallenges(db, auth.projectId);

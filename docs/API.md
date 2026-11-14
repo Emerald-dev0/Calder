@@ -136,7 +136,20 @@ never returned.
 
 ## Rate limits
 
-Per API key, project, and organization; different limits for sending vs. verification vs. dashboard endpoints. Responses include limit/remaining/reset.
+Per API key, project, and organization; different limits for sending, reading,
+credential operations, verification and dashboard endpoints.
+
+| Bucket     | Window | Limit       | Applies to                                                                            |
+| ---------- | ------ | ----------- | ------------------------------------------------------------------------------------- |
+| `sending`  | 1 min  | 100 per key | `POST /v1/emails`, `/v1/emails/batch`                                                 |
+| `read`     | 1 min  | 600 per key | `GET` on `/v1/emails`, `/v1/domains`, `/v1/keys`, `/v1/suppressions`, `/v1/templates` |
+| `keyAdmin` | 1 hr   | 20 per key  | `POST /v1/keys`, `POST /v1/keys/:id/rotate`                                           |
+
+Every metered response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and
+`X-RateLimit-Reset` (unix seconds). A refusal is `429 rate_limit_error` **with a
+`Retry-After` header in whole seconds**, so a client can wait exactly as long as
+the window needs instead of guessing — a 429 without it invites the blind retry
+loop the limit exists to stop.
 
 ## Sandbox / test mode
 
