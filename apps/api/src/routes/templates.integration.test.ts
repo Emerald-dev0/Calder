@@ -80,10 +80,14 @@ gate("template journey through the real API (live Postgres)", () => {
       { id: `orgm_tpl_a_${suffix}`, organizationId: orgA, userId: userA, role: "owner" },
       { id: `orgm_tpl_b_${suffix}`, organizationId: orgB, userId: userB, role: "owner" },
     ]);
+    const { allowRawSenders } = await import("../test-support/senders.js");
     await db.insert(projects).values([
       { id: projectA, organizationId: orgA, name: "A", slug: "a" },
       { id: projectB, organizationId: orgB, name: "B", slug: "b" },
     ]);
+    // Stage 3.3: the isolation case sends from a bare address on each project.
+    await allowRawSenders(db, projectA);
+    await allowRawSenders(db, projectB);
     await db.insert(senderIdentities).values({
       id: senderA,
       projectId: projectA,
@@ -287,7 +291,11 @@ gate("template journey through the real API (live Postgres)", () => {
       {
         method: "POST",
         body: JSON.stringify({
-          from: "someone@b.test",
+          // A sender project B may legitimately use, so the only thing wrong
+          // with this request is the cross-tenant template reference. (Stage
+          // 3.3 refuses an unauthorised `from` before template lookup, which
+          // would otherwise mask the 404 being tested.)
+          from: `b-${suffix}@test.test`,
           to: "ada@example.test",
           template: `welcome-${suffix}`,
           variables: { name: "Ada", code: "1" },

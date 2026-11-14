@@ -171,13 +171,38 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
   try {
     const { getDb } = await import("@calder/db");
     const { resolveSender } = await import("./sender-service.js");
-    const resolved = await resolveSender(getDb(), projectId, input.from);
+    // Test-mode sends are mocked at the provider, so there is no identity to
+    // hold them to; live sends must resolve to something we can vouch for.
+    const resolved = await resolveSender(getDb(), projectId, input.from, {
+      allowUnattributed: env === "test",
+    });
     senderIdentityId = resolved.senderIdentityId;
     senderEmail = resolved.email;
     senderName = resolved.displayName;
     attributed = resolved.senderIdentityId !== null;
   } catch (err) {
-    if (err instanceof AppError) throw err;
+    if (err instanceof AppError) {
+      // Precedence matters here. An organization that cannot send at all (a
+      // suspension, an abuse pause, an exhausted plan) should learn that from
+      // the gate that actually stops it — not from a sender error it could fix
+      // and still be refused. The authoritative eligibility decision is still
+      // taken inside the admission transaction below; this only picks which
+      // refusal to report first.
+      if (err.code === "sender_not_ready" || err.code === "validation_error") {
+        const { checkOrganizationSendingEligibility } = await import("@calder/db");
+        const { getDbClient } = await import("./sender-service.js");
+        const { assertOrganizationAdmissionAllowed } =
+          await import("../lib/organization-sending.js");
+        const decision = await checkOrganizationSendingEligibility(getDbClient(), {
+          organizationId: params.organizationId,
+          projectId,
+          env,
+          phase: "ingest",
+        });
+        assertOrganizationAdmissionAllowed(decision);
+      }
+      throw err;
+    }
     // Sender authorization is a trust-boundary check. A hosted API must not
     // turn a database outage into an unscoped bare-address send; only the
     // local development scaffold may retain the legacy fallback.
@@ -716,7 +741,9 @@ async function resolveInternalSender(db: DbClient, requested?: string): Promise<
   if (requested.startsWith("sender_")) {
     try {
       const { resolveSender } = await import("./sender-service.js");
-      const out = await resolveSender(db, INTERNAL_PROJECT_ID, requested);
+      const out = await resolveSender(db, INTERNAL_PROJECT_ID, requested, {
+        allowUnattributed: true,
+      });
       return out.email;
     } catch {
       // fall through to label check
@@ -741,7 +768,9 @@ async function resolveInternalSender(db: DbClient, requested?: string): Promise<
   // Also allow any verified sender email of the internal project
   try {
     const { resolveSender } = await import("./sender-service.js");
-    const out = await resolveSender(db, INTERNAL_PROJECT_ID, requested);
+    const out = await resolveSender(db, INTERNAL_PROJECT_ID, requested, {
+      allowUnattributed: true,
+    });
     return out.email;
   } catch {
     throw new AppError(

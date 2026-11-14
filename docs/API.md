@@ -167,12 +167,23 @@ verification — those gates run at ingest regardless of stream.
 
 The `from` address must resolve to an identity the project's active transport owns:
 
-- **Verified domain** (SES/managed transports): any address on the domain.
+- **Sender identity** (`sender_xxx`, or a bare address that matches one): must be
+  `verified` or `connected` and not archived. `pending`, `disabled` and archived
+  senders are refused with `422 sender_not_ready` and a sentence saying what to do.
+- **Verified domain** (SES/managed transports) — for live sends this requires the
+  project to opt in: a bare address at a domain the project has verified is
+  accepted **only** when "Send from addresses without a sender identity" is on in
+  Senders (off by default, owner/admin only, audited).
 - **Connected Gmail** (gmail transport): exactly the connected address, the
   transport pins the sender, spoofing is structurally impossible.
+- **Test mode**: any address, because the provider is mocked and nothing leaves
+  the account.
 
-Unowned senders fail closed (`domain_not_verified` / `550`) with an explanation
-pointing at verification or graduation, never silent, never delivered anyway.
+Anything else is refused before the message is recorded: `422 sender_not_ready`,
+message names Senders. Unowned senders fail closed (`domain_not_verified` / `550`)
+with an explanation pointing at verification or graduation, never silent, never
+delivered anyway. When an organization is suspended or paused, that refusal takes
+precedence — the workspace hears the reason it is actually blocked.
 
 ## SES feedback ingress (`POST /v1/ses/events`)
 

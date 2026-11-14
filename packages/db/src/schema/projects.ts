@@ -3,6 +3,12 @@ import { organizations } from "./organizations.js";
 
 export interface ProjectMetadata {
   removeCalderBranding?: boolean;
+  /**
+   * Allow live sends from a bare address that has no sender identity on this
+   * project — but only when the address's domain is verified here. Off unless
+   * the customer turns it on in Senders (Stage 3.3).
+   */
+  allowUnattributedSenders?: boolean;
   environment?: "production" | "staging" | "development";
   useCases?: string[];
   monthlyVolume?: string;

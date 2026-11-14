@@ -251,6 +251,19 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
           );
           return;
         }
+        if (req.url?.startsWith("/v2/email/suppression/addresses/")) {
+          // GetSuppressedDestination for an address that is NOT on the list.
+          // SES answers NotFoundException, and `x-amzn-errortype` is how the
+          // REST-JSON protocol tells the SDK which modelled error this is —
+          // without it the client sees an anonymous failure, and the drain
+          // (correctly) fails closed instead of sending.
+          res.writeHead(404, {
+            "content-type": "application/json",
+            "x-amzn-errortype": "NotFoundException",
+          });
+          res.end(JSON.stringify({ message: "Address is not on the suppression list." }));
+          return;
+        }
         res.writeHead(404, { "content-type": "application/json" });
         res.end(JSON.stringify({ message: `unhandled ${req.url}` }));
       });
@@ -271,6 +284,11 @@ gate("live send path against a real SES-protocol endpoint (no AWS)", async () =>
       .insert(organizationMembers)
       .values({ id: `orgm_${orgId}`, organizationId: orgId, userId, role: "owner" });
     await db.insert(projects).values({ id: projId, organizationId: orgId, name: "P", slug: "p" });
+    // Stage 3.3: live sends must resolve to a sender. This suite exercises the
+    // live wire from bare `test.test` addresses, so the project opts in — the
+    // ramp-up every pre-existing live integration needs.
+    const { allowRawSenders } = await import("../test-support/senders.js");
+    await allowRawSenders(db, projId);
     registerDevKey(liveKey, {
       apiKeyId: `key_live_${suffix}`,
       projectId: projId,

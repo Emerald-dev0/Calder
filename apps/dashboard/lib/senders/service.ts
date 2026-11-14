@@ -10,6 +10,7 @@ import {
   emailEvents,
   getDb,
   organizationForProject,
+  projects,
   projectTransports,
   senderIdentities,
   deliveryEventIngress,
@@ -1109,4 +1110,81 @@ export async function senderCreationOptions(actor: SenderActor, projectId: strin
     verifiedDomains: verifiedDomains.map((d) => d.domain),
     gmailTransports,
   };
+}
+
+/* ── Raw-address policy (Stage 3.3) ──────────────────────────────
+ *
+ * Live sends must resolve to a sender identity. The one exception a project
+ * can grant itself is sending from a bare address at a domain it has verified
+ * — the customer proved they own the domain, and SES itself permits exactly
+ * that. It is off by default, because "you can send as anything at my domain"
+ * is a decision a workspace should make on purpose, not inherit.
+ */
+
+export interface RawSenderPolicy {
+  enabled: boolean;
+  /** Verified domains on this project — the only domains raw addresses may use. */
+  verifiedDomains: string[];
+  canManage: boolean;
+}
+
+export async function rawSenderPolicy(
+  actor: SenderActor,
+  projectId: string
+): Promise<RawSenderPolicy> {
+  assertProjectVisible(actor, projectId);
+  const db = getDb();
+  const [project] = await db
+    .select({ metadata: projects.metadata })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  if (!project) throw new SenderNotFoundError();
+  const rows = await db
+    .select({ domain: domains.domain })
+    .from(domains)
+    .where(and(eq(domains.projectId, projectId), eq(domains.status, "verified")));
+  return {
+    enabled: project.metadata?.allowUnattributedSenders === true,
+    verifiedDomains: rows.map((r) => r.domain).sort(),
+    canManage: await canManageProject(actor.userId, projectId),
+  };
+}
+
+export async function setRawSenderPolicy(
+  actor: SenderActor,
+  projectId: string,
+  enabled: boolean
+): Promise<RawSenderPolicy> {
+  assertProjectVisible(actor, projectId);
+  await requireManage(actor, projectId);
+  const db = getDb();
+  const [project] = await db
+    .select({ metadata: projects.metadata })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  if (!project) throw new SenderNotFoundError();
+
+  const policy = await rawSenderPolicy(actor, projectId);
+  if (enabled && policy.verifiedDomains.length === 0) {
+    // Turning it on with nothing verified would do nothing at all, and the
+    // customer would think it worked.
+    throw new SenderInputError("Verify a domain first — raw addresses may only use one.");
+  }
+
+  await db
+    .update(projects)
+    .set({
+      metadata: { ...(project.metadata ?? {}), allowUnattributedSenders: enabled },
+      updatedAt: new Date(),
+    })
+    .where(eq(projects.id, projectId));
+  await audit(db, {
+    projectId,
+    actorUserId: actor.userId,
+    action: enabled ? "project.raw_senders.enabled" : "project.raw_senders.disabled",
+    targetId: projectId,
+  });
+  return { ...policy, enabled };
 }

@@ -67,10 +67,13 @@ gate("organization suspension kill-switch (live Postgres)", async () => {
       userId,
       role: "owner",
     });
+    const { allowRawSenders } = await import("../test-support/senders.js");
     await db.insert(projects).values([
       { id: projectIds[0]!, organizationId: orgId, name: "A", slug: "a" },
       { id: projectIds[1]!, organizationId: orgId, name: "B", slug: "b" },
     ]);
+    // Stage 3.3: both projects send live from bare `test.test` addresses.
+    for (const projectId of projectIds) await allowRawSenders(db, projectId);
     await db.insert(apiKeys).values(
       projectIds.map((projectId, index) => ({
         id: `key_kill_${suffix}_${index}`,

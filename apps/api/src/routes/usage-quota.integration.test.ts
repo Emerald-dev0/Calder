@@ -126,6 +126,7 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
   beforeAll(async () => {
     if (!(await reachable())) return;
     const db = getDb();
+    const { allowRawSenders } = await import("../test-support/senders.js");
     await db.insert(users).values({ id: userId, email: `qty-${suffix}@test.test` });
     const insertedPlan = await db
       .insert(plans)
@@ -159,6 +160,8 @@ gate("usage, quota & env isolation (live Postgres)", async () => {
         // orgs here — a guaranteed primary-key collision on a live database.)
         .values({ id: `orgm_${orgId}`, organizationId: orgId, userId, role: "owner" });
       await db.insert(projects).values({ id: projId, organizationId: orgId, name: "P", slug: "p" });
+      // Stage 3.3: these projects send live from bare `test.test` addresses.
+      await allowRawSenders(db, projId);
     }
     registerDevKey(liveKeyA, {
       apiKeyId: rid("key"),
