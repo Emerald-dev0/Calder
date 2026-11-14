@@ -16,6 +16,7 @@ import { sendSecurityEmail } from "../../../../lib/send-security-email";
 import { sameOriginRequest } from "../../../../lib/csrf";
 import { readPreviousSessionId } from "../../../../lib/previous-session";
 import { postLoginRedirect } from "../../../../lib/control/post-login";
+import { invitedOrgCookieHeader } from "../../../../lib/org-cookie";
 
 /**
  * POST /api/auth/login { email, password, next? }
@@ -101,6 +102,10 @@ export async function POST(req: Request): Promise<Response> {
     await sendSecurityEmail({ to: result.email, event: "new_login" });
     const res = NextResponse.json({ ok: true, user: result.user, redirectTo });
     res.headers.append("Set-Cookie", sessionCookieHeader(sealed, 30 * 24 * 60 * 60));
+    // If this login accepted an invitation, open that workspace rather than
+    // whichever organisation the account happened to have first.
+    const invitedOrg = invitedOrgCookieHeader(result.invitedOrganizationIds);
+    if (invitedOrg) res.headers.append("Set-Cookie", invitedOrg);
     return res;
   } catch (err) {
     // Account-level progressive lockout (M6.1): distinct from the route's

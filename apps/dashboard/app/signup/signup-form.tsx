@@ -8,12 +8,21 @@ import { PasswordToggle } from "../../components/auth/password-toggle";
 
 interface SignupFormProps {
   providers: readonly ("google" | "github")[];
+  /** Prefilled from ?email= on an invitation link; editable. */
+  initialEmail?: string;
 }
 
-export function SignupForm({ providers }: SignupFormProps) {
+// ?next= lets an invitation link survive the whole signup: the server only
+// honours same-origin paths and returns `redirectTo`, which the client follows.
+function readNext(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("next");
+}
+
+export function SignupForm({ providers, initialEmail = "" }: SignupFormProps) {
   const [step, setStep] = useState<"form" | "code">("form");
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState("");
@@ -72,7 +81,7 @@ export function SignupForm({ providers }: SignupFormProps) {
       const res = await fetch("/api/auth/email-code/verify", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, code: finalCode, purpose: "verification" }),
+        body: JSON.stringify({ email, code: finalCode, purpose: "verification", next: readNext() }),
       });
 
       const data = await res.json().catch(() => ({}));

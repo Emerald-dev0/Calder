@@ -15,6 +15,7 @@ import {
 } from "@calder/auth";
 import { postLoginRedirect } from "../../../../lib/control/post-login";
 import { sameOriginRequest } from "../../../../lib/csrf";
+import { invitedOrgCookieHeader } from "../../../../lib/org-cookie";
 
 /**
  * DEV-ONLY login bypass so the founder can preview the dashboard before
@@ -53,7 +54,7 @@ export async function POST(req: Request): Promise<Response> {
     await db.insert(users).values({ id: userId, email, emailVerifiedAt: new Date() });
   }
   await ensureFounderAccess(db, userId, email);
-  await acceptPendingInvites(db, userId, email);
+  const invitedOrganizationIds = await acceptPendingInvites(db, userId, email);
 
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -65,5 +66,7 @@ export async function POST(req: Request): Promise<Response> {
   const sealed = await sealSessionCookie(sessionId);
   const res = NextResponse.redirect(new URL(await postLoginRedirect(email), req.url));
   res.headers.append("Set-Cookie", sessionCookieHeader(sealed, 30 * 24 * 60 * 60));
+  const invitedOrg = invitedOrgCookieHeader(invitedOrganizationIds);
+  if (invitedOrg) res.headers.append("Set-Cookie", invitedOrg);
   return res;
 }

@@ -372,22 +372,13 @@ export async function removeMember(orgId: string, membershipId: string) {
  * Public preview for /invite/[token]: resolves the org name + state without
  * authentication (the 256-bit token IS the capability). Never exposes member
  * lists, emails beyond the invitee's own, or raw tokens.
+ *
+ * The rules live in `lib/invites.ts` so the preview and the acceptance cannot
+ * disagree about whether a link is still usable.
  */
 export async function getInvitePreview(token: string) {
-  if (!/^[a-f0-9]{64}$/.test(token)) return { state: "invalid" as const };
-  const tokenHash = createHash("sha256").update(token).digest("hex");
-  const db = getDb();
-  const rows = await db
-    .select({ invite: orgInvitations, orgName: organizations.name })
-    .from(orgInvitations)
-    .innerJoin(organizations, eq(orgInvitations.organizationId, organizations.id))
-    .where(eq(orgInvitations.tokenHash, tokenHash))
-    .limit(1);
-  const row = rows[0];
-  if (!row) return { state: "invalid" as const };
-  if (row.invite.acceptedAt) return { state: "accepted" as const, orgName: row.orgName };
-  if (row.invite.expiresAt < new Date()) return { state: "expired" as const, orgName: row.orgName };
-  return { state: "valid" as const, orgName: row.orgName, email: row.invite.email };
+  const { previewInvitation } = await import("../../../lib/invites");
+  return previewInvitation(token);
 }
 
 export async function revokeInvite(orgId: string, inviteId: string) {
