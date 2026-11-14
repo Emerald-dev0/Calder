@@ -192,6 +192,23 @@ nothing to show.
 - `inbox_members.notify` (default true) is the per-mailbox mute. A member may
   change their own without `manageMembers`; a manager may change anyone's.
 
+**Unread state.** `/inbox` now shows a per-inbox badge in the rail, an unread dot
+on each conversation, and a "Mark N read" button; the bell's
+"Open shared inbox (N)" uses the same number. All three read one rule,
+`UNREAD_PREDICATE` in `packages/db/src/inboxes.ts`:
+
+> A conversation is unread for a person when it moved after the later of
+> (a) when they last opened **that thread** (`inbox_reads`), (b) when they last
+> marked the whole inbox read (`inbox_members.last_read_at`), and (c) when they
+> joined the inbox (`inbox_members.created_at`, used only when (b) is unset).
+> Closed conversations are never unread.
+
+Two rules that were rejected, because each produces a badge nobody can trust:
+clearing the inbox badge because _a colleague_ replied in one thread (inbox-wide
+read state), and handing a newly added member the whole history as unread
+(no membership baseline). Opening a conversation writes `inbox_reads` with
+`greatest(...)`, so a stale tab cannot resurrect unread mail.
+
 ## 4. Database and migrations
 
 | Migration                | Contents                                                                                                                                                                                                                                                                                                                                  |
@@ -277,8 +294,8 @@ role, inbox role})`: org owner/admin → manager (a workspace cannot lock itself
 | Typecheck (`tsc --noEmit`) dashboard + api                                        | clean                                                                                                                                                                                         |
 | ESLint on all new files                                                           | clean                                                                                                                                                                                         |
 | Prettier `--check`                                                                | clean                                                                                                                                                                                         |
-| `packages/db` `schema-drift`                                                      | "schema matches 43 committed migration(s)"                                                                                                                                                    |
-| Migrations against local Postgres 17                                              | 43/43 applied, none pending                                                                                                                                                                   |
+| `packages/db` `schema-drift`                                                      | "schema matches 44 committed migration(s)"                                                                                                                                                    |
+| Migrations against local Postgres 17                                              | 44/44 applied, none pending                                                                                                                                                                   |
 | `next build` (dashboard, production)                                              | succeeded, including the new routes                                                                                                                                                           |
 
 **Known pre-existing failure, unrelated to this work:**
@@ -328,10 +345,13 @@ deployment and no half-configured receive path is reachable.
 - **Labels UI.** The tables, actions (`setLabels`) and API shape exist; the
   conversation sidebar does not yet render a label picker. Creating labels has no
   UI either.
-- **Unread counts.** The bell shows a real unread notification count and the
-  total unread conversations across the inboxes you belong to
-  (`unreadConversationCounts`), but the `/inbox` list itself still has no
-  per-inbox badge.
+- **Receiving domains are not SES identities yet.** The product proves domain
+  ownership with its own `_calder-inbound` TXT record and refuses a foreign MX,
+  but AWS will not accept mail for a domain that is not a verified SES identity in
+  the same region. Today that comes only from the sending-domain flow, so a
+  receive-only domain silently gets nothing. Fix: create the SES identity when a
+  receiving domain is added, surface its DKIM records on `/receiving`, and require
+  SES verification before "accepting mail" can go green.
 - **Notification delivery is poll-based.** One request a minute per open tab,
   plus on focus and navigation. No sockets (see §3), so a notification can be up
   to a minute late on a tab that is left open and untouched.

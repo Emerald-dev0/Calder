@@ -52,6 +52,11 @@ the repository: inbound is closed until someone opens it deliberately.
 
 ## 3. AWS work, in order
 
+> **Step-by-step runbook with exact commands: [`docs/INBOUND-SETUP.md`](./INBOUND-SETUP.md).**
+> It also covers two things this list under-states: the receiving domain must also
+> be a verified SES identity in the same region, and `INBOUND_MX_HOST` must be the
+> SES inbound endpoint (the MX check compares the string exactly).
+
 1. **Bucket.** Create one bucket for raw mail (e.g. `calder-inbound-<env>`) in
    `AWS_REGION`. Enable default encryption (SSE-S3 or SSE-KMS). Add a lifecycle
    rule that expires the raw MIME prefix (e.g. 30 days) — the parsed bodies and
@@ -67,8 +72,10 @@ the repository: inbound is closed until someone opens it deliberately.
 4. **Receipt rule set** (`INBOUND_SES_RULE_SET`), activated. For each receiving
    domain, one rule:
    - recipients: the domain (or a subdomain pattern) the customer verified;
-   - actions: **S3** (bucket from step 1, prefix `${INBOUND_S3_PREFIX}ses/`) then
-     **SNS** (topic from step 3, encoding UTF-8);
+   - actions: one **S3** action (bucket from step 1, prefix
+     `${INBOUND_S3_PREFIX}ses/`) carrying `TopicArn` from step 3 — the S3 action
+     already publishes the receipt notification, so a second `SNSAction`
+     duplicates every delivery (harmless, deduped, but pointless);
    - no TLS requirement; no spam/virus gate beyond SES defaults (both verdicts
      are recorded per message).
 5. **MX records**, added by _the customer_, on a **dedicated subdomain** that

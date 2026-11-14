@@ -1,10 +1,17 @@
 import Link from "next/link";
 import { Inbox as InboxIcon, Search } from "lucide-react";
-import { getDb, inboxes, listConversations } from "@calder/db";
+import {
+  getDb,
+  inboxes,
+  listConversations,
+  unreadConversationCounts,
+  unreadConversationIds,
+} from "@calder/db";
 import { eq } from "drizzle-orm";
 import { getTenantContext, resolveProject } from "../../../lib/auth";
 import { visibleInboxesForProject } from "../../../lib/inbox/guard";
 import { ProjectPicker } from "../project-picker";
+import { markRead } from "./actions";
 import { DsBanner, DsPageHeader, StatusPill } from "../../../components/design-system";
 import { EmptyState } from "../../../components/empty-state";
 
@@ -19,6 +26,12 @@ import { EmptyState } from "../../../components/empty-state";
  * Conversations are listed from the same query the conversation page reads, and
  * nothing here claims mail is being received: if inbound is not configured the
  * banner says so.
+ *
+ * Unread is per person and per thread: the rail badge and the dots both come
+ * from `unreadConversationCounts` / `unreadConversationIds`, which implement the
+ * single rule that a conversation is unread when it moved after the later of
+ * "I opened this thread" and "I marked this inbox read". A shared badge that
+ * cleared because a colleague read one thread would be worse than no badge.
  */
 export default async function InboxPage({
   searchParams,
@@ -87,16 +100,22 @@ export default async function InboxPage({
       ? query.status
       : "open";
 
-  const { rows } = await listConversations(getDb(), {
-    inboxId: selected.id,
-    status,
-    q: query.q?.trim() || undefined,
-    assigneeUserId: query.mine === "1" ? userId : undefined,
-    limit: 50,
-  });
-
   const db = getDb();
-  const [inboxRow] = await db.select().from(inboxes).where(eq(inboxes.id, selected.id)).limit(1);
+  const [{ rows }, unreadPerInbox, unreadInSelected, inboxRowResult] = await Promise.all([
+    listConversations(db, {
+      inboxId: selected.id,
+      status,
+      q: query.q?.trim() || undefined,
+      assigneeUserId: query.mine === "1" ? userId : undefined,
+      limit: 50,
+    }),
+    unreadConversationCounts(db, { userId, organizationId: scope.organization.id }),
+    unreadConversationIds(db, { userId, inboxId: selected.id }),
+    db.select().from(inboxes).where(eq(inboxes.id, selected.id)).limit(1),
+  ]);
+  const [inboxRow] = inboxRowResult;
+  const unreadByInbox = new Map(unreadPerInbox.perInbox.map((u) => [u.inboxId, u.unread]));
+  const selectedUnread = unreadByInbox.get(selected.id) ?? 0;
 
   return (
     <div>
@@ -125,6 +144,18 @@ export default async function InboxPage({
               currentId={projectId}
               basePath="/inbox"
             />
+            {selectedUnread > 0 && (
+              <form
+                action={async () => {
+                  "use server";
+                  await markRead(selected.id);
+                }}
+              >
+                <button className="ds-btn ds-btn-ghost" type="submit">
+                  Mark {selectedUnread} read
+                </button>
+              </form>
+            )}
             <Link className="ds-btn ds-btn-ghost" href={`/inbox/settings?project=${projectId}`}>
               Inbox settings
             </Link>
@@ -135,16 +166,41 @@ export default async function InboxPage({
       <div style={{ display: "grid", gridTemplateColumns: "200px minmax(0, 1fr)", gap: 20 }}>
         <nav aria-label="Inboxes">
           <div style={{ display: "grid", gap: 6 }}>
-            {visible.map((inbox) => (
-              <Link
-                key={inbox.id}
-                href={`/inbox?inbox=${inbox.id}&project=${projectId}`}
-                className={`ds-btn ${inbox.id === selected.id ? "ds-btn-primary" : "ds-btn-ghost"}`}
-                style={{ justifyContent: "flex-start" }}
-              >
-                {inbox.name}
-              </Link>
-            ))}
+            {visible.map((inbox) => {
+              const unread = unreadByInbox.get(inbox.id) ?? 0;
+              return (
+                <Link
+                  key={inbox.id}
+                  href={`/inbox?inbox=${inbox.id}&project=${projectId}`}
+                  className={`ds-btn ${inbox.id === selected.id ? "ds-btn-primary" : "ds-btn-ghost"}`}
+                  style={{ justifyContent: "space-between", gap: 8 }}
+                  aria-label={
+                    unread > 0 ? `${inbox.name}, ${unread} unread conversations` : inbox.name
+                  }
+                >
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{inbox.name}</span>
+                  {unread > 0 && (
+                    <span
+                      className="mono"
+                      style={{
+                        minWidth: 18,
+                        padding: "0 5px",
+                        borderRadius: 999,
+                        background: "var(--color-danger, #d92d20)",
+                        color: "#fff",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        lineHeight: "16px",
+                        textAlign: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {unread > 99 ? "99+" : unread}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
           </div>
         </nav>
 
@@ -190,53 +246,71 @@ export default async function InboxPage({
             />
           ) : (
             <div style={{ display: "grid", gap: 8 }}>
-              {rows.map((conversation) => (
-                <Link
-                  key={conversation.id}
-                  href={`/inbox/${conversation.id}`}
-                  className="ds-card"
-                  style={{
-                    padding: 14,
-                    display: "block",
-                    textDecoration: "none",
-                    color: "inherit",
-                  }}
-                >
-                  <div
-                    style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}
+              {rows.map((conversation) => {
+                const unread = unreadInSelected.has(conversation.id);
+                return (
+                  <Link
+                    key={conversation.id}
+                    href={`/inbox/${conversation.id}`}
+                    className="ds-card"
+                    style={{
+                      padding: 14,
+                      display: "block",
+                      textDecoration: "none",
+                      color: "inherit",
+                    }}
                   >
-                    <StatusPill status={conversation.status} />
-                    <strong style={{ fontSize: 13 }}>
-                      {conversation.subject ?? "(no subject)"}
-                    </strong>
-                    {conversation.assigneeName && (
-                      <span style={{ fontSize: 11, opacity: 0.75 }}>
-                        → {conversation.assigneeName}
-                      </span>
-                    )}
-                    <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.6 }}>
-                      {conversation.lastMessageAt.toISOString().slice(0, 16).replace("T", " ")} UTC
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>
-                    {conversation.participants.slice(0, 3).join(", ")}
-                    {conversation.participants.length > 3
-                      ? ` +${conversation.participants.length - 3}`
-                      : ""}
-                    {" · "}
-                    {conversation.messageCount} message{conversation.messageCount === 1 ? "" : "s"}
-                  </div>
-                  {conversation.labels.length > 0 && (
-                    <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                      {conversation.labels.map((label) => (
-                        <span key={label} className="ds-pill">
-                          {label}
+                    <div
+                      style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}
+                    >
+                      <StatusPill status={conversation.status} />
+                      {unread && (
+                        <span
+                          aria-label="Unread"
+                          title="New since you last opened this conversation"
+                          style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: 999,
+                            background: "var(--color-accent)",
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
+                      <strong style={{ fontSize: 13, fontWeight: unread ? 750 : 600 }}>
+                        {conversation.subject ?? "(no subject)"}
+                      </strong>
+                      {conversation.assigneeName && (
+                        <span style={{ fontSize: 11, opacity: 0.75 }}>
+                          → {conversation.assigneeName}
                         </span>
-                      ))}
+                      )}
+                      <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.6 }}>
+                        {conversation.lastMessageAt.toISOString().slice(0, 16).replace("T", " ")}{" "}
+                        UTC
+                      </span>
                     </div>
-                  )}
-                </Link>
-              ))}
+                    <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>
+                      {conversation.participants.slice(0, 3).join(", ")}
+                      {conversation.participants.length > 3
+                        ? ` +${conversation.participants.length - 3}`
+                        : ""}
+                      {" · "}
+                      {conversation.messageCount} message
+                      {conversation.messageCount === 1 ? "" : "s"}
+                    </div>
+                    {conversation.labels.length > 0 && (
+                      <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                        {conversation.labels.map((label) => (
+                          <span key={label} className="ds-pill">
+                            {label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           )}
 

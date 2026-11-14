@@ -8,14 +8,16 @@
  * dashboard and the API without a second copy of the rules — while the guards
  * that call it cannot drift, because there is only one of them.
  */
-import { and, count, desc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
-import type { DbClient, DbExecutor } from "./client.js";
+import { createHash } from "node:crypto";
+import { and, count, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import type { DbExecutor } from "./client.js";
 import {
   inboxConversationLabels,
   inboxConversations,
   inboxLabels,
   inboxMembers,
   inboxNotes,
+  inboxReads,
   inboxReplies,
   inboxRoutes,
   inboxes,
@@ -586,25 +588,107 @@ export async function markInboxRead(
     .where(and(eq(inboxMembers.inboxId, input.inboxId), eq(inboxMembers.userId, input.userId)));
 }
 
-/** Conversations with new inbound mail since this member last read the inbox. */
-export async function unreadCount(
+/**
+ * Record that one person has read one conversation up to now.
+ *
+ * Called when the thread is opened. The upsert moves the timestamp forward only
+ * (`greatest`), so two tabs opening the same thread cannot make it unread again.
+ */
+export async function markConversationRead(
   db: DbExecutor,
-  input: { inboxId: string; userId: string }
-): Promise<number> {
-  const [membership] = await db
-    .select({ lastReadAt: inboxMembers.lastReadAt })
-    .from(inboxMembers)
-    .where(and(eq(inboxMembers.inboxId, input.inboxId), eq(inboxMembers.userId, input.userId)))
-    .limit(1);
-  const since = membership?.lastReadAt;
-  const [row] = await db
-    .select({ value: count() })
+  input: { conversationId: string; userId: string; at?: Date }
+): Promise<void> {
+  const at = input.at ?? new Date();
+  await db
+    .insert(inboxReads)
+    .values({
+      id: `ird_${createHash("sha256").update(`${input.conversationId}:${input.userId}`).digest("hex").slice(0, 22)}`,
+      conversationId: input.conversationId,
+      userId: input.userId,
+      lastReadAt: at,
+    })
+    .onConflictDoUpdate({
+      target: [inboxReads.conversationId, inboxReads.userId],
+      set: {
+        lastReadAt: sql`greatest(${inboxReads.lastReadAt}, ${at.toISOString()}::timestamptz)`,
+      },
+    });
+}
+
+/**
+ * The one definition of "unread", in SQL, used everywhere.
+ *
+ * A conversation is unread for a person when it has moved after the later of:
+ *
+ *  - when they last opened *that thread* (`inbox_reads.last_read_at`), and
+ *  - when they last marked the whole inbox read (`inbox_members.last_read_at`),
+ *    falling back to when they joined it (`inbox_members.created_at`), so a new
+ *    member does not inherit the entire conversation history as unread.
+ *
+ * Closed threads are never unread: nobody is waiting on work that is finished.
+ * The truth of this rule matters — the rail badge, the bell and the list dots
+ * all read it, so they cannot disagree with each other.
+ */
+export const UNREAD_PREDICATE = (userId: string) => sql`(
+  ${inboxConversations.status} <> 'closed'
+  and ${inboxConversations.lastMessageAt} > greatest(
+    coalesce(
+      (select r.last_read_at from inbox_reads r
+        where r.conversation_id = ${inboxConversations.id} and r.user_id = ${userId}),
+      'epoch'::timestamptz
+    ),
+    coalesce(
+      (select m.last_read_at from inbox_members m
+        where m.inbox_id = ${inboxConversations.inboxId} and m.user_id = ${userId}),
+      (select m.created_at from inbox_members m
+        where m.inbox_id = ${inboxConversations.inboxId} and m.user_id = ${userId}),
+      'epoch'::timestamptz
+    )
+  )
+)`;
+
+export interface InboxUnread {
+  inboxId: string;
+  unread: number;
+}
+
+/**
+ * Unread conversations per inbox for one person, plus a total.
+ *
+ * Scoped through `inbox_members`, so an organisation admin who is not a member
+ * of a mailbox does not get a badge for mail they were never added to see.
+ */
+export async function unreadConversationCounts(
+  db: DbExecutor,
+  input: { userId: string; organizationId?: string }
+): Promise<{ perInbox: InboxUnread[]; total: number }> {
+  const rows = await db
+    .select({ inboxId: inboxConversations.inboxId, unread: count() })
     .from(inboxConversations)
     .where(
       and(
-        eq(inboxConversations.inboxId, input.inboxId),
-        since ? gte(inboxConversations.lastMessageAt, since) : sql`true`
+        input.organizationId
+          ? eq(inboxConversations.organizationId, input.organizationId)
+          : sql`true`,
+        sql`exists (select 1 from inbox_members m
+          where m.inbox_id = ${inboxConversations.inboxId} and m.user_id = ${input.userId})`,
+        UNREAD_PREDICATE(input.userId)
       )
-    );
-  return Number(row?.value ?? 0);
+    )
+    .groupBy(inboxConversations.inboxId);
+
+  const perInbox = rows.map((r) => ({ inboxId: r.inboxId, unread: Number(r.unread) }));
+  return { perInbox, total: perInbox.reduce((sum, r) => sum + r.unread, 0) };
+}
+
+/** Which conversations in one inbox are unread for this person. */
+export async function unreadConversationIds(
+  db: DbExecutor,
+  input: { userId: string; inboxId: string }
+): Promise<Set<string>> {
+  const rows = await db
+    .select({ id: inboxConversations.id })
+    .from(inboxConversations)
+    .where(and(eq(inboxConversations.inboxId, input.inboxId), UNREAD_PREDICATE(input.userId)));
+  return new Set(rows.map((r) => r.id));
 }

@@ -8,7 +8,6 @@
 import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import type { DbExecutor } from "./client.js";
 import { notifications } from "./schema/notifications.js";
-import { inboxConversations, inboxMembers, inboxes } from "./schema/inboxes.js";
 
 export interface NotificationRow {
   id: string;
@@ -181,63 +180,4 @@ export async function lastEmailedForConversation(
     .orderBy(desc(notifications.emailedAt))
     .limit(1);
   return row?.emailedAt ?? null;
-}
-
-export interface InboxUnread {
-  inboxId: string;
-  unread: number;
-}
-
-/**
- * Unread conversations per inbox for one person, plus a total.
- *
- * A conversation counts as unread when it has moved since this member last read
- * the inbox (`inbox_members.last_read_at`) and is not closed. Closed threads
- * cannot be "waiting for you", so they never inflate a badge.
- */
-export async function unreadConversationCounts(
-  db: DbExecutor,
-  input: { userId: string; organizationId?: string }
-): Promise<{ perInbox: InboxUnread[]; total: number }> {
-  const membership = await db
-    .select({
-      inboxId: inboxMembers.inboxId,
-      lastReadAt: inboxMembers.lastReadAt,
-    })
-    .from(inboxMembers)
-    .innerJoin(inboxes, eq(inboxes.id, inboxMembers.inboxId))
-    .where(
-      and(
-        eq(inboxMembers.userId, input.userId),
-        input.organizationId ? eq(inboxes.organizationId, input.organizationId) : sql`true`
-      )
-    );
-
-  if (membership.length === 0) return { perInbox: [], total: 0 };
-
-  const rows = await db
-    .select({
-      inboxId: inboxConversations.inboxId,
-      unread: count(),
-    })
-    .from(inboxConversations)
-    .where(
-      and(
-        inArray(
-          inboxConversations.inboxId,
-          membership.map((m) => m.inboxId)
-        ),
-        sql`${inboxConversations.status} <> 'closed'`,
-        sql`${inboxConversations.lastMessageAt} > coalesce(
-          (select m.last_read_at from inbox_members m
-            where m.inbox_id = ${inboxConversations.inboxId}
-              and m.user_id = ${input.userId}),
-          'epoch'::timestamptz
-        )`
-      )
-    )
-    .groupBy(inboxConversations.inboxId);
-
-  const perInbox = rows.map((r) => ({ inboxId: r.inboxId, unread: Number(r.unread) }));
-  return { perInbox, total: perInbox.reduce((sum, r) => sum + r.unread, 0) };
 }

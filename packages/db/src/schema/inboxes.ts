@@ -249,6 +249,38 @@ export const inboxConversationLabels = pgTable(
   (t) => [primaryKey({ columns: [t.conversationId, t.labelId] })]
 );
 
+/**
+ * Per-person, per-conversation read state.
+ *
+ * The badge needs to answer "did this thread move since *I* last read *it*",
+ * which an inbox-wide timestamp cannot do: opening a shared inbox is not reading
+ * fifty threads, and clearing the whole badge because a colleague replied in one
+ * thread would hide the other forty-nine.
+ *
+ * Combined with `inbox_members.last_read_at` (the "mark everything read"
+ * baseline) and the membership's `created_at` (so a new member does not inherit
+ * the entire history as unread), this gives one rule — see
+ * `unreadConversationCounts` — used by the rail badge, the bell and the list.
+ */
+export const inboxReads = pgTable(
+  "inbox_reads",
+  {
+    id: text("id").primaryKey(), // ird_...
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => inboxConversations.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    lastReadAt: timestamp("last_read_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("inbox_reads_conversation_user_unique").on(t.conversationId, t.userId),
+    index("inbox_reads_user_idx").on(t.userId),
+  ]
+);
+
 export type Inbox = typeof inboxes.$inferSelect;
 export type InboxRoute = typeof inboxRoutes.$inferSelect;
 export type InboxMember = typeof inboxMembers.$inferSelect;
@@ -256,3 +288,4 @@ export type InboxConversation = typeof inboxConversations.$inferSelect;
 export type InboxNote = typeof inboxNotes.$inferSelect;
 export type InboxReply = typeof inboxReplies.$inferSelect;
 export type InboxLabel = typeof inboxLabels.$inferSelect;
+export type InboxRead = typeof inboxReads.$inferSelect;

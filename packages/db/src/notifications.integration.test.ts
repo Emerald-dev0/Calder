@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "./client.js";
 import * as mod from "./index.js";
+import { unreadConversationCounts } from "./inboxes.js";
 import {
   emailsSentSince,
   lastEmailedForConversation,
@@ -11,7 +12,6 @@ import {
   markNotificationsEmailed,
   markNotificationsRead,
   pushNotifications,
-  unreadConversationCounts,
   unreadNotificationCount,
   type NewNotification,
 } from "./notifications.js";

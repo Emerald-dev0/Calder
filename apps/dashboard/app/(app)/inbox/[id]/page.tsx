@@ -8,6 +8,7 @@ import {
   inboxAssignableMembers,
   inboxes,
   markConversationNotificationsRead,
+  markConversationRead,
   senderIdentities,
 } from "@calder/db";
 import { ArrowLeft, Inbox, Paperclip, StickyNote } from "lucide-react";
@@ -51,13 +52,13 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
   ]);
   if (!detail) notFound();
 
-  // Opening a conversation is reading it. Marking its notifications here keeps
-  // the bell honest without asking the user to dismiss anything by hand; the
-  // write is scoped to this user and idempotent, so a re-render is harmless.
-  await markConversationNotificationsRead(db, {
-    userId: access.userId,
-    conversationId: id,
-  });
+  // Opening a conversation is reading it. Two writes, both scoped to this user
+  // and idempotent, so a re-render is harmless: the thread loses its unread dot
+  // (per-person read state) and its notifications are marked read.
+  await Promise.all([
+    markConversationRead(db, { userId: access.userId, conversationId: id }),
+    markConversationNotificationsRead(db, { userId: access.userId, conversationId: id }),
+  ]);
 
   const inbox = inboxRow[0];
   const sender = inbox?.defaultSenderId
