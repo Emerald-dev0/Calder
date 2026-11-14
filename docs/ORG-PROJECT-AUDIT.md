@@ -316,3 +316,19 @@ and shows a `role="status"` confirmation after a move.
   organisations one person can create. Out of scope for this release.
 - "Move project" is reachable from `/settings` and `/settings/projects`, not
   from the project switcher itself.
+
+## 9. Stages 3 and 4 — status
+
+The plan in §7 is now built: inbound receiving (domain proof with an MX safety
+check, S3 raw storage, SNS ingestion, MIME parsing, attachments, separate
+metering and allowance) and shared inboxes (mailboxes, routing addresses, mailbox
+roles, conversations and threading, replies through the normal send path,
+internal notes, dashboard surfaces).
+
+Two documents carry the detail:
+
+- `docs/INBOUND-SHARED-INBOX-REPORT.md` — the implementation report: what was
+  broken, what changed, migrations, security, billing, verification results and
+  the deliberate gaps.
+- `docs/INBOUND.md` — the AWS boundary: exactly which account-level steps remain
+  and how each is recorded. Nothing in this repository claims they are done.
