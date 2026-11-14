@@ -71,7 +71,7 @@ describe("parseInboundMime", () => {
       `Content-Type: multipart/mixed; boundary="${boundary}"`,
       "",
       `--${boundary}`,
-      "Content-Type: multipart/alternative; boundary=\"alt\"",
+      'Content-Type: multipart/alternative; boundary="alt"',
       "",
       "--alt",
       "Content-Type: text/plain; charset=utf-8",
@@ -84,8 +84,8 @@ describe("parseInboundMime", () => {
       "--alt--",
       "",
       `--${boundary}`,
-      "Content-Type: application/pdf; name=\"invoice-042.pdf\"",
-      "Content-Disposition: attachment; filename=\"invoice-042.pdf\"",
+      'Content-Type: application/pdf; name="invoice-042.pdf"',
+      'Content-Disposition: attachment; filename="invoice-042.pdf"',
       "Content-Transfer-Encoding: base64",
       "",
       pdf,
@@ -136,8 +136,8 @@ describe("parseInboundMime", () => {
       "",
       "see attachment",
       `--${boundary}`,
-      "Content-Type: application/octet-stream; name=\"big.bin\"",
-      "Content-Disposition: attachment; filename=\"big.bin\"",
+      'Content-Type: application/octet-stream; name="big.bin"',
+      'Content-Disposition: attachment; filename="big.bin"',
       "Content-Transfer-Encoding: base64",
       "",
       Buffer.from("y".repeat(4_000)).toString("base64"),
@@ -168,12 +168,7 @@ describe("parseInboundMime", () => {
   });
 
   it("handles a message with no Subject or From without inventing them", async () => {
-    const raw = mail([
-      "To: inbox@inbox.acme.test",
-      "Content-Type: text/plain",
-      "",
-      "anonymous",
-    ]);
+    const raw = mail(["To: inbox@inbox.acme.test", "Content-Type: text/plain", "", "anonymous"]);
     const parsed = await parseInboundMime(raw);
     if (!parsed.ok) throw new Error(parsed.reason);
     expect(parsed.subject).toBeNull();

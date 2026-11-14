@@ -15,7 +15,7 @@ import {
 import { logger } from "@calder/observability";
 import { randomUUID } from "node:crypto";
 import { signUnsubscribeToken } from "@calder/auth";
-import { getConfig, type PlanTier } from "@calder/config";
+import { getConfig, marketingUrl, type PlanTier } from "@calder/config";
 import { eq, and, desc, count as drizzleCount } from "drizzle-orm";
 import type { Env } from "../app.js";
 import { AppError, validationError } from "../errors/index.js";
@@ -163,7 +163,6 @@ admin.post(
 
     const { sendInternalEmail } = await import("../services/email-service.js");
     const apiBase = getConfig().API_URL.replace(/\/$/, "");
-    const appBase = getConfig().APP_URL.replace(/\/$/, "");
     let queued = 0;
     let skipped = 0;
     const failures: Array<{ email: string; error: string }> = [];
@@ -179,7 +178,7 @@ admin.post(
         email: s.email,
         position: ahead,
         referral_code: s.referralCode,
-        referral_link: `${appBase}/waitlist?ref=${s.referralCode}`,
+        referral_link: marketingUrl(`/waitlist?ref=${s.referralCode}`),
       });
       const unsubUrl = `${apiBase}/v1/unsubscribe?token=${token}`;
       try {

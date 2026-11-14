@@ -1,5 +1,5 @@
 import { createVerify, X509Certificate, randomUUID } from "node:crypto";
-import { getConfig } from "@calder/config";
+import { dashboardUrl, getConfig } from "@calder/config";
 import { logger } from "@calder/observability";
 import type { DbClient } from "@calder/db";
 import { AppError } from "../errors/index.js";
@@ -701,7 +701,7 @@ async function notifyAbusePause(
             signal === "complaint_rate"
               ? "recipients marked it as spam"
               : "mailboxes rejected the address",
-          suppressionsUrl: `${getConfig().APP_URL.replace(/\/$/, "")}/suppressions`,
+          suppressionsUrl: dashboardUrl("/suppressions"),
         },
       });
     }

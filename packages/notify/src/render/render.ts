@@ -1,4 +1,5 @@
 import { brandEmail } from "@calder/email";
+import { dashboardUrl, marketingUrl } from "@calder/config";
 import { companyEmailDefinition, isOptionalCategory, type CompanyEmailId } from "../catalogue.js";
 import {
   button as ctaBlock,
@@ -39,9 +40,20 @@ export interface RenderedCompanyEmail {
   unsubscribable: boolean;
 }
 
+/**
+ * Default link bases for company email.
+ *
+ * `app` is the marketing site and `dashboard` is the product — two different
+ * origins. The previous fallback derived the dashboard from the marketing base
+ * (via a `CALDER_DASHBOARD_URL` variable that no deployment defines), so every
+ * "View usage" / "Open settings" link in a notification pointed at
+ * calder.click/usage, which is a 404. Derive each from its own configuration
+ * key instead, through the shared helpers that refuse a localhost base in a
+ * hosted deployment.
+ */
 export function defaultUrls(overrides: Partial<RenderUrls> = {}): RenderUrls {
-  const app = overrides.app ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://calder.click";
-  const dashboard = overrides.dashboard ?? process.env.CALDER_DASHBOARD_URL ?? `${app}`;
+  const app = overrides.app ?? marketingUrl();
+  const dashboard = overrides.dashboard ?? dashboardUrl();
   return {
     app,
     dashboard,

@@ -37,7 +37,7 @@ async function audit(
 }
 import { redirect } from "next/navigation";
 import { getTenantContext } from "../../../lib/auth";
-import { getConfig } from "@calder/config";
+import { dashboardUrl } from "@calder/config";
 import { sendCompanyEmailQuietly } from "@calder/notify";
 
 function rid(prefix: string): string {
@@ -194,8 +194,7 @@ export async function inviteMember(orgId: string, email: string, role: Role) {
     invitedBy: inviter.user.userId,
     expiresAt,
   });
-  const appUrl = getConfig().APP_URL.replace(/\/$/, "");
-  const inviteLink = `${appUrl}/invite/${rawToken}`;
+  const inviteLink = dashboardUrl(`/invite/${rawToken}`);
 
   const [organization] = await db
     .select({ name: organizations.name })
@@ -573,7 +572,7 @@ export async function requestEmailChange(formData: FormData) {
     from: ctx.user.email,
     to: next,
   });
-  const link = `${getConfig().APP_URL.replace(/\/$/, "")}/api/auth/email-change/confirm?token=${encodeURIComponent(token)}`;
+  const link = dashboardUrl(`/api/auth/email-change/confirm?token=${encodeURIComponent(token)}`);
 
   await sendCompanyEmailQuietly(db, {
     id: "account.email_change_requested",
@@ -604,7 +603,7 @@ export async function requestDataExport() {
   const db = getDb();
   const { signExportToken } = await import("../../../lib/data-export");
   const { token } = signExportToken(ctx.user.userId);
-  const link = `${getConfig().APP_URL.replace(/\/$/, "")}/api/account/export?token=${encodeURIComponent(token)}`;
+  const link = dashboardUrl(`/api/account/export?token=${encodeURIComponent(token)}`);
 
   await sendCompanyEmailQuietly(db, {
     id: "account.data_export_ready",

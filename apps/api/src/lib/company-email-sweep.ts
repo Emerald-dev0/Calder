@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { and, eq, gt, isNull, lt, lte } from "drizzle-orm";
-import { getConfig } from "@calder/config";
+import { dashboardUrl } from "@calder/config";
 import { apiKeys, organizations, orgInvitations, projects, users, type DbClient } from "@calder/db";
 import { logger } from "@calder/observability";
 import { sendCompanyEmail, sendOrganizationEmail } from "@calder/notify";
@@ -25,10 +25,6 @@ export interface CompanyEmailSweepResult {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-function appUrl(): string {
-  return getConfig().APP_URL.replace(/\/$/, "");
-}
 
 function isoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -110,7 +106,7 @@ async function remindExpiringInvitations(
           organizationName: invite.organizationName,
           role: invite.role,
           expiresInDays,
-          acceptUrl: `${appUrl()}/invite/${rawToken}`,
+          acceptUrl: dashboardUrl(`/invite/${rawToken}`),
         },
       });
 

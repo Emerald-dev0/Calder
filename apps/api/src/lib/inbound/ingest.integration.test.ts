@@ -294,9 +294,7 @@ gate("inbound ingest (live Postgres)", () => {
     const rows = await db
       .select()
       .from(mod.inboundMessages)
-      .where(
-        eq(mod.inboundMessages.sesMessageId, `ses-${suffix}-4`)
-      );
+      .where(eq(mod.inboundMessages.sesMessageId, `ses-${suffix}-4`));
     expect(rows).toHaveLength(0);
   });
 
@@ -338,10 +336,7 @@ gate("inbound ingest (live Postgres)", () => {
       .select({ total: sql<number>`coalesce(sum(${mod.usageRecords.quantity}), 0)` })
       .from(mod.usageRecords)
       .where(
-        and(
-          eq(mod.usageRecords.organizationId, orgId),
-          eq(mod.usageRecords.metric, "emails_sent")
-        )
+        and(eq(mod.usageRecords.organizationId, orgId), eq(mod.usageRecords.metric, "emails_sent"))
       );
     expect(Number(emailsSent[0]?.total)).toBe(0);
     // And no outbound email row was created either.

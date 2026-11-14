@@ -11,6 +11,7 @@ import {
   nextRetryDelayMs,
   type DbClient,
 } from "@calder/db";
+import { dashboardUrl } from "@calder/config";
 
 // Preserve the worker test/export contract while sharing the registry's
 // write-time SSRF rule with API and dashboard callers.
@@ -234,7 +235,7 @@ async function notifyEndpointDisabled(
       data: {
         endpointUrl,
         failureCount: DISABLE_AFTER_FAILURES,
-        reenableUrl: `${process.env.DASHBOARD_URL ?? "https://app.calder.click"}/webhooks`,
+        reenableUrl: dashboardUrl("/webhooks"),
       },
     });
   } catch (err) {

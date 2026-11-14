@@ -631,7 +631,7 @@ export const TEMPLATES: Record<CompanyEmailId, Builder> = {
       title: "Need to keep sending today?",
       body: "Upgrading raises the ceiling immediately and resets the allowance for the new plan.",
     },
-    cta: { label: "Compare plans", url: s(d, "pricingUrl", `${u.dashboard}/usage`) },
+    cta: { label: "Compare plans", url: s(d, "pricingUrl", `${u.app}/pricing`) },
   }),
 
   "usage.reset": (d, u) => ({

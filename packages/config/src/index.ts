@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { publicUrl } from "./urls.js";
 
 /**
  * Centralized, validated environment configuration.
@@ -368,6 +369,38 @@ export function redisTargetLabel(url: string | null): string {
     return "invalid";
   }
 }
+
+/**
+ * Absolute links to one of the three deployed surfaces.
+ *
+ * Use `dashboardUrl` for anything that lives in the product app (settings,
+ * invites, exports), `marketingUrl` for the public site (pricing, docs) and
+ * `apiUrl` for `/v1/*`. Never build a URL from the wrong base — see
+ * `./urls.ts` for the invitation 404 that pattern caused.
+ */
+export function dashboardUrl(path = ""): string {
+  return publicUrl("dashboard", getConfig().DASHBOARD_URL, path, hostedUrlOptions());
+}
+
+export function marketingUrl(path = ""): string {
+  return publicUrl("marketing", getConfig().APP_URL, path, hostedUrlOptions());
+}
+
+export function apiUrl(path = ""): string {
+  return publicUrl("api", getConfig().API_URL, path, hostedUrlOptions());
+}
+
+function hostedUrlOptions() {
+  return { hosted: isHostedEnv(), env: process.env };
+}
+
+export {
+  joinUrl,
+  publicUrl,
+  assertConfiguredUrl,
+  UrlConfigError,
+  type PublicHostKind,
+} from "./urls.js";
 
 export * from "./plan-limits.js";
 export * from "./credits.js";

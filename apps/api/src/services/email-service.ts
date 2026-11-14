@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { SendEmailInput } from "@calder/validation";
 import { createQueue } from "@calder/queue";
 import { captureError, logger, queueEnqueueFailures } from "@calder/observability";
-import { getConfig, isProduction, planDisplayName } from "@calder/config";
+import { getConfig, isProduction, marketingUrl, planDisplayName } from "@calder/config";
 import { AppError } from "../errors/index.js";
 import type { DbClient, OrganizationQuotaDecision } from "@calder/db";
 
@@ -99,7 +99,7 @@ function notifyAllowance(
           percent: Math.round((quota.usage / limit) * 100),
           resetsOn: quota.period.end.toISOString().slice(0, 10),
           periodEnd: quota.period.end.toISOString().slice(0, 10),
-          pricingUrl: `${getConfig().APP_URL.replace(/\/$/, "")}/usage`,
+          pricingUrl: marketingUrl("/pricing"),
         },
       });
     } catch (err) {
