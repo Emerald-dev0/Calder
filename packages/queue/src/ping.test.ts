@@ -136,7 +136,11 @@ describe("probeCommands", () => {
   });
 
   it("keeps percent-encoded characters intact", () => {
-    expect(probeCommands("redis://default:pa%3Ass@host:6379")[0]).toEqual(["AUTH", "default", "pa:ss"]);
+    expect(probeCommands("redis://default:pa%3Ass@host:6379")[0]).toEqual([
+      "AUTH",
+      "default",
+      "pa:ss",
+    ]);
   });
 });
 
