@@ -23,6 +23,7 @@ const EMAIL_STATUS_ORDER: readonly string[] = [
   "queued",
   "sending",
   "sent",
+  "deferred",
   "delivered",
   "bounced",
   "complained",

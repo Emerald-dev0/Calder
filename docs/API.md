@@ -183,7 +183,11 @@ origins, plus an optional topic allowlist (`SES_SNS_TOPIC_ARNS`, also required
 to auto-confirm subscriptions). Accepts SNS envelopes (`text/plain` body):
 delivery/open/click advance truth, permanent bounces and complaints update
 the email and auto-insert a `suppressions` row, transient bounces only record
-an event. Recent-window permanent-bounce/complaint rates can atomically move an
+an event. `deliveryDelay` notifications move the row to `deferred` — accepted by
+the provider, delivery retrying, not a failure — and the attempt is recorded on
+the timeline; a later delivery advances it normally, and a delay arriving after
+a delivery never pulls the row backwards. `reject` and rendering failures fail
+the row and copy the provider's own reason into `lastError`. Recent-window permanent-bounce/complaint rates can atomically move an
 organization from `active` to `abuse_paused` after the configured minimum live
 send denominator; the event, pause, and audit row commit together. Idempotent
 on the SNS MessageId — replays are acknowledged no-ops. Unknown message ids

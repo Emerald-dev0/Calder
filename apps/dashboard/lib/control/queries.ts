@@ -1473,7 +1473,9 @@ export async function workerThroughput(): Promise<Array<{ hour: string; sent: nu
     .where(
       and(
         gte(emails.updatedAt, new Date(Date.now() - DAY_MS)),
-        inArray(emails.status, ["sent", "delivered"])
+        // `deferred` belongs here: the worker did hand the message over, and
+        // throughput measures our side of the send, not the recipient's.
+        inArray(emails.status, ["sent", "deferred", "delivered"])
       )
     )
     .groupBy(sql`1`)

@@ -45,6 +45,13 @@ export function describeTransport(input: {
     };
   }
 
+  if (status === "deferred") {
+    return {
+      value: "Accepted; the recipient's server is retrying",
+      mono: false,
+    };
+  }
+
   if (status === "suppressed") {
     return { value: "Not sent; recipient is suppressed", mono: false };
   }

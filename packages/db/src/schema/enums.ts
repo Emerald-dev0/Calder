@@ -32,6 +32,13 @@ export const emailStatusEnum = pgEnum("email_status", [
   "complained",
   "failed",
   "suppressed",
+  // Stage 3.2: the provider accepted the message and is retrying it. This is
+  // not a failure and not a delivery: the recipient's mail server gave a
+  // temporary answer (mailbox full, greylisting, a busy MX), and SES will try
+  // again on its own schedule. Without this state a delayed message looked
+  // identical to one that had been delivered, so a customer watching a
+  // "delivered" message that never arrived had nothing to look at.
+  "deferred",
 ]);
 export const emailEventTypeEnum = pgEnum("email_event_type", [
   "created",
@@ -44,6 +51,10 @@ export const emailEventTypeEnum = pgEnum("email_event_type", [
   "opened",
   "clicked",
   "suppressed",
+  // A delay notification, recorded per attempt. The row keeps the latest
+  // status; the timeline keeps the history, which is what distinguishes
+  // "delivered late" from "never delivered".
+  "deferred",
   // The message was accepted and sent from an address with no sender identity
   // on the project. It is not an error (the send succeeded; rejecting it would
   // break every existing caller) but it must be queryable, because it is the

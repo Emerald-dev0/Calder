@@ -23,6 +23,7 @@ const STATUSES = new Set([
   "queued",
   "sending",
   "sent",
+  "deferred",
   "delivered",
   "bounced",
   "complained",

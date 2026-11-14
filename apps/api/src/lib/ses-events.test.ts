@@ -395,3 +395,97 @@ describe("classifySesEvent transition matrix", () => {
     expect(got.suppression).toBe(wantSuppression);
   });
 });
+
+/* ------------------------------------------------------------------ */
+/*  Delays and refusals — Stage 3.2                                    */
+/* ------------------------------------------------------------------ */
+
+const delayMsg = (over: Partial<SesMessage> = {}): SesMessage =>
+  msg("deliverydelay", {
+    mail: { messageId: "ses-msg", destination: ["a@example.test"] },
+    ...over,
+  });
+
+describe("delivery delay is a state, not a silence", () => {
+  it("moves a sent row to deferred", () => {
+    const got = classifySesEvent("sent", delayMsg());
+    expect(got.status).toBe("deferred");
+    expect(got.eventType).toBe("deferred");
+    // A delay is not evidence about the address, so nothing is suppressed.
+    expect(got.suppression).toBeNull();
+  });
+
+  it("moves a queued or sending row too — the delay is the newest fact", () => {
+    expect(classifySesEvent("queued", delayMsg()).status).toBe("deferred");
+    expect(classifySesEvent("sending", delayMsg()).status).toBe("deferred");
+  });
+
+  it("never pulls a delivered row backwards", () => {
+    // Delay notices are emitted per attempt and can arrive out of order; a
+    // stale one must not turn a delivered message back into "delayed".
+    const got = classifySesEvent("delivered", delayMsg());
+    expect(got.status).toBeNull();
+    expect(got.eventType).toBe("deferred");
+  });
+
+  it("never revives a bounced, complained, failed or suppressed row", () => {
+    for (const status of ["bounced", "complained", "failed", "suppressed"]) {
+      expect(classifySesEvent(status, delayMsg()).status).toBeNull();
+    }
+  });
+
+  it("is idempotent: a second delay does not re-announce a status change", () => {
+    expect(classifySesEvent("deferred", delayMsg()).status).toBeNull();
+  });
+
+  it("is undone by the delivery that follows it", () => {
+    expect(classifySesEvent("deferred", msg("delivery")).status).toBe("delivered");
+  });
+
+  it("names the recipients the delay applies to, falling back to the envelope", () => {
+    const withRecipients = delayMsg({
+      deliveryDelay: {
+        delayType: "MailboxFull",
+        delayedRecipients: [{ emailAddress: "full@example.test" }],
+      },
+    });
+    expect(classifySesEvent("sent", withRecipients).recipients).toEqual(["full@example.test"]);
+    expect(classifySesEvent("sent", delayMsg()).recipients).toEqual(["a@example.test"]);
+  });
+});
+
+describe("refusals carry the provider's reason", () => {
+  it("copies a reject reason onto the transition", () => {
+    const got = classifySesEvent(
+      "queued",
+      msg("reject", { reject: { reason: "Message rejected: Bad content" } })
+    );
+    expect(got.status).toBe("failed");
+    expect(got.failureReason).toBe("Message rejected: Bad content");
+  });
+
+  it("copies a rendering failure's reason", () => {
+    const got = classifySesEvent(
+      "sent",
+      msg("rendering failure", { failure: { errorMessage: "Template not found" } })
+    );
+    expect(got.status).toBe("failed");
+    expect(got.failureReason).toBe("Template not found");
+  });
+
+  it("still says something when the provider gives no reason", () => {
+    // An empty lastError would leave the row looking like a bug in our code.
+    expect(classifySesEvent("queued", msg("reject")).failureReason).toMatch(/reject/i);
+    expect(classifySesEvent("queued", msg("rendering failure")).failureReason).toMatch(/render/i);
+  });
+
+  it("does not overwrite the reason of an already-terminal row", () => {
+    // Sticky: the status stays, so there is nothing for the reason to explain.
+    expect(classifySesEvent("bounced", msg("reject")).status).toBeNull();
+  });
+
+  it("leaves happy-path transitions without a failure reason", () => {
+    expect(classifySesEvent("sent", msg("delivery")).failureReason).toBeNull();
+    expect(classifySesEvent("sent", delayMsg()).failureReason).toBeNull();
+  });
+});
