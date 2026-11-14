@@ -26,14 +26,22 @@ export const COMPANY_EMAIL_CATEGORIES = [
   "legal",
   "usage",
   "operations",
+  "inbox",
   "updates",
   "digest",
 ] as const;
 
 export type CompanyEmailCategory = (typeof COMPANY_EMAIL_CATEGORIES)[number];
 
-/** The only categories a person may switch off. Everything else is mandatory. */
-export const OPTIONAL_CATEGORIES = ["updates", "digest"] as const;
+/**
+ * The only categories a person may switch off. Everything else is mandatory.
+ *
+ * `inbox` is opt-out on purpose: it is a working notification ("someone wrote
+ * to a shared inbox you belong to"), not a security or money event, and a
+ * notification nobody can silence gets filtered by the recipient's mail client
+ * instead — which is worse, because then the important ones go too.
+ */
+export const OPTIONAL_CATEGORIES = ["inbox", "updates", "digest"] as const;
 
 export function isOptionalCategory(category: string): boolean {
   return (OPTIONAL_CATEGORIES as readonly string[]).includes(category);
@@ -480,6 +488,29 @@ export const COMPANY_EMAILS = {
     "Terms or privacy policy changed",
     "Published policy version bump",
     ["document", "effectiveOn", "summary", "policyUrl"]
+  ),
+
+  /* ── Optional: shared-inbox activity ─────────────────────────────────── */
+  "inbox.new_conversation": def(
+    "inbox",
+    "user",
+    "A new conversation arrived in a shared inbox you belong to",
+    "First inbound message of a new conversation, once per member per conversation",
+    ["inboxName", "subject", "fromName", "preview", "conversationUrl", "inboxUrl"]
+  ),
+  "inbox.assigned": def(
+    "inbox",
+    "user",
+    "Someone assigned a conversation to you",
+    "Assignment change in a shared inbox, to the new assignee only",
+    ["inboxName", "subject", "fromName", "assignedByName", "conversationUrl"]
+  ),
+  "inbox.reply_received": def(
+    "inbox",
+    "user",
+    "The customer replied to a conversation assigned to you",
+    "Inbound message on an already-threaded conversation, to the assignee, at most one email an hour",
+    ["inboxName", "subject", "fromName", "preview", "conversationUrl"]
   ),
 
   /* ── Optional: product updates and digest ────────────────────────────── */

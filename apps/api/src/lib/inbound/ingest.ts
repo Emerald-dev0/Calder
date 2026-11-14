@@ -17,6 +17,7 @@ import {
 } from "@calder/db";
 import { logger } from "@calder/observability";
 import { AppError } from "../../errors/index.js";
+import { announceRoutedMail } from "./notify.js";
 import {
   domainOfAddress,
   parseInboundMime,
@@ -380,6 +381,18 @@ export async function ingestReceipt(
     } catch (err) {
       logger.warn({ err, messageId }, "inbound.received webhook could not be enqueued");
     }
+
+    // Notifications are best-effort and deliberately last: the message is
+    // stored, metered and threaded before anybody is told about it, and a mail
+    // provider outage must not turn a stored message into an SNS retry.
+    await announceRoutedMail(db, {
+      inboxId: routed.inboxId,
+      conversationId: routed.conversationId,
+      started: routed.started,
+      messageId,
+      parsed,
+      receivedAt,
+    });
 
     logger.info(
       { messageId, organizationId, attachments: storedAttachments, bytes: raw.byteLength },

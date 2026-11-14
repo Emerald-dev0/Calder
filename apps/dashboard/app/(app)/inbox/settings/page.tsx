@@ -96,6 +96,7 @@ export default async function InboxSettingsPage({
             inboxId: inboxMembers.inboxId,
             userId: inboxMembers.userId,
             role: inboxMembers.role,
+            notify: inboxMembers.notify,
             name: users.name,
             email: users.email,
           })
@@ -244,8 +245,10 @@ export default async function InboxSettingsPage({
                       name: m.name,
                       email: m.email,
                       role: m.role,
+                      notify: m.notify,
                     }))}
                     roster={roster}
+                    viewerUserId={ctx.user.userId}
                     canManage={capabilities.includes("manageMembers")}
                   />
                 </div>

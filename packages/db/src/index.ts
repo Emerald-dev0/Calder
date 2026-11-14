@@ -32,3 +32,5 @@ export * from "./receiving-domains.js";
 export * from "./inbox-routing.js";
 export * from "./inboxes.js";
 export * from "./inbox-permissions.js";
+export * from "./notifications.js";
+export * from "./notification-policy.js";

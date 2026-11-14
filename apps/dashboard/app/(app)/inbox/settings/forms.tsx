@@ -3,7 +3,13 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
-import { createInbox, createProjectInbox, setInboxMember, setInboxRoute } from "../actions";
+import {
+  createInbox,
+  createProjectInbox,
+  setInboxMember,
+  setInboxMemberNotify,
+  setInboxRoute,
+} from "../actions";
 import { DsBanner, DsButton, DsInput, DsSelect } from "../../../../components/design-system";
 
 /** Create an inbox with its first routing address. */
@@ -302,11 +308,20 @@ export function InboxPeople({
   inboxId,
   members,
   roster,
+  viewerUserId,
   canManage,
 }: {
   inboxId: string;
-  members: Array<{ userId: string; name: string | null; email: string; role: string }>;
+  members: Array<{
+    userId: string;
+    name: string | null;
+    email: string;
+    role: string;
+    notify: boolean;
+  }>;
   roster: Array<{ userId: string; name: string | null; email: string }>;
+  /** The signed-in person: they may mute themselves without managing others. */
+  viewerUserId: string;
   canManage: boolean;
 }) {
   const router = useRouter();
@@ -321,6 +336,19 @@ export function InboxPeople({
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not change access.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function toggleNotify(userId: string, notify: boolean) {
+    setBusy(userId);
+    setError(null);
+    try {
+      await setInboxMemberNotify({ inboxId, userId, notify });
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not change email preferences.");
     } finally {
       setBusy(null);
     }
@@ -349,6 +377,29 @@ export function InboxPeople({
           >
             {member.name ?? member.email}
           </span>
+          <label
+            title={
+              member.notify
+                ? "Emails about new conversations and replies are on. The unread badge is always on."
+                : "Emails are off for this inbox. Notifications still appear in the bell."
+            }
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 11,
+              color: "var(--color-ink-secondary)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={member.notify}
+              disabled={busy === member.userId || !(canManage || member.userId === viewerUserId)}
+              onChange={(e) => toggleNotify(member.userId, e.target.checked)}
+            />
+            Email
+          </label>
           <DsSelect
             value={member.role}
             disabled={!canManage || busy === member.userId}

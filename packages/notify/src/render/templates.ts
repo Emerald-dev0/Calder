@@ -890,4 +890,73 @@ export const TEMPLATES: Record<CompanyEmailId, Builder> = {
       url: u.preferences,
     },
   }),
+
+  /* ── Shared-inbox activity ───────────────────────────────────────────── */
+  "inbox.new_conversation": (d, u) => ({
+    subject: `New in ${s(d, "inboxName", "your shared inbox")}: ${s(d, "subject", "(no subject)")}`,
+    preheader: s(d, "fromName", "Someone") + " wrote to " + s(d, "inboxName", "a shared inbox"),
+    heading: "A new conversation needs a reply",
+    intro: [
+      `${s(d, "fromName", "Someone")} wrote to ${s(d, "inboxName", "a shared inbox")}.`,
+      s(d, "preview", ""),
+    ].filter(Boolean),
+    details: [
+      { label: "Inbox", value: s(d, "inboxName", "—") },
+      { label: "From", value: s(d, "fromName", "—") },
+      { label: "Subject", value: s(d, "subject", "(no subject)") },
+    ],
+    cta: { label: "Open the conversation", url: s(d, "conversationUrl", `${u.dashboard}/inbox`) },
+    footnote:
+      "You receive this because you are a member of this inbox. Replies inside a conversation do not send another email.",
+    linkLine: {
+      text: "Too many of these?",
+      label: "Manage what you receive",
+      url: u.preferences,
+    },
+  }),
+
+  "inbox.assigned": (d, u) => ({
+    subject: `${s(d, "assignedByName", "Someone")} assigned you: ${s(d, "subject", "(no subject)")}`,
+    preheader: `A conversation in ${s(d, "inboxName", "your inbox")} is yours`,
+    heading: "A conversation was assigned to you",
+    intro: [
+      `${s(d, "assignedByName", "Someone")} assigned a conversation in ${s(
+        d,
+        "inboxName",
+        "a shared inbox"
+      )} to you.`,
+    ],
+    details: [
+      { label: "From", value: s(d, "fromName", "—") },
+      { label: "Subject", value: s(d, "subject", "(no subject)") },
+    ],
+    cta: { label: "Open the conversation", url: s(d, "conversationUrl", `${u.dashboard}/inbox`) },
+    footnote: "You receive this because someone put the conversation in your queue.",
+    linkLine: {
+      text: "Prefer fewer emails?",
+      label: "Manage what you receive",
+      url: u.preferences,
+    },
+  }),
+
+  "inbox.reply_received": (d, u) => ({
+    subject: `Reply from ${s(d, "fromName", "the customer")}: ${s(d, "subject", "(no subject)")}`,
+    preheader: s(d, "preview", "").slice(0, 120),
+    heading: "The customer replied",
+    intro: [
+      `${s(d, "fromName", "The customer")} replied to a conversation assigned to you in ${s(
+        d,
+        "inboxName",
+        "a shared inbox"
+      )}.`,
+      s(d, "preview", ""),
+    ].filter(Boolean),
+    cta: { label: "Open the conversation", url: s(d, "conversationUrl", `${u.dashboard}/inbox`) },
+    footnote: "At most one reminder an hour is sent for a conversation you have not answered.",
+    linkLine: {
+      text: "Prefer fewer emails?",
+      label: "Manage what you receive",
+      url: u.preferences,
+    },
+  }),
 };

@@ -150,12 +150,55 @@ after a successful move.
 - `GET /v1/inboxes`, `/v1/inboxes/:id/conversations`,
   `/v1/inboxes/:id/conversations/:cid` for API clients (read-only).
 
+**Notifications (Stage 5).**
+
+The dashboard's bell previously claimed "no bounce spikes, webhook failures, or
+DNS alerts in the last 24 hours" while querying nothing. It now renders real
+rows from a real table, and hides behind an honest empty state when there is
+nothing to show.
+
+- `notifications` table — one row per person, per event, with the click target
+  (`href`). Deduplication is structural: `(user_id, conversation_id, kind)` is
+  unique when a conversation is involved, so an SNS redelivery or a retried
+  ingest cannot create a second entry or a second email.
+- Recipients come from one pure function, `planRecipients` in
+  `packages/db/src/notification-policy.ts`:
+
+  | Event                             | Who is notified                            | Email                                                                        |
+  | --------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------- |
+  | New conversation                  | every member of the inbox, minus the actor | yes, once per conversation per member                                        |
+  | Assignment                        | the new assignee only                      | yes, unless they assigned themselves                                         |
+  | Reply on an existing conversation | the current assignee                       | yes, at most once an hour per conversation; unassigned threads notify nobody |
+  | Machine mail                      | nobody                                     | no — prevents reply loops with auto-responders and lists                     |
+  | Member with `notify = false`      | in-app row still created                   | no — muting is not hiding                                                    |
+
+- Machine mail is detected from `Auto-Submitted` (anything but `no`),
+  `Precedence: bulk|list|junk`, `X-Autoreply`/`X-Autorespond`, `List-Id`/
+  `List-Unsubscribe`, and `mailer-daemon`/`postmaster` local parts. `noreply@` is
+  deliberately **not** treated as machine mail: plenty of real businesses write
+  to support from one.
+- Email is capped at 5 per person per rolling hour. Past the cap the in-app row
+  stands; the badge is the primary signal and never depends on a mail provider.
+- Sending goes through `sendCompanyEmailQuietly` with the catalogue ids
+  `inbox.new_conversation`, `inbox.assigned`, `inbox.reply_received`, all in the
+  new, opt-out **`inbox`** category (settings → notifications renders them). The
+  idempotency key is the notification row id, so a retry of the same event is a
+  provider-level no-op as well as a database one.
+- `/api/notifications` (GET feed + unread count, POST mark read) is session-scoped
+  to the caller; opening a conversation marks its notifications read, and the
+  shell polls once a minute plus on focus and navigation. There is **no**
+  websocket or SSE: the dashboard is serverless, and adding one for a count would
+  be infrastructure for its own sake.
+- `inbox_members.notify` (default true) is the per-mailbox mute. A member may
+  change their own without `manageMembers`; a manager may change anyone's.
+
 ## 4. Database and migrations
 
-| Migration               | Contents                                                                                                                                                                                                                                                                                                                                  |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `0040_happy_shaman.sql` | `receiving_domains`, `inbound_messages`, `inbound_attachments`; enums `receiving_domain_status`, `inbound_message_status`; GIN full-text index on subject/body/sender; unique `ses_message_id`; global unique receiving domain                                                                                                            |
-| `0041_tiny_vargas.sql`  | `inboxes`, `inbox_routes`, `inbox_members`, `inbox_conversations`, `inbox_notes`, `inbox_replies`, `inbox_labels`, `inbox_conversation_labels`; enums `inbox_status`, `conversation_status`, `inbox_member_role`; `ALTER TYPE webhook_event ADD VALUE 'inbound.received'`; `inbound_messages.inbox_id`, `conversation_id` + three indexes |
+| Migration                | Contents                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0040_happy_shaman.sql`  | `receiving_domains`, `inbound_messages`, `inbound_attachments`; enums `receiving_domain_status`, `inbound_message_status`; GIN full-text index on subject/body/sender; unique `ses_message_id`; global unique receiving domain                                                                                                            |
+| `0041_tiny_vargas.sql`   | `inboxes`, `inbox_routes`, `inbox_members`, `inbox_conversations`, `inbox_notes`, `inbox_replies`, `inbox_labels`, `inbox_conversation_labels`; enums `inbox_status`, `conversation_status`, `inbox_member_role`; `ALTER TYPE webhook_event ADD VALUE 'inbound.received'`; `inbound_messages.inbox_id`, `conversation_id` + three indexes |
+| `0042_careless_clea.sql` | `notifications` (with partial unread index and unique `(user_id, conversation_id, kind)`); `inbox_members.notify` boolean default true                                                                                                                                                                                                    |
 
 Design points worth stating:
 
@@ -221,22 +264,22 @@ role, inbox role})`: org owner/admin → manager (a workspace cannot lock itself
 
 ## 7. Tests and verification
 
-| Suite                                                                           | Result                                                                                                                                                                                        |
-| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/config` (`plan-limits.test.ts`, incl. 5 inbound-allowance tests)      | 29 passed                                                                                                                                                                                     |
-| `packages/db` unit (incl. 8 inbox-permission tests)                             | 61 passed, 49 skipped (integration-gated)                                                                                                                                                     |
-| `packages/db/src/inbox-routing.integration.test.ts` (`RUN_INTEGRATION_TESTS=1`) | 18 passed — routing, threading, catch-all precedence, orphans, reopen, unique address, optimistic concurrency, cross-organisation isolation                                                   |
-| `apps/api/src/lib/inbound/parse.test.ts`                                        | 8 passed                                                                                                                                                                                      |
-| `apps/api/src/lib/inbound/ingest.integration.test.ts`                           | 7 passed — store/parse/meter, duplicate no-op, attachments, ignored domains, non-S3 refusal, **inbound does not touch the outbound allowance**, quota refusal with no storage and no metering |
-| `apps/dashboard` unit                                                           | 275 passed, 52 skipped                                                                                                                                                                        |
-| `apps/dashboard/lib/projects/transfer.integration.test.ts`                      | 8 passed                                                                                                                                                                                      |
-| `apps/dashboard/lib/context.test.ts`                                            | 15 passed                                                                                                                                                                                     |
-| Typecheck (`tsc --noEmit`) dashboard + api                                      | clean                                                                                                                                                                                         |
-| ESLint on all new files                                                         | clean                                                                                                                                                                                         |
-| Prettier `--check`                                                              | clean                                                                                                                                                                                         |
-| `packages/db` `schema-drift`                                                    | "schema matches 42 committed migration(s)"                                                                                                                                                    |
-| Migrations against local Postgres 17                                            | 42/42 applied, none pending                                                                                                                                                                   |
-| `next build` (dashboard, production)                                            | succeeded, including the new routes                                                                                                                                                           |
+| Suite                                                                             | Result                                                                                                                                                                                        |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/config` (`plan-limits.test.ts`, incl. 5 inbound-allowance tests)        | 29 passed                                                                                                                                                                                     |
+| `packages/db` unit (incl. 8 inbox-permission tests, 16 notification-policy tests) | 77 passed, 55 skipped (integration-gated)                                                                                                                                                     |
+| `packages/db/src/inbox-routing.integration.test.ts` (`RUN_INTEGRATION_TESTS=1`)   | 18 passed — routing, threading, catch-all precedence, orphans, reopen, unique address, optimistic concurrency, cross-organisation isolation                                                   |
+| `apps/api/src/lib/inbound/parse.test.ts`                                          | 8 passed                                                                                                                                                                                      |
+| `apps/api/src/lib/inbound/ingest.integration.test.ts`                             | 7 passed — store/parse/meter, duplicate no-op, attachments, ignored domains, non-S3 refusal, **inbound does not touch the outbound allowance**, quota refusal with no storage and no metering |
+| `apps/dashboard` unit                                                             | 275 passed, 52 skipped                                                                                                                                                                        |
+| `apps/dashboard/lib/projects/transfer.integration.test.ts`                        | 8 passed                                                                                                                                                                                      |
+| `apps/dashboard/lib/context.test.ts`                                              | 15 passed                                                                                                                                                                                     |
+| Typecheck (`tsc --noEmit`) dashboard + api                                        | clean                                                                                                                                                                                         |
+| ESLint on all new files                                                           | clean                                                                                                                                                                                         |
+| Prettier `--check`                                                                | clean                                                                                                                                                                                         |
+| `packages/db` `schema-drift`                                                      | "schema matches 43 committed migration(s)"                                                                                                                                                    |
+| Migrations against local Postgres 17                                              | 43/43 applied, none pending                                                                                                                                                                   |
+| `next build` (dashboard, production)                                              | succeeded, including the new routes                                                                                                                                                           |
 
 **Known pre-existing failure, unrelated to this work:**
 `apps/api/src/scripts/verify-deploy.test.ts` (5 tests) fails in this sandbox
@@ -285,8 +328,13 @@ deployment and no half-configured receive path is reachable.
 - **Labels UI.** The tables, actions (`setLabels`) and API shape exist; the
   conversation sidebar does not yet render a label picker. Creating labels has no
   UI either.
-- **Unread counts.** `inbox_members.last_read_at` and `markInboxRead` exist, but
-  the list does not yet render a per-member unread badge.
+- **Unread counts.** The bell shows a real unread notification count and the
+  total unread conversations across the inboxes you belong to
+  (`unreadConversationCounts`), but the `/inbox` list itself still has no
+  per-inbox badge.
+- **Notification delivery is poll-based.** One request a minute per open tab,
+  plus on focus and navigation. No sockets (see §3), so a notification can be up
+  to a minute late on a tab that is left open and untouched.
 - **Forwarding and IMAP/SMTP.** Not implemented: Calder receives, stores and
   replies; it does not forward inbound mail elsewhere.
 - **Org-scoped inbox access on switch.** Inboxes are per project, so switching

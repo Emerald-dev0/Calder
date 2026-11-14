@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import {
   addConversationNote,
   getConversation,
   getDb,
   inboxAssignableMembers,
   inboxes,
+  inboundMessages,
   inboxMembers,
   inboxConversations,
   inboxLabels,
@@ -97,7 +98,64 @@ export async function setConversationState(
 
   revalidatePath(`/inbox/${conversationId}`);
   revalidatePath("/inbox");
+
+  // Someone was handed work: tell them. Only on an actual change of assignee —
+  // re-saving the same person is not news — and never about themselves. The
+  // notification is best-effort, so a failure here cannot undo the assignment.
+  const newAssignee = patch.assigneeUserId;
+  if (newAssignee && newAssignee !== conversation.assigneeUserId) {
+    try {
+      await notifyAssignment(conversation, newAssignee, access.userId);
+    } catch {
+      // swallow: the assignment stands even if the notification does not
+    }
+  }
+
   return result;
+}
+
+/**
+ * Announce an assignment through the same notification path ingest uses.
+ *
+ * Goes through `notifyInboxActivity` rather than writing a row directly, so the
+ * mute preference, the dedupe index and the hourly cap apply identically to
+ * assignments and to incoming mail.
+ */
+async function notifyAssignment(
+  conversation: { id: string; inboxId: string; subject: string | null },
+  assigneeUserId: string,
+  actorUserId: string
+) {
+  const db = getDb();
+  const [lastInbound] = await db
+    .select({ fromName: inboundMessages.fromName, fromAddress: inboundMessages.fromAddress })
+    .from(inboundMessages)
+    .where(eq(inboundMessages.conversationId, conversation.id))
+    .orderBy(desc(inboundMessages.receivedAt))
+    .limit(1);
+
+  const [assigner] = await db
+    .select({ name: users.name, email: users.email })
+    .from(users)
+    .where(eq(users.id, actorUserId))
+    .limit(1);
+
+  const { notifyInboxActivity } = await import("@calder/notify");
+  await notifyInboxActivity(
+    db,
+    {
+      kind: "inbox.assigned",
+      inboxId: conversation.inboxId,
+      conversationId: conversation.id,
+      subject: conversation.subject,
+      fromName: lastInbound?.fromName ?? lastInbound?.fromAddress ?? null,
+      fromAddress: lastInbound?.fromAddress ?? null,
+      assigneeUserId,
+      actorUserId,
+      assignedByName: assigner?.name ?? assigner?.email ?? null,
+    },
+    { appUrl: process.env.DASHBOARD_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "" }
+  );
 }
 
 /** Add an internal note. Never sent, never visible to the customer. */
@@ -438,6 +496,36 @@ export async function setInboxMember(input: {
       });
     }
   }
+  revalidatePath("/inbox/settings");
+  return { ok: true as const };
+}
+
+/**
+ * Turn email for this inbox on or off for one member.
+ *
+ * Deliberately separate from `setInboxMember`: muting is a personal preference,
+ * so a member may change their own without `manageMembers`, while a manager may
+ * change anyone's (someone on holiday should be able to stop a colleague's
+ * inbox email without taking over their account). Muting never hides work —
+ * the notification row and the unread badge stay; only the email stops.
+ */
+export async function setInboxMemberNotify(input: {
+  inboxId: string;
+  userId: string;
+  notify: boolean;
+}) {
+  const access = await resolveInboxAccess(input.inboxId);
+  const self = access.userId === input.userId;
+  if (!self) await requireInboxCapability(input.inboxId, "manageMembers");
+
+  const db = getDb();
+  const updated = await db
+    .update(inboxMembers)
+    .set({ notify: input.notify })
+    .where(and(eq(inboxMembers.inboxId, input.inboxId), eq(inboxMembers.userId, input.userId)))
+    .returning({ id: inboxMembers.id });
+  if (updated.length === 0) throw new Error("That person is not a member of this inbox.");
+
   revalidatePath("/inbox/settings");
   return { ok: true as const };
 }

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -112,6 +113,12 @@ export const inboxMembers = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     role: inboxMemberRoleEnum("role").notNull().default("member"),
+    /**
+     * Whether activity in this inbox may email this person. In-app
+     * notifications and the unread badge are unaffected: muting is "do not
+     * interrupt me", not "hide the work from me".
+     */
+    notify: boolean("notify").notNull().default(true),
     /** Drives the unread badge; never trusted for authorisation. */
     lastReadAt: timestamp("last_read_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -24,6 +24,7 @@ const CATEGORY_TITLE: Record<CompanyEmailCategory, string> = {
   legal: "Legal",
   usage: "Usage and limits",
   operations: "Service and operations",
+  inbox: "Shared inboxes",
   updates: "Product news",
   digest: "Monthly recap",
 };
@@ -36,6 +37,8 @@ const CATEGORY_NOTE: Record<string, string> = {
   legal: "A policy changed in a way that affects you.",
   usage: "You are close to a ceiling, or you hit one.",
   operations: "Domains, keys, webhooks, deliverability — the state of your workspace.",
+  inbox:
+    "New conversations and replies in shared inboxes you belong to. You can also mute a single inbox in its settings.",
   updates: "What shipped. Optional.",
   digest: "Your month in numbers. Optional.",
 };

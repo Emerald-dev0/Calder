@@ -64,3 +64,9 @@ export {
   type SendCompanyEmailResult,
 } from "./send.js";
 export { drizzleCompanyEmailStore, type CompanyEmailStore } from "./store.js";
+export {
+  notifyInboxActivity,
+  type InboxNotificationDeps,
+  type InboxNotificationEvent,
+  type InboxNotificationResult,
+} from "./inbox-notifications.js";
