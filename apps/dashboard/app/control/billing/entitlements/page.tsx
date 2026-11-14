@@ -25,6 +25,7 @@ function limit(value: number | null): string {
 const UNENFORCED_LABEL: Record<UnenforcedPlanLimit, (plan: PlanLimit) => string> = {
   retentionDays: (plan) => `retention ${limit(plan.retentionDays)}d`,
   gmailSenders: (plan) => `Gmail senders ${limit(plan.gmailSenders)}`,
+  inboundStorageMb: (plan) => `inbound storage ${limit(plan.inboundStorageMb)} MB`,
 };
 
 function unenforcedSummary(plan: PlanLimit): string {

@@ -64,6 +64,22 @@ export interface PlanLimit {
    */
   retentionDays: number | null;
   gmailSenders: number | null;
+  /**
+   * Inbound entitlement. Deliberately its own dimension: receiving mail is a
+   * different cost from sending it, and an allowance shared between the two
+   * would let an inbound burst silently burn a customer's outbound capacity.
+   * `null` = custom/contract (no platform ceiling), never "unlimited by
+   * accident" — a plan without a number is a plan we priced by hand.
+   */
+  inboundEmailsPerMonth: number | null;
+  /** MX targets a workspace may point at us. Counted apart from sending domains. */
+  receivingDomains: number | null;
+  /**
+   * Recorded only — see UNENFORCED_PLAN_LIMITS. Storage is metered per
+   * organisation but not capped; capping it needs a retention sweep that does
+   * not exist yet.
+   */
+  inboundStorageMb: number | null;
   /** Maximum live sends accepted per organization per UTC day. */
   dailySendCap: number | null;
   /**
@@ -106,6 +122,9 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimit> = {
     seats: 1,
     retentionDays: 7,
     gmailSenders: 2,
+    inboundEmailsPerMonth: 500,
+    receivingDomains: 2,
+    inboundStorageMb: 100,
     dailySendCap: 500,
     contacts: { limit: 1_000, approved: false },
   },
@@ -121,6 +140,9 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimit> = {
     seats: 2,
     retentionDays: 14,
     gmailSenders: 2,
+    inboundEmailsPerMonth: 2_000,
+    receivingDomains: 3,
+    inboundStorageMb: 500,
     dailySendCap: 2_000,
     contacts: { limit: 10_000, approved: false },
   },
@@ -136,6 +158,9 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimit> = {
     seats: 5,
     retentionDays: 30,
     gmailSenders: 2,
+    inboundEmailsPerMonth: 10_000,
+    receivingDomains: 10,
+    inboundStorageMb: 2_048,
     dailySendCap: 5_000,
     contacts: { limit: 50_000, approved: false },
   },
@@ -151,6 +176,9 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimit> = {
     seats: 15,
     retentionDays: 90,
     gmailSenders: 2,
+    inboundEmailsPerMonth: 50_000,
+    receivingDomains: 50,
+    inboundStorageMb: 10_240,
     dailySendCap: null,
     contacts: { limit: 50_000, approved: false },
   },
@@ -166,6 +194,9 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimit> = {
     seats: null,
     retentionDays: null,
     gmailSenders: null,
+    inboundEmailsPerMonth: null,
+    receivingDomains: null,
+    inboundStorageMb: null,
     dailySendCap: null,
     contacts: { limit: null, approved: false },
   },
@@ -175,7 +206,11 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimit> = {
  * Recorded but deliberately not enforced in this phase. Anything that gates a
  * request must come from `LimitedResource` instead.
  */
-export const UNENFORCED_PLAN_LIMITS = ["retentionDays", "gmailSenders"] as const;
+export const UNENFORCED_PLAN_LIMITS = [
+  "retentionDays",
+  "gmailSenders",
+  "inboundStorageMb",
+] as const;
 export type UnenforcedPlanLimit = (typeof UNENFORCED_PLAN_LIMITS)[number];
 
 /**
@@ -269,6 +304,92 @@ export function planEmailsLimit(tier: string | null | undefined): number | null 
 }
 
 /**
+ * Inbound messages/month ceiling for a tier — or `null` for a contract plan.
+ *
+ * Kept separate from `planEmailsLimit` on purpose: the two allowances are
+ * never derived from each other, so no code path can charge an inbound message
+ * against outbound capacity (or the reverse) by "helpfully" sharing a number.
+ */
+export function planInboundEmailsLimit(tier: string | null | undefined): number | null {
+  return planFor(tier).inboundEmailsPerMonth;
+}
+
+export interface InboundAllowanceDecision {
+  allowed: boolean;
+  code?: "inbound_quota_exhausted";
+  limit: number | null;
+  received: number;
+  tier: PlanTier;
+  displayName: string;
+  message?: string;
+  upgradeTier?: PlanTier | null;
+  upgradeDisplayName?: string | null;
+}
+
+/** The next plan that actually raises the inbound ceiling. */
+export function inboundUpgradeTier(tier: string | null | undefined): PlanTier | null {
+  const current = planFor(tier);
+  const here = current.inboundEmailsPerMonth ?? Number.POSITIVE_INFINITY;
+  const start = isCommercialTier(current.tier)
+    ? COMMERCIAL_PLAN_ORDER.indexOf(current.tier)
+    : COMMERCIAL_PLAN_ORDER.length;
+  for (const candidate of COMMERCIAL_PLAN_ORDER.slice(start + 1)) {
+    const limit = planFor(candidate).inboundEmailsPerMonth;
+    if (limit === null) return candidate;
+    if (limit > here) return candidate;
+  }
+  return null;
+}
+
+/**
+ * Decide whether one more inbound message may be stored this period.
+ *
+ * Callers pass the count of messages already accepted in the current billing
+ * period. Like the resource checks this never runs on reads, so an
+ * organisation that is already over a ceiling keeps what it has.
+ */
+export function checkInboundAllowance(
+  tier: string | null | undefined,
+  received: number
+): InboundAllowanceDecision {
+  if (isExemptTier(tier)) {
+    return {
+      allowed: true,
+      limit: null,
+      received,
+      tier: tier as PlanTier,
+      displayName: planDisplayName(tier),
+    };
+  }
+  const plan = planFor(tier);
+  const limit = plan.inboundEmailsPerMonth;
+  if (limit === null || received < limit) {
+    return {
+      allowed: true,
+      limit,
+      received,
+      tier: plan.tier,
+      displayName: plan.displayName,
+    };
+  }
+  const upgrade = inboundUpgradeTier(plan.tier);
+  const upgradeName = upgrade ? PLAN_LIMITS[upgrade].displayName : null;
+  return {
+    allowed: false,
+    code: "inbound_quota_exhausted",
+    limit,
+    received,
+    tier: plan.tier,
+    displayName: plan.displayName,
+    message: upgradeName
+      ? `${plan.displayName} includes ${limit.toLocaleString("en-US")} inbound messages a month and this workspace has received ${received.toLocaleString("en-US")}. Upgrade to ${upgradeName} to keep receiving.`
+      : `${plan.displayName} includes ${limit.toLocaleString("en-US")} inbound messages a month and this workspace has received ${received.toLocaleString("en-US")}. Contact us for a plan with a higher ceiling.`,
+    upgradeTier: upgrade,
+    upgradeDisplayName: upgradeName,
+  };
+}
+
+/**
  * Warning points, as ratios of the monthly allowance. Computed, never stored:
  * 50% of 5,000 is 2,500 and 50% of 250,000 is 125,000 because the maths says
  * so, not because someone typed both numbers.
@@ -299,13 +420,14 @@ export function formatPlanPrice(tier: string | null | undefined, currency: Curre
 /* ── Resource enforcement ─────────────────────────────────────────────────── */
 
 /** The only limits enforced today, and only when a resource is created. */
-export type LimitedResource = "projects" | "domains" | "senders" | "seats";
+export type LimitedResource = "projects" | "domains" | "senders" | "seats" | "receivingDomains";
 
 export const LIMITED_RESOURCES: readonly LimitedResource[] = [
   "projects",
   "domains",
   "senders",
   "seats",
+  "receivingDomains",
 ];
 
 const RESOURCE_FIELD: Record<LimitedResource, keyof PlanLimit> = {
@@ -313,6 +435,7 @@ const RESOURCE_FIELD: Record<LimitedResource, keyof PlanLimit> = {
   domains: "domains",
   senders: "senders",
   seats: "seats",
+  receivingDomains: "receivingDomains",
 };
 
 const RESOURCE_NOUN: Record<LimitedResource, { one: string; many: string }> = {
@@ -320,6 +443,7 @@ const RESOURCE_NOUN: Record<LimitedResource, { one: string; many: string }> = {
   domains: { one: "sending domain", many: "sending domains" },
   senders: { one: "sender identity", many: "sender identities" },
   seats: { one: "team seat", many: "team seats" },
+  receivingDomains: { one: "receiving domain", many: "receiving domains" },
 };
 
 /** Ceiling for one resource, or `null` when the plan has no ceiling. */
@@ -491,3 +615,9 @@ export function currentUsagePeriod(
 }
 
 export const METRIC_EMAILS_SENT = "emails_sent" as const;
+/**
+ * Inbound ledger metric. A distinct string is the whole isolation mechanism:
+ * every outbound query filters on `emails_sent`, so an inbound row can never be
+ * added to an outbound total by construction.
+ */
+export const METRIC_INBOUND_EMAILS = "inbound_emails" as const;

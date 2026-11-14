@@ -27,3 +27,8 @@ export * from "./gmail-allowance.js";
 export * from "./jobs.js";
 export * from "./credits.js";
 export * from "./billing-summary.js";
+export * from "./inbound.js";
+export * from "./receiving-domains.js";
+export * from "./inbox-routing.js";
+export * from "./inboxes.js";
+export * from "./inbox-permissions.js";

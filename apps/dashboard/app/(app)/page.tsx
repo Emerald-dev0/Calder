@@ -272,8 +272,8 @@ export default async function OverviewPage({
             margin: "0 0 16px",
             padding: "10px 14px",
             borderRadius: "var(--radius-lg)",
-            border: "1px solid var(--color-success)",
-            background: "var(--color-success-subtle, rgba(16, 185, 129, 0.08))",
+            background: "var(--color-success-bg)",
+            border: "1px solid var(--color-success-border)",
             fontSize: 13,
             lineHeight: 1.6,
           }}

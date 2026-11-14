@@ -281,6 +281,20 @@
       "when": 1794258712085,
       "tag": "0039_white_lady_mastermind",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1794652948571,
+      "tag": "0040_happy_shaman",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794653330492,
+      "tag": "0041_tiny_vargas",
+      "breakpoints": true
     }
   ]
 }

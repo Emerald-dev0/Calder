@@ -27,3 +27,5 @@ export * from "./invitations.js";
 export * from "./company-emails.js";
 
 export * from "./gmail-allowance.js";
+export * from "./inbound.js";
+export * from "./inboxes.js";

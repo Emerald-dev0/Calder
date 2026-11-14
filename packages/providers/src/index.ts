@@ -24,3 +24,11 @@ export {
   type EmailProviderStatus,
   type ResolveEmailProviderOptions,
 } from "./resolve.js";
+export {
+  S3RawMessageStore,
+  getRawMessageStore,
+  setRawMessageStoreForTests,
+  InboundStorageNotConfigured,
+  InboundObjectNotFound,
+  type RawMessageStore,
+} from "./inbound-storage.js";

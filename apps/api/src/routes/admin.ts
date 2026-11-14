@@ -427,4 +427,56 @@ admin.put("/waitlist/confirmation", adminAuthMiddleware, async (c) => {
   return c.json({ data: { ok: true, updatedAt: now.toISOString() } });
 });
 
+/**
+ * POST /v1/admin/receiving-domains/:id/provisioned
+ *   { ruleSetName, ruleName }
+ *
+ * Records that an operator has created the SES receipt rule for a receiving
+ * domain. This is deliberately an admin action and deliberately an assertion:
+ * the API cannot verify AWS receipt-rule state (there is no cross-account
+ * describe call this deployment is allowed to make), so it stores *who* said
+ * the work was done and *when*. Until a row carries this, the domain accepts no
+ * mail — `receivingDomainAccepts` requires it — so "DNS is green" can never be
+ * mistaken for "AWS is delivering".
+ */
+admin.post("/receiving-domains/:id/provisioned", adminAuthMiddleware, async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const ruleSetName = typeof body?.ruleSetName === "string" ? body.ruleSetName.trim() : "";
+  const ruleName = typeof body?.ruleName === "string" ? body.ruleName.trim() : "";
+  if (!ruleSetName || !ruleName) {
+    throw validationError(
+      "ruleSetName and ruleName are required (they are recorded, not guessed)."
+    );
+  }
+
+  const { markReceivingDomainProvisioned, receivingDomains } = await import("@calder/db");
+  const db = getDb();
+  const id = c.req.param("id");
+  const [row] = await db
+    .select()
+    .from(receivingDomains)
+    .where(eq(receivingDomains.id, id))
+    .limit(1);
+  if (!row) throw new AppError("not_found", "Receiving domain not found.", 404);
+  if (row.status !== "verified") {
+    throw new AppError(
+      "validation_error",
+      "Only a domain whose ownership and MX have been verified can be marked provisioned.",
+      400,
+      { status: row.status, lastError: row.lastError }
+    );
+  }
+
+  const ok = await markReceivingDomainProvisioned(db, {
+    id,
+    ruleSetName,
+    ruleName,
+    // The shared admin key has no identity; record the mechanism so the row
+    // never implies a named human did the AWS work.
+    actor: "admin_api_key",
+  });
+  if (!ok) throw new AppError("not_found", "Receiving domain not found.", 404);
+  return c.json({ data: { ok: true, id, ruleSetName, ruleName } });
+});
+
 export default admin;

@@ -78,6 +78,35 @@ const envSchema = z.object({
   // (/v1/ses/events). Unset = events from any properly-signed topic pass, but
   // subscription confirmations are never auto-approved. Set before launch.
   SES_SNS_TOPIC_ARNS: z.string().optional(),
+  // ── Inbound email (Stage 3) ──────────────────────────────────────────────
+  // Receiving is separate infrastructure from sending: SES receipt rules,
+  // an S3 bucket for raw MIME, SNS notifications, and MX on a *different*
+  // hostname. Every knob is off by default so a deploy that has not done the
+  // AWS work cannot silently accept mail.
+  INBOUND_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  /** Bucket the SES receipt rule writes raw MIME into. Empty = inbound off. */
+  INBOUND_BUCKET: z.string().optional(),
+  /** Key prefix inside the bucket; kept in one place so lifecycle rules match. */
+  INBOUND_S3_PREFIX: z.string().default("inbound/"),
+  /** MX target customers point their receiving subdomain at. */
+  INBOUND_MX_HOST: z.string().default("inbound.calder.click"),
+  /** SES receipt rule set that holds our per-domain rules (recorded, not created). */
+  INBOUND_SES_RULE_SET: z.string().optional(),
+  /**
+   * Comma-separated SNS topic ARNs allowed to deliver inbound notifications.
+   * Unlike the delivery-feedback endpoint, an empty list here is a hard
+   * refusal: accepting signed notifications from any topic would let any AWS
+   * account write messages into a customer's inbox.
+   */
+  INBOUND_SNS_TOPIC_ARNS: z.string().optional(),
+  /** Hard ceiling on a stored message; SES receipts cap at 40 MB upstream. */
+  INBOUND_MAX_BYTES: z.coerce.number().int().positive().default(26_214_400),
+  /** Per-body storage cap; longer bodies keep their prefix plus the raw object. */
+  INBOUND_MAX_BODY_CHARS: z.coerce.number().int().positive().default(262_144),
+
   // Sender for Calder's own mail (verification codes, magic links, receipts).
   // SES sandbox only delivers from a verified identity, so this must be
   // settable without a deploy. Defaults to "Calder <hello@calder.click>".

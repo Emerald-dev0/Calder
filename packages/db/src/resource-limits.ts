@@ -13,6 +13,7 @@ import {
   organizationMembers,
   orgInvitations,
   projects,
+  receivingDomains,
   senderIdentities,
 } from "./schema/index.js";
 import { resolveOrgTier } from "./usage.js";
@@ -42,6 +43,8 @@ export interface ResourceUsage {
   domains: number;
   senders: number;
   seats: number;
+  /** MX targets, counted apart from sending domains (their own plan field). */
+  receivingDomains: number;
   /** Invitations not yet accepted and not expired. */
   pendingInvites: number;
   tier: string;
@@ -68,7 +71,7 @@ export async function organizationResourceUsage(
   ]);
   const projectIds = projectRows.map((p) => p.id);
 
-  const [domainRow, senderRow, memberRow, inviteRow] = await Promise.all([
+  const [domainRow, senderRow, memberRow, inviteRow, receivingDomainRow] = await Promise.all([
     projectIds.length === 0
       ? Promise.resolve([{ value: 0 }])
       : db.select({ value: count() }).from(domains).where(inArray(domains.projectId, projectIds)),
@@ -98,6 +101,12 @@ export async function organizationResourceUsage(
           gt(orgInvitations.expiresAt, new Date())
         )
       ),
+    projectIds.length === 0
+      ? Promise.resolve([{ value: 0 }])
+      : db
+          .select({ value: count() })
+          .from(receivingDomains)
+          .where(inArray(receivingDomains.projectId, projectIds)),
   ]);
 
   return {
@@ -105,6 +114,7 @@ export async function organizationResourceUsage(
     domains: Number(domainRow[0]?.value ?? 0),
     senders: Number(senderRow[0]?.value ?? 0),
     seats: Number(memberRow[0]?.value ?? 0),
+    receivingDomains: Number(receivingDomainRow[0]?.value ?? 0),
     pendingInvites: Number(inviteRow[0]?.value ?? 0),
     tier,
     plan: planFor(tier),

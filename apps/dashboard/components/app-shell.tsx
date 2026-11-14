@@ -16,6 +16,7 @@ import {
   ShieldBan,
   BarChart3,
   Inbox,
+  MailOpen,
   Webhook,
   KeyRound,
   Code2,
@@ -240,6 +241,7 @@ export function AppShell({
             icon: <Globe size={16} />,
             badgeWarn: usageSummary.verifiedDomains === 0 && memberships.length > 0,
           },
+          { label: "Receiving", href: "/receiving", icon: <MailOpen size={16} /> },
           {
             label: "Broadcasts",
             href: "/broadcasts",
@@ -267,7 +269,7 @@ export function AppShell({
           { label: "Deliveries", href: "/deliveries", icon: <Send size={16} /> },
           { label: "Senders", href: "/senders", icon: <UserCheck size={16} /> },
           { label: "Suppressions", href: "/suppressions", icon: <ShieldBan size={16} /> },
-          { label: "Inbox", href: "/inbox", icon: <Inbox size={16} />, soon: true },
+          { label: "Inbox", href: "/inbox", icon: <Inbox size={16} /> },
         ],
       },
       {

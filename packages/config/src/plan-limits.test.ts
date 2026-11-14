@@ -12,8 +12,11 @@ import {
   assertAssignableTier,
   isCommercialTier,
   USAGE_WARNING_RATIOS,
+  checkInboundAllowance,
   checkResourceLimit,
   formatPlanPrice,
+  inboundUpgradeTier,
+  planInboundEmailsLimit,
   planDisplayName,
   planEmailsLimit,
   planFor,
@@ -102,10 +105,10 @@ describe("plan catalogue", () => {
 
   it("matches the approved resource limits", () => {
     const table = {
-      free: { projects: 3, domains: 2, senders: 5, seats: 1 },
-      starter: { projects: 3, domains: 3, senders: 10, seats: 2 },
-      pro: { projects: 10, domains: 10, senders: 25, seats: 5 },
-      premium: { projects: 50, domains: 50, senders: 100, seats: 15 },
+      free: { projects: 3, domains: 2, senders: 5, seats: 1, receivingDomains: 2 },
+      starter: { projects: 3, domains: 3, senders: 10, seats: 2, receivingDomains: 3 },
+      pro: { projects: 10, domains: 10, senders: 25, seats: 5, receivingDomains: 10 },
+      premium: { projects: 50, domains: 50, senders: 100, seats: 15, receivingDomains: 50 },
     } as const;
     for (const [tier, expected] of Object.entries(table)) {
       for (const resource of LIMITED_RESOURCES) {
@@ -128,7 +131,11 @@ describe("plan catalogue", () => {
       expect(PLAN_LIMITS[tier].gmailSenders).toBe(tier === "scale" ? null : 2);
     expect(PLAN_LIMITS.free.dailySendCap).toBe(500);
     expect(PLAN_LIMITS.premium.dailySendCap).toBeNull();
-    expect([...UNENFORCED_PLAN_LIMITS]).toEqual(["retentionDays", "gmailSenders"]);
+    expect([...UNENFORCED_PLAN_LIMITS]).toEqual([
+      "retentionDays",
+      "gmailSenders",
+      "inboundStorageMb",
+    ]);
   });
 
   it("never approves the contacts allowance", () => {
@@ -264,5 +271,55 @@ describe("checkResourceLimit", () => {
   it("uses the right noun for a single seat", () => {
     const d = checkResourceLimit("free", "seats", 1);
     expect(d.message).toContain("1 team seat and");
+  });
+});
+
+describe("inbound allowance", () => {
+  it("is its own dimension, never derived from the outbound allowance", () => {
+    // A 10,000-outbound plan is not a 10,000-inbound plan by accident.
+    const table = { free: 500, starter: 2_000, pro: 10_000, premium: 50_000 } as const;
+    for (const [tier, expected] of Object.entries(table)) {
+      expect(planInboundEmailsLimit(tier), tier).toBe(expected);
+      expect(planInboundEmailsLimit(tier), tier).not.toBe(planEmailsLimit(tier));
+    }
+    expect(planInboundEmailsLimit("scale")).toBeNull();
+    // Unknown tiers fail closed to Beginner, exactly as the outbound side does.
+    expect(planInboundEmailsLimit("gold")).toBe(500);
+    expect(planInboundEmailsLimit(undefined)).toBe(500);
+  });
+
+  it("admits messages below the ceiling and refuses at it, with an upgrade pointer", () => {
+    expect(checkInboundAllowance("free", 0).allowed).toBe(true);
+    expect(checkInboundAllowance("free", 499).allowed).toBe(true);
+
+    const refused = checkInboundAllowance("free", 500);
+    expect(refused.allowed).toBe(false);
+    expect(refused.code).toBe("inbound_quota_exhausted");
+    expect(refused.limit).toBe(500);
+    expect(refused.received).toBe(500);
+    expect(refused.message).toContain("Beginner");
+    expect(refused.message).toContain("inbound");
+    expect(refused.upgradeTier).toBe("starter");
+    expect(refused.upgradeDisplayName).toBe("Starter");
+  });
+
+  it("treats a contract plan as uncapped rather than as zero", () => {
+    const d = checkInboundAllowance("scale", 10_000_000);
+    expect(d.allowed).toBe(true);
+    expect(d.limit).toBeNull();
+    expect(d.upgradeTier).toBeUndefined();
+  });
+
+  it("exempts internal workspaces the same way the send path does", () => {
+    for (const tier of EXEMPT_TIERS) {
+      expect(checkInboundAllowance(tier, 999_999).allowed).toBe(true);
+    }
+  });
+
+  it("points at the next plan that actually raises the ceiling", () => {
+    expect(inboundUpgradeTier("free")).toBe("starter");
+    expect(inboundUpgradeTier("starter")).toBe("pro");
+    expect(inboundUpgradeTier("pro")).toBeNull();
+    expect(inboundUpgradeTier("premium")).toBeNull();
   });
 });
