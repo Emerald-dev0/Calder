@@ -1,5 +1,5 @@
 import "../server-only"; // M6: build-time guard — control queries may never enter a client bundle
-import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { apiKeys, emails, getDb, organizations, projects } from "@calder/db";
 import { ACCEPTED_EMAIL_STATUSES } from "./email-volume";
 
@@ -27,9 +27,12 @@ import { ACCEPTED_EMAIL_STATUSES } from "./email-volume";
  *     the accepted-status set (sent, delivered, bounced, complained). A bounce
  *     is a real attempt by a real integration, so it counts. `created`,
  *     `queued` and `sending` do not — those are a row, not a send.
- *  3. Every count comes from one snapshot. Read as separate statements, a
- *     signup arriving between two of them would make a later stage larger than
- *     the stage before it, and the page would show an impossible funnel.
+ *  3. Every count comes from one snapshot, and the stages are **not** strictly
+ *     nested. Sending mail does not require an API key — the dashboard sends
+ *     with a session — so an account can legitimately appear at "sent an email"
+ *     without appearing at "created a key". The page reports each stage against
+ *     the cohort and shows a drop-off only where there is one, rather than
+ *     implying a staircase the data does not have.
  */
 
 export type FunnelStageKey = "signup" | "project" | "key" | "first_send" | "active_7d";
@@ -48,6 +51,7 @@ export interface RecentSignup {
   slug: string;
   createdAt: Date;
   projects: number;
+  /** Unrevoked keys, i.e. what can send right now. */
   activeKeys: number;
   firstSendAt: Date | null;
   lastSendAt: Date | null;
@@ -60,6 +64,10 @@ export interface ActivationFunnel {
   since: Date;
   cohort: number;
   stages: FunnelStage[];
+  /**
+   * Stages are reported against a fixed cohort. They are *not* a strict subset
+   * chain: see rule 3 in the module comment.
+   */
   /** Hours from signup to first accepted email, median across activated orgs. */
   medianHoursToFirstSend: number | null;
   recent: RecentSignup[];
@@ -114,7 +122,7 @@ export async function activationFunnel(
             .select({ value: sql<number>`count(distinct ${projects.organizationId})` })
             .from(apiKeys)
             .innerJoin(projects, eq(apiKeys.projectId, projects.id))
-            .where(and(inArray(projects.organizationId, cohort), isNull(apiKeys.revokedAt)))
+            .where(inArray(projects.organizationId, cohort))
         ),
         scalar(
           tx
@@ -219,8 +227,8 @@ export async function activationFunnel(
         },
         {
           key: "key",
-          label: "Held a live API key",
-          requires: "at least one unrevoked key",
+          label: "Created an API key",
+          requires: "at least one key, revoked or not",
           orgs: withKey,
         },
         {

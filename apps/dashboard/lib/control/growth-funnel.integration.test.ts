@@ -67,14 +67,15 @@ gate("activation funnel (live Postgres)", () => {
     const funnel = await activationFunnel({ since, recentLimit: 200 });
     const byKey = new Map(funnel.stages.map((s) => [s.key, s.orgs]));
 
-    // The funnel can only narrow: a later stage larger than an earlier one
-    // would mean the snapshot leaked between statements.
-    const order = ["signup", "project", "key", "first_send", "active_7d"] as const;
-    for (let i = 1; i < order.length; i++) {
-      expect(
-        byKey.get(order[i]!)!,
-        `${order[i]} must not exceed ${order[i - 1]}`
-      ).toBeLessThanOrEqual(byKey.get(order[i - 1]!)!);
+    // Every stage is a count of distinct accounts inside the same cohort, read
+    // in one repeatable-read transaction. That — not nesting — is the property
+    // that can be guaranteed: a stage may exceed the one above it when an
+    // account skipped that step (a dashboard send needs no API key), but no
+    // stage can ever exceed the cohort it is drawn from.
+    for (const stage of funnel.stages) {
+      expect(byKey.get(stage.key), `${stage.key} has no count`).toBeTypeOf("number");
+      expect(stage.orgs, `${stage.key} exceeds the cohort`).toBeLessThanOrEqual(funnel.cohort);
+      expect(stage.orgs, `${stage.key} is negative`).toBeGreaterThanOrEqual(0);
     }
 
     const row = (id: string) => funnel!.recent.find((r) => r.organizationId === id);
