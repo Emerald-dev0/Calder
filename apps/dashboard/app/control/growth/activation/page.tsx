@@ -208,6 +208,11 @@ export default async function ActivationPage() {
               The cohort never changes. Accounts created in this window stay in the denominator
               after they go quiet, which is why &ldquo;still sending&rdquo; can only fall.
             </li>
+            <li>
+              The steps are not a staircase. A send from the dashboard needs no API key, so an
+              account can appear at &ldquo;sent an email&rdquo; without appearing at &ldquo;created
+              a key&rdquo; — the drop-off column shows a dash rather than inventing a loss there.
+            </li>
           </ul>
         </Panel>
 
@@ -236,8 +241,8 @@ export default async function ActivationPage() {
       </div>
 
       <p className="cp-caption">
-        Read as one snapshot: the counts above come from a single repeatable-read transaction, so a
-        signup arriving mid-query cannot make a later stage larger than the one before it.
+        Read as one snapshot: every count above comes from a single repeatable-read transaction, so
+        the stages cannot disagree with each other or with the cohort they are drawn from.
       </p>
     </>
   );
