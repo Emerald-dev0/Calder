@@ -58,6 +58,10 @@ export interface ShellProps {
     name?: string | null;
   };
   memberships: ContextMembership[];
+  /** Server-resolved context: the organisation and project this page is about. */
+  activeOrganizationId: string | null;
+  activeProjectId: string | null;
+  activeOrganizationName: string | null;
   showAdmin: boolean;
   usageSummary: {
     sentThisMonth: number;
@@ -93,6 +97,9 @@ interface NavGroup {
 export function AppShell({
   user,
   memberships,
+  activeOrganizationId,
+  activeProjectId,
+  activeOrganizationName,
   showAdmin,
   usageSummary,
   children,
@@ -205,7 +212,11 @@ export function AppShell({
     });
   }
 
-  const projectParam = searchParams.get("project");
+  // Context lives in a validated cookie now, so links no longer depend on the
+  // current URL carrying `?project=`. Appending it keeps individual links
+  // shareable and makes the page's intent explicit in the address bar; the
+  // cookie is what makes it survive a click to a page that forgot to.
+  const projectParam = activeProjectId ?? searchParams.get("project");
   const withProject = React.useCallback(
     (href: string) => {
       if (!projectParam) return href;
@@ -288,7 +299,7 @@ export function AppShell({
   };
 
   // Compute Breadcrumbs
-  const currentOrgName = memberships[0]?.organization.name ?? "Workspace";
+  const currentOrgName = activeOrganizationName ?? memberships[0]?.organization.name ?? "Workspace";
   const activeEntry = React.useMemo(() => {
     for (const g of navGroups) {
       for (const item of g.items) {
@@ -371,7 +382,12 @@ export function AppShell({
             </button>
           </div>
 
-          <ContextSwitcher memberships={memberships} collapsed={collapsed} />
+          <ContextSwitcher
+            memberships={memberships}
+            activeOrganizationId={activeOrganizationId}
+            activeProjectId={activeProjectId}
+            collapsed={collapsed}
+          />
         </div>
 
         {/* Scrollable Navigation */}

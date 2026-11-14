@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Suspense } from "react";
 import {
   ChevronsUpDown,
@@ -13,6 +13,7 @@ import {
   Settings,
   Sparkles,
 } from "lucide-react";
+import { switchContext } from "../app/(app)/context-actions";
 
 export interface ContextMembership {
   organization: { id: string; name: string; slug: string };
@@ -55,18 +56,45 @@ function EnvBadge({ env }: { env: string }) {
 
 function SwitcherInner({
   memberships,
+  activeOrganizationId,
+  activeProjectId,
   compact = false,
   collapsed = false,
 }: {
   memberships: ContextMembership[];
+  /** Server-resolved: the organisation this request is about. */
+  activeOrganizationId: string | null;
+  /** Server-resolved: the project this request is about. */
+  activeProjectId: string | null;
   compact?: boolean;
   collapsed?: boolean;
 }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const requested = searchParams.get("project");
+  const router = useRouter();
   const [open, setOpen] = React.useState(false);
+  const [pending, startTransition] = React.useTransition();
+  const [error, setError] = React.useState<string | null>(null);
   const ref = React.useRef<HTMLDivElement>(null);
+
+  /**
+   * Switching is a server action, not a link: the selection has to survive
+   * navigation, so it is written to a validated cookie before we move. The
+   * action returns the page to open, which keeps "where do I land" a server
+   * decision instead of a string built in the browser.
+   */
+  const go = (input: { organizationId?: string; projectId?: string }) => {
+    setError(null);
+    startTransition(async () => {
+      const result = await switchContext(input);
+      if (!result.ok) {
+        setError(result.error ?? "Could not switch.");
+        return;
+      }
+      setOpen(false);
+      router.push(result.href);
+      router.refresh();
+    });
+  };
 
   React.useEffect(() => {
     if (!open) return;
@@ -82,18 +110,18 @@ function SwitcherInner({
   const allProjects = memberships.flatMap((m) =>
     m.projects.map((p) => ({ ...p, orgId: m.organization.id })),
   );
-  const current =
-    allProjects.find((p) => p.id === requested) ?? allProjects[0] ?? null;
+  // The server already decided. No guessing from the URL, no falling back to
+  // "the first project of the first organisation".
+  const current = activeProjectId
+    ? (allProjects.find((p) => p.id === activeProjectId) ?? null)
+    : null;
   const currentOrg =
-    memberships.find((m) => m.organization.id === current?.orgId) ??
+    (activeOrganizationId
+      ? (memberships.find((m) => m.organization.id === activeOrganizationId) ?? null)
+      : null) ??
     memberships[0] ??
     null;
-
-  const hrefFor = (projectId: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("project", projectId);
-    return `${pathname}?${params.toString()}`;
-  };
+  void pathname;
 
   if (!currentOrg) {
     if (collapsed) {
@@ -283,13 +311,14 @@ function SwitcherInner({
             Organizations
           </div>
           {memberships.map((m) => {
-            const first = m.projects[0];
             const active = m.organization.id === currentOrg.organization.id;
             return (
-              <Link
+              <button
                 key={m.organization.id}
-                href={first ? hrefFor(first.id) : "/settings"}
-                onClick={() => setOpen(false)}
+                type="button"
+                disabled={pending}
+                onClick={() => go({ organizationId: m.organization.id })}
+                aria-current={active ? "true" : undefined}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -297,10 +326,14 @@ function SwitcherInner({
                   padding: "7px 8px",
                   borderRadius: "var(--radius-md)",
                   textDecoration: "none",
+                  border: "none",
+                  width: "100%",
+                  cursor: pending ? "progress" : "pointer",
                   fontSize: 12.5,
                   fontWeight: active ? 600 : 500,
                   color: "var(--color-ink)",
                   background: active ? "var(--color-surface-elevated)" : "transparent",
+                  textAlign: "left",
                 }}
               >
                 <Building2 size={14} style={{ color: "var(--color-muted)" }} />
@@ -311,7 +344,7 @@ function SwitcherInner({
                   {m.role}
                 </span>
                 {active && <Check size={13} style={{ color: "var(--color-accent)" }} />}
-              </Link>
+              </button>
             );
           })}
 
@@ -335,10 +368,11 @@ function SwitcherInner({
               {currentOrg.projects.map((p) => {
                 const isCurrent = current?.id === p.id;
                 return (
-                  <Link
+                  <button
                     key={p.id}
-                    href={hrefFor(p.id)}
-                    onClick={() => setOpen(false)}
+                    type="button"
+                    disabled={pending}
+                    onClick={() => go({ projectId: p.id })}
                     aria-current={isCurrent ? "true" : undefined}
                     style={{
                       display: "flex",
@@ -347,10 +381,14 @@ function SwitcherInner({
                       padding: "7px 8px",
                       borderRadius: "var(--radius-md)",
                       textDecoration: "none",
+                      border: "none",
+                      width: "100%",
+                      cursor: pending ? "progress" : "pointer",
                       fontSize: 12.5,
                       fontWeight: isCurrent ? 600 : 500,
                       color: "var(--color-ink)",
                       background: isCurrent ? "var(--color-surface-elevated)" : "transparent",
+                      textAlign: "left",
                     }}
                   >
                     <FolderGit2 size={14} style={{ color: "var(--color-muted)" }} />
@@ -358,11 +396,25 @@ function SwitcherInner({
                       {p.name}
                     </span>
                     <EnvBadge env={p.environment} />
-                  </Link>
+                  </button>
                 );
               })}
             </>
           )}
+
+          {error ? (
+            <p
+              role="alert"
+              style={{
+                margin: "6px 8px 0",
+                fontSize: 11.5,
+                color: "var(--color-danger)",
+                lineHeight: 1.5,
+              }}
+            >
+              {error}
+            </p>
+          ) : null}
 
           <div
             style={{
@@ -417,6 +469,8 @@ function SwitcherInner({
 
 export function ContextSwitcher(props: {
   memberships: ContextMembership[];
+  activeOrganizationId: string | null;
+  activeProjectId: string | null;
   compact?: boolean;
   collapsed?: boolean;
 }) {

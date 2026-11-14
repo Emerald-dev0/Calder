@@ -35,9 +35,20 @@ const STATUS_LABEL: Record<string, string> = {
   suppressed: "Suppressed",
 };
 
-export default async function OverviewPage() {
+export default async function OverviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ moved?: string; project?: string }>;
+}) {
+  const query = await searchParams;
   const ctx = await getTenantContext();
-  const projectIds = ctx.memberships.flatMap((m) => m.projects.map((p) => p.id));
+  // The overview describes the *active* organisation. Summing every membership
+  // meant a two-workspace user saw one workspace's numbers under another
+  // workspace's name.
+  const activeMembership = ctx.memberships.find(
+    (m) => m.organization.id === ctx.active.organization?.id
+  );
+  const projectIds = activeMembership?.projects.map((p) => p.id) ?? [];
   const db = getDb();
   const now = new Date();
 
@@ -130,12 +141,12 @@ export default async function OverviewPage() {
     "30d": daily,
   };
 
-  // Plan usage for the first organization's current billing period.
+  // Plan usage for the active organisation's current billing period.
   let quota: number | null = PLAN_LIMITS.free.emailsPerMonth;
   let planName = PLAN_LIMITS.free.displayName;
   let usedThisPeriod = 0;
   let periodEnd: Date | null = null;
-  const firstOrg = ctx.memberships[0]?.organization;
+  const firstOrg = ctx.active.organization;
   if (firstOrg) {
     try {
       const snap = await orgUsageSnapshot(db, firstOrg.id);
@@ -254,6 +265,24 @@ export default async function OverviewPage() {
 
   return (
     <div className="ov">
+      {query.moved === "1" ? (
+        <div
+          role="status"
+          style={{
+            margin: "0 0 16px",
+            padding: "10px 14px",
+            borderRadius: "var(--radius-lg)",
+            border: "1px solid var(--color-success)",
+            background: "var(--color-success-subtle, rgba(16, 185, 129, 0.08))",
+            fontSize: 13,
+            lineHeight: 1.6,
+          }}
+        >
+          <b>Project moved.</b> It now lives in{" "}
+          {ctx.active.organization?.name ?? "its new organisation"}, with its domains, senders,
+          keys and history. API keys were not rotated, so integrations keep working.
+        </div>
+      ) : null}
       <header className="ov-header">
         <div className="ov-header-text">
           <h1 className="ov-title">

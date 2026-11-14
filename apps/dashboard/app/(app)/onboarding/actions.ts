@@ -369,6 +369,23 @@ export async function createProject(input: {
       break;
     }
   }
+  // Plan ceiling: enforced here because this is a creation path. Without it a
+  // Beginner workspace could hold unlimited projects, and a project transfer
+  // could be used to dodge the limit entirely.
+  const { assertCanCreateResource, ResourceLimitError } = await import("@calder/db");
+  try {
+    await assertCanCreateResource(db, input.orgId, "projects");
+  } catch (err) {
+    if (err instanceof ResourceLimitError) {
+      throw new Error(
+        `${err.message} Your ${err.displayName} plan includes ${err.limit ?? "no"} project${
+          err.limit === 1 ? "" : "s"
+        }.${err.upgradeDisplayName ? ` Upgrade to ${err.upgradeDisplayName} for more.` : ""}`
+      );
+    }
+    throw err;
+  }
+
   const projectId = rid("proj");
   await db.insert(projects).values({
     id: projectId,

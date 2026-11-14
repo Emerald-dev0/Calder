@@ -37,6 +37,35 @@ domains.post("/", authMiddleware, async (c) => {
     throw new AppError("validation_error", "Invalid domain", 400, parsed.error.flatten());
 
   const db = getDb();
+  // Domains are sold by the plan (2 / 3 / 10). This route is the only path that
+  // creates one, so the ceiling belongs here — otherwise the catalogue is
+  // documentation of a promise nobody keeps.
+  const { assertCanCreateResource, organizationForProject, ResourceLimitError } =
+    await import("@calder/db");
+  const organizationId = await organizationForProject(db, auth.projectId);
+  if (!organizationId) throw new AppError("not_found", "Project not found", 404);
+  try {
+    await assertCanCreateResource(db, organizationId, "domains");
+  } catch (err) {
+    if (err instanceof ResourceLimitError) {
+      throw new AppError(
+        err.code,
+        err.message,
+        402,
+        {
+          resource: err.resource,
+          tier: err.tier,
+          limit: err.limit,
+          used: err.used,
+          upgrade_tier: err.upgradeTier,
+        },
+        err.upgradeDisplayName
+          ? `Upgrade to ${err.upgradeDisplayName} to add more domains.`
+          : undefined
+      );
+    }
+    throw err;
+  }
   const result = await createChallenge(db, {
     projectId: auth.projectId,
     domain: parsed.data.domain,

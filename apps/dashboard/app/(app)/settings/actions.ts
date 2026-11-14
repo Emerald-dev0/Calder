@@ -159,6 +159,28 @@ export async function inviteMember(orgId: string, email: string, role: Role) {
       .limit(1);
     if (existing[0]) throw new Error("That address is already on the team.");
   }
+  // Seats are a plan entitlement (1 / 2 / 5), counted as members **plus**
+  // pending invitations — an invitation is already a promised seat. Without
+  // this, a one-seat workspace could invite the whole company and the plan
+  // would only be discovered at acceptance time, when refusing is hostile.
+  const { assertCanCreateResource, ResourceLimitError } = await import("@calder/db");
+  try {
+    await assertCanCreateResource(db, orgId, "seats");
+  } catch (err) {
+    if (err instanceof ResourceLimitError) {
+      throw new Error(
+        `${err.message} Your ${err.displayName} plan includes ${
+          err.limit ?? "no"
+        } seat${err.limit === 1 ? "" : "s"}.${
+          err.upgradeDisplayName
+            ? ` Upgrade to ${err.upgradeDisplayName} to invite more people.`
+            : ""
+        }`
+      );
+    }
+    throw err;
+  }
+
   const rawToken = randomBytes(32).toString("hex");
   const tokenHash = createHash("sha256").update(rawToken).digest("hex");
   const inviteId = rid("inv");

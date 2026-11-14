@@ -18,9 +18,15 @@ export default async function SettingsPage({
 }) {
   const query = await searchParams;
   const ctx = await getTenantContext();
-  const orgId = ctx.memberships.some((m) => m.organization.id === query.org)
-    ? (query.org as string)
-    : (ctx.memberships[0]?.organization.id ?? null);
+  // `?org=` is validated against membership, and the default is the same active
+  // organisation the rest of the app is showing — not `memberships[0]`, which
+  // is how settings used to disagree with the page you came from.
+  const requestedOrg = typeof query.org === "string" && query.org ? query.org : null;
+  const requestedMembership = requestedOrg
+    ? ctx.memberships.find((m) => m.organization.id === requestedOrg)
+    : undefined;
+  const orgAccessDenied = Boolean(requestedOrg && !requestedMembership);
+  const orgId = requestedMembership?.organization.id ?? ctx.active.organization?.id ?? null;
 
   if (!orgId) {
     return (
@@ -83,6 +89,15 @@ export default async function SettingsPage({
 
   return (
     <div>
+      {orgAccessDenied ? (
+        <DsBanner
+          tone="warning"
+          title="That organisation isn't yours"
+          description={`You don't have access to ${requestedOrg}. Showing ${
+            ctx.active.organization?.name ?? "your workspace"
+          } instead — an organisation id in a URL is a request, never a grant.`}
+        />
+      ) : null}
       <DsPageHeader
         icon={<Settings size={18} />}
         title="Organization & Security Settings"
@@ -101,6 +116,36 @@ export default async function SettingsPage({
           </Link>
         }
       />
+
+      <div className="ds-card" style={{ marginBottom: 20 }}>
+        <div className="ds-card-header">
+          <div>
+            <h2 className="ds-card-title">Projects</h2>
+            <p className="ds-card-subtitle">
+              Project settings, including moving a project to another organisation you administer.
+            </p>
+          </div>
+          <div style={{ flexShrink: 0 }}>
+            <Link
+              href="/settings/projects"
+              className="ds-btn ds-btn-secondary"
+              style={{ textDecoration: "none" }}
+            >
+              <FolderGit2 size={14} />
+              <span>Manage projects</span>
+            </Link>
+          </div>
+        </div>
+        <div className="ds-card-body">
+          <p style={{ margin: 0, fontSize: 13, color: "var(--color-muted)" }}>
+            {orgProjects.length === 0
+              ? "No projects in this organisation yet."
+              : `${orgProjects.length} project${orgProjects.length === 1 ? "" : "s"}: ${orgProjects
+                  .map((p) => p.name)
+                  .join(", ")}.`}
+          </p>
+        </div>
+      </div>
 
       <div className="ds-card" style={{ marginBottom: 20 }}>
         <div className="ds-card-header">
