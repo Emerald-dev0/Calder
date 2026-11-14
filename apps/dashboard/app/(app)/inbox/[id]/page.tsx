@@ -11,6 +11,7 @@ import {
   markConversationRead,
   senderIdentities,
 } from "@calder/db";
+import { requireDashboardFeaturePage } from "../../../../lib/feature-gate";
 import { ArrowLeft, Inbox, Paperclip, StickyNote } from "lucide-react";
 import { DsBanner, DsPageHeader, StatusPill } from "../../../../components/design-system";
 import { resolveInboxAccess, InboxAccessError } from "../../../../lib/inbox/guard";
@@ -27,6 +28,13 @@ import { ConversationComposer, ConversationControls } from "./panel";
  * injected into the page — inbound mail is attacker-controlled content.
  */
 export default async function ConversationPage({ params }: { params: Promise<{ id: string }> }) {
+  // Not launched: this page belongs to `inbound_email`, which is `coming_soon`
+  // in the feature registry. Refusing here rather than in a layout is
+  // deliberate — Next renders a layout and its page in parallel, so a layout's
+  // notFound() still lets the page render and returns 200. A 404 says the
+  // truth; a greyed-out nav item does not.
+  requireDashboardFeaturePage("inbound_email");
+
   const { id } = await params;
   const db = getDb();
 

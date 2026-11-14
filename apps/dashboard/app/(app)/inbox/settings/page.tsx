@@ -10,6 +10,7 @@ import {
   senderIdentities,
   users,
 } from "@calder/db";
+import { requireDashboardFeaturePage } from "../../../../lib/feature-gate";
 import { Inbox as InboxIcon } from "lucide-react";
 import { getTenantContext, resolveProject } from "../../../../lib/auth";
 import { visibleInboxesForProject } from "../../../../lib/inbox/guard";
@@ -32,6 +33,13 @@ export default async function InboxSettingsPage({
 }: {
   searchParams: Promise<{ project?: string; inbox?: string }>;
 }) {
+  // Not launched: this page belongs to `inbound_email`, which is `coming_soon`
+  // in the feature registry. Refusing here rather than in a layout is
+  // deliberate — Next renders a layout and its page in parallel, so a layout's
+  // notFound() still lets the page render and returns 200. A 404 says the
+  // truth; a greyed-out nav item does not.
+  requireDashboardFeaturePage("inbound_email");
+
   const query = await searchParams;
   const ctx = await getTenantContext();
   const scope = resolveProject(ctx, query.project);
