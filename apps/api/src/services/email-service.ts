@@ -303,7 +303,10 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
         "suppressed",
         `${describeBlock(blocked)} The email was not queued.`,
         422,
-        { reason: blocked.reason, scope: blocked.crossProject ? "organization" : "project" },
+        {
+          reason: blocked.reason,
+          scope: blocked.source ?? (blocked.crossProject ? "organization" : "project"),
+        },
         "Remove the address from the suppression list first, or send to a different recipient."
       );
     }

@@ -4,8 +4,13 @@ export {
   getSesAccountStatus,
   createSesDomainIdentity,
   getSesDomainIdentity,
+  getSuppressedDestination,
+  listSuppressedDestinations,
   type SesAccountStatus,
   type SesIdentityDnsRecord,
+  type SesSuppressedDestination,
+  type SesSuppressedDestinationEntry,
+  type SesSuppressionReason,
 } from "./ses.js";
 export {
   GmailTransport,

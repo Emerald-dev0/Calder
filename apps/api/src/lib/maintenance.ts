@@ -2,13 +2,15 @@
  * The maintenance sweep: work that has to happen on a clock rather than an
  * incoming request.
  *
- * Three jobs, all idempotent, all safe to overlap:
+ * Four jobs, all idempotent, all safe to overlap:
  *  - credits that reached their expiry date stop being spendable;
  *  - processor leases held by an invocation that died are released, so the
  *    work is retried instead of being stranded until someone notices;
  *  - payments that are still `pending` well after checkout are re-verified
  *    with the provider, because a webhook can be lost and the customer's money
- *    has already moved.
+ *    has already moved;
+ *  - the SES account suppression list is mirrored, because it is the authority
+ *    on who can receive mail and the send path must not pay an API call to ask.
  *
  * It lives here, not in the route, because **two** entry points run it: the
  * manual `/v1/cron/maintenance` endpoint and the scheduled `/v1/cron/drain`
@@ -20,6 +22,10 @@
 import { and, eq, lt } from "drizzle-orm";
 import { expireCredits, payments, reapExpiredLeases, type DbClient } from "@calder/db";
 import { verifyAndFulfil } from "../services/billing.js";
+import {
+  reconcileSesSuppressions,
+  type SuppressionReconcileSummary,
+} from "./ses-suppression-reconcile.js";
 
 export interface MaintenanceSummary {
   expiredCreditPurchases: number;
@@ -29,6 +35,12 @@ export interface MaintenanceSummary {
   reconcileFailed: number;
   /** True when Paystack is not configured, so no reconciliation was attempted. */
   reconciliationSkipped: boolean;
+  /**
+   * The provider's own suppression list, mirrored locally. Reported on every
+   * tick because "we did not look" and "we looked and it was empty" must not
+   * look the same in a cron log.
+   */
+  suppressions: SuppressionReconcileSummary;
 }
 
 /** Payments are re-checked only after this long, so an in-flight checkout is left alone. */
@@ -76,11 +88,18 @@ export async function runScheduledMaintenance(
     }
   }
 
+  // SES's suppression list is the authority for deliverability, and the ingest
+  // path cannot afford to ask SES per send. Mirroring it here is what keeps the
+  // local answer current. Runs whether or not the provider is configured — the
+  // summary says which, rather than silently reporting zero.
+  const suppressions = await reconcileSesSuppressions(db, { now });
+
   return {
     expiredCreditPurchases,
     reapedLeases,
     reconciled,
     reconcileFailed,
     reconciliationSkipped: !canReconcile,
+    suppressions,
   };
 }

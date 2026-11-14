@@ -5,6 +5,7 @@ export * from "./projects.js";
 export * from "./api-keys.js";
 export * from "./domains.js";
 export * from "./emails.js";
+export * from "./ses-suppressions.js";
 export * from "./contacts.js";
 export * from "./audiences.js";
 export * from "./segments.js";

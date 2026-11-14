@@ -60,8 +60,11 @@ gate("magic-link integration (live Postgres)", async () => {
     const raw = await requestMagicLink(email);
     expect(raw).toMatch(/^[a-f0-9]{64}$/);
 
-    const sessionId = await consumeMagicLink(raw);
+    const { sessionId, invitedOrganizationIds } = await consumeMagicLink(raw);
     expect(typeof sessionId).toBe("string");
+    // No pending invitation for this address: the list is empty, not undefined,
+    // so a caller can always ask "did this login join anything?".
+    expect(invitedOrganizationIds).toEqual([]);
 
     const db = getDb();
     const [u] = await db.select().from(users).where(eq(users.email, email)).limit(1);
