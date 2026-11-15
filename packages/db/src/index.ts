@@ -17,6 +17,7 @@ export * from "./gmail-watch.js";
 export * from "./webhook-deliveries.js";
 export * from "./delivery-events.js";
 export * from "./dns-challenge.js";
+export * from "./dns-auth.js";
 export * from "./domain-verification.js";
 export * from "./migration-status.js";
 export * from "./schema-drift.js";

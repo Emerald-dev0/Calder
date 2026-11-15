@@ -276,6 +276,72 @@ domains.delete("/:id", authMiddleware, async (c) => {
   return c.json({ data: { id, deleted: true } });
 });
 
+/**
+ * Authentication readiness: ownership, DKIM, SPF and DMARC as four separate
+ * facts, with SPF and DMARC read live from DNS.
+ *
+ * Kept as a read: it changes nothing and rate-limits like a verification check
+ * (it does real DNS work). Each fact carries the record we found and a sentence
+ * explaining the failure, because "SPF: broken" without the published value is
+ * a puzzle rather than a fix.
+ */
+domains.get("/:id/auth", authMiddleware, rateLimitMiddleware("verification"), async (c) => {
+  const auth = requireProjectManagement(c);
+  const id = c.req.param("id");
+  const db = getDb();
+  const [row] = await db
+    .select()
+    .from(domainsTable)
+    .where(and(eq(domainsTable.id, id), eq(domainsTable.projectId, auth.projectId)))
+    .limit(1);
+  if (!row) throw new AppError("not_found", "Domain not found", 404);
+
+  const { checkDomainAuth } = await import("@calder/db");
+  let auth_checks: Awaited<ReturnType<typeof checkDomainAuth>> | null = null;
+  try {
+    auth_checks = await checkDomainAuth(row.domain);
+  } catch {
+    auth_checks = null;
+  }
+
+  const unreachable = {
+    state: "broken" as const,
+    detail: "DNS could not be read just now, so this is unknown rather than passing.",
+    found: [] as string[],
+  };
+
+  return c.json({
+    data: {
+      domain: row.domain,
+      ownership: {
+        state: row.status === "verified" ? "pass" : row.status === "pending" ? "missing" : "broken",
+        detail:
+          row.status === "verified"
+            ? "This project proved control of the domain."
+            : `Ownership is ${row.status}. Publish the _calder TXT record and verify again.`,
+        found: row.verificationToken ? [`calder-verification=${row.verificationToken}`] : [],
+      },
+      dkim: {
+        state:
+          row.dkimStatus === "SUCCESS" || row.dkimStatus === "success"
+            ? "pass"
+            : row.dkimRecords && row.dkimRecords.length > 0
+              ? "warning"
+              : "missing",
+        detail:
+          row.dkimStatus === "SUCCESS" || row.dkimStatus === "success"
+            ? "DKIM is verified: mail is cryptographically signed as this domain."
+            : row.dkimRecords && row.dkimRecords.length > 0
+              ? `DKIM is ${row.dkimStatus ?? "pending"}. Publish the three CNAME records and refresh.`
+              : "No DKIM records yet. Link this domain to the sending provider first.",
+        found: (row.dkimRecords ?? []).map((r) => `${r.name} ${r.type} ${r.value}`),
+      },
+      spf: auth_checks?.spf ?? unreachable,
+      dmarc: auth_checks?.dmarc ?? unreachable,
+    },
+  });
+});
+
 // ---- M4.2: SES identity linkage + DKIM storage -----------------------------
 
 /** Suggested SPF record (returned for display; tenants may already have one). */

@@ -341,6 +341,20 @@ value: "calder-verification=cvt_…", expiresAt}`. 409 if another
 - `DELETE /v1/domains/:id`.
 - `GET /v1/domains` → secret-free projections (challenge visible only while
   pending/failed).
+- `GET /v1/domains/:id/auth` → **sending readiness as four independent facts**:
+  `ownership`, `dkim`, `spf`, `dmarc`. Ownership and DKIM come from our own
+  records; SPF and DMARC are read from DNS at request time (apex TXT and
+  `_dmarc.<domain>`), rate-limited with the verification bucket. Each fact is
+  `{state: "pass" | "warning" | "missing" | "broken", detail, found[]}`, where
+  `found` is the record exactly as published and `detail` says what to change.
+  The checks that matter in practice: no SPF, two SPF records (RFC 7208 §4.5
+  makes that a permanent error, worse than none), an SPF record that omits
+  `include:amazonses.com`, `+all`, no DMARC, `p=none` (monitoring only),
+  `pct<100`, and `p=quarantine|reject` combined with `aspf=s` — strict SPF
+  alignment fails because the return path for SES mail is `*.amazonses.com`, so
+  the customer's own policy would reject their mail. A DNS failure is reported
+  as unknown, never as passing and never as "missing" (which would invite a
+  duplicate record).
 
 ### Outbound branding
 

@@ -978,6 +978,28 @@ export async function checkDomainDns(domainId: string) {
 }
 
 /**
+ * SPF and DMARC, read live from DNS.
+ *
+ * The domain row already knows ownership and DKIM from our own records; these
+ * two exist only in DNS, and until now nobody looked. Read-only: no attempt
+ * budget, no state written, so the UI can refresh it on a timer.
+ */
+export async function checkDomainAuth(domainId: string) {
+  const ctx = await getTenantContext();
+  const db = getDb();
+  const projectIds = new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)));
+  if (projectIds.size === 0) throw new Error("Domain not found.");
+  const [row] = await db
+    .select({ id: domains.id, projectId: domains.projectId, domain: domains.domain })
+    .from(domains)
+    .where(and(eq(domains.id, domainId), inArray(domains.projectId, [...projectIds])))
+    .limit(1);
+  if (!row) throw new Error("Domain not found.");
+  const { checkDomainAuth: runChecks } = await import("@calder/db");
+  return runChecks(row.domain);
+}
+
+/**
  * Background DNS probe for the onboarding auto-poller. Same access check and
  * same DNS lookup as checkDomainDns, but probe mode never consumes the hourly
  * attempt budget and never writes failure state — only an explicit Verify click
