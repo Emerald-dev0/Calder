@@ -482,6 +482,67 @@ async function loadVersion(
 }
 
 /**
+ * The "copy AI prompt" text for this template.
+ *
+ * Built only from facts we hold (name, alias, subject, bodies, declared
+ * variables, sending domain), so it is deterministic and cannot tell an
+ * assistant to use a variable the template will not be given.
+ */
+templates.get("/:id/prompt", authMiddleware, rateLimitMiddleware("read"), async (c) => {
+  const a = auth(c);
+  const {
+    getDb,
+    templates: templatesTable,
+    templateVersions,
+    domains,
+  } = await import("@calder/db");
+  const { and, desc, eq } = await import("drizzle-orm");
+  const db = getDb();
+  const [row] = await db
+    .select()
+    .from(templatesTable)
+    .where(and(eq(templatesTable.id, c.req.param("id")), eq(templatesTable.projectId, a.projectId)))
+    .limit(1);
+  if (!row) throw new AppError("not_found", "Template not found", 404);
+
+  const [version] = await db
+    .select({
+      subject: templateVersions.subject,
+      html: templateVersions.html,
+      text: templateVersions.text,
+      variables: templateVersions.variables,
+    })
+    .from(templateVersions)
+    .where(eq(templateVersions.templateId, row.id))
+    .orderBy(desc(templateVersions.createdAt))
+    .limit(1);
+
+  const [verified] = await db
+    .select({ domain: domains.domain })
+    .from(domains)
+    .where(and(eq(domains.projectId, a.projectId), eq(domains.status, "verified")))
+    .limit(1);
+
+  const { buildTemplatePrompt, extractVariables, normaliseVariables } =
+    await import("@calder/email");
+  const declared = normaliseVariables(version?.variables);
+  const prompt = buildTemplatePrompt({
+    name: row.name,
+    alias: row.alias ?? null,
+    subject: version?.subject ?? null,
+    description: row.description ?? null,
+    hasHtml: Boolean(version?.html),
+    hasText: Boolean(version?.text),
+    variables:
+      declared.length > 0
+        ? declared
+        : normaliseVariables(extractVariables(version?.subject, version?.html, version?.text)),
+    sendingDomain: verified?.domain ?? null,
+  });
+  return c.json({ data: { template_id: row.id, prompt } });
+});
+
+/**
  * Preview a version with sample data.
  *
  * Returns both the rendered output and the publish problems, so the editor can

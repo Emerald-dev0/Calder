@@ -33,6 +33,7 @@ export {
   renderTemplate,
   pickSendableVersion,
 } from "./template-lifecycle.js";
+export { type PromptTemplateFacts, buildTemplatePrompt } from "./ai-prompt.js";
 export {
   type EmailComponentName,
   type ReactElementNode,

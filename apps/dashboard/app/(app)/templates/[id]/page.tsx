@@ -5,8 +5,14 @@ import { getTenantContext } from "../../../../lib/auth";
 import { EmptyState } from "../../../../components/empty-state";
 import { TemplateEditor } from "../editor";
 import { PublishVersionButton } from "../publish-version";
+import { templateAiPrompt } from "../actions";
 import { FileCode2, ArrowLeft, History } from "lucide-react";
-import { DsPageHeader, StatusPill, RelativeTime } from "../../../../components/design-system";
+import {
+  DsPageHeader,
+  StatusPill,
+  RelativeTime,
+  CopyField,
+} from "../../../../components/design-system";
 
 export const metadata = { title: "Calder — Template" };
 
@@ -62,6 +68,7 @@ export default async function TemplateDetailPage({ params }: { params: Promise<{
   // What sends actually use: the newest published version, never a draft.
   const published = versions.find((v) => v.status === "published") ?? null;
   const hasDraft = versions.some((v) => v.status === "draft");
+  const prompt = await templateAiPrompt(tpl.projectId, tpl.id);
   // Publishing changes what recipients receive, so it is a manager action —
   // the same rule the API's `manage` scope enforces.
   const canManage = ctx.memberships.some(
@@ -108,6 +115,41 @@ export default async function TemplateDetailPage({ params }: { params: Promise<{
           text: latest?.text ?? "",
         }}
       />
+
+      {versions.length > 0 && (
+        <div className="ds-card" style={{ marginTop: 20 }} data-testid="ai-prompt">
+          <div className="ds-card-header">
+            <div>
+              <h2 className="ds-card-title">Copy AI prompt</h2>
+              <p className="ds-card-subtitle">
+                A brief built from this template&apos;s own facts — its variables, subject, alias
+                and sending domain. It tells an assistant which variables it may use, so a rewrite
+                does not invent one that will never be supplied.
+              </p>
+            </div>
+          </div>
+          <div className="ds-card-body">
+            <pre
+              className="mono"
+              style={{
+                margin: "0 0 12px",
+                padding: 12,
+                maxHeight: 320,
+                overflow: "auto",
+                fontSize: 11.5,
+                lineHeight: 1.55,
+                whiteSpace: "pre-wrap",
+                background: "var(--color-surface-elevated)",
+                border: "1px solid var(--color-border)",
+                borderRadius: 8,
+              }}
+            >
+              {prompt}
+            </pre>
+            <CopyField value={prompt} compact />
+          </div>
+        </div>
+      )}
 
       {versions.length > 0 && (
         <div className="ds-card" style={{ marginTop: 20 }}>

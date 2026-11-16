@@ -6,6 +6,7 @@ import {
   templates,
   templateVersions,
   senderIdentities,
+  domains,
   apiKeys,
   insertApiKeyForActiveOrganization,
 } from "@calder/db";
@@ -163,6 +164,55 @@ export async function publishTemplateVersion(
       .where(eq(templateVersions.id, row.id));
   }
   return { ok: true, version: row.version };
+}
+
+/**
+ * The "copy AI prompt" text, built from this template's own facts.
+ *
+ * Deterministic: two clicks produce the same text, so two people comparing notes
+ * are looking at the same brief.
+ */
+export async function templateAiPrompt(projectId: string, templateId: string): Promise<string> {
+  await assertProjectManager(projectId);
+  const db = getDb();
+  const [tpl] = await db
+    .select()
+    .from(templates)
+    .where(and(eq(templates.id, templateId), eq(templates.projectId, projectId)))
+    .limit(1);
+  if (!tpl) throw new Error("Template not found.");
+  const [version] = await db
+    .select({
+      subject: templateVersions.subject,
+      html: templateVersions.html,
+      text: templateVersions.text,
+      variables: templateVersions.variables,
+    })
+    .from(templateVersions)
+    .where(eq(templateVersions.templateId, templateId))
+    .orderBy(desc(templateVersions.createdAt))
+    .limit(1);
+  const [verified] = await db
+    .select({ domain: domains.domain })
+    .from(domains)
+    .where(and(eq(domains.projectId, projectId), eq(domains.status, "verified")))
+    .limit(1);
+  const { buildTemplatePrompt, extractVariables, normaliseVariables } =
+    await import("@calder/email");
+  const declared = normaliseVariables(version?.variables);
+  return buildTemplatePrompt({
+    name: tpl.name,
+    alias: tpl.alias ?? null,
+    subject: version?.subject ?? null,
+    description: tpl.description ?? null,
+    hasHtml: Boolean(version?.html),
+    hasText: Boolean(version?.text),
+    variables:
+      declared.length > 0
+        ? declared
+        : normaliseVariables(extractVariables(version?.subject, version?.html, version?.text)),
+    sendingDomain: verified?.domain ?? null,
+  });
 }
 
 export async function deleteTemplate(projectId: string, templateId: string) {

@@ -97,6 +97,12 @@ problems[] }`. Drafts preview fine — that is what a draft is for.
   it with `@react-email/render` in your own build and post `html`/`text`, or post
   `react_tree`.
 - `GET /v1/templates/:id/versions` lists versions newest first, with `status`.
+- `GET /v1/templates/:id/prompt` returns a deterministic brief (`{ prompt }`) built
+  from this template's own facts — name, alias, subject, which bodies exist,
+  declared variables, and the sending domain when one is verified. It states
+  which variables may be used and forbids inventing others, so an assistant's
+  rewrite cannot reference a value the send will never receive. The dashboard
+  shows the same text on the template page with a copy button.
 - `DELETE /v1/templates/:id` removes the template. Emails already sent from it
   keep their rendered content and delivery history.
 
