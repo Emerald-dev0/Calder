@@ -2,7 +2,7 @@
  * The maintenance sweep: work that has to happen on a clock rather than an
  * incoming request.
  *
- * Four jobs, all idempotent, all safe to overlap:
+ * Six jobs, all idempotent, all safe to overlap:
  *  - credits that reached their expiry date stop being spendable;
  *  - processor leases held by an invocation that died are released, so the
  *    work is retried instead of being stranded until someone notices;
@@ -10,7 +10,9 @@
  *    with the provider, because a webhook can be lost and the customer's money
  *    has already moved;
  *  - the SES account suppression list is mirrored, because it is the authority
- *    on who can receive mail and the send path must not pay an API call to ask.
+ *    on who can receive mail and the send path must not pay an API call to ask;
+ *  - each plan's retention window is applied, because `retentionDays` was
+ *    catalogue data that nothing enforced.
  *
  * It lives here, not in the route, because **two** entry points run it: the
  * manual `/v1/cron/maintenance` endpoint and the scheduled `/v1/cron/drain`
@@ -20,7 +22,14 @@
  * is what makes that folding copy-paste-free and testable.
  */
 import { and, eq, lt } from "drizzle-orm";
-import { expireCredits, payments, reapExpiredLeases, type DbClient } from "@calder/db";
+import {
+  enforceRetention,
+  expireCredits,
+  payments,
+  reapExpiredLeases,
+  type DbClient,
+  type RetentionSweepSummary,
+} from "@calder/db";
 import { verifyAndFulfil } from "../services/billing.js";
 import {
   reconcileSesSuppressions,
@@ -41,6 +50,12 @@ export interface MaintenanceSummary {
    * look the same in a cron log.
    */
   suppressions: SuppressionReconcileSummary;
+  /**
+   * Each plan's retention window, applied. `truncated` means a bound stopped
+   * the run early, so the next tick continues instead of claiming the fleet is
+   * clean.
+   */
+  retention: RetentionSweepSummary;
 }
 
 /** Payments are re-checked only after this long, so an in-flight checkout is left alone. */
@@ -94,6 +109,13 @@ export async function runScheduledMaintenance(
   // summary says which, rather than silently reporting zero.
   const suppressions = await reconcileSesSuppressions(db, { now });
 
+  // Retention is last because it is the only job here that destroys data.
+  // Everything above records or repairs; this one redacts message bodies and
+  // deletes provider events past each plan's window. Bounded per run, and the
+  // summary says when a bound stopped it (`truncated`) so the next tick
+  // continues rather than the log claiming the fleet is clean.
+  const retention = await enforceRetention(db, now);
+
   return {
     expiredCreditPurchases,
     reapedLeases,
@@ -101,5 +123,6 @@ export async function runScheduledMaintenance(
     reconcileFailed,
     reconciliationSkipped: !canReconcile,
     suppressions,
+    retention,
   };
 }

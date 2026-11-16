@@ -60,7 +60,9 @@ export interface PlanLimit {
   senders: number | null;
   seats: number | null;
   /**
-   * Recorded only — see UNENFORCED_PLAN_LIMITS. Nothing gates on these yet.
+   * Days after which a message body and its timeline are redacted/deleted.
+   * Enforced by the retention sweep (`packages/db/src/retention.ts`) on the
+   * maintenance tick. `null` = contract plan: nothing is touched, ever.
    */
   retentionDays: number | null;
   gmailSenders: number | null;
@@ -206,11 +208,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimit> = {
  * Recorded but deliberately not enforced in this phase. Anything that gates a
  * request must come from `LimitedResource` instead.
  */
-export const UNENFORCED_PLAN_LIMITS = [
-  "retentionDays",
-  "gmailSenders",
-  "inboundStorageMb",
-] as const;
+export const UNENFORCED_PLAN_LIMITS = ["gmailSenders", "inboundStorageMb"] as const;
 export type UnenforcedPlanLimit = (typeof UNENFORCED_PLAN_LIMITS)[number];
 
 /**

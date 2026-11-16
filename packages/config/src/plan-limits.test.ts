@@ -122,7 +122,7 @@ describe("plan catalogue", () => {
     }
   });
 
-  it("keeps retention, Gmail senders and the daily cap as recorded-only", () => {
+  it("records retention per tier and enforces it since the sweep landed", () => {
     expect(PLAN_LIMITS.free.retentionDays).toBe(7);
     expect(PLAN_LIMITS.starter.retentionDays).toBe(14);
     expect(PLAN_LIMITS.pro.retentionDays).toBe(30);
@@ -131,11 +131,8 @@ describe("plan catalogue", () => {
       expect(PLAN_LIMITS[tier].gmailSenders).toBe(tier === "scale" ? null : 2);
     expect(PLAN_LIMITS.free.dailySendCap).toBe(500);
     expect(PLAN_LIMITS.premium.dailySendCap).toBeNull();
-    expect([...UNENFORCED_PLAN_LIMITS]).toEqual([
-      "retentionDays",
-      "gmailSenders",
-      "inboundStorageMb",
-    ]);
+    // Retention left this list when `enforceRetention` started applying it.
+    expect([...UNENFORCED_PLAN_LIMITS]).toEqual(["gmailSenders", "inboundStorageMb"]);
   });
 
   it("never approves the contacts allowance", () => {

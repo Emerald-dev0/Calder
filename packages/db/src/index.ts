@@ -35,3 +35,4 @@ export * from "./inboxes.js";
 export * from "./inbox-permissions.js";
 export * from "./notifications.js";
 export * from "./notification-policy.js";
+export * from "./retention.js";
