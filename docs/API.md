@@ -56,11 +56,33 @@ Beyond validation (`400`), send endpoints can fail at ingest with:
 Templates are part of the MVP and are versioned. A template has a project-unique
 `alias` used at send time.
 
+A version is a **draft until published**, and only a published version can send.
+
 - `POST /v1/templates` creates the template and, when `subject`/`html`/`text` are
-  present, its first version (`v1`). Duplicate alias on the same project → `409`.
-- `POST /v1/templates/:id/versions` appends an immutable version (`v2`, `v3`, …).
-  Editing never mutates history; "rollback" is posting the old content again.
-- `GET /v1/templates/:id/versions` lists versions newest first.
+  present, its first version (`v1`) — published, because a brand-new template has
+  nothing to compare against. It is validated first; a version that could not
+  send is refused. Duplicate alias on the same project → `409`.
+- `POST /v1/templates/:id/versions` appends a version (`v2`, `v3`, …) as a
+  **draft**. Editing never mutates history; "rollback" is publishing an older
+  version again. Body: `subject`/`html`/`text`, optional `variables`, optional
+  `publish: true` (publish in the same call, refused if it would not be sendable).
+- `POST /v1/templates/:id/versions/:version/publish` validates and publishes.
+  Idempotent (`idempotent: true` on a repeat). Refusals are `400` with
+  `details.problems[]`: `no_subject`, `no_body`, `undeclared_variable`,
+  `missing_preview_variable`, `empty_preview_variable` — each naming the
+  variables involved. Optional `preview` data is checked as well.
+- `POST /v1/templates/:id/versions/:version/preview` renders a version with
+  `variables` and returns `{ rendered: { subject, html, text, missing[] },
+problems[] }`. Drafts preview fine — that is what a draft is for.
+- `variables` declares what the template expects: `["name"]` or
+  `[{ "name": "name", "required": true }]`. Omitting it means "infer from the
+  template"; declaring it means enforced — publishing refuses a `{{placeholder}}`
+  the declaration never mentions, because a caller cannot pass what was never
+  announced.
+- `GET /v1/templates/:id` returns `latest_version` (newest of any status),
+  `published_version` (what sends resolve, `null` until published) and
+  `draft_version` (a waiting edit, or `null`).
+- `GET /v1/templates/:id/versions` lists versions newest first, with `status`.
 - `DELETE /v1/templates/:id` removes the template. Emails already sent from it
   keep their rendered content and delivery history.
 
@@ -78,8 +100,10 @@ POST /v1/emails
 
 - The template must exist on the requesting project; a cross-project alias is
   `404`, exactly as if it did not exist.
-- The latest version is resolved at ingest and rendered **before** the message
-  is queued, so a provider never receives `{{placeholder}}` text.
+- The newest **published** version is resolved at ingest and rendered before the
+  message is queued, so a provider never receives `{{placeholder}}` text. A
+  template with no published version is `422 template_not_published`; a newer
+  draft never changes what a send renders.
 - Every `{{variable}}` referenced by subject/HTML/text must be supplied. A
   missing one is `400 validation_error` naming each gap, and nothing is queued.
 - `subject`/`html`/`text` in the request override the template where supplied.

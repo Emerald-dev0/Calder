@@ -216,8 +216,9 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
     }
     logger.warn({ projectId }, "Sender resolution unavailable, legacy path (development only)");
   }
-  // Template send-by-alias: latest version wins; missing variables are a
-  // 400 naming every gap (silent defaults send the wrong email to someone).
+  // Template send-by-alias: the newest **published** version wins. A draft is
+  // never sendable — that is what makes it a draft. Missing variables are a 400
+  // naming every gap (silent defaults send the wrong email to someone).
   let subject = input.subject;
   let html = input.html ?? null;
   let text = input.text ?? null;
@@ -240,44 +241,48 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
           "Create it via POST /v1/templates first."
         );
       }
-      const [latest] = await db
-        .select()
+      const { pickSendableVersion, renderTemplate } = await import("@calder/email");
+      const versions = await db
+        .select({
+          version: templateVersions.version,
+          status: templateVersions.status,
+          subject: templateVersions.subject,
+          html: templateVersions.html,
+          text: templateVersions.text,
+          publishedAt: templateVersions.publishedAt,
+        })
         .from(templateVersions)
-        .where(eq(templateVersions.templateId, tpl.id))
-        .orderBy(desc(templateVersions.createdAt))
-        .limit(1);
-      if (!latest || (!latest.subject && !latest.html && !latest.text)) {
+        .where(eq(templateVersions.templateId, tpl.id));
+      const latest = pickSendableVersion(
+        versions.map((v) => ({
+          ...v,
+          status: (v.status === "published" ? "published" : "draft") as "published" | "draft",
+        }))
+      );
+      if (!latest) {
         throw new AppError(
-          "validation_error",
-          `Template "${input.template}" has no content yet.`,
-          400,
+          "template_not_published",
+          versions.length === 0
+            ? `Template "${input.template}" has no versions yet — add one and publish it before sending.`
+            : `Template "${input.template}" has no published version, so it cannot be sent.`,
+          422,
           undefined,
-          "Add a version via POST /v1/templates/:id/versions first."
+          versions.length === 0
+            ? "Add a version via POST /v1/templates/:id/versions, then publish it."
+            : "Publish the version you want to send (POST /v1/templates/:id/versions/:version/publish)."
         );
       }
-      subject = subject ?? latest.subject ?? "";
-      html = html ?? latest.html ?? null;
-      text = text ?? latest.text ?? null;
-      const vars = (input.variables as Record<string, string> | undefined) ?? {};
-      const missing = new Set<string>();
-      const fill = (s: string | null): string | null =>
-        s === null
-          ? null
-          : s.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (m, key: string) => {
-              const v = vars[key];
-              if (v === undefined) {
-                missing.add(key);
-                return m;
-              }
-              return v;
-            });
-      subject = fill(subject) ?? "";
-      html = fill(html);
-      text = fill(text);
-      if (missing.size > 0) {
+      const rendered = renderTemplate(
+        { subject: latest.subject, html: latest.html, text: latest.text },
+        (input.variables as Record<string, string> | undefined) ?? {}
+      );
+      subject = subject ?? rendered.subject;
+      html = html ?? rendered.html;
+      text = text ?? rendered.text;
+      if (rendered.missing.length > 0) {
         throw new AppError(
           "validation_error",
-          `Missing template variables: ${[...missing].join(", ")}.`,
+          `Missing template variables: ${rendered.missing.join(", ")}.`,
           400,
           undefined,
           "Pass every {{variable}} in the variables object."

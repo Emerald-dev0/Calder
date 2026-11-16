@@ -44,6 +44,11 @@ export const templates = pgTable(
   ]
 );
 
+export interface TemplateVariableDeclaration {
+  name: string;
+  required: boolean;
+}
+
 export const templateVersions = pgTable(
   "template_versions",
   {
@@ -55,9 +60,22 @@ export const templateVersions = pgTable(
     subject: varchar("subject", { length: 998 }),
     html: text("html"),
     text: text("text"),
+    // Stage 4.1: a version is a draft until published, and sends only ever use
+    // a published one. Existing rows were live, so the column defaults to
+    // `published` and the migration backfills `published_at` from `created_at`
+    // — nobody's working template stops sending because we added a lifecycle.
+    status: varchar("status", { length: 16 }).notNull().default("published"),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    // Declared variables are part of the contract: publishing refuses a
+    // placeholder that is not declared, so a caller can never be asked for
+    // something the template did not announce.
+    variables: jsonb("variables").$type<TemplateVariableDeclaration[]>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("template_versions_template_idx").on(t.templateId)]
+  (t) => [
+    index("template_versions_template_idx").on(t.templateId),
+    index("template_versions_template_status_idx").on(t.templateId, t.status),
+  ]
 );
 
 export type AuditLog = typeof auditLogs.$inferSelect;
