@@ -330,6 +330,13 @@
       "when": 1794818685888,
       "tag": "0046_tired_mad_thinker",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794859033036,
+      "tag": "0047_wet_jubilee",
+      "breakpoints": true
     }
   ]
 }

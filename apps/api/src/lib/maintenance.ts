@@ -2,7 +2,7 @@
  * The maintenance sweep: work that has to happen on a clock rather than an
  * incoming request.
  *
- * Six jobs, all idempotent, all safe to overlap:
+ * Seven jobs, all idempotent, all safe to overlap:
  *  - credits that reached their expiry date stop being spendable;
  *  - processor leases held by an invocation that died are released, so the
  *    work is retried instead of being stranded until someone notices;
@@ -12,7 +12,10 @@
  *  - the SES account suppression list is mirrored, because it is the authority
  *    on who can receive mail and the send path must not pay an API call to ask;
  *  - each plan's retention window is applied, because `retentionDays` was
- *    catalogue data that nothing enforced.
+ *    catalogue data that nothing enforced;
+ *  - workspaces, projects and accounts whose deletion grace window has passed
+ *    are purged, because a scheduled deletion that never happens is a promise
+ *    the product breaks.
  *
  * It lives here, not in the route, because **two** entry points run it: the
  * manual `/v1/cron/maintenance` endpoint and the scheduled `/v1/cron/drain`
@@ -25,9 +28,11 @@ import { and, eq, lt } from "drizzle-orm";
 import {
   enforceRetention,
   expireCredits,
+  purgeDueDeletions,
   payments,
   reapExpiredLeases,
   type DbClient,
+  type PurgeSummary,
   type RetentionSweepSummary,
 } from "@calder/db";
 import { verifyAndFulfil } from "../services/billing.js";
@@ -56,6 +61,8 @@ export interface MaintenanceSummary {
    * clean.
    */
   retention: RetentionSweepSummary;
+  /** Grace windows that have passed: workspaces, projects and accounts destroyed. */
+  purges: PurgeSummary;
 }
 
 /** Payments are re-checked only after this long, so an in-flight checkout is left alone. */
@@ -116,6 +123,11 @@ export async function runScheduledMaintenance(
   // continues rather than the log claiming the fleet is clean.
   const retention = await enforceRetention(db, now);
 
+  // Retention redacts; this destroys. It runs last so a deletion that fails
+  // cannot take the rest of the sweep with it, and every purge writes its own
+  // audit row in the same transaction as the delete.
+  const purges = await purgeDueDeletions(db, now);
+
   return {
     expiredCreditPurchases,
     reapedLeases,
@@ -124,5 +136,6 @@ export async function runScheduledMaintenance(
     reconciliationSkipped: !canReconcile,
     suppressions,
     retention,
+    purges,
   };
 }

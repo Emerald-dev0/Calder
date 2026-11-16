@@ -1,11 +1,18 @@
 import Link from "next/link";
-import { getDb, domains, resolveOrgTier } from "@calder/db";
+import {
+  accountDeletionStatus,
+  getDb,
+  domains,
+  organizationDeletionStatus,
+  resolveOrgTier,
+} from "@calder/db";
 import { eq } from "drizzle-orm";
 import { getTenantContext } from "../../../lib/auth";
 import { getTeam, listMySessions, requestDataExport, setCalderBranding } from "./actions";
 import { InviteForm, MemberRow, RevokeInviteButton } from "./team";
 import { NewOrgForm, NewProjectForm } from "./workspace-forms";
 import { SessionsCard } from "./sessions";
+import { DeletionZone, deletionNotice } from "./deletion";
 import { EmailChangeForm } from "./account";
 import { DsBanner } from "../../../components/design-system";
 import { Settings, Building2, Users, Shield, CreditCard, FolderGit2, BellRing } from "lucide-react";
@@ -14,7 +21,12 @@ import { DsPageHeader, StatusPill } from "../../../components/design-system";
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ org?: string; emailChange?: string; dataExport?: string }>;
+  searchParams: Promise<{
+    org?: string;
+    emailChange?: string;
+    dataExport?: string;
+    deletion?: string;
+  }>;
 }) {
   const query = await searchParams;
   const ctx = await getTenantContext();
@@ -86,6 +98,17 @@ export default async function SettingsPage({
   const canManage = team.callerRole === "owner" || team.callerRole === "admin";
   const canAdminister = team.callerRole === "owner";
   const pending = team.invites.filter((i) => !i.acceptedAt && !i.expired);
+
+  // Deletion state for the danger zone. Read here rather than in the component
+  // so the page can render the schedule as a date, which is the only form of
+  // "seven days" a person can actually plan around.
+  const [workspaceDeletionStatus, accountDeletionStatusView] = await Promise.all([
+    organizationDeletionStatus(getDb(), orgId),
+    accountDeletionStatus(getDb(), ctx.user.userId),
+  ]);
+  const activeOrganizationRecord =
+    ctx.memberships.find((m) => m.organization.id === orgId)?.organization ?? null;
+  const workspaceSlug = activeOrganizationRecord?.slug ?? "";
 
   return (
     <div>
@@ -312,6 +335,7 @@ export default async function SettingsPage({
         )}
       </div>
 
+      {deletionNotice(query.deletion)}
       {emailChangeNotice(query.emailChange)}
       {query.dataExport === "sent" ? (
         <div style={{ marginTop: 4 }}>
@@ -364,6 +388,22 @@ export default async function SettingsPage({
           </div>
         </div>
       </div>
+
+      <DeletionZone
+        workspace={
+          activeOrganizationRecord
+            ? {
+                id: activeOrganizationRecord.id,
+                name: activeOrganizationRecord.name,
+                slug: workspaceSlug,
+              }
+            : null
+        }
+        workspaceStatus={workspaceDeletionStatus}
+        canDeleteWorkspace={canAdminister}
+        accountEmail={ctx.user.email}
+        accountStatus={accountDeletionStatusView}
+      />
 
       {/* Section: Workspace & Projects */}
       <div id="workspace" className="ds-grid-2">

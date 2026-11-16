@@ -19,6 +19,8 @@ export type OrganizationSendingBlockReason =
   | "project_organization_mismatch"
   | "organization_abuse_paused"
   | "organization_suspended"
+  | "organization_pending_deletion"
+  | "project_pending_deletion"
   | "new_organization_limit"
   | "plan_quota";
 
@@ -137,7 +139,10 @@ async function evaluateEligibility(
 
   if (input.projectId) {
     const [project] = await db
-      .select({ organizationId: projects.organizationId })
+      .select({
+        organizationId: projects.organizationId,
+        deletionScheduledFor: projects.deletionScheduledFor,
+      })
       .from(projects)
       .where(eq(projects.id, input.projectId))
       .limit(1);
@@ -145,6 +150,27 @@ async function evaluateEligibility(
     if (project.organizationId !== input.organizationId) {
       return { allowed: false, reason: "project_organization_mismatch" };
     }
+    // A project whose grace window has been confirmed stops sending at once,
+    // at ingest and at delivery. Without this a deleted workspace would keep
+    // spending its sending reputation (and the provider's) for a week.
+    if (project.deletionScheduledFor) {
+      return {
+        allowed: false,
+        reason: "project_pending_deletion",
+        status: organization.sendingStatus,
+      };
+    }
+  }
+
+  // Deletion beats every other verdict: a workspace on its way out must not
+  // send, whatever its sending status says, and the reason has to be its own
+  // value so the API can explain it instead of blaming an abuse pause.
+  if (organization.deletionScheduledFor) {
+    return {
+      allowed: false,
+      reason: "organization_pending_deletion",
+      status: organization.sendingStatus,
+    };
   }
 
   if (organization.sendingStatus !== "active") {
@@ -345,7 +371,10 @@ export async function withProjectSendingEligibility<T>(
 > {
   return db.transaction(async (tx) => {
     const [project] = await tx
-      .select({ organizationId: projects.organizationId })
+      .select({
+        organizationId: projects.organizationId,
+        deletionScheduledFor: projects.deletionScheduledFor,
+      })
       .from(projects)
       .where(eq(projects.id, input.projectId))
       .limit(1);
@@ -353,6 +382,12 @@ export async function withProjectSendingEligibility<T>(
       return {
         allowed: false,
         decision: { allowed: false, reason: "project_not_found" },
+      } as const;
+    }
+    if (project.deletionScheduledFor) {
+      return {
+        allowed: false,
+        decision: { allowed: false, reason: "project_pending_deletion" },
       } as const;
     }
     const decision = await evaluateEligibility(

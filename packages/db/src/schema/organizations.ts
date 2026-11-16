@@ -2,29 +2,48 @@ import { pgTable, text, timestamp, varchar, uniqueIndex, index } from "drizzle-o
 import { organizationRoleEnum, organizationSendingStatusEnum } from "./enums.js";
 import { users } from "./users.js";
 
-export const organizations = pgTable("organizations", {
-  id: text("id").primaryKey(),
-  name: varchar("name", { length: 255 }).notNull(),
-  slug: varchar("slug", { length: 100 }).notNull().unique(),
-  // One canonical org-level sending state shared by every project and key.
-  // abuse_paused is an automatic feedback response; suspended is operator-set.
-  sendingStatus: organizationSendingStatusEnum("sending_status").notNull().default("active"),
-  sendingStatusReason: text("sending_status_reason"),
-  sendingStatusAt: timestamp("sending_status_at", { withTimezone: true }),
-  sendingStatusActorUserId: text("sending_status_actor_user_id"),
-  // Company postal address. Nullable here on purpose: the API validates and
-  // requires it before a broadcast may be sent (sender identification laws),
-  // but existing workspaces and transactional-only sends must keep working.
-  legalName: varchar("legal_name", { length: 255 }),
-  addressLine1: varchar("address_line1", { length: 255 }),
-  addressLine2: varchar("address_line2", { length: 255 }),
-  city: varchar("city", { length: 100 }),
-  region: varchar("region", { length: 100 }),
-  postalCode: varchar("postal_code", { length: 32 }),
-  country: varchar("country", { length: 2 }), // ISO 3166-1 alpha-2
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const organizations = pgTable(
+  "organizations",
+  {
+    id: text("id").primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(),
+    slug: varchar("slug", { length: 100 }).notNull().unique(),
+    // One canonical org-level sending state shared by every project and key.
+    // abuse_paused is an automatic feedback response; suspended is operator-set.
+    sendingStatus: organizationSendingStatusEnum("sending_status").notNull().default("active"),
+    sendingStatusReason: text("sending_status_reason"),
+    sendingStatusAt: timestamp("sending_status_at", { withTimezone: true }),
+    sendingStatusActorUserId: text("sending_status_actor_user_id"),
+    // Company postal address. Nullable here on purpose: the API validates and
+    // requires it before a broadcast may be sent (sender identification laws),
+    // but existing workspaces and transactional-only sends must keep working.
+    legalName: varchar("legal_name", { length: 255 }),
+    addressLine1: varchar("address_line1", { length: 255 }),
+    addressLine2: varchar("address_line2", { length: 255 }),
+    city: varchar("city", { length: 100 }),
+    region: varchar("region", { length: 100 }),
+    postalCode: varchar("postal_code", { length: 32 }),
+    country: varchar("country", { length: 2 }), // ISO 3166-1 alpha-2
+    /**
+     * Deletion, with a grace window (F-08). Set together: when an owner confirms
+     * the workspace name, sending stops immediately and the row is purged by the
+     * maintenance sweep once `deletionScheduledFor` passes. Null on both = alive.
+     *
+     * A separate pair of columns rather than a `deleted` status value: deletion
+     * is not a sending state, and overloading `sending_status` would make
+     * "cancelled a deletion" and "resumed after abuse pause" the same transition.
+     */
+    deletionRequestedAt: timestamp("deletion_requested_at", { withTimezone: true }),
+    deletionScheduledFor: timestamp("deletion_scheduled_for", { withTimezone: true }),
+    deletionRequestedByUserId: text("deletion_requested_by_user_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // "What is due for purge" runs across every workspace on the tick.
+    index("organizations_deletion_scheduled_idx").on(t.deletionScheduledFor),
+  ]
+);
 
 export const organizationMembers = pgTable(
   "organization_members",

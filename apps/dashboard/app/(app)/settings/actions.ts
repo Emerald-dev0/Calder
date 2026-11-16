@@ -36,6 +36,7 @@ async function audit(
   }
 }
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { getTenantContext } from "../../../lib/auth";
 import { dashboardUrl } from "@calder/config";
 import { sendCompanyEmailQuietly } from "@calder/notify";
@@ -637,4 +638,94 @@ export async function setCalderBranding(formData: FormData) {
       and(eq(projects.id, projectId), eq(projects.organizationId, membership.organization.id))
     );
   redirect(`/settings?org=${encodeURIComponent(membership.organization.id)}`);
+}
+
+/* ── Deletion (F-08) ────────────────────────────────────────────────────────
+ *
+ * These actions schedule; they never delete. The typed confirmation is checked
+ * again inside `@calder/db` against the stored slug or email, so a crafted POST
+ * cannot delete a workspace by sending `confirmation=true`. Membership is
+ * re-checked here as well, because the form is only a hint.
+ *
+ * Refusals redirect with a code rather than throwing: a wrong word typed at a
+ * destructive form is a normal outcome, not an error page.
+ */
+
+function deletionRedirect(code: string): never {
+  redirect(`/settings?deletion=${encodeURIComponent(code)}`);
+}
+
+export async function requestWorkspaceDeletionAction(formData: FormData): Promise<void> {
+  const ctx = await getTenantContext();
+  const organizationId = String(formData.get("organizationId") ?? "");
+  const confirmation = String(formData.get("confirmation") ?? "");
+
+  const membership = ctx.memberships.find((m) => m.organization.id === organizationId);
+  if (!membership || membership.role !== "owner") deletionRedirect("forbidden");
+
+  const { DeletionError, requestOrganizationDeletion } = await import("@calder/db");
+  try {
+    await requestOrganizationDeletion(getDb(), {
+      organizationId,
+      actorUserId: ctx.user.userId,
+      confirmation,
+    });
+  } catch (error) {
+    if (error instanceof DeletionError) deletionRedirect(error.code);
+    deletionRedirect("error");
+  }
+  revalidatePath("/settings");
+  revalidatePath("/");
+  deletionRedirect("requested");
+}
+
+export async function cancelWorkspaceDeletionAction(formData: FormData): Promise<void> {
+  const ctx = await getTenantContext();
+  const organizationId = String(formData.get("organizationId") ?? "");
+  const membership = ctx.memberships.find((m) => m.organization.id === organizationId);
+  if (!membership || membership.role !== "owner") deletionRedirect("forbidden");
+
+  const { DeletionError, cancelOrganizationDeletion } = await import("@calder/db");
+  try {
+    await cancelOrganizationDeletion(getDb(), {
+      organizationId,
+      actorUserId: ctx.user.userId,
+    });
+  } catch (error) {
+    if (error instanceof DeletionError) deletionRedirect(error.code);
+    deletionRedirect("error");
+  }
+  revalidatePath("/settings");
+  deletionRedirect("cancelled");
+}
+
+export async function requestAccountDeletionAction(formData: FormData): Promise<void> {
+  const ctx = await getTenantContext();
+  const confirmation = String(formData.get("confirmation") ?? "");
+
+  const { DeletionError, requestAccountDeletion } = await import("@calder/db");
+  try {
+    await requestAccountDeletion(getDb(), {
+      userId: ctx.user.userId,
+      confirmation,
+    });
+  } catch (error) {
+    if (error instanceof DeletionError) deletionRedirect(error.code);
+    deletionRedirect("error");
+  }
+  revalidatePath("/settings");
+  deletionRedirect("account_requested");
+}
+
+export async function cancelAccountDeletionAction(): Promise<void> {
+  const ctx = await getTenantContext();
+  const { DeletionError, cancelAccountDeletion } = await import("@calder/db");
+  try {
+    await cancelAccountDeletion(getDb(), { userId: ctx.user.userId });
+  } catch (error) {
+    if (error instanceof DeletionError) deletionRedirect(error.code);
+    deletionRedirect("error");
+  }
+  revalidatePath("/settings");
+  deletionRedirect("account_cancelled");
 }

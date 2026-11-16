@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { getDb } from "@calder/db";
 import { getTenantContext } from "../../../../lib/auth";
 import { ORG_COOKIE, PROJECT_COOKIE } from "../../../../lib/context";
 import { TransferError, transferProject } from "../../../../lib/projects/transfer";
@@ -68,4 +69,59 @@ export async function moveProjectAction(formData: FormData): Promise<void> {
   const params = new URLSearchParams({ to: destinationOrganizationId });
   if (failure) params.set("error", failure);
   redirect(`/settings/projects/${encodeURIComponent(projectId)}/move?${params.toString()}`);
+}
+
+/* ── Project deletion (F-08) ───────────────────────────────────────────────
+ *
+ * Same shape as the workspace deletion: a typed slug, checked in
+ * `@calder/db` against the stored value, and a seven-day window that blocks
+ * sending immediately. Refusals are redirect codes, not thrown errors.
+ */
+
+function deletionRedirect(code: string): never {
+  redirect(`/settings/projects?deletion=${encodeURIComponent(code)}`);
+}
+
+export async function requestProjectDeletionAction(formData: FormData): Promise<void> {
+  const ctx = await getTenantContext();
+  const projectId = String(formData.get("projectId") ?? "");
+  const confirmation = String(formData.get("confirmation") ?? "");
+
+  const membership = ctx.memberships.find((m) => m.projects.some((p) => p.id === projectId));
+  if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+    deletionRedirect("forbidden");
+  }
+
+  const { DeletionError, requestProjectDeletion } = await import("@calder/db");
+  try {
+    await requestProjectDeletion(getDb(), {
+      projectId,
+      actorUserId: ctx.user.userId,
+      confirmation,
+    });
+  } catch (error) {
+    if (error instanceof DeletionError) deletionRedirect(error.code);
+    deletionRedirect("error");
+  }
+  revalidatePath("/settings/projects");
+  deletionRedirect("requested");
+}
+
+export async function cancelProjectDeletionAction(formData: FormData): Promise<void> {
+  const ctx = await getTenantContext();
+  const projectId = String(formData.get("projectId") ?? "");
+  const membership = ctx.memberships.find((m) => m.projects.some((p) => p.id === projectId));
+  if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+    deletionRedirect("forbidden");
+  }
+
+  const { DeletionError, cancelProjectDeletion } = await import("@calder/db");
+  try {
+    await cancelProjectDeletion(getDb(), { projectId, actorUserId: ctx.user.userId });
+  } catch (error) {
+    if (error instanceof DeletionError) deletionRedirect(error.code);
+    deletionRedirect("error");
+  }
+  revalidatePath("/settings/projects");
+  deletionRedirect("cancelled");
 }
