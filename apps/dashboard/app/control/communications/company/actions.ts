@@ -1,18 +1,18 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { inArray, isNotNull } from "drizzle-orm";
+import { eq, inArray, isNotNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auditLogs, emailPreferences, getDb, users } from "@calder/db";
-import {
-  companyEmailDefinition,
-  defaultUrls,
-  renderCompanyEmail,
-  sendCompanyEmail,
-} from "@calder/notify";
+import { companyEmailDefinition, sendCompanyEmail } from "@calder/notify";
 import { requireSection } from "@/lib/control/guard";
 import { READ_ONLY_ROLES } from "@/lib/control/roles";
+import {
+  personalisedEmailData,
+  renderDraftPreview,
+  validateDraft,
+} from "@/lib/control/company-draft";
 
 /**
  * Operator sends to the product's own users.
@@ -60,25 +60,28 @@ export async function sendToProductUsers(formData: FormData) {
 
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
-  if (title.length < 3) throw new Error("Give the email a title (3+ characters).");
-  if (body.length < 20) throw new Error("Write at least a sentence of body copy.");
-  if (formData.get("confirm") !== "on") {
-    throw new Error("Confirm you have read the preview before sending.");
-  }
-
-  const data = {
+  const draft = {
     title,
     body,
     ctaLabel: String(formData.get("ctaLabel") ?? "").trim() || undefined,
     ctaUrl: String(formData.get("ctaUrl") ?? "").trim() || undefined,
   };
 
-  // Render before the first recipient: a template error must not half-send.
-  renderCompanyEmail({ id: template, data, urls: defaultUrls() });
+  // The same validation the preview used. An unknown merge field is refused
+  // here as well: the form is a hint, this is the gate.
+  const validation = validateDraft(draft);
+  if (!validation.ok) throw new Error(validation.error);
+  if (formData.get("confirm") !== "on") {
+    throw new Error("Confirm you have read the preview before sending.");
+  }
+
+  // Render once before the first recipient: a template error must not
+  // half-send, and the rendered document is what the preview showed.
+  renderDraftPreview(template, draft);
 
   const db = getDb();
   const recipients = await db
-    .select({ id: users.id, email: users.email })
+    .select({ id: users.id, email: users.email, name: users.name })
     .from(users)
     .where(isNotNull(users.emailVerifiedAt))
     .limit(MAX_RECIPIENTS + 1);
@@ -114,12 +117,15 @@ export async function sendToProductUsers(formData: FormData) {
       skipped += 1;
       continue;
     }
+    // Per-recipient data: `{{name}}` is what makes a broadcast read like a
+    // letter rather than a mailshot, and it is substituted here so no other
+    // recipient's name can ever appear in someone's inbox.
     const result = await sendCompanyEmail(db, {
       id: template,
       to: recipient.email,
       userId: recipient.id,
       idempotencyKey: `operator:${batch}:${recipient.id}`,
-      data,
+      data: personalisedEmailData(draft, { name: recipient.name }),
     });
     if (result.status === "sent") sent += 1;
     else if (result.status === "failed") failed += 1;
@@ -161,19 +167,31 @@ export async function sendTestToSelf(formData: FormData) {
   if (!SENDABLE.includes(template)) throw new Error("Unknown template.");
 
   const db = getDb();
+  const draft = {
+    title: String(formData.get("title") ?? "").trim() || "Test send",
+    body:
+      String(formData.get("body") ?? "").trim() ||
+      "This is a test of the operator console. Nothing was sent to customers.",
+    ctaLabel: String(formData.get("ctaLabel") ?? "").trim() || undefined,
+    ctaUrl: String(formData.get("ctaUrl") ?? "").trim() || undefined,
+  };
+  const validation = validateDraft(draft);
+  if (!validation.ok) throw new Error(validation.error);
+
+  // The operator sees their own name, which is the honest test: if `{{name}}`
+  // renders badly, it renders badly for them first.
+  const [self] = await db
+    .select({ name: users.name })
+    .from(users)
+    .where(eq(users.id, ctx.user.userId))
+    .limit(1);
+
   await sendCompanyEmail(db, {
     id: template,
     to: ctx.email,
     userId: ctx.user.userId,
     idempotencyKey: `operator-test:${template}:${ctx.user.userId}:${Date.now()}`,
-    data: {
-      title: String(formData.get("title") ?? "").trim() || "Test send",
-      body:
-        String(formData.get("body") ?? "").trim() ||
-        "This is a test of the operator console. Nothing was sent to customers.",
-      ctaLabel: String(formData.get("ctaLabel") ?? "").trim() || undefined,
-      ctaUrl: String(formData.get("ctaUrl") ?? "").trim() || undefined,
-    },
+    data: personalisedEmailData(draft, { name: self?.name ?? null }),
   });
 
   revalidatePath("/control/communications/company");
