@@ -34,6 +34,17 @@ export {
   pickSendableVersion,
 } from "./template-lifecycle.js";
 export {
+  type EmailComponentName,
+  type ReactElementNode,
+  type ReactNode,
+  type ReactTreeRender,
+  type RenderOptions,
+  SUPPORTED_COMPONENTS,
+  ReactTreeError,
+  renderReactTree,
+  parseReactTree,
+} from "./react-tree.js";
+export {
   type DomainVerificationProvider,
   type VerificationResult,
   DnsVerificationProvider,

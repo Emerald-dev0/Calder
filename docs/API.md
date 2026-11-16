@@ -82,6 +82,20 @@ problems[] }`. Drafts preview fine — that is what a draft is for.
 - `GET /v1/templates/:id` returns `latest_version` (newest of any status),
   `published_version` (what sends resolve, `null` until published) and
   `draft_version` (a waiting edit, or `null`).
+- `react_tree` — a React Email element **tree** — may be sent instead of `html`:
+  `{ "component": "Html", "children": [...] }`. Supported components:
+  `Html`, `Head`, `Preview`, `Body`, `Container`, `Section`, `Row`, `Column`,
+  `Heading`, `Text`, `Link`, `Button`, `Hr`, `Img`. It is rendered server-side to
+  email-safe HTML (inline styles, table layout) plus a text alternative, and
+  **the rendered output is stored on the version** — no component tree reaches
+  send time. Text is escaped, `href`/`src` are limited to `http(s)`/`mailto` (and
+  `{{placeholders}}`), props outside that whitelist are dropped, and unknown
+  components are refused rather than skipped (a receipt must not lose its total).
+  Trees are bounded to 40 levels and 2 000 elements.
+- `react_source` is **not accepted**. Compiling customer React server-side would
+  execute their code beside every tenant's data and provider credentials; render
+  it with `@react-email/render` in your own build and post `html`/`text`, or post
+  `react_tree`.
 - `GET /v1/templates/:id/versions` lists versions newest first, with `status`.
 - `DELETE /v1/templates/:id` removes the template. Emails already sent from it
   keep their rendered content and delivery history.

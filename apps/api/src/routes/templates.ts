@@ -111,6 +111,46 @@ async function latestVersion(
   return (row as Record<string, unknown> | undefined) ?? null;
 }
 
+/**
+ * React Email input.
+ *
+ * We accept the element **tree** as data and render it here; we never accept
+ * React source text. Compiling customer source server-side would run their code
+ * beside every tenant's data and provider credentials, which a template does not
+ * justify. The tree renders through a fixed component map, and the result is
+ * stored as ordinary html/text on the version — no components reach send time.
+ */
+async function reactTreeContent(
+  body: unknown
+): Promise<{ html: string | null; text: string | null } | null> {
+  const raw = body as { react_tree?: unknown; react_source?: unknown };
+  if (raw?.react_source !== undefined) {
+    throw new AppError(
+      "validation_error",
+      "react_source is not accepted: Calder does not execute customer-supplied code.",
+      400,
+      undefined,
+      "Render it in your own build and send html/text, or send react_tree (an element tree) and we will render it."
+    );
+  }
+  if (raw?.react_tree === undefined || raw.react_tree === null) return null;
+  const { parseReactTree, renderReactTree, ReactTreeError } = await import("@calder/email");
+  try {
+    const rendered = renderReactTree(parseReactTree(raw.react_tree));
+    return { html: rendered.html, text: rendered.text };
+  } catch (err) {
+    if (err instanceof ReactTreeError) {
+      throw new AppError(
+        "validation_error",
+        `react_tree could not be rendered: ${err.message}`,
+        400,
+        { path: err.path }
+      );
+    }
+    throw err;
+  }
+}
+
 // GET /v1/templates
 templates.get("/", authMiddleware, rateLimitMiddleware("read"), async (c) => {
   const a = auth(c);
@@ -187,6 +227,11 @@ templates.post("/", authMiddleware, async (c) => {
     })
     .returning();
   let latest: Record<string, unknown> | null = null;
+  const fromTree = await reactTreeContent(body);
+  if (fromTree) {
+    parsed.data.html = fromTree.html ?? undefined;
+    parsed.data.text = fromTree.text ?? undefined;
+  }
   if (parsed.data.subject || parsed.data.html || parsed.data.text) {
     const [v] = await db
       .insert(templateVersions)
@@ -351,10 +396,11 @@ templates.post("/:id/versions", authMiddleware, async (c) => {
         )
       : normaliseVariables(rawVariables);
   const publishNow = (body as { publish?: unknown }).publish === true;
+  const fromTree = await reactTreeContent(body);
   const content = {
     subject: parsed.data.subject ?? null,
-    html: parsed.data.html ?? null,
-    text: parsed.data.text ?? null,
+    html: fromTree ? fromTree.html : (parsed.data.html ?? null),
+    text: fromTree ? fromTree.text : (parsed.data.text ?? null),
   };
 
   if (publishNow) {
