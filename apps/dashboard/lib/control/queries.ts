@@ -51,6 +51,15 @@ import {
   webhooks,
 } from "@calder/db";
 import { getDb, gmailAllowanceForTransport } from "@calder/db";
+import {
+  buildTriageQueue,
+  type BlockedSenderRow,
+  type FailingProjectRow,
+  type FailingWebhookRow,
+  type ProblemDomainRow,
+  type RevokedTransportRow,
+  type TriageQueue,
+} from "./triage";
 
 /**
  * Control Plane data access. Every function here is a live query — the
@@ -2235,4 +2244,273 @@ export async function domainOverview(
     filter,
     search: term,
   };
+}
+
+/* ── Support triage ─────────────────────────────────────────────────────── */
+
+/**
+ * Load every triage signal.
+ *
+ * Each signal is read independently: if one query fails (a table mid-migration,
+ * a permission change), the rest of the queue still renders and the failure is
+ * named in `unreadable`. A support surface that shows an empty queue because a
+ * query threw is worse than one that shows nine items and admits it could not
+ * check the tenth.
+ */
+export async function triageQueue(now = new Date()): Promise<TriageQueue> {
+  const db = getDb();
+  const unreadable: string[] = [];
+
+  const signal = async <T>(label: string, fn: () => Promise<T>, fallback: T): Promise<T> => {
+    try {
+      return await fn();
+    } catch {
+      unreadable.push(label);
+      return fallback;
+    }
+  };
+
+  const dayAgo = new Date(now.getTime() - DAY_MS);
+  const weekAgo = new Date(now.getTime() - 7 * DAY_MS);
+
+  const [
+    pausedWorkspaces,
+    pendingDeletions,
+    problemDomains,
+    failingWebhooks,
+    failingProjects,
+    blockedSenders,
+    revokedTransports,
+  ] = await Promise.all([
+    signal(
+      "workspaces paused or suspended",
+      async () => {
+        const rows = await db
+          .select({
+            id: organizations.id,
+            name: organizations.name,
+            status: organizations.sendingStatus,
+            sendingStatusReason: organizations.sendingStatusReason,
+            sendingStatusAt: organizations.sendingStatusAt,
+          })
+          .from(organizations)
+          .where(inArray(organizations.sendingStatus, ["abuse_paused", "suspended"]))
+          .orderBy(asc(organizations.sendingStatusAt))
+          .limit(200);
+        return rows.map((r) => ({
+          ...r,
+          status: r.status as "abuse_paused" | "suspended",
+        }));
+      },
+      []
+    ),
+
+    signal(
+      "workspaces awaiting deletion",
+      async () => {
+        const rows = await db
+          .select({
+            id: organizations.id,
+            name: organizations.name,
+            deletionRequestedAt: organizations.deletionRequestedAt,
+            deletionScheduledFor: organizations.deletionScheduledFor,
+          })
+          .from(organizations)
+          .where(isNotNull(organizations.deletionScheduledFor))
+          .orderBy(asc(organizations.deletionScheduledFor))
+          .limit(200);
+        // WHERE isIsNotNull makes this non-null in SQL; the cast keeps the
+        // type honest without pretending the column is NOT NULL.
+        return rows.map((r) => ({ ...r, deletionScheduledFor: r.deletionScheduledFor as Date }));
+      },
+      []
+    ),
+
+    signal(
+      "domains that are not verified",
+      async () => {
+        const rows = await db
+          .select({
+            id: domains.id,
+            domain: domains.domain,
+            status: domains.status,
+            organizationId: organizations.id,
+            organizationName: organizations.name,
+            createdAt: domains.createdAt,
+            lastVerifyError: domains.lastVerifyError,
+          })
+          .from(domains)
+          .innerJoin(projects, eq(domains.projectId, projects.id))
+          .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+          .where(inArray(domains.status, ["pending", "failed", "expired"]))
+          .orderBy(asc(domains.createdAt))
+          .limit(200);
+        return rows as ProblemDomainRow[];
+      },
+      []
+    ),
+
+    signal(
+      "webhook deliveries that gave up",
+      async () => {
+        const rows = await db
+          .select({
+            webhookId: webhookDeliveries.webhookId,
+            url: webhooks.url,
+            organizationName: organizations.name,
+            lastError: webhookDeliveries.lastError,
+            lastAttemptAt: max(webhookDeliveries.createdAt),
+            attempts: count(),
+          })
+          .from(webhookDeliveries)
+          .innerJoin(webhooks, eq(webhookDeliveries.webhookId, webhooks.id))
+          .innerJoin(projects, eq(webhooks.projectId, projects.id))
+          .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+          .where(
+            and(
+              eq(webhookDeliveries.status, "exhausted"),
+              gte(webhookDeliveries.createdAt, weekAgo)
+            )
+          )
+          .groupBy(
+            webhookDeliveries.webhookId,
+            webhooks.url,
+            organizations.name,
+            webhookDeliveries.lastError
+          )
+          .limit(100);
+        // One webhook can give up several times with different errors; keep
+        // the row with the most failures per webhook so the queue says
+        // "12 events lost", not twelve near-identical lines.
+        const byWebhook = new Map<string, FailingWebhookRow>();
+        for (const r of rows) {
+          const existing = byWebhook.get(r.webhookId);
+          const attempts = Number(r.attempts);
+          if (!existing || attempts > existing.failedAttempts) {
+            byWebhook.set(r.webhookId, {
+              id: r.webhookId,
+              url: r.url,
+              organizationName: r.organizationName,
+              failedAttempts: attempts,
+              lastError: r.lastError,
+              lastAttemptAt: r.lastAttemptAt ? new Date(r.lastAttemptAt) : null,
+            });
+          }
+        }
+        return [...byWebhook.values()];
+      },
+      []
+    ),
+
+    signal(
+      "projects with failing sends",
+      async () => {
+        const rows = await db
+          .select({
+            projectId: projects.id,
+            projectName: projects.name,
+            organizationId: organizations.id,
+            organizationName: organizations.name,
+            status: emails.status,
+            n: count(),
+          })
+          .from(emails)
+          .innerJoin(projects, eq(emails.projectId, projects.id))
+          .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+          .where(
+            and(
+              inArray(emails.status, ["failed", "bounced"]),
+              gte(emails.createdAt, dayAgo),
+              eq(emails.env, "live")
+            )
+          )
+          .groupBy(projects.id, projects.name, organizations.id, organizations.name, emails.status)
+          .limit(500);
+        const byProject = new Map<string, FailingProjectRow>();
+        for (const r of rows) {
+          const row = byProject.get(r.projectId) ?? {
+            projectId: r.projectId,
+            projectName: r.projectName,
+            organizationId: r.organizationId,
+            organizationName: r.organizationName,
+            failed: 0,
+            bounced: 0,
+            windowHours: 24,
+          };
+          if (r.status === "failed") row.failed += Number(r.n);
+          else row.bounced += Number(r.n);
+          byProject.set(r.projectId, row);
+        }
+        // Test sends are excluded above; a project whose only failures are
+        // bounces still belongs here, so rank on the two counts together.
+        return [...byProject.values()].filter((p) => p.failed + p.bounced > 0);
+      },
+      []
+    ),
+
+    signal(
+      "sender identities blocked by verification",
+      async () => {
+        const rows = await db
+          .select({
+            id: senderIdentities.id,
+            email: senderIdentities.email,
+            organizationId: organizations.id,
+            organizationName: organizations.name,
+            status: senderIdentities.status,
+            statusReason: senderIdentities.statusReason,
+            updatedAt: senderIdentities.updatedAt,
+          })
+          .from(senderIdentities)
+          .innerJoin(projects, eq(senderIdentities.projectId, projects.id))
+          .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+          .where(
+            and(
+              inArray(senderIdentities.status, ["failed", "disabled"]),
+              isNull(senderIdentities.archivedAt)
+            )
+          )
+          .limit(200);
+        return rows as BlockedSenderRow[];
+      },
+      []
+    ),
+
+    signal(
+      "transports withdrawn by a provider",
+      async () => {
+        const rows = await db
+          .select({
+            id: projectTransports.id,
+            label: projectTransports.label,
+            type: projectTransports.type,
+            organizationId: organizations.id,
+            organizationName: organizations.name,
+            updatedAt: projectTransports.updatedAt,
+          })
+          .from(projectTransports)
+          .innerJoin(projects, eq(projectTransports.projectId, projects.id))
+          .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+          .where(eq(projectTransports.status, "revoked"))
+          .limit(200);
+        return rows as RevokedTransportRow[];
+      },
+      []
+    ),
+  ]);
+
+  const queue = buildTriageQueue({
+    now,
+    pausedWorkspaces,
+    pendingDeletions,
+    problemDomains,
+    failingWebhooks,
+    failingProjects,
+    blockedSenders,
+    revokedTransports,
+  });
+
+  // `checked` travels with the queue so the page can state which signals were
+  // looked at even when they are all quiet.
+  return { ...queue, unreadable };
 }
