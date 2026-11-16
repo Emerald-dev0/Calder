@@ -37,6 +37,10 @@
   --color-info-border: #bfdbfe;
   --color-code-bg: #0b0c0e;
   --color-code-fg: #e8e9ea;
+  /* Monospace stack. Declared here because components reference it
+     (`var(--font-mono, monospace)`); the token test fails a var nothing
+     declares, and the fallback alone left the family uneven across surfaces. */
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
   --space-md: 1rem;
