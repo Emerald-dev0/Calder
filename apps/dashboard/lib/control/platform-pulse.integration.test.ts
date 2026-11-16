@@ -38,6 +38,9 @@ gate("platform pulse (live Postgres)", async () => {
       p.emails.acceptedAllTime,
       p.emails.acceptedToday,
       p.emails.rowsEverCreated,
+      p.emails.companyAllTime,
+      p.emails.companyToday,
+      p.emails.totalAllTime,
       p.signups.today,
       p.signups.week,
       p.signups.total,
@@ -67,6 +70,10 @@ gate("platform pulse (live Postgres)", async () => {
     // A subset can never exceed its superset.
     expect(p.emails.acceptedToday).toBeLessThanOrEqual(p.emails.acceptedAllTime);
     expect(p.emails.acceptedAllTime).toBeLessThanOrEqual(p.emails.rowsEverCreated);
+    // The combined figure is arithmetic, not an estimate: both halves are
+    // counted in the same repeatable-read snapshot.
+    expect(p.emails.totalAllTime).toBe(p.emails.acceptedAllTime + p.emails.companyAllTime);
+    expect(p.emails.companyToday).toBeLessThanOrEqual(p.emails.companyAllTime);
     expect(p.signups.today).toBeLessThanOrEqual(p.signups.total);
     expect(p.signups.week).toBeLessThanOrEqual(p.signups.total);
     expect(p.organizations.today).toBeLessThanOrEqual(p.organizations.total);

@@ -25,6 +25,7 @@ import {
 import {
   apiKeys,
   auditLogs,
+  companyEmails,
   contacts,
   creditPurchases,
   creditTransactions,
@@ -977,7 +978,17 @@ export async function emailTotals(days: number | null): Promise<EmailTotals> {
  * extrapolated.
  */
 export interface PlatformPulse {
-  emails: { acceptedAllTime: number; acceptedToday: number; rowsEverCreated: number };
+  emails: {
+    /** Customer messages the provider accepted (live environment only). */
+    acceptedAllTime: number;
+    acceptedToday: number;
+    rowsEverCreated: number;
+    /** Calder's own mail to its users: a separate ledger, counted separately. */
+    companyAllTime: number;
+    companyToday: number;
+    /** acceptedAllTime + companyAllTime — every message this platform moved. */
+    totalAllTime: number;
+  };
   signups: { today: number; week: number; total: number };
   organizations: { today: number; total: number };
   projects: { total: number };
@@ -1010,6 +1021,8 @@ export async function platformPulse(): Promise<PlatformPulse> {
         emailsAllTime,
         emailsToday,
         emailRows,
+        companyAllTime,
+        companyToday,
         signupsToday,
         signupsWeek,
         signupsTotal,
@@ -1039,6 +1052,19 @@ export async function platformPulse(): Promise<PlatformPulse> {
             .where(and(liveAccepted, gte(emails.createdAt, today)))
         ),
         scalar(tx.select({ value: count() }).from(emails)),
+        // Calder's own mail is a different ledger on purpose (see
+        // schema/company-emails.ts): a password reset is not a customer send.
+        // Counting it separately here is what lets the Command Center show one
+        // honest total without corrupting any customer's usage figure.
+        scalar(
+          tx.select({ value: count() }).from(companyEmails).where(eq(companyEmails.status, "sent"))
+        ),
+        scalar(
+          tx
+            .select({ value: count() })
+            .from(companyEmails)
+            .where(and(eq(companyEmails.status, "sent"), gte(companyEmails.createdAt, today)))
+        ),
         scalar(tx.select({ value: count() }).from(users).where(gte(users.createdAt, today))),
         scalar(tx.select({ value: count() }).from(users).where(gte(users.createdAt, weekAgo))),
         scalar(tx.select({ value: count() }).from(users)),
@@ -1091,6 +1117,9 @@ export async function platformPulse(): Promise<PlatformPulse> {
           acceptedAllTime: emailsAllTime,
           acceptedToday: emailsToday,
           rowsEverCreated: emailRows,
+          companyAllTime,
+          companyToday,
+          totalAllTime: emailsAllTime + companyAllTime,
         },
         signups: { today: signupsToday, week: signupsWeek, total: signupsTotal },
         organizations: { today: orgsToday, total: orgsTotal },
@@ -2024,4 +2053,186 @@ export async function systemAudiences(): Promise<AudienceCount[]> {
       href: "/control/platform/usage",
     },
   ];
+}
+
+/* ------------------------------------------------------------------ *
+ * Mail totals across both ledgers
+ * ------------------------------------------------------------------ */
+
+/**
+ * How much mail Calder actually moved.
+ *
+ * There are two ledgers and they are not interchangeable: `emails` records
+ * what customers send through the product, `company_emails` records what
+ * Calder sends to its own users (sign-in links, receipts, announcements).
+ * Reporting one of them as "total email sent" understates the platform by
+ * the whole of the other — an operator reads "33 sent" while the provider
+ * invoice covers thousands. This returns both, plus a deliberate total that
+ * says which parts it adds up.
+ */
+export interface PlatformMailTotals {
+  /** Window in days, or null for all time. */
+  windowDays: number | null;
+  /** Customer messages the provider accepted, split by send environment. */
+  customerLive: number;
+  customerTest: number;
+  /** Calder's own mail, by terminal state. */
+  companySent: number;
+  companySkipped: number;
+  companyFailed: number;
+  companyQueued: number;
+  /** customerLive + companySent: every message a provider agreed to deliver. */
+  totalAccepted: number;
+}
+
+export async function platformMailTotals(days: number | null = null): Promise<PlatformMailTotals> {
+  const db = getDb();
+  const since = days === null ? null : new Date(Date.now() - days * DAY_MS);
+
+  const [customerRows, companyRows] = await Promise.all([
+    db
+      .select({ env: emails.env, n: count() })
+      .from(emails)
+      .where(
+        and(
+          inArray(emails.status, [...ACCEPTED_EMAIL_STATUSES]),
+          since ? gte(emails.createdAt, since) : undefined
+        )
+      )
+      .groupBy(emails.env),
+    db
+      .select({ status: companyEmails.status, n: count() })
+      .from(companyEmails)
+      .where(since ? gte(companyEmails.createdAt, since) : undefined)
+      .groupBy(companyEmails.status),
+  ]);
+
+  const customer = new Map(customerRows.map((r) => [r.env, Number(r.n)]));
+  const company = new Map(companyRows.map((r) => [r.status, Number(r.n)]));
+  const pick = (m: Map<string, number>, k: string) => m.get(k) ?? 0;
+
+  const customerLive = pick(customer, "live");
+  const companySent = pick(company, "sent");
+  return {
+    windowDays: days,
+    customerLive,
+    customerTest: pick(customer, "test"),
+    companySent,
+    companySkipped: pick(company, "skipped"),
+    companyFailed: pick(company, "failed"),
+    companyQueued: pick(company, "queued"),
+    totalAccepted: customerLive + companySent,
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * Domains
+ * ------------------------------------------------------------------ */
+
+export type DomainStatusFilter = "all" | "verified" | "pending" | "failed" | "expired";
+
+export interface DomainStatusCounts {
+  total: number;
+  verified: number;
+  pending: number;
+  failed: number;
+  expired: number;
+}
+
+export interface DomainOverviewRow {
+  id: string;
+  domain: string;
+  /** The URL a customer would type. Always https — these are public hosts. */
+  url: string;
+  status: DomainStatusFilter;
+  verificationMethod: string | null;
+  sesIdentityStatus: string | null;
+  dkimStatus: string | null;
+  dkimRecordCount: number;
+  verifiedAt: Date | null;
+  createdAt: Date;
+  lastVerifyError: string | null;
+  projectId: string;
+  projectName: string;
+  projectSlug: string;
+  organizationId: string;
+  organizationName: string;
+}
+
+export interface DomainOverview {
+  /** Counts cover every domain, never just the filtered view. */
+  counts: DomainStatusCounts;
+  rows: DomainOverviewRow[];
+  filter: DomainStatusFilter;
+  search: string;
+}
+
+/**
+ * Every sending domain in the estate, with the persona an operator needs to
+ * answer "is this customer set up?" — the name, the URL, the workspace it
+ * belongs to, and whether DKIM is actually in place.
+ *
+ * The verification figure is `domains.status`, the same field the verifier
+ * writes. DKIM is reported next to it rather than folded in: a domain can be
+ * ownership-verified and still be unable to sign, and conflating the two
+ * would hide exactly the failure that lands mail in spam.
+ */
+export async function domainOverview(
+  filter: DomainStatusFilter = "all",
+  search = ""
+): Promise<DomainOverview> {
+  const db = getDb();
+  const term = search.trim();
+
+  const [countRows, rows] = await Promise.all([
+    db.select({ status: domains.status, n: count() }).from(domains).groupBy(domains.status),
+    db
+      .select({
+        id: domains.id,
+        domain: domains.domain,
+        status: domains.status,
+        verificationMethod: domains.verificationMethod,
+        sesIdentityStatus: domains.sesIdentityStatus,
+        dkimStatus: domains.dkimStatus,
+        dkimRecords: domains.dkimRecords,
+        verifiedAt: domains.verifiedAt,
+        createdAt: domains.createdAt,
+        lastVerifyError: domains.lastVerifyError,
+        projectId: projects.id,
+        projectName: projects.name,
+        projectSlug: projects.slug,
+        organizationId: organizations.id,
+        organizationName: organizations.name,
+      })
+      .from(domains)
+      .innerJoin(projects, eq(domains.projectId, projects.id))
+      .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+      .where(
+        and(
+          filter === "all" ? undefined : eq(domains.status, filter),
+          term ? ilike(domains.domain, `%${term}%`) : undefined
+        )
+      )
+      .orderBy(desc(domains.createdAt))
+      .limit(500),
+  ]);
+
+  const byStatus = new Map<string, number>(countRows.map((r) => [r.status, Number(r.n)]));
+  const at = (k: string) => byStatus.get(k) ?? 0;
+  return {
+    counts: {
+      total: countRows.reduce((acc, r) => acc + Number(r.n), 0),
+      verified: at("verified"),
+      pending: at("pending"),
+      failed: at("failed"),
+      expired: at("expired"),
+    },
+    rows: rows.map((r) => ({
+      ...r,
+      url: `https://${r.domain}`,
+      dkimRecordCount: Array.isArray(r.dkimRecords) ? r.dkimRecords.length : 0,
+    })),
+    filter,
+    search: term,
+  };
 }
