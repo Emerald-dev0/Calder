@@ -86,11 +86,22 @@ export default async function CompanyEmailPage({
     .from(emailPreferences)
     .where(sql`jsonb_array_length(${emailPreferences.disabledCategories}) > 0`);
 
+  // "Last sent" must mean accepted by a provider, not "a row exists". The
+  // previous shape took max(created_at) over every status, so a template whose
+  // only attempts were refused still showed a delivery date beside a total of
+  // zero — the page asserting a send that never happened. Evidence is now
+  // strictly the accepted subset, and refused/skipped attempts are counted
+  // separately so a row can say "tried, never accepted".
   const lastSent = await db
     .select({
       template: companyEmails.template,
-      at: sql<Date | string>`max(${companyEmails.createdAt})`,
+      at: sql<
+        Date | string | null
+      >`max(${companyEmails.createdAt}) filter (where ${companyEmails.status} = 'sent')`,
       sent: sql<number>`count(*) filter (where ${companyEmails.status} = 'sent')`,
+      failed: sql<number>`count(*) filter (where ${companyEmails.status} = 'failed')`,
+      skipped: sql<number>`count(*) filter (where ${companyEmails.status} = 'skipped')`,
+      attempts: count(),
     })
     .from(companyEmails)
     .groupBy(companyEmails.template);
@@ -160,11 +171,19 @@ export default async function CompanyEmailPage({
     preview: true,
   });
 
-  const catalogue = COMPANY_EMAIL_IDS.map((id) => ({
-    id,
-    definition: companyEmailDefinition(id)!,
-    evidence: lastSentBy.get(id),
-  }));
+  const catalogue = COMPANY_EMAIL_IDS.map((id) => {
+    const row = lastSentBy.get(id);
+    const sent = Number(row?.sent ?? 0);
+    return {
+      id,
+      definition: companyEmailDefinition(id)!,
+      // Only an accepted send counts as evidence.
+      evidence: row && sent > 0 ? { ...row, at: row.at as Date | string, sent } : undefined,
+      attempts: Number(row?.attempts ?? 0),
+      failed: Number(row?.failed ?? 0),
+      skipped: Number(row?.skipped ?? 0),
+    };
+  });
 
   return (
     <>
@@ -461,7 +480,7 @@ export default async function CompanyEmailPage({
             </tr>
           </thead>
           <tbody>
-            {catalogue.map(({ id, definition, evidence }) => (
+            {catalogue.map(({ id, definition, evidence, attempts, failed, skipped }) => (
               <tr key={id}>
                 <td>
                   <div className="mono" style={{ fontSize: 12 }}>
@@ -477,8 +496,25 @@ export default async function CompanyEmailPage({
                   </Badge>
                 </td>
                 <td>{definition.audience}</td>
-                <td>{evidence ? fmtDate(evidence.at) : "never sent"}</td>
-                <td>{evidence ? Number(evidence.sent) : 0}</td>
+                <td>
+                  {evidence ? (
+                    fmtDate(evidence.at)
+                  ) : attempts > 0 ? (
+                    <span style={{ color: "var(--color-warning)" }}>never accepted</span>
+                  ) : (
+                    "never sent"
+                  )}
+                </td>
+                <td>
+                  {evidence ? Number(evidence.sent) : 0}
+                  {!evidence && attempts > 0 ? (
+                    <div className="mono" style={{ fontSize: 11, color: "var(--cp-faint)" }}>
+                      {attempts} attempted
+                      {failed > 0 ? ` · ${failed} refused` : ""}
+                      {skipped > 0 ? ` · ${skipped} skipped` : ""}
+                    </div>
+                  ) : null}
+                </td>
                 <td>
                   <a
                     className="cp-btn"
@@ -496,9 +532,11 @@ export default async function CompanyEmailPage({
 
       <p style={{ fontSize: 12, color: "var(--cp-faint)", marginTop: 14 }}>
         {COMPANY_EMAIL_IDS.length} templates in the catalogue ·{" "}
-        {Object.keys(COMPANY_EMAILS).filter((id) => lastSentBy.has(id)).length} have real delivery
-        history. The rest are either waiting on a feature or are sent by a scheduled job outside
-        this console.
+        {catalogue.filter((c) => c.evidence).length} have at least one message a provider accepted,
+        and {catalogue.filter((c) => !c.evidence && c.attempts > 0).length} have only ever been
+        refused or skipped. A catalogue entry is a declaration of intent, not proof of delivery: the
+        remaining {catalogue.filter((c) => c.attempts === 0).length} may be gated on a feature, sent
+        by a scheduled job outside this console, or simply never triggered.
       </p>
     </>
   );
