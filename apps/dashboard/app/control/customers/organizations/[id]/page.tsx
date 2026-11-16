@@ -278,6 +278,11 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
               This action is limited to founder, platform-admin, and security roles.
             </p>
           )}
+          <p style={{ marginTop: 10, fontSize: 12.5 }}>
+            <Link href={`/control/customers/abuse-review?org=${org.id}`}>
+              Review queue, notes and decision history →
+            </Link>
+          </p>
         </Panel>
       </div>
 

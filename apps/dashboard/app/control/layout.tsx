@@ -39,6 +39,7 @@ const NAV: Array<{
       { label: "Organizations", href: "/control/customers/organizations" },
       { label: "Projects", href: "/control/customers/projects" },
       { label: "Customer Health", href: "/control/customers/health" },
+      { label: "Abuse review", href: "/control/customers/abuse-review" },
       { label: "Support", href: "/control/customers/support" },
     ],
   },
