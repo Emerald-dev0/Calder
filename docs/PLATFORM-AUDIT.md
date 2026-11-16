@@ -387,10 +387,11 @@ state. Each row below is a commit on this branch, with the tests that hold it.
 | **`/inbox`, `/receiving` reachable while `inbound_email` is `coming_soon`**   | Fixed  | The middleware answers those subtrees with a genuine 404 (a page-level `notFound()` renders inside a 200 once the shell has streamed; a layout-level one does not even stop the page). Pages keep the guard as the deeper check. Verified against a running server: 404 for `/inbox`, `/inbox/settings`, `/inbox/<id>`, `/receiving` — signed in and anonymous — with `/settings` and `/suppressions` still 200.                                                                                                                                                                                |
 | **CI red on formatting**                                                      | Fixed  | `pnpm format:check` passes over the whole tree; the two inbound test files were formatted. Per-package lint is 0 errors; `tsc --noEmit` is clean for config, auth, notify, api, dashboard and worker; `next build` succeeds for the dashboard.                                                                                                                                                                                                                                                                                                                                                  |
 
-Still open from the list above, in the order I will take them: custom MAIL FROM
-(SES-side, needs your agreement), template draft/publish (§3), notification
-separation and retention (§2), abuse review (§4), account/project deletion and
-retention enforcement (§5).
+Closed since this table was written: template draft/publish and React Email
+(§8c), notification separation, retention, deletion and abuse review (§8d). What
+is still open from the list above: **custom MAIL FROM** (SES-side, needs your
+agreement) and **billing go-live** (§9.5), which you asked to leave alone for
+this cycle.
 
 ## 8b. Stage 3 — closed (this cycle)
 
@@ -441,6 +442,8 @@ retention enforcement (§5).
    list delays sends rather than risking them.
 5. **Billing go-live.** Is Paystack the path for real subscriptions now, and what
    grace period should a failed payment get before sending is paused?
+   **Deferred at your request** for this cycle — no payment or dunning code was
+   touched in Stage 5.
 6. **Retention.** ~~What must be deleted at the `retentionDays` boundary?~~
    **Closed (Stage 5.3):** bodies and the event timeline go, the accounting row
    stays — see §8d. Contract plans (`retentionDays: null`) are never touched.
