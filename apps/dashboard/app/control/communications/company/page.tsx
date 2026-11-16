@@ -10,6 +10,7 @@ import {
 } from "@calder/notify";
 import { requireSection } from "@/lib/control/guard";
 import { READ_ONLY_ROLES } from "@/lib/control/roles";
+import { previewSampleData, resolveCataloguePreview } from "@/lib/control/email-preview";
 import { Badge, Empty, PageHeader, Panel, Stat } from "@/app/control/_components/ui";
 import { sendTestToSelf, sendToProductUsers } from "./actions";
 
@@ -39,7 +40,13 @@ function fmtDate(value: Date | string | number | null | undefined): string {
 export default async function CompanyEmailPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sent?: string; skipped?: string; failed?: string; test?: string }>;
+  searchParams: Promise<{
+    sent?: string;
+    skipped?: string;
+    failed?: string;
+    test?: string;
+    preview?: string;
+  }>;
 }) {
   const ctx = await requireSection("communications");
   const query = await searchParams;
@@ -87,15 +94,18 @@ export default async function CompanyEmailPage({
     .limit(12);
 
   const readOnly = (READ_ONLY_ROLES as string[]).includes(ctx.role);
-  const previewId = "updates.announcement" as const;
+
+  // Previewing the catalogue is an operator capability (F-05). The resolver is
+  // told we are the Control Plane *after* `requireSection` has run, and refuses
+  // an unknown id rather than falling back to something plausible.
+  const previewId =
+    resolveCataloguePreview({
+      id: query.preview ?? "updates.announcement",
+      audience: "operator",
+    }) ?? "updates.announcement";
   const preview = renderCompanyEmail({
     id: previewId,
-    data: {
-      title: "A change worth knowing about",
-      body: "This is the exact layout an operator send uses. Replace this copy with the real announcement; the footer, the unsubscribe and the reason line stay identical.",
-      ctaLabel: "Read the details",
-      ctaUrl: "https://calder.click/changelog",
-    },
+    data: previewSampleData(previewId),
     urls: defaultUrls(),
     preview: true,
   });
@@ -217,9 +227,13 @@ export default async function CompanyEmailPage({
         )}
       </Panel>
 
-      <Panel title="Preview — announcement" caption="Sample values, real templates." flush>
+      <Panel
+        title={`Preview — ${previewId}`}
+        caption="Sample values, real templates. Pick any catalogue entry from the table below."
+        flush
+      >
         <iframe
-          title="Announcement preview"
+          title={`Preview of ${previewId}`}
           srcDoc={preview.document}
           sandbox=""
           style={{ width: "100%", height: 520, border: 0, background: "#fff" }}
@@ -282,6 +296,7 @@ export default async function CompanyEmailPage({
               <th>Audience</th>
               <th>Last sent</th>
               <th>Sent total</th>
+              <th>Preview</th>
             </tr>
           </thead>
           <tbody>
@@ -303,6 +318,15 @@ export default async function CompanyEmailPage({
                 <td>{definition.audience}</td>
                 <td>{evidence ? fmtDate(evidence.at) : "never sent"}</td>
                 <td>{evidence ? Number(evidence.sent) : 0}</td>
+                <td>
+                  <a
+                    className="cp-btn"
+                    style={{ fontSize: 12, padding: "3px 10px" }}
+                    href={`/control/communications/company?preview=${encodeURIComponent(id)}`}
+                  >
+                    Preview
+                  </a>
+                </td>
               </tr>
             ))}
           </tbody>
