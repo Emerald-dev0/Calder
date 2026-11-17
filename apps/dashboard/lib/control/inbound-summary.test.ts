@@ -88,7 +88,11 @@ describe("summariseInbound", () => {
     // The unknown bucket is in the total (it exists) but in no known column,
     // so the page cannot claim every domain is in a state it recognises.
     expect(
-      s.domains.verified + s.domains.pending + s.domains.verifying + s.domains.failed + s.domains.disabled
+      s.domains.verified +
+        s.domains.pending +
+        s.domains.verifying +
+        s.domains.failed +
+        s.domains.disabled
     ).toBeLessThan(s.domains.total);
   });
 
