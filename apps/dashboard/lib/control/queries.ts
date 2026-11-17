@@ -32,12 +32,15 @@ import {
   domains,
   emailEvents,
   emails,
+  inboundMessages,
+  inboxes,
   orgInvitations,
   organizationMembers,
   organizations,
   payments,
   planPrices,
   plans,
+  receivingDomains,
   projectTransports,
   projects,
   senderIdentities,
@@ -52,6 +55,12 @@ import {
   webhooks,
 } from "@calder/db";
 import { getDb, gmailAllowanceForTransport } from "@calder/db";
+import {
+  summariseInbound,
+  type InboundStatus,
+  type InboundSummary,
+  type ReceivingDomainStatus,
+} from "./inbound-summary";
 import {
   countTriage,
   buildTriageQueue,
@@ -2563,5 +2572,165 @@ export async function triageQueue(now = new Date()): Promise<SupportQueue> {
     acknowledged: split.acknowledged,
     acknowledgementCount: latestAcksByItem(ackRows).size,
     unreadable,
+  };
+}
+
+/* ── Inbound ────────────────────────────────────────────────────────────── */
+
+export interface InboundDomainRow {
+  id: string;
+  domain: string;
+  status: string;
+  mxHost: string;
+  mxPriority: number;
+  observedMx: Array<{ exchange: string; priority: number }> | null;
+  lastCheckedAt: Date | null;
+  lastError: string | null;
+  provisionedAt: Date | null;
+  organizationId: string;
+  organizationName: string;
+  projectName: string;
+  createdAt: Date;
+}
+
+export interface InboundMessageRow {
+  id: string;
+  fromAddress: string | null;
+  subject: string | null;
+  recipientDomain: string;
+  status: string;
+  failureReason: string | null;
+  receivedAt: Date;
+  organizationId: string;
+  organizationName: string;
+  projectName: string;
+  inboxName: string | null;
+}
+
+export interface InboundOverview extends InboundSummary {
+  /** Counts live on `domains` (from InboundSummary); these are the rows. */
+  domainRows: InboundDomainRow[];
+  recent: InboundMessageRow[];
+  failures: InboundMessageRow[];
+}
+
+/**
+ * Everything the Control Plane knows about mail arriving.
+ *
+ * The sending side has had a page since the beginning; receiving was invisible,
+ * which meant the first sign of a broken MX or a parser regression was a
+ * customer saying "nobody is getting our replies". This reads both halves —
+ * whether domains are proven, and whether the mail that arrives is processed —
+ * because they fail independently: perfect DNS with a broken parser loses mail
+ * just as completely as a missing MX record.
+ *
+ * Rates come from `summariseInbound` so the "no events means null, not 0%"
+ * rule is testable without a database.
+ */
+export async function inboundOverview(days = 30): Promise<InboundOverview> {
+  const db = getDb();
+  const since = new Date(Date.now() - days * DAY_MS);
+
+  const [statusRows, domainRows, inboxCount, unrouted, domains, recent, failures] =
+    await Promise.all([
+      db
+        .select({ status: inboundMessages.status, n: count() })
+        .from(inboundMessages)
+        .where(gte(inboundMessages.receivedAt, since))
+        .groupBy(inboundMessages.status),
+      db
+        .select({ status: receivingDomains.status, n: count() })
+        .from(receivingDomains)
+        .groupBy(receivingDomains.status),
+      scalar(db.select({ value: count() }).from(inboxes)),
+      scalar(
+        db
+          .select({ value: count() })
+          .from(inboundMessages)
+          .where(
+            and(
+              gte(inboundMessages.receivedAt, since),
+              isNull(inboundMessages.inboxId),
+              eq(inboundMessages.status, "parsed")
+            )
+          )
+      ),
+      db
+        .select({
+          id: receivingDomains.id,
+          domain: receivingDomains.domain,
+          status: receivingDomains.status,
+          mxHost: receivingDomains.mxHost,
+          mxPriority: receivingDomains.mxPriority,
+          observedMx: receivingDomains.observedMx,
+          lastCheckedAt: receivingDomains.lastCheckedAt,
+          lastError: receivingDomains.lastError,
+          provisionedAt: receivingDomains.provisionedAt,
+          organizationId: organizations.id,
+          organizationName: organizations.name,
+          projectName: projects.name,
+          createdAt: receivingDomains.createdAt,
+        })
+        .from(receivingDomains)
+        .innerJoin(projects, eq(receivingDomains.projectId, projects.id))
+        .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+        .orderBy(desc(receivingDomains.createdAt))
+        .limit(100),
+      db
+        .select({
+          id: inboundMessages.id,
+          fromAddress: inboundMessages.fromAddress,
+          subject: inboundMessages.subject,
+          recipientDomain: inboundMessages.recipientDomain,
+          status: inboundMessages.status,
+          failureReason: inboundMessages.failureReason,
+          receivedAt: inboundMessages.receivedAt,
+          organizationId: inboundMessages.organizationId,
+          organizationName: organizations.name,
+          projectName: projects.name,
+          inboxName: inboxes.name,
+        })
+        .from(inboundMessages)
+        .innerJoin(projects, eq(inboundMessages.projectId, projects.id))
+        .innerJoin(organizations, eq(inboundMessages.organizationId, organizations.id))
+        .leftJoin(inboxes, eq(inboundMessages.inboxId, inboxes.id))
+        .orderBy(desc(inboundMessages.receivedAt))
+        .limit(25),
+      db
+        .select({
+          id: inboundMessages.id,
+          fromAddress: inboundMessages.fromAddress,
+          subject: inboundMessages.subject,
+          recipientDomain: inboundMessages.recipientDomain,
+          status: inboundMessages.status,
+          failureReason: inboundMessages.failureReason,
+          receivedAt: inboundMessages.receivedAt,
+          organizationId: inboundMessages.organizationId,
+          organizationName: organizations.name,
+          projectName: projects.name,
+          inboxName: inboxes.name,
+        })
+        .from(inboundMessages)
+        .innerJoin(projects, eq(inboundMessages.projectId, projects.id))
+        .innerJoin(organizations, eq(inboundMessages.organizationId, organizations.id))
+        .leftJoin(inboxes, eq(inboundMessages.inboxId, inboxes.id))
+        .where(and(eq(inboundMessages.status, "failed"), gte(inboundMessages.receivedAt, since)))
+        .orderBy(desc(inboundMessages.receivedAt))
+        .limit(25),
+    ]);
+
+  const summary = summariseInbound({
+    windowDays: days,
+    statusRows: statusRows as Array<{ status: InboundStatus; n: number }>,
+    domainRows: domainRows as Array<{ status: ReceivingDomainStatus; n: number }>,
+    inboxes: inboxCount,
+    unrouted,
+  });
+
+  return {
+    ...summary,
+    domainRows: domains as InboundDomainRow[],
+    recent: recent as InboundMessageRow[],
+    failures: failures as InboundMessageRow[],
   };
 }
