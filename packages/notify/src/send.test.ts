@@ -119,6 +119,62 @@ describe("deliver", () => {
     expect(sent).toHaveLength(1);
   });
 
+  it("sends from the address the operator chose, not from a hard-coded one", async () => {
+    const store = memoryStore();
+    await deliver(store, {
+      id: "updates.announcement",
+      to: "ada@example.com",
+      userId: "user_1",
+      data: { title: "Pricing", body: "It changed" },
+      urls,
+      idempotencyKey: "operator:batch:user_1",
+      from: "Calder Support <support@calder.click>",
+    });
+    expect(sent[0]?.from).toBe("Calder Support <support@calder.click>");
+  });
+
+  it("refuses a From that could not be an address, falling back to the deployment sender", async () => {
+    const store = memoryStore();
+    await deliver(store, {
+      id: "updates.announcement",
+      to: "ada@example.com",
+      userId: "user_1",
+      data: { title: "Pricing", body: "It changed" },
+      urls,
+      idempotencyKey: "operator:batch2:user_1",
+      // A newline in a header is how a From becomes two headers.
+      from: "Calder <hello@calder.click>\r\nBcc: everyone@example.com",
+    });
+    const from = String(sent[0]?.from);
+    expect(from).not.toMatch(/\r|\n|Bcc/i);
+    expect(from).toContain("@");
+  });
+
+  it("puts optional categories on the marketing stream and account mail on transactional", async () => {
+    const store = memoryStore();
+    await deliver(store, {
+      id: "updates.announcement",
+      to: "ada@example.com",
+      userId: "user_1",
+      data: { title: "Pricing", body: "It changed" },
+      urls,
+      idempotencyKey: "operator:stream:user_1",
+    });
+    expect(sent[0]?.stream).toBe("marketing");
+
+    await deliver(store, {
+      id: "account.password_reset_code",
+      to: "ada@example.com",
+      userId: "user_1",
+      data: { code: "123456", expiresInMinutes: 15 },
+      urls,
+      idempotencyKey: "reset:stream:user_1",
+    });
+    // A mailshot's bounces must not land on the stream that carries password
+    // resets, and nobody can unsubscribe from one.
+    expect(sent[1]?.stream).toBe("transactional");
+  });
+
   it("records a skip for an opt-out instead of sending", async () => {
     const store = memoryStore({ disabled: ["updates"] });
     const result = await deliver(store, {

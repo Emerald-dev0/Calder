@@ -50,6 +50,15 @@ export interface SendCompanyEmailParams {
   idempotencyKey: string;
   urls?: Partial<RenderUrls>;
   replyTo?: string;
+  /**
+   * Override the From line for this message.
+   *
+   * Only the operator console uses it, and only with an address the deployment
+   * declares (`COMPANY_EMAIL_SENDERS`). The package does not own that list — the
+   * console refuses anything off it before calling here — but it does refuse a
+   * value that cannot be an address at all, so a typo cannot reach the provider.
+   */
+  from?: string;
 }
 
 export interface SendCompanyEmailResult {
@@ -94,6 +103,13 @@ function scrubError(err: unknown): string {
 function defaultFrom(): string {
   const configured = getConfig().AUTH_EMAIL_FROM;
   return configured && configured.includes("@") ? configured : "Calder <hello@calder.click>";
+}
+
+/** The requested From if it could be one, otherwise the deployment's sender. */
+function resolveFrom(requested: string | undefined): string {
+  return requested && requested.includes("@") && !/[\r\n]/.test(requested)
+    ? requested
+    : defaultFrom();
 }
 
 /** Injectable so tests can send through the mock without touching env vars. */
@@ -209,7 +225,7 @@ export async function deliver(
     }
 
     const result = await service.send({
-      from: defaultFrom(),
+      from: resolveFrom(params.from),
       to,
       subject: rendered.subject,
       html: brandEmail(rendered.html, {
@@ -222,7 +238,13 @@ export async function deliver(
       text: rendered.text,
       headers: Object.keys(headers).length > 0 ? headers : undefined,
       replyTo: params.replyTo,
-      stream: "transactional",
+      // Optional categories are the ones a person can turn off, and they are the
+      // ones an operator broadcasts. On SES the stream picks the configuration
+      // set, so an announcement's bounces land on the marketing reputation
+      // instead of on the stream that carries verification codes and password
+      // resets. Account mail stays transactional: nobody can unsubscribe from a
+      // password reset, and it must not share a reputation with a mailshot.
+      stream: isOptionalCategory(definition.category) ? "marketing" : "transactional",
     });
 
     await store.finish(claimed.id, {

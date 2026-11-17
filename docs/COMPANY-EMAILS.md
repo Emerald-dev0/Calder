@@ -122,7 +122,7 @@ form is a GET step that renders **your** draft through the real template (same
 footer, same opt-out link, subject included), and the send form carries that
 exact draft in hidden fields. What was read is what is sent.
 
-Two details of the copy are enforced, not suggested:
+Every detail below is enforced server-side, not suggested by the form:
 
 - **`{{name}}`** is the only merge field. It resolves per recipient to the
   account's first name, or `there` when there is none, and is substituted once
@@ -131,14 +131,48 @@ Two details of the copy are enforced, not suggested:
   value. Any other field (`{{first_name}}`, `{{company}}`) is **refused** at
   preview and again at send, because the alternative is shipping a literal
   placeholder to hundreds of inboxes.
-- **Audience** is a per-send choice: verified accounts (default) or every
-  account including unverified addresses. The wide option requires its own
-  acknowledgement — an unverified address may not exist, and a bounce is
-  charged to Calder's sending reputation — and the server enforces that
-  independently of the form. Unknown or absent values parse to the narrow
-  audience, so a malformed request cannot widen a mailshot. The batch key stays
-  content-addressed, so re-running the same announcement with the wider audience
-  reaches exactly the accounts that did not get it, and nobody twice.
+- **Audience** is a per-send choice, and there are three. Verified accounts
+  (the default), every account including unverified addresses, or **specific
+  people** named by address. The wide option requires its own acknowledgement —
+  an unverified address may not exist, and a bounce is charged to Calder's
+  sending reputation — and the server enforces that independently of the form,
+  computed from the addresses actually in the run rather than from the menu item
+  that produced them. Unknown or absent values parse to the narrow audience, so a
+  malformed request cannot widen a mailshot.
+- **A named list means accounts.** An address that belongs to no user is refused
+  and named, never silently dropped, so the composer cannot be used to mail
+  strangers and an operator cannot believe they reached someone they did not.
+  The resolution runs on the page (so the preview says "4 of 6 matched, 2 not
+  accounts") and again in the action (which is the gate).
+- **From** is a closed list. `COMPANY_EMAIL_SENDERS` declares the extra
+  addresses this deployment may send as, and `AUTH_EMAIL_FROM` — the sender
+  every transactional email already uses — is always on it, default first. The
+  page resolves the choice through the same function the action enforces, and
+  an address off the list is a refusal rather than a fallback: sending from a
+  different address than the one previewed is exactly the lie this console
+  exists to avoid. Nothing here invents an address; an entry must be a real,
+  SES-verified identity.
+- **A run is bounded, a batch is not.** One press sends to at most
+  `COMPANY_BROADCAST_RUN_SIZE` recipients (150 by default, 1–500): a provider
+  call is a network round trip, and one request has to finish. Recipients the
+  batch has already reached — read from the per-recipient idempotency keys, not
+  from a counter — are excluded from the next run, so a list of any size is
+  finished by pressing again, with the same draft kept in the form. The page
+  states who this press reaches, how many never confirmed their address, and how
+  many follow.
+- **A replay is not a send.** Re-clicking the same content on the same UTC day
+  collapses onto the same rows, and those rows are reported as _already had it_,
+  not counted as sent. (The previous shape counted a replay as `sent`, which let
+  a no-op report a full batch.)
+- **Optional categories ride the marketing stream.** `updates.*` goes out on the
+  SES marketing configuration set (`SES_CONFIGURATION_SET_BROADCAST`), so a
+  mailshot's bounces land on marketing reputation rather than on the stream that
+  carries verification codes and password resets. Account mail stays
+  transactional.
+
+A note to yourself from **Send test to me** is marked `operatorTest` in its
+`company_emails` row, and every "sent" number and "last sent" date on the page
+excludes those rows: a test is not a send to customers.
 
 The catalogue table reports **accepted** sends only: "last sent" is derived from
 `company_emails` rows with `status = 'sent'`, with refused and skipped attempts

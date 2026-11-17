@@ -31,15 +31,15 @@ gate("broadcast audience (live Postgres)", async () => {
     const db = (await import("@calder/db")).getDb();
     const schema = await import("@calder/db");
     const { eq, inArray } = await import("drizzle-orm");
-    const { audienceFilter, parseAudience } = await import("./audience.js");
+    const { audienceWhere, parseAudience } = await import("./audience.js");
 
     const tag = `aud-${Date.now().toString(36)}`;
     const verifiedId = `usr_${tag}_v`;
     const unverifiedId = `usr_${tag}_u`;
 
-    const recipients = async (scope: "verified" | "everyone") =>
+    const recipients = async (scope: "verified" | "everyone" | "selected", ids: string[] = []) =>
       (
-        await db.select({ id: schema.users.id }).from(schema.users).where(audienceFilter(scope))
+        await db.select({ id: schema.users.id }).from(schema.users).where(audienceWhere(scope, ids))
       ).map((r) => r.id);
 
     try {
@@ -69,6 +69,16 @@ gate("broadcast audience (live Postgres)", async () => {
       // An unknown value can never widen the audience.
       const unknown = await recipients(parseAudience("all"));
       expect(unknown).not.toContain(unverifiedId);
+
+      // A named list is exactly that list, in both directions.
+      const justOne = await recipients("selected", [verifiedId]);
+      expect(justOne).toContain(verifiedId);
+      expect(justOne).not.toContain(unverifiedId);
+
+      // ...and an empty selection reaches nobody. This is the predicate that
+      // would mail every customer if it ever degraded to "no filter".
+      const nobody = await recipients("selected", []);
+      expect(nobody).toEqual([]);
     } finally {
       await db.delete(schema.users).where(inArray(schema.users.id, [verifiedId, unverifiedId]));
     }

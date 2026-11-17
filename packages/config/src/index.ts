@@ -112,6 +112,23 @@ const envSchema = z.object({
   // SES sandbox only delivers from a verified identity, so this must be
   // settable without a deploy. Defaults to "Calder <hello@calder.click>".
   AUTH_EMAIL_FROM: z.string().optional(),
+  /**
+   * Extra From addresses a company broadcast may use, comma separated and
+   * default first, e.g. `Calder Support <support@calder.click>`.
+   *
+   * The operator console offers exactly this list (plus AUTH_EMAIL_FROM) and
+   * refuses anything else — a free-text From is how a product ends up mailing
+   * customers from an address nobody can reply to. Each entry must be a real,
+   * SES-verified identity on Calder's own domain.
+   */
+  COMPANY_EMAIL_SENDERS: z.string().optional(),
+  /**
+   * Recipients per broadcast request. This is a duration budget, not a product
+   * limit: the console excludes everyone a batch has already reached, so a
+   * larger list finishes over consecutive presses. Bounded 1-500 here because
+   * one request must finish.
+   */
+  COMPANY_BROADCAST_RUN_SIZE: z.coerce.number().int().min(1).max(500).optional(),
 
   // Billing (Bachs), optional until integration validated
   BACHS_API_KEY: z.string().optional(),
