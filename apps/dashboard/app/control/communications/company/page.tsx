@@ -2,7 +2,6 @@ import Link from "next/link";
 import { and, count, desc, gte, inArray, isNotNull, sql } from "drizzle-orm";
 import { companyEmails, emailPreferences, getDb, users } from "@calder/db";
 import {
-  COMPANY_EMAILS,
   COMPANY_EMAIL_IDS,
   companyEmailDefinition,
   isOptionalCategory,

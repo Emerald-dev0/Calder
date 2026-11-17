@@ -1,83 +1,218 @@
-import { and, desc, gte, inArray } from "drizzle-orm";
-import { emails, projects } from "@calder/db";
-import { getDb } from "@calder/db";
+import Link from "next/link";
+import { and, count, desc, gte, inArray } from "drizzle-orm";
+import { companyEmails, emails, getDb, projects } from "@calder/db";
 import { fmtAgo, fmtInt, fmtPct } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
-import { emailTotals } from "@/lib/control/queries";
+import { platformMailTotals } from "@/lib/control/queries";
 import { Badge, Empty, PageHeader, Panel, Stat } from "@/control/_components/ui";
 
 export const dynamic = "force-dynamic";
 
+const WINDOW_DAYS = 30;
+const ROW_LIMIT = 20;
+/** Calder's own product projects — the "we are our own first customer" path. */
+const INTERNAL_PROJECT_SLUGS = ["website", "internal", "calder"];
+
 /**
- * Internal communications delivery: Calder's own mail (waitlist confirmations,
- * broadcasts) tracked as the platform's first customer — the dogfood view.
+ * Calder's own mail, told in the ledgers it actually lives in.
+ *
+ * This page used to claim to describe "how Calder's own mail actually
+ * performs" while reading only `emails` — the customer ledger — and counting
+ * rows it had already capped at twenty ("Recent internal sends: 20"). So the
+ * headline was wrong past the twentieth send, and the mail Calder sends to its
+ * own users (sign-in links, receipts, announcements) was missing from the one
+ * page about Calder's own mail.
+ *
+ * Both ledgers are now shown, named for what they are: `company_emails` is
+ * mail Calder addresses to its users directly, `emails` is mail sent through
+ * the product from Calder's own projects — the dogfood path, and the only
+ * place where the internal view shares a table with customer numbers.
  */
 export default async function InternalDeliveryPage() {
   await requireSection("communications");
   const db = getDb();
-  const since30 = new Date(Date.now() - 30 * 86_400_000);
+  const since = new Date(Date.now() - WINDOW_DAYS * 86_400_000);
 
-  const internalProjects = await db
-    .select({ project: projects })
-    .from(projects)
-    .where(inArray(projects.slug, ["website", "internal", "calder"]))
-    .limit(5);
-  const internalIds = internalProjects.map((p) => p.project.id);
+  const [mail, internalProjects] = await Promise.all([
+    platformMailTotals(WINDOW_DAYS),
+    db
+      .select({ id: projects.id, name: projects.name, slug: projects.slug })
+      .from(projects)
+      .where(inArray(projects.slug, INTERNAL_PROJECT_SLUGS))
+      .limit(5),
+  ]);
+  const internalIds = internalProjects.map((p) => p.id);
 
-  const recent = internalIds.length
-    ? await db
-        .select({
-          id: emails.id,
-          to: emails.to,
-          subject: emails.subject,
-          status: emails.status,
-          transport: emails.transport,
-          createdAt: emails.createdAt,
-        })
-        .from(emails)
-        .where(and(inArray(emails.projectId, internalIds), gte(emails.createdAt, since30)))
-        .orderBy(desc(emails.createdAt))
-        .limit(20)
-    : [];
+  const [ownMail, ownTotal] = await Promise.all([
+    db
+      .select({
+        id: companyEmails.id,
+        to: companyEmails.toEmail,
+        template: companyEmails.template,
+        subject: companyEmails.subject,
+        status: companyEmails.status,
+        skipReason: companyEmails.skipReason,
+        createdAt: companyEmails.createdAt,
+      })
+      .from(companyEmails)
+      .where(gte(companyEmails.createdAt, since))
+      .orderBy(desc(companyEmails.createdAt))
+      .limit(ROW_LIMIT),
+    db.select({ n: count() }).from(companyEmails).where(gte(companyEmails.createdAt, since)),
+  ]);
 
-  const totals = await emailTotals(30);
-  const sentFromInternal = recent.length;
+  const [productMail, productTotal] = internalIds.length
+    ? await Promise.all([
+        db
+          .select({
+            id: emails.id,
+            to: emails.to,
+            subject: emails.subject,
+            status: emails.status,
+            transport: emails.transport,
+            createdAt: emails.createdAt,
+          })
+          .from(emails)
+          .where(and(inArray(emails.projectId, internalIds), gte(emails.createdAt, since)))
+          .orderBy(desc(emails.createdAt))
+          .limit(ROW_LIMIT),
+        db
+          .select({ n: count() })
+          .from(emails)
+          .where(and(inArray(emails.projectId, internalIds), gte(emails.createdAt, since))),
+      ])
+    : [[], [{ n: 0 }]];
+
+  const ownTotalRows = Number(ownTotal[0]?.n ?? 0);
+  const productTotalRows = Number(productTotal[0]?.n ?? 0);
+
+  // Skipped rows never reached a provider (opt-out, duplicate, no provider),
+  // so they are excluded from the rate rather than counted as failures.
+  const attempted = mail.companySent + mail.companyFailed;
+  const acceptRate = attempted > 0 ? (mail.companySent / attempted) * 100 : null;
 
   return (
     <>
       <PageHeader
         eyebrow="Communications"
         title="Delivery"
-        subtitle="How Calder's own mail actually performs. The platform's first customer is Calder — every waitlist confirmation and broadcast proves the pipeline."
+        subtitle="Calder's own mail, from both ledgers: what the platform sends its users directly, and what it sends through the product as its own first customer."
       />
 
       <div className="cp-stats">
         <Stat
-          label="Internal projects"
-          value={fmtInt(internalIds.length)}
-          hint="website / internal senders"
+          label="Calder → users (30d)"
+          value={fmtInt(mail.companySent)}
+          hint="accepted by the provider"
         />
         <Stat
-          label="Recent internal sends"
-          value={fmtInt(sentFromInternal)}
-          hint="last 30 days, newest 20 shown"
+          label="Refused (30d)"
+          value={fmtInt(mail.companyFailed)}
+          hint={
+            mail.companySkipped > 0
+              ? `${fmtInt(mail.companySkipped)} more skipped before sending`
+              : "provider said no"
+          }
+          invertDelta
         />
         <Stat
-          label="Platform delivery rate"
-          value={totals.deliveryRate === null ? "—" : fmtPct(totals.deliveryRate)}
-          hint="all traffic, 30 days"
+          label="Accept rate"
+          value={acceptRate === null ? "—" : fmtPct(acceptRate)}
+          hint={attempted > 0 ? `${fmtInt(attempted)} attempted` : "no attempts in the window"}
         />
         <Stat
-          label="Bounces + complaints (30d)"
-          value={fmtInt(totals.bounced + totals.complained)}
-          hint="reputation-sensitive events"
+          label="Through the product (30d)"
+          value={fmtInt(productTotalRows)}
+          hint="customer ledger, Calder's own projects"
         />
       </div>
 
-      <Panel title="Recent internal mail" caption="waitlist confirmations and broadcasts" flush>
-        {recent.length === 0 ? (
-          <Empty title="No internal sends on record yet">
-            Join the waitlist on the marketing site or trigger a broadcast to exercise the pipeline.
+      <Panel
+        title="Mail to Calder's users"
+        caption={`company_emails · newest ${Math.min(
+          ROW_LIMIT,
+          ownMail.length
+        )} of ${fmtInt(ownTotalRows)} in ${WINDOW_DAYS} days`}
+        flush
+      >
+        {ownMail.length === 0 ? (
+          <Empty title="Nothing sent to Calder's users in this window">
+            Sign-in links, receipts and announcements appear here as they are attempted. A skipped
+            row is kept too — an opt-out is a delivery decision worth seeing.
+          </Empty>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table className="cp-table">
+              <thead>
+                <tr>
+                  <th>To</th>
+                  <th>Template</th>
+                  <th>Subject</th>
+                  <th>Status</th>
+                  <th>When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ownMail.map((e) => (
+                  <tr key={e.id}>
+                    <td className="mono" style={{ fontSize: 12.5 }}>
+                      {e.to}
+                    </td>
+                    <td className="mono" style={{ fontSize: 12 }}>
+                      {e.template}
+                    </td>
+                    <td className="wrap" style={{ whiteSpace: "normal" }}>
+                      {e.subject}
+                    </td>
+                    <td>
+                      <Badge
+                        tone={
+                          e.status === "sent"
+                            ? "ok"
+                            : e.status === "failed"
+                              ? "bad"
+                              : e.status === "skipped"
+                                ? "warn"
+                                : undefined
+                        }
+                      >
+                        {e.status === "skipped" && e.skipReason
+                          ? `skipped · ${e.skipReason}`
+                          : e.status}
+                      </Badge>
+                    </td>
+                    <td className="mono" style={{ fontSize: 12, color: "var(--cp-muted)" }}>
+                      {fmtAgo(new Date(e.createdAt))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
+
+      <Panel
+        title="Mail sent through the product"
+        caption={
+          internalIds.length === 0
+            ? "no Calder-owned project matched the internal slugs"
+            : `emails · newest ${Math.min(
+                ROW_LIMIT,
+                productMail.length
+              )} of ${fmtInt(productTotalRows)} in ${WINDOW_DAYS} days · ${internalProjects
+                .map((p) => p.slug)
+                .join(", ")}`
+        }
+        flush
+      >
+        {productMail.length === 0 ? (
+          <Empty title="No product sends from Calder's own projects">
+            {internalIds.length === 0
+              ? `No project on this deployment uses the slugs ${INTERNAL_PROJECT_SLUGS.join(
+                  ", "
+                )}, so the dogfood view has nothing to read. It is not zero traffic — it is an unmatched search.`
+              : "Join the waitlist on the marketing site, or send through the API with an internal project key, to exercise the same pipeline customers use."}
           </Empty>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -92,7 +227,7 @@ export default async function InternalDeliveryPage() {
                 </tr>
               </thead>
               <tbody>
-                {recent.map((e) => (
+                {productMail.map((e) => (
                   <tr key={e.id}>
                     <td className="mono" style={{ fontSize: 12.5 }}>
                       {e.to}
@@ -128,8 +263,10 @@ export default async function InternalDeliveryPage() {
       </Panel>
 
       <p className="cp-caption">
-        Full-platform delivery analytics live in <span className="mono">Platform → Email</span> and{" "}
-        <span className="mono">Platform → Deliverability</span>.
+        These are two separate tables on purpose: a password reset must never appear in a
+        customer&apos;s message log or their quota. Totals across both ledgers live in{" "}
+        <Link href="/control/platform">Platform → Email</Link>; customer deliverability lives in{" "}
+        <Link href="/control/platform/deliverability">Platform → Deliverability</Link>.
       </p>
     </>
   );
