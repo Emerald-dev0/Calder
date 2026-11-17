@@ -174,6 +174,16 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("true")
     .transform((v) => v === "true"),
+  // Control Plane attention lines (Customers → Health).
+  //
+  // These were hardcoded in the page: "10 sends" and "5%" appeared only inside
+  // a filter expression, so changing them meant a deploy of the dashboard and
+  // nobody outside the file could see what rule produced a row. A threshold is
+  // an operating decision, not a rendering detail, so it lives in validated
+  // config with the defaults spelled out.
+  CONTROL_BOUNCE_ATTENTION_PCT: z.coerce.number().min(0).max(100).default(5),
+  CONTROL_BOUNCE_MIN_SENDS: z.coerce.number().int().min(1).default(10),
+
   // API health, evaluated from in-process request metrics over the last window.
   API_ALERT_WINDOW_MINUTES: z.coerce.number().positive().default(5),
   API_5XX_WARN_PERCENT: z.coerce.number().min(0).max(100).default(5),
@@ -204,6 +214,35 @@ export function getConfig(): Env {
 
 export function resetConfig(): void {
   cached = null;
+}
+
+// ── Control Plane thresholds ─────────────────────────────────
+
+export interface HealthThresholds {
+  /** Bounce rate (percent) above which a sender needs a look. */
+  bounceAttentionPct: number;
+  /** Minimum sends before a rate is trusted at all. */
+  minSends: number;
+  /** Rate (percent) at which the row is treated as bad rather than a warning. */
+  bounceSeverePct: number;
+}
+
+/**
+ * The bounce attention rule, in one place.
+ *
+ * A percentage over a handful of sends is noise: one bounce in three sends is
+ * 33% and means nothing. So a rate is only calculated once a sender has
+ * cleared `minSends`, and "severe" is defined relative to the attention line
+ * rather than as a second independent number that could drift above or below
+ * it. Both come from config so the page can state the rule it applied.
+ */
+export function healthThresholds(): HealthThresholds {
+  const cfg = getConfig();
+  return {
+    bounceAttentionPct: cfg.CONTROL_BOUNCE_ATTENTION_PCT,
+    minSends: cfg.CONTROL_BOUNCE_MIN_SENDS,
+    bounceSeverePct: Math.min(100, cfg.CONTROL_BOUNCE_ATTENTION_PCT * 2),
+  };
 }
 
 export function isProduction(): boolean {

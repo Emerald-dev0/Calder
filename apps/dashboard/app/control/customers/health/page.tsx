@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { healthThresholds } from "@calder/config";
 import { fmtAgo, fmtInt, fmtPct } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
 import {
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CustomerHealthPage() {
   await requireSection("customers");
+  const thresholds = healthThresholds();
   const [orgs, senders, outcome] = await Promise.all([
     organizationRows(100),
     deliverabilityBySender(30),
@@ -31,7 +33,7 @@ export default async function CustomerHealthPage() {
         bounceRate: sent > 0 ? (bounced / sent) * 100 : 0,
       };
     })
-    .filter((s) => s.sent >= 10 && s.bounceRate >= 5)
+    .filter((s) => s.sent >= thresholds.minSends && s.bounceRate >= thresholds.bounceAttentionPct)
     .sort((a, b) => b.bounceRate - a.bounceRate);
 
   return (
@@ -66,9 +68,18 @@ export default async function CustomerHealthPage() {
       </div>
 
       <div className="cp-grid cp-grid-2">
-        <Panel title="Needs attention" caption="senders with elevated bounces, last 30 days" flush>
+        <Panel
+          title="Needs attention"
+          caption={`senders above ${fmtPct(
+            thresholds.bounceAttentionPct
+          )} bounce after at least ${fmtInt(thresholds.minSends)} sends · last 30 days`}
+          flush
+        >
           {struggling.length === 0 ? (
-            <Empty title="Clean">No sender is above the 5% bounce attention line.</Empty>
+            <Empty title="Clean">
+              No sender with at least {fmtInt(thresholds.minSends)} sends is above the{" "}
+              {fmtPct(thresholds.bounceAttentionPct)} bounce attention line.
+            </Empty>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table className="cp-table">
@@ -87,7 +98,7 @@ export default async function CustomerHealthPage() {
                       </td>
                       <td className="cp-num">{fmtInt(s.sent)}</td>
                       <td>
-                        <Badge tone={s.bounceRate >= 10 ? "bad" : "warn"}>
+                        <Badge tone={s.bounceRate >= thresholds.bounceSeverePct ? "bad" : "warn"}>
                           {fmtPct(s.bounceRate)}
                         </Badge>
                       </td>
