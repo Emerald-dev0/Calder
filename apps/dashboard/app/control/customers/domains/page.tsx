@@ -2,7 +2,9 @@ import Link from "next/link";
 import { fmtAgo, fmtInt } from "@/lib/control/format";
 import { requireSection } from "@/lib/control/guard";
 import { domainOverview, type DomainStatusFilter } from "@/lib/control/queries";
+import { READ_ONLY_ROLES } from "@/lib/control/roles";
 import { Badge, Empty, PageHeader, Panel, Stat } from "@/control/_components/ui";
+import { reverifyDomain } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +20,54 @@ function isFilter(value: string | undefined): value is DomainStatusFilter {
   return FILTERS.some((f) => f.key === value);
 }
 
+/** What the DNS re-check actually returned, in the operator's words. */
+function verifyNotice(
+  code: string | undefined,
+  wait: string | undefined
+): { tone: "ok" | "warn" | "bad"; text: string } | null {
+  switch (code) {
+    case "verified":
+      return {
+        tone: "ok",
+        text: "Ownership verified. The TXT record matches the challenge, and sending from this domain is unblocked.",
+      };
+    case "mismatch":
+      return {
+        tone: "bad",
+        text: "The TXT record exists but does not match the challenge value. The customer's DNS is right in the wrong way — give them the exact expected value.",
+      };
+    case "dns_error":
+      return {
+        tone: "bad",
+        text: "The DNS lookup failed. That is a resolver problem or a missing record, not a wrong one; nothing was verified.",
+      };
+    case "expired":
+      return {
+        tone: "warn",
+        text: "The challenge expired before verification completed. The customer has to mint a fresh token from their own dashboard.",
+      };
+    case "rate_limited":
+      return {
+        tone: "warn",
+        text: `Attempt limit reached for this domain. Try again in ${
+          wait ? Number(wait) : 0
+        } seconds — the budget is shared with the customer's own clicks.`,
+      };
+    case "cross_tenant":
+      return {
+        tone: "bad",
+        text: "That domain is verified by a different organization. Check for a duplicate claim before touching anything.",
+      };
+    case "not_found":
+    case "missing":
+      return { tone: "bad", text: "That domain no longer exists, so nothing was checked." };
+    case "forbidden":
+      return { tone: "bad", text: "Read-only role: analysts cannot change verification state." };
+    default:
+      return null;
+  }
+}
+
 /**
  * Domain truth, in one place.
  *
@@ -31,10 +81,12 @@ function isFilter(value: string | undefined): value is DomainStatusFilter {
 export default async function DomainsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; verify?: string; wait?: string }>;
 }) {
-  await requireSection("customers");
+  const ctx = await requireSection("customers");
+  const readOnly = (READ_ONLY_ROLES as string[]).includes(ctx.role);
   const params = await searchParams;
+  const notice = verifyNotice(params.verify, params.wait);
   const filter: DomainStatusFilter = isFilter(params.status) ? params.status : "all";
   const search = (params.q ?? "").slice(0, 120);
   const { counts, rows } = await domainOverview(filter, search);
@@ -47,8 +99,17 @@ export default async function DomainsPage({
       <PageHeader
         eyebrow="Customers"
         title="Domains"
-        subtitle="Every sending domain in the estate: the name, the public URL, the workspace that owns it, and whether verification and DKIM are actually in place."
+        subtitle="Every sending domain in the estate: the name, the public URL, the workspace that owns it, and whether verification and DKIM are actually in place. “Check now” re-reads DNS through the same path the customer's own verify button uses — and shares its attempt budget."
       />
+
+      {notice ? (
+        <div className="cp-panel" style={{ marginBottom: 16 }}>
+          <div className="cp-panel-body" style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <Badge tone={notice.tone}>{params.verify}</Badge>
+            <p style={{ margin: 0, fontSize: 13.5 }}>{notice.text}</p>
+          </div>
+        </div>
+      ) : null}
 
       <div className="cp-stats">
         <Stat
@@ -133,6 +194,7 @@ export default async function DomainsPage({
                   <th>Workspace</th>
                   <th>Verified</th>
                   <th>Added</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -212,6 +274,23 @@ export default async function DomainsPage({
                     </td>
                     <td className="mono" style={{ fontSize: 12.5, color: "var(--cp-muted)" }}>
                       {fmtAgo(new Date(r.createdAt))}
+                    </td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      {readOnly ? (
+                        <span style={{ fontSize: 12, color: "var(--cp-faint)" }}>read only</span>
+                      ) : (
+                        <form action={reverifyDomain}>
+                          <input type="hidden" name="domainId" value={r.id} />
+                          <input type="hidden" name="projectId" value={r.projectId} />
+                          <button
+                            className="ds-btn ds-btn-secondary ds-btn-sm"
+                            type="submit"
+                            title="Re-check DNS ownership now. Does not email the customer."
+                          >
+                            {r.status === "verified" ? "Re-check" : "Check now"}
+                          </button>
+                        </form>
+                      )}
                     </td>
                   </tr>
                 ))}
