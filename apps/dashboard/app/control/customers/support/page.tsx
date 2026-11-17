@@ -82,6 +82,10 @@ export default async function SupportPage({
   const [queue, params] = await Promise.all([triageQueue(), searchParams]);
   const { counts, items, unreadable, checked, acknowledged } = queue;
   const notice = params.ack ? ACK_NOTICE[params.ack] : undefined;
+  // `unreadable` also carries the acknowledgement lookup, which is not one of
+  // the seven signals — counting it would make a failed ack read as "a signal
+  // is missing", so the readable count is derived from the signal names only.
+  const readableSignals = checked.filter((label) => !unreadable.includes(label)).length;
   const grouped = SEVERITY_ORDER.map((severity) => ({
     severity,
     rows: items.filter((i) => i.severity === severity),
@@ -150,7 +154,7 @@ export default async function SupportPage({
       {items.length === 0 ? (
         <Panel
           title="Nothing needs you right now"
-          caption={`${fmtInt(checked.length - unreadable.length)} signals read, all quiet`}
+          caption={`${fmtInt(readableSignals)} signals read, all quiet`}
         >
           <Empty title="No blocked workspaces, expiring deletions, or failing deliveries">
             An empty queue means these seven checks passed, not that every customer is happy. Mail
