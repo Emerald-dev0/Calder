@@ -248,6 +248,13 @@ export async function sendToProductUsers(formData: FormData) {
     // The sends already happened; an audit write failure must not hide them.
   }
 
+  // The named list travels back in the URL so "send the rest" needs no retyping.
+  // A very long list is not carried: silently truncating it would change who the
+  // next press reaches, so the page is told instead and asks for it again.
+  const selectedEcho =
+    audience === "selected" && selectedRaw.length <= 2000 ? selectedRaw : undefined;
+  const selectedTooLong = audience === "selected" && selectedEcho === undefined ? 1 : undefined;
+
   revalidatePath("/control/communications/company");
   redirect(
     `/control/communications/company?${redirectParams({
@@ -264,7 +271,8 @@ export async function sendToProductUsers(formData: FormData) {
       audience,
       // Keep the named list so "send the rest" is one click with the same people,
       // instead of retyping an audience the page already proved.
-      selected: audience === "selected" ? selectedRaw : undefined,
+      selected: selectedEcho,
+      selectedTooLong,
       from: sender.email,
     })}`
   );

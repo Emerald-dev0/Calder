@@ -96,6 +96,8 @@ export default async function CompanyEmailPage({
     remaining?: string;
     /** Rows that already existed for this batch: nothing was sent again. */
     replayed?: string;
+    /** Set when the named list was too long to carry back in the form. */
+    selectedTooLong?: string;
     /** The GET preview step: the operator's own draft, read back from the URL. */
     template?: string;
     title?: string;
@@ -334,6 +336,18 @@ export default async function CompanyEmailPage({
         </div>
       ) : null}
 
+      {query.selectedTooLong ? (
+        <div className="cp-panel" style={{ marginBottom: 16 }}>
+          <div className="cp-panel-body">
+            <p style={{ margin: 0, fontSize: 13.5 }}>
+              That list was too long to carry back in the form. The batch still remembers everyone
+              it reached — paste the same names below and press <b>Send</b> to continue where it
+              stopped. Nobody is mailed twice.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <div className="cp-stats">
         <Stat label="Sent · 30 days" value={Number(totals?.sent ?? 0)} hint="provider accepted" />
         <Stat
@@ -543,6 +557,11 @@ export default async function CompanyEmailPage({
             {readOnly ? (
               <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: 0 }}>
                 Ask a founder or an operator with write access to send.
+              </p>
+            ) : query.selectedTooLong && audienceScope === "selected" ? (
+              <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: 0 }}>
+                Paste the names again above and preview once more: this page will not guess who you
+                meant.
               </p>
             ) : progress && progress.remaining === 0 ? (
               <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: 0 }}>
