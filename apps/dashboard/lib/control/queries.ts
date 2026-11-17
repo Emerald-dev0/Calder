@@ -44,6 +44,7 @@ import {
   sessions,
   subscriptions,
   suppressions,
+  triageAcknowledgements,
   usageRecords,
   users,
   waitlistSignups,
@@ -52,6 +53,7 @@ import {
 } from "@calder/db";
 import { getDb, gmailAllowanceForTransport } from "@calder/db";
 import {
+  countTriage,
   buildTriageQueue,
   type BlockedSenderRow,
   type FailingProjectRow,
@@ -60,6 +62,12 @@ import {
   type RevokedTransportRow,
   type TriageQueue,
 } from "./triage";
+import {
+  latestAcksByItem,
+  splitByAcknowledgement,
+  type AckRecord,
+  type AcknowledgedItem,
+} from "./acknowledgements";
 
 /**
  * Control Plane data access. Every function here is a live query — the
@@ -2257,7 +2265,15 @@ export async function domainOverview(
  * query threw is worse than one that shows nine items and admits it could not
  * check the tenth.
  */
-export async function triageQueue(now = new Date()): Promise<TriageQueue> {
+/** The Support page's queue: open work plus what an operator has already seen. */
+export interface SupportQueue extends TriageQueue {
+  /** Acknowledged and still covered: hidden from the open queue, never deleted. */
+  acknowledged: AcknowledgedItem[];
+  /** Distinct items that carry any acknowledgement history. */
+  acknowledgementCount: number;
+}
+
+export async function triageQueue(now = new Date()): Promise<SupportQueue> {
   const db = getDb();
   const unreadable: string[] = [];
 
@@ -2499,6 +2515,33 @@ export async function triageQueue(now = new Date()): Promise<TriageQueue> {
     ),
   ]);
 
+  // Acknowledgements are read separately so a failure here cannot hide work:
+  // an unreadable ack table means every item shows as open, which is the
+  // safe direction. `signal` records that it happened.
+  const ackRows = await signal(
+    "acknowledgements",
+    async () => {
+      const rows = await db
+        .select({
+          id: triageAcknowledgements.id,
+          itemId: triageAcknowledgements.itemId,
+          fingerprint: triageAcknowledgements.fingerprint,
+          title: triageAcknowledgements.title,
+          note: triageAcknowledgements.note,
+          acknowledgedByUserId: triageAcknowledgements.acknowledgedByUserId,
+          acknowledgedByEmail: users.email,
+          acknowledgedAt: triageAcknowledgements.acknowledgedAt,
+          reopenedAt: triageAcknowledgements.reopenedAt,
+        })
+        .from(triageAcknowledgements)
+        .leftJoin(users, eq(triageAcknowledgements.acknowledgedByUserId, users.id))
+        .orderBy(desc(triageAcknowledgements.acknowledgedAt))
+        .limit(2000);
+      return rows as AckRecord[];
+    },
+    []
+  );
+
   const queue = buildTriageQueue({
     now,
     pausedWorkspaces,
@@ -2512,5 +2555,13 @@ export async function triageQueue(now = new Date()): Promise<TriageQueue> {
 
   // `checked` travels with the queue so the page can state which signals were
   // looked at even when they are all quiet.
-  return { ...queue, unreadable };
+  const split = splitByAcknowledgement(queue.items, ackRows, now);
+  return {
+    ...queue,
+    items: split.open,
+    counts: countTriage(split.open),
+    acknowledged: split.acknowledged,
+    acknowledgementCount: latestAcksByItem(ackRows).size,
+    unreadable,
+  };
 }

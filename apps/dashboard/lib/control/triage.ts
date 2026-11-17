@@ -46,6 +46,20 @@ export interface TriageItem {
   organizationName: string;
   /** When the condition started, when the row knows. Used only for ordering. */
   since: Date | null;
+  /**
+   * The evidence that makes this *this* condition, in a form that can be
+   * hashed: a domain's verification state, a webhook's failure count, an
+   * escalation. An acknowledgement is bound to it, so new evidence reopens
+   * the item without waiting for anything else.
+   */
+  evidence: string;
+}
+
+/** Failure counts move every hour; re-alert on order-of-magnitude change, not on +1. */
+export function failureBucket(n: number): string {
+  if (n < 10) return "<10";
+  if (n < 100) return "10-99";
+  return "100+";
 }
 
 export interface TriageCounts {
@@ -234,6 +248,7 @@ export function buildTriageQueue(input: TriageInput): TriageQueue {
       href: `/control/customers/organizations/${w.id}`,
       organizationName: w.name,
       since: w.sendingStatusAt,
+      evidence: `status=${w.status}`,
     });
   }
 
@@ -256,6 +271,7 @@ export function buildTriageQueue(input: TriageInput): TriageQueue {
       href: `/control/customers/organizations/${d.id}`,
       organizationName: d.name,
       since: d.deletionScheduledFor,
+      evidence: `due=${d.deletionScheduledFor.toISOString()}`,
     });
   }
 
@@ -279,6 +295,7 @@ export function buildTriageQueue(input: TriageInput): TriageQueue {
       href: `/control/customers/domains?status=${d.status}&q=${encodeURIComponent(d.domain)}`,
       organizationName: d.organizationName,
       since: d.createdAt,
+      evidence: `status=${d.status}`,
     });
   }
 
@@ -299,6 +316,7 @@ export function buildTriageQueue(input: TriageInput): TriageQueue {
       href: "/control/platform/webhooks",
       organizationName: w.organizationName,
       since: w.lastAttemptAt,
+      evidence: `lost=${failureBucket(w.failedAttempts)}`,
     });
   }
 
@@ -321,6 +339,7 @@ export function buildTriageQueue(input: TriageInput): TriageQueue {
       href: "/control/customers/projects",
       organizationName: p.organizationName,
       since: null,
+      evidence: `failed=${failureBucket(p.failed)}|bounced=${failureBucket(p.bounced)}`,
     });
   }
 
@@ -340,6 +359,7 @@ export function buildTriageQueue(input: TriageInput): TriageQueue {
       href: `/control/customers/organizations/${s.organizationId}`,
       organizationName: s.organizationName,
       since: s.updatedAt,
+      evidence: `status=${s.status}`,
     });
   }
 
@@ -357,6 +377,7 @@ export function buildTriageQueue(input: TriageInput): TriageQueue {
       href: `/control/customers/organizations/${t.organizationId}`,
       organizationName: t.organizationName,
       since: t.updatedAt,
+      evidence: `type=${t.type}`,
     });
   }
 
