@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { eq, inArray, isNotNull } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auditLogs, emailPreferences, getDb, users } from "@calder/db";
@@ -13,6 +13,11 @@ import {
   renderDraftPreview,
   validateDraft,
 } from "@/lib/control/company-draft";
+import {
+  audienceFilter,
+  parseAudience,
+  requiresUnverifiedConfirmation,
+} from "@/lib/control/audience";
 
 /**
  * Operator sends to the product's own users.
@@ -75,6 +80,16 @@ export async function sendToProductUsers(formData: FormData) {
     throw new Error("Confirm you have read the preview before sending.");
   }
 
+  // The wide audience is a separate decision from "I read the preview": it
+  // spends sending reputation on addresses that may not exist, so it has its
+  // own acknowledgement and the server, not the form, enforces it.
+  const audience = parseAudience(formData.get("audience"));
+  if (requiresUnverifiedConfirmation(audience) && formData.get("confirmUnverified") !== "on") {
+    throw new Error(
+      "Confirm that you understand the wide audience includes unverified addresses before sending."
+    );
+  }
+
   // Render once before the first recipient: a template error must not
   // half-send, and the rendered document is what the preview showed.
   renderDraftPreview(template, draft);
@@ -83,7 +98,10 @@ export async function sendToProductUsers(formData: FormData) {
   const recipients = await db
     .select({ id: users.id, email: users.email, name: users.name })
     .from(users)
-    .where(isNotNull(users.emailVerifiedAt))
+    // Narrow by default. The predicate itself lives in lib/control/audience so
+    // the wide path is a deliberate branch rather than a missing filter that
+    // someone could widen by accident later.
+    .where(audienceFilter(audience))
     .limit(MAX_RECIPIENTS + 1);
   if (recipients.length > MAX_RECIPIENTS) {
     throw new Error(
@@ -143,6 +161,7 @@ export async function sendToProductUsers(formData: FormData) {
         template,
         title,
         batch,
+        audience,
         recipients: recipients.length,
         sent,
         skipped,

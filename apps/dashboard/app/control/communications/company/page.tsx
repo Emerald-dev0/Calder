@@ -20,6 +20,12 @@ import {
   renderDraftPreview,
   validateDraft,
 } from "@/lib/control/company-draft";
+import {
+  AUDIENCE_OPTIONS,
+  describeAudience,
+  parseAudience,
+  requiresUnverifiedConfirmation,
+} from "@/lib/control/audience";
 import { Badge, Empty, PageHeader, Panel, Stat } from "@/app/control/_components/ui";
 import { sendTestToSelf, sendToProductUsers } from "./actions";
 
@@ -57,6 +63,8 @@ export default async function CompanyEmailPage({
     preview?: string;
     /** `operator` = broadcasts sent from this console; `all` = every company email. */
     scope?: string;
+    /** `verified` (default) or `everyone`, chosen per send. */
+    audience?: string;
     /** The GET preview step: the operator's own draft, read back from the URL. */
     template?: string;
     title?: string;
@@ -136,12 +144,18 @@ export default async function CompanyEmailPage({
 
   const readOnly = (READ_ONLY_ROLES as string[]).includes(ctx.role);
 
-  // Who this run would reach. Shown before sending because "mail every verified
-  // account" is a number an operator should see, not infer.
-  const [audience] = await db
-    .select({ verified: count() })
+  // Who this run would reach, in both directions. "Mail every verified account"
+  // is a number an operator should see rather than infer — and so is how many
+  // accounts the narrow audience would leave out.
+  const [verifiedRow] = await db
+    .select({ n: count() })
     .from(users)
     .where(isNotNull(users.emailVerifiedAt));
+  const [totalRow] = await db.select({ n: count() }).from(users);
+  const verifiedCount = Number(verifiedRow?.n ?? 0);
+  const totalCount = Number(totalRow?.n ?? 0);
+  const audienceScope = parseAudience(query.audience);
+  const audienceCount = audienceScope === "everyone" ? totalCount : verifiedCount;
 
   const selectedTemplate = SENDABLE.some((option) => option.id === query.template)
     ? (query.template as (typeof SENDABLE)[number]["id"])
@@ -242,7 +256,7 @@ export default async function CompanyEmailPage({
         caption={
           readOnly
             ? "Your role can inspect this page but not send."
-            : "Preview the exact email before it goes anywhere. Verified accounts only, capped at 500 per run."
+            : "Preview the exact email before it goes anywhere. Choose who it reaches; the cap is 500 recipients per run."
         }
       >
         {readOnly ? (
@@ -293,6 +307,20 @@ export default async function CompanyEmailPage({
               Merge fields: {MERGE_FIELDS.map((field) => `{{${field}}}`).join(", ")} — replaced with
               each recipient&apos;s own name, or &quot;there&quot; when the account has none. Any
               other field is refused rather than sent literally.
+            </p>
+            <label style={{ display: "grid", gap: 6, fontSize: 12.5, fontWeight: 600 }}>
+              Audience
+              <select name="audience" className="cp-select" defaultValue={audienceScope}>
+                {AUDIENCE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p style={{ fontSize: 12, color: "var(--cp-muted)", margin: 0 }}>
+              {describeAudience(audienceScope, verifiedCount, totalCount)}{" "}
+              {AUDIENCE_OPTIONS.find((option) => option.value === audienceScope)?.description}
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <label style={{ display: "grid", gap: 6, fontSize: 12.5, fontWeight: 600 }}>
@@ -355,7 +383,7 @@ export default async function CompanyEmailPage({
             caption={
               readOnly
                 ? "Your role can inspect this page but not send."
-                : `This mails every verified account — ${Number(audience?.verified ?? 0)} today, hard cap 500 per run. Optional categories are honoured per recipient.`
+                : `${describeAudience(audienceScope, verifiedCount, totalCount)} Optional categories are honoured per recipient.`
             }
           >
             {readOnly ? (
@@ -369,10 +397,35 @@ export default async function CompanyEmailPage({
                 <input type="hidden" name="body" value={draft.body} />
                 <input type="hidden" name="ctaLabel" value={draft.ctaLabel ?? ""} />
                 <input type="hidden" name="ctaUrl" value={draft.ctaUrl ?? ""} />
+                <input type="hidden" name="audience" value={audienceScope} />
                 <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12.5 }}>
                   <input type="checkbox" name="confirm" required />I have read the preview above and
-                  understand this mails every verified account.
+                  understand this mails {audienceCount}{" "}
+                  {audienceScope === "everyone" ? "accounts" : "verified accounts"}.
                 </label>
+                {requiresUnverifiedConfirmation(audienceScope) ? (
+                  <label
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "flex-start",
+                      fontSize: 12.5,
+                      color: "var(--color-warning)",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      name="confirmUnverified"
+                      required
+                      style={{ marginTop: 3 }}
+                    />
+                    <span>
+                      I understand {Math.max(0, totalCount - verifiedCount)} of these accounts never
+                      confirmed their address. Some may not exist, and a bounce is charged to
+                      Calder&apos;s sending reputation, not just this run.
+                    </span>
+                  </label>
+                ) : null}
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <button type="submit" className="cp-btn primary">
                     Send batch
