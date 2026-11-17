@@ -1,4 +1,4 @@
-import { resolveTxt } from "node:dns/promises";
+import { resolveMx, resolveTxt } from "node:dns/promises";
 import { randomBytes } from "node:crypto";
 
 /**
@@ -112,4 +112,124 @@ export async function checkOwnership(
     // Never echo unlimited DNS data into API responses/logs.
     found: found.slice(0, 5),
   };
+}
+
+/* ── Receiving domains (Stage 3) ──────────────────────────────────────────── */
+
+/**
+ * Receiving uses a *different* challenge name from sending on purpose: a
+ * customer may want `acme.com` to send with us and `inbox.acme.com` to receive
+ * with us, and two different TXT records on one name cannot coexist.
+ */
+export const INBOUND_TXT_HOST_PREFIX = "_calder-inbound";
+export const INBOUND_TXT_VALUE_PREFIX = "calder-inbound=";
+
+export function expectedInboundTxtHost(domain: string): string {
+  return `${INBOUND_TXT_HOST_PREFIX}.${domain}`;
+}
+
+export function expectedInboundTxtValue(token: string): string {
+  return `${INBOUND_TXT_VALUE_PREFIX}${token}`;
+}
+
+export interface MxRecord {
+  exchange: string;
+  priority: number;
+}
+
+export type MxOracle = (domain: string) => Promise<MxRecord[]>;
+
+/**
+ * MX via the system resolver, falling back to DoH (type 15).
+ *
+ * `[]` and "no such host" both mean "no MX", which is a *safe* answer here: a
+ * domain with no MX cannot currently receive mail from anyone, so pointing it
+ * at us disrupts nothing.
+ */
+export function defaultMxOracle(fetchImpl: typeof fetch = fetch): MxOracle {
+  return async (domain) => {
+    try {
+      const rows = await Promise.race([
+        resolveMx(domain),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("DNS timeout")), DNS_TIMEOUT_MS)
+        ),
+      ]);
+      return rows
+        .map((r) => ({
+          exchange: r.exchange.replace(/\.$/, "").toLowerCase(),
+          priority: r.priority,
+        }))
+        .sort((a, b) => a.priority - b.priority);
+    } catch (e) {
+      const code = (e as { code?: string }).code;
+      if (code === "ENOTFOUND" || code === "ENODATA") return [];
+      try {
+        return await dohMx(domain, fetchImpl);
+      } catch (inner) {
+        const err = inner as Error & { name?: string };
+        if (err.name === "AbortError") throw new Error("MX lookup timed out");
+        throw new Error("MX lookup failed (resolver unreachable)");
+      }
+    }
+  };
+}
+
+async function dohMx(domain: string, fetchImpl: typeof fetch): Promise<MxRecord[]> {
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), 4_000);
+  try {
+    // MX = type 15. `data` looks like "10 inbound-smtp.us-east-1.amazonaws.com."
+    const url = `https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=15`;
+    const res = await fetchImpl(url, { signal: ac.signal });
+    if (!res.ok) throw new Error(`DoH ${res.status}`);
+    const body = (await res.json()) as { Answer?: { data?: string; type?: number }[] };
+    return (body.Answer ?? [])
+      .filter((a) => a.type === 15)
+      .map((a) => {
+        const [priority, exchange] = (a.data ?? "").trim().split(/\s+/);
+        return {
+          exchange: (exchange ?? "").replace(/\.$/, "").toLowerCase(),
+          priority: Number(priority ?? 0),
+        };
+      })
+      .filter((r) => r.exchange.length > 0)
+      .sort((a, b) => a.priority - b.priority);
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+export type MxVerdict =
+  | { kind: "points_to_us"; records: MxRecord[] }
+  /** Someone else receives this domain today (Google Workspace, M365, …). */
+  | { kind: "foreign"; records: MxRecord[]; others: MxRecord[] }
+  | { kind: "no_mx" }
+  | { kind: "dns_error"; message: string };
+
+/**
+ * Pure: does this domain's MX point only at us?
+ *
+ * Deliberately strict. A domain whose MX still includes Google or Microsoft
+ * must NOT be switched on: adding ours alongside theirs would split delivery
+ * between two providers and silently lose mail in one of them. The customer
+ * chooses a dedicated receiving subdomain instead, which is the whole point of
+ * the subdomain-first onboarding in the audit.
+ */
+export async function checkMx(mx: MxOracle, domain: string, ourHost: string): Promise<MxVerdict> {
+  let records: MxRecord[];
+  try {
+    records = await mx(domain);
+  } catch (e) {
+    return { kind: "dns_error", message: e instanceof Error ? e.message : "MX lookup failed" };
+  }
+  const ourHostLower = ourHost.toLowerCase();
+  const ours = records.filter((r) => r.exchange === ourHostLower);
+  const others = records.filter((r) => r.exchange !== ourHostLower);
+  if (ours.length > 0) {
+    if (others.length > 0) return { kind: "foreign", records, others };
+    return { kind: "points_to_us", records };
+  }
+  if (records.length === 0) return { kind: "no_mx" };
+  return { kind: "foreign", records, others };
 }

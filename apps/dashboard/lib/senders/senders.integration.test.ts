@@ -600,4 +600,49 @@ gate("senders (live Postgres)", async () => {
     });
     expect(afterArchive.id).toMatch(/^sender_/);
   });
+
+  it("keeps the raw-address policy off by default and refuses to enable it blind", async () => {
+    const db = getDb();
+    const before = await svc.rawSenderPolicy(actorA(), projectA);
+    expect(before.enabled).toBe(false);
+    expect(before.canManage).toBe(true);
+
+    // No verified domain on file here: enabling would authorise nothing, so it
+    // is refused rather than silently doing nothing.
+    const bare = await db
+      .select({ domain: domains.domain })
+      .from(domains)
+      .where(and(eq(domains.projectId, projectA), eq(domains.status, "verified")));
+    if (bare.length === 0) {
+      await expect(svc.setRawSenderPolicy(actorA(), projectA, true)).rejects.toThrow(
+        /Verify a domain/
+      );
+    }
+
+    await db.insert(domains).values({
+      id: `dom_raw_${suffix}`,
+      projectId: projectA,
+      domain: `raw-${suffix}.test`,
+      status: "verified",
+      verifiedAt: new Date(),
+    });
+    const after = await svc.setRawSenderPolicy(actorA(), projectA, true);
+    expect(after.enabled).toBe(true);
+    expect(after.verifiedDomains).toContain(`raw-${suffix}.test`);
+
+    // Persisted, not just returned.
+    expect((await svc.rawSenderPolicy(actorA(), projectA)).enabled).toBe(true);
+
+    const off = await svc.setRawSenderPolicy(actorA(), projectA, false);
+    expect(off.enabled).toBe(false);
+  });
+
+  it("does not let another workspace read or change the policy", async () => {
+    await expect(svc.rawSenderPolicy(actorB(), projectA)).rejects.toBeInstanceOf(
+      svc.SenderNotFoundError
+    );
+    await expect(svc.setRawSenderPolicy(actorB(), projectA, true)).rejects.toBeInstanceOf(
+      svc.SenderNotFoundError
+    );
+  });
 });

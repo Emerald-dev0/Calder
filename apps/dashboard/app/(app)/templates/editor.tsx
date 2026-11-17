@@ -102,7 +102,10 @@ export function TemplateEditor({
         router.push(`/templates/${r.id}`);
       } else {
         const r = await addTemplateVersion(projectId, templateId!, { subject, html, text });
-        setNotice(`Saved as ${r.version} — new sends use it immediately.`);
+        setNotice(
+          `Saved as ${r.version}. It is a draft: sends keep using the published version ` +
+            "until you publish this one."
+        );
         router.refresh();
       }
     } catch (e) {
@@ -297,7 +300,7 @@ export function TemplateEditor({
                 className="ds-btn ds-btn-primary"
               >
                 <Save size={14} />
-                <span>{mode === "create" ? "Create template" : "Save new version"}</span>
+                <span>{mode === "create" ? "Create template" : "Save draft"}</span>
               </button>
 
               {mode === "edit" && (

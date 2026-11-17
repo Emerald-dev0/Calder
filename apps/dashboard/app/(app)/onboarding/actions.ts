@@ -369,6 +369,23 @@ export async function createProject(input: {
       break;
     }
   }
+  // Plan ceiling: enforced here because this is a creation path. Without it a
+  // Beginner workspace could hold unlimited projects, and a project transfer
+  // could be used to dodge the limit entirely.
+  const { assertCanCreateResource, ResourceLimitError } = await import("@calder/db");
+  try {
+    await assertCanCreateResource(db, input.orgId, "projects");
+  } catch (err) {
+    if (err instanceof ResourceLimitError) {
+      throw new Error(
+        `${err.message} Your ${err.displayName} plan includes ${err.limit ?? "no"} project${
+          err.limit === 1 ? "" : "s"
+        }.${err.upgradeDisplayName ? ` Upgrade to ${err.upgradeDisplayName} for more.` : ""}`
+      );
+    }
+    throw err;
+  }
+
   const projectId = rid("proj");
   await db.insert(projects).values({
     id: projectId,
@@ -958,6 +975,28 @@ export async function checkDomainDns(domainId: string) {
   const { mapVerifyOutcome } = await import("../../../lib/domain-verify-result");
   const outcome = await attemptVerification(db, row.projectId, domainId);
   return mapVerifyOutcome(outcome);
+}
+
+/**
+ * SPF and DMARC, read live from DNS.
+ *
+ * The domain row already knows ownership and DKIM from our own records; these
+ * two exist only in DNS, and until now nobody looked. Read-only: no attempt
+ * budget, no state written, so the UI can refresh it on a timer.
+ */
+export async function checkDomainAuth(domainId: string) {
+  const ctx = await getTenantContext();
+  const db = getDb();
+  const projectIds = new Set(ctx.memberships.flatMap((m) => m.projects.map((p) => p.id)));
+  if (projectIds.size === 0) throw new Error("Domain not found.");
+  const [row] = await db
+    .select({ id: domains.id, projectId: domains.projectId, domain: domains.domain })
+    .from(domains)
+    .where(and(eq(domains.id, domainId), inArray(domains.projectId, [...projectIds])))
+    .limit(1);
+  if (!row) throw new Error("Domain not found.");
+  const { checkDomainAuth: runChecks } = await import("@calder/db");
+  return runChecks(row.domain);
 }
 
 /**

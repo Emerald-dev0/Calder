@@ -48,6 +48,8 @@ export interface E2eTenant {
   liveKeyId: string;
   liveApiKey: string;
   from: string;
+  /** Verified sender identity for `from` — a live send needs one (F-07). */
+  senderId: string;
 }
 
 /**
@@ -60,6 +62,7 @@ export async function provisionTenant(label: string): Promise<E2eTenant> {
     organizations,
     organizationMembers,
     projects,
+    senderIdentities,
     users,
     insertApiKeyForActiveOrganization,
   } = await import("@calder/db");
@@ -81,6 +84,26 @@ export async function provisionTenant(label: string): Promise<E2eTenant> {
   await db
     .insert(projects)
     .values({ id: projectId, organizationId: orgId, name: "E2E", slug: "e2e" });
+
+  // A verified sender identity for the address the suite sends from.
+  //
+  // Live sends must resolve to an identity we can vouch for (F-07: a live send
+  // from an address nobody verified is refused with `sender_not_ready`). This
+  // fixture predates that rule, so every live send in the suite was being
+  // refused at ingest — the journey asserted delivery for a message the API had
+  // never accepted. Provisioning the identity is what a real customer has, and
+  // it restores the test's actual subject: queue → worker → delivery → meter.
+  const from = `e2e-${label}-${suffix}@test.test`;
+  const senderId = `snd_e2e_${label}_${suffix}`;
+  await db.insert(senderIdentities).values({
+    id: senderId,
+    projectId,
+    displayName: `E2E ${label}`,
+    email: from,
+    type: "domain",
+    status: "verified",
+    isDefault: true,
+  });
 
   // Test-environment key: sends go through the mock provider and are never
   // metered into billable usage (ADR-036). The suite still asserts a usage row
@@ -122,7 +145,8 @@ export async function provisionTenant(label: string): Promise<E2eTenant> {
     keyPrefix: generated.prefix,
     liveKeyId,
     liveApiKey: live.secret,
-    from: `e2e-${label}-${suffix}@test.test`,
+    from,
+    senderId,
   };
 }
 

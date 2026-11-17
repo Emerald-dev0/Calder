@@ -23,8 +23,8 @@ function limit(value: number | null): string {
  * label here — a new limit cannot appear in the matrix as a bare field name.
  */
 const UNENFORCED_LABEL: Record<UnenforcedPlanLimit, (plan: PlanLimit) => string> = {
-  retentionDays: (plan) => `retention ${limit(plan.retentionDays)}d`,
   gmailSenders: (plan) => `Gmail senders ${limit(plan.gmailSenders)}`,
+  inboundStorageMb: (plan) => `inbound storage ${limit(plan.inboundStorageMb)} MB`,
 };
 
 function unenforcedSummary(plan: PlanLimit): string {
@@ -98,6 +98,7 @@ export default async function EntitlementsPage() {
                 <th className="cp-num">Domains</th>
                 <th className="cp-num">Senders</th>
                 <th className="cp-num">Seats</th>
+                <th className="cp-num">Retention</th>
                 <th>Recorded, not enforced</th>
               </tr>
             </thead>
@@ -126,6 +127,9 @@ export default async function EntitlementsPage() {
                     <td className="cp-num">{limit(plan.domains)}</td>
                     <td className="cp-num">{limit(plan.senders)}</td>
                     <td className="cp-num">{limit(plan.seats)}</td>
+                    <td className="cp-num">
+                      {plan.retentionDays === null ? "custom" : `${plan.retentionDays} d`}
+                    </td>
                     <td style={{ fontSize: 12.5, color: "var(--cp-muted)" }}>
                       {unenforcedSummary(plan)}
                     </td>

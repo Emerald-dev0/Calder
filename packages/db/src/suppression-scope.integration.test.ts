@@ -51,6 +51,9 @@ gate("suppression scope (live Postgres)", () => {
   afterAll(async () => {
     // Children cascade from projects and organizations.
     await db
+      .delete(schema.sesSuppressions)
+      .where(eq(schema.sesSuppressions.email, `account-${SUFFIX}@example.test`));
+    await db
       .delete(schema.projects)
       .where(inArray(schema.projects.id, [PROJ_A1, PROJ_A2, PROJ_B1]));
     await db.delete(schema.organizations).where(inArray(schema.organizations.id, [ORG_A, ORG_B]));
@@ -195,6 +198,66 @@ gate("suppression scope (live Postgres)", () => {
       stream: "transactional",
     });
     expect(blocked).toBeNull();
+  });
+
+  it("a provider-level suppression blocks every project, in every organization", async () => {
+    const email = `account-${SUFFIX}@example.test`;
+    await db.insert(schema.sesSuppressions).values({
+      email,
+      reason: "COMPLAINT",
+      source: "reconcile",
+    });
+
+    for (const projectId of [PROJ_A1, PROJ_A2, PROJ_B1]) {
+      const blocked = await guard.findBlockingSuppression(db, {
+        projectId,
+        email,
+        stream: "transactional",
+      });
+      expect(blocked).not.toBeNull();
+      expect(blocked!.source).toBe("account");
+      // SES's `COMPLAINT` is surfaced in our vocabulary, and it blocks both
+      // streams: a complaint is about the mailbox, not about a preference.
+      expect(blocked!.reason).toBe("complaint");
+      expect(blocked!.blocksAllStreams).toBe(true);
+      expect(blocked!.crossProject).toBe(true);
+    }
+  });
+
+  it("explains a provider-level block as the provider's list, not as another project", async () => {
+    const email = `account-${SUFFIX}@example.test`;
+    const blocked = await guard.findBlockingSuppression(db, {
+      projectId: PROJ_B1,
+      email,
+      stream: "marketing",
+    });
+    expect(blocked).not.toBeNull();
+    const message = guard.describeBlock(blocked!);
+    expect(message).toContain("provider");
+    expect(message).not.toContain("another project");
+    expect(message).not.toContain("this project");
+  });
+
+  it("matches a provider-level address case-insensitively", async () => {
+    const blocked = await guard.findBlockingSuppression(db, {
+      projectId: PROJ_A1,
+      email: `ACCOUNT-${SUFFIX}@EXAMPLE.TEST`,
+      stream: "transactional",
+    });
+    expect(blocked).not.toBeNull();
+    expect(blocked!.source).toBe("account");
+  });
+
+  it("a provider-level suppression outranks a project-local row, because AWS enforces it", async () => {
+    const email = `account-${SUFFIX}@example.test`;
+    await addSuppression(PROJ_A1, email, "manual");
+
+    const blocked = await guard.findBlockingSuppression(db, {
+      projectId: PROJ_A1,
+      email,
+      stream: "transactional",
+    });
+    expect(blocked!.source).toBe("account");
   });
 
   it("the trigger keeps organization_id populated, which the guard relies on", async () => {

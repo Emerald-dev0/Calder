@@ -9,6 +9,7 @@ import {
   SESSION_COOKIE,
 } from "@calder/auth";
 import { postLoginRedirect } from "../../../../../lib/control/post-login";
+import { invitedOrgCookieHeader } from "../../../../../lib/org-cookie";
 import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { sendSecurityEmail } from "../../../../../lib/send-security-email";
 
@@ -48,7 +49,7 @@ export async function GET(req: Request): Promise<Response> {
   }
   try {
     const previous = await getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
-    const sessionId = await consumeMagicLink(
+    const { sessionId, invitedOrganizationIds } = await consumeMagicLink(
       token,
       {
         userAgent: req.headers.get("user-agent"),
@@ -73,6 +74,8 @@ export async function GET(req: Request): Promise<Response> {
     }
     const res = redirectSafe(target);
     res.headers.append("Set-Cookie", sessionCookieHeader(sealed, 30 * 24 * 60 * 60));
+    const invitedOrg = invitedOrgCookieHeader(invitedOrganizationIds);
+    if (invitedOrg) res.headers.append("Set-Cookie", invitedOrg);
     return res;
   } catch {
     return redirectSafe("/login?error=link");

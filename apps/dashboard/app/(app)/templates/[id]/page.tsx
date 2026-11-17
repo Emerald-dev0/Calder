@@ -4,8 +4,15 @@ import { getDb, templates, templateVersions } from "@calder/db";
 import { getTenantContext } from "../../../../lib/auth";
 import { EmptyState } from "../../../../components/empty-state";
 import { TemplateEditor } from "../editor";
+import { PublishVersionButton } from "../publish-version";
+import { templateAiPrompt } from "../actions";
 import { FileCode2, ArrowLeft, History } from "lucide-react";
-import { DsPageHeader, StatusPill, RelativeTime } from "../../../../components/design-system";
+import {
+  DsPageHeader,
+  StatusPill,
+  RelativeTime,
+  CopyField,
+} from "../../../../components/design-system";
 
 export const metadata = { title: "Calder — Template" };
 
@@ -44,9 +51,12 @@ export default async function TemplateDetailPage({ params }: { params: Promise<{
     .select({
       id: templateVersions.id,
       version: templateVersions.version,
+      status: templateVersions.status,
       subject: templateVersions.subject,
       html: templateVersions.html,
       text: templateVersions.text,
+      variables: templateVersions.variables,
+      publishedAt: templateVersions.publishedAt,
       createdAt: templateVersions.createdAt,
     })
     .from(templateVersions)
@@ -55,6 +65,16 @@ export default async function TemplateDetailPage({ params }: { params: Promise<{
     .orderBy(desc(templateVersions.createdAt), desc(templateVersions.id))
     .limit(12);
   const latest = versions[0];
+  // What sends actually use: the newest published version, never a draft.
+  const published = versions.find((v) => v.status === "published") ?? null;
+  const hasDraft = versions.some((v) => v.status === "draft");
+  const prompt = await templateAiPrompt(tpl.projectId, tpl.id);
+  // Publishing changes what recipients receive, so it is a manager action —
+  // the same rule the API's `manage` scope enforces.
+  const canManage = ctx.memberships.some(
+    (m) =>
+      m.projects.some((p) => p.id === tpl.projectId) && (m.role === "owner" || m.role === "admin")
+  );
 
   return (
     <div>
@@ -62,12 +82,17 @@ export default async function TemplateDetailPage({ params }: { params: Promise<{
         icon={<FileCode2 size={18} />}
         title={tpl.name}
         badge={
-          <StatusPill
-            status="active"
-            label={`alias: ${tpl.alias ?? "none"} · ${latest?.version ?? "v1"}`}
-          />
+          published ? (
+            <StatusPill status="active" label={`live: ${published.version}`} />
+          ) : (
+            <StatusPill status="queued" label="not publishable yet" />
+          )
         }
-        description={`${versions.length} ${versions.length === 1 ? "version" : "versions"} · saving publishes a new immutable version; API sends resolve latest (${latest?.version ?? "none"}).`}
+        description={
+          published
+            ? `${versions.length} ${versions.length === 1 ? "version" : "versions"} · sends use the published version (${published.version})${hasDraft ? "; newer drafts are waiting" : ""}.`
+            : `No published version yet, so nothing can be sent from this template. Publish a version to make it sendable.`
+        }
         actions={
           <Link
             href="/templates"
@@ -92,11 +117,46 @@ export default async function TemplateDetailPage({ params }: { params: Promise<{
       />
 
       {versions.length > 0 && (
+        <div className="ds-card" style={{ marginTop: 20 }} data-testid="ai-prompt">
+          <div className="ds-card-header">
+            <div>
+              <h2 className="ds-card-title">Copy AI prompt</h2>
+              <p className="ds-card-subtitle">
+                A brief built from this template&apos;s own facts — its variables, subject, alias
+                and sending domain. It tells an assistant which variables it may use, so a rewrite
+                does not invent one that will never be supplied.
+              </p>
+            </div>
+          </div>
+          <div className="ds-card-body">
+            <pre
+              className="mono"
+              style={{
+                margin: "0 0 12px",
+                padding: 12,
+                maxHeight: 320,
+                overflow: "auto",
+                fontSize: 11.5,
+                lineHeight: 1.55,
+                whiteSpace: "pre-wrap",
+                background: "var(--color-surface-elevated)",
+                border: "1px solid var(--color-border)",
+                borderRadius: 8,
+              }}
+            >
+              {prompt}
+            </pre>
+            <CopyField value={prompt} compact />
+          </div>
+        </div>
+      )}
+
+      {versions.length > 0 && (
         <div className="ds-card" style={{ marginTop: 20 }}>
           <div className="ds-card-header">
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <History size={15} style={{ color: "var(--color-muted)" }} />
-              <h2 className="ds-card-title">Immutable Version History</h2>
+              <h2 className="ds-card-title">Version history</h2>
             </div>
           </div>
           <div className="ds-card-body" style={{ paddingTop: 8, paddingBottom: 8 }}>
@@ -113,16 +173,32 @@ export default async function TemplateDetailPage({ params }: { params: Promise<{
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <StatusPill status={i === 0 ? "active" : "queued"} label={`v${v.version}`} />
+                  <StatusPill
+                    status={v.status === "published" ? "active" : "queued"}
+                    label={`${v.version} · ${v.status === "published" ? "published" : "draft"}`}
+                  />
                   <span style={{ color: "var(--color-ink-secondary)" }}>
                     {v.subject || "(no subject)"}
                   </span>
+                  {v.status === "draft" && (
+                    <span style={{ fontSize: 11, color: "var(--color-muted)" }}>
+                      sends still use {published?.version ?? "nothing"}
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span className="mono" style={{ fontSize: 11, color: "var(--color-muted)" }}>
                     {v.html ? "HTML" : "Plaintext"}
                   </span>
-                  <RelativeTime value={v.createdAt} />
+                  {v.status === "draft" && (
+                    <PublishVersionButton
+                      projectId={tpl.projectId}
+                      templateId={tpl.id}
+                      version={v.version}
+                      canManage={canManage}
+                    />
+                  )}
+                  <RelativeTime value={v.publishedAt ?? v.createdAt} />
                 </div>
               </div>
             ))}

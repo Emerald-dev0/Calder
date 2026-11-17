@@ -21,6 +21,31 @@ export {
   GMAIL_WORKSPACE_DAILY_CAP,
 } from "./transport.js";
 export {
+  type TemplateStatus,
+  type TemplateVariable,
+  type TemplateContent,
+  type PublishProblem,
+  type RenderResult,
+  VARIABLE_RE,
+  extractVariables,
+  normaliseVariables,
+  validateForPublish,
+  renderTemplate,
+  pickSendableVersion,
+} from "./template-lifecycle.js";
+export { type PromptTemplateFacts, buildTemplatePrompt } from "./ai-prompt.js";
+export {
+  type EmailComponentName,
+  type ReactElementNode,
+  type ReactNode,
+  type ReactTreeRender,
+  type RenderOptions,
+  SUPPORTED_COMPONENTS,
+  ReactTreeError,
+  renderReactTree,
+  parseReactTree,
+} from "./react-tree.js";
+export {
   type DomainVerificationProvider,
   type VerificationResult,
   DnsVerificationProvider,

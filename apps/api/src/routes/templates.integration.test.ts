@@ -80,10 +80,14 @@ gate("template journey through the real API (live Postgres)", () => {
       { id: `orgm_tpl_a_${suffix}`, organizationId: orgA, userId: userA, role: "owner" },
       { id: `orgm_tpl_b_${suffix}`, organizationId: orgB, userId: userB, role: "owner" },
     ]);
+    const { allowRawSenders } = await import("../test-support/senders.js");
     await db.insert(projects).values([
       { id: projectA, organizationId: orgA, name: "A", slug: "a" },
       { id: projectB, organizationId: orgB, name: "B", slug: "b" },
     ]);
+    // Stage 3.3: the isolation case sends from a bare address on each project.
+    await allowRawSenders(db, projectA);
+    await allowRawSenders(db, projectB);
     await db.insert(senderIdentities).values({
       id: senderA,
       projectId: projectA,
@@ -178,11 +182,169 @@ gate("template journey through the real API (live Postgres)", () => {
     expect(history.data.map((v) => v.version)).toEqual(["v2", "v1"]);
 
     const detail = await call(`/v1/templates/${templateId}`);
-    const one = await json<{ data: { latest_version: { version: string; subject: string } } }>(
-      detail
-    );
+    const one = await json<{
+      data: {
+        latest_version: { version: string; subject: string; status: string };
+        published_version: { version: string } | null;
+        draft_version: { version: string } | null;
+      };
+    }>(detail);
     expect(one.data.latest_version.version).toBe("v2");
     expect(one.data.latest_version.subject).toBe("Welcome aboard, {{name}}");
+    // A saved version is a draft: it exists, it is editable, and it is not what
+    // sends will pick up until someone publishes it.
+    expect(one.data.latest_version.status).toBe("draft");
+    expect(one.data.published_version?.version).toBe("v1");
+    expect(one.data.draft_version?.version).toBe("v2");
+  });
+
+  it("keeps using the published version while a draft is waiting", async () => {
+    if (!(await reachable())) return;
+    const { getDb, emails } = await import("@calder/db");
+    const { eq } = await import("drizzle-orm");
+
+    const res = await call("/v1/emails", {
+      method: "POST",
+      body: JSON.stringify({
+        from: senderA,
+        to: "draft-waiting@example.test",
+        template: `welcome-${suffix}`,
+        variables: { name: "Ada", code: "111111" },
+      }),
+    });
+    expect(res.status).toBe(202);
+    const body = await json<{ id: string }>(res);
+    const [row] = await getDb().select().from(emails).where(eq(emails.id, body.id)).limit(1);
+    // v2 (subject "Welcome aboard…") is a draft; v1 is what recipients get.
+    expect(row!.subject).toBe("Welcome, Ada");
+    expect(row!.html).toBe("<p>Hi Ada, your code is 111111</p>");
+  });
+
+  it("publishes a draft, after which sends use it", async () => {
+    if (!(await reachable())) return;
+    const publish = await call(`/v1/templates/${templateId}/versions/v2/publish`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    expect(publish.status).toBe(200);
+    const published = await json<{
+      data: { version: string; status: string; idempotent: boolean };
+    }>(publish);
+    expect(published.data).toMatchObject({ version: "v2", status: "published", idempotent: false });
+
+    // Publishing twice is a no-op, not an error: retries happen.
+    const again = await call(`/v1/templates/${templateId}/versions/v2/publish`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    expect(again.status).toBe(200);
+    expect((await json<{ data: { idempotent: boolean } }>(again)).data.idempotent).toBe(true);
+
+    const detail = await call(`/v1/templates/${templateId}`);
+    const one = await json<{ data: { published_version: { version: string } | null } }>(detail);
+    expect(one.data.published_version?.version).toBe("v2");
+  });
+
+  it("refuses to publish a version whose placeholders were never declared", async () => {
+    if (!(await reachable())) return;
+    const created = await call(`/v1/templates/${templateId}/versions`, {
+      method: "POST",
+      body: JSON.stringify({
+        subject: "Hello {{name}}",
+        html: "<p>{{name}} — {{undeclared_thing}}</p>",
+        variables: [{ name: "name", required: true }],
+      }),
+    });
+    expect(created.status).toBe(201);
+    const body = await json<{ data: { version: string; status: string } }>(created);
+    expect(body.data.status).toBe("draft");
+
+    const publish = await call(
+      `/v1/templates/${templateId}/versions/${body.data.version}/publish`,
+      {
+        method: "POST",
+        body: JSON.stringify({}),
+      }
+    );
+    expect(publish.status).toBe(400);
+    const refusal = await json<{
+      error: { code: string; message: string; details?: { problems?: Array<{ code: string }> } };
+    }>(publish);
+    expect(refusal.error.message).toContain("undeclared_thing");
+    expect(refusal.error.details?.problems?.map((p) => p.code)).toContain("undeclared_variable");
+
+    // And the template still sends the last good published version.
+    const detail = await call(`/v1/templates/${templateId}`);
+    expect(
+      (await json<{ data: { published_version: { version: string } | null } }>(detail)).data
+        .published_version?.version
+    ).toBe("v2");
+  });
+
+  it("previews a draft with sample data, reporting what would block a publish", async () => {
+    if (!(await reachable())) return;
+    const created = await call(`/v1/templates/${templateId}/versions`, {
+      method: "POST",
+      body: JSON.stringify({
+        subject: "Preview {{name}}",
+        html: "<p>Hi {{name}}, {{code}}</p>",
+        variables: ["name", "code"],
+      }),
+    });
+    const { data } = await json<{ data: { version: string } }>(created);
+
+    const full = await call(`/v1/templates/${templateId}/versions/${data.version}/preview`, {
+      method: "POST",
+      body: JSON.stringify({ variables: { name: "Ada", code: "42" } }),
+    });
+    expect(full.status).toBe(200);
+    const rendered = await json<{
+      data: {
+        status: string;
+        rendered: { subject: string; html: string; missing: string[] };
+        problems: unknown[];
+      };
+    }>(full);
+    expect(rendered.data.status).toBe("draft");
+    expect(rendered.data.rendered.subject).toBe("Preview Ada");
+    expect(rendered.data.rendered.html).toBe("<p>Hi Ada, 42</p>");
+    expect(rendered.data.rendered.missing).toEqual([]);
+    expect(rendered.data.problems).toEqual([]);
+
+    // Missing sample data is reported, not silently blanked.
+    const partial = await call(`/v1/templates/${templateId}/versions/${data.version}/preview`, {
+      method: "POST",
+      body: JSON.stringify({ variables: { name: "Ada" } }),
+    });
+    const partialBody = await json<{
+      data: { rendered: { html: string; missing: string[] }; problems: Array<{ code: string }> };
+    }>(partial);
+    expect(partialBody.data.rendered.missing).toEqual(["code"]);
+    expect(partialBody.data.rendered.html).toContain("{{code}}");
+    expect(partialBody.data.problems.map((p) => p.code)).toContain("missing_preview_variable");
+  });
+
+  it("refuses to send a template with no published version", async () => {
+    if (!(await reachable())) return;
+    const created = await call("/v1/templates", {
+      method: "POST",
+      body: JSON.stringify({ name: "Never published", alias: `empty-${suffix}` }),
+    });
+    expect(created.status).toBe(201);
+
+    const send = await call("/v1/emails", {
+      method: "POST",
+      body: JSON.stringify({
+        from: senderA,
+        to: "ada@example.test",
+        template: `empty-${suffix}`,
+        variables: {},
+      }),
+    });
+    expect(send.status).toBe(422);
+    const body = await json<{ error: { code: string; message: string } }>(send);
+    expect(body.error.code).toBe("template_not_published");
+    expect(body.error.message).toMatch(/publish/);
   });
 
   it("sends through /v1/emails with variables rendered before the provider", async () => {
@@ -269,6 +431,115 @@ gate("template journey through the real API (live Postgres)", () => {
     expect(after?.value).toBe(before?.value);
   });
 
+  it("renders a React Email element tree into an ordinary version, then sends it", async () => {
+    if (!(await reachable())) return;
+    const { getDb, emails } = await import("@calder/db");
+    const { eq } = await import("drizzle-orm");
+
+    // The tree is data, not source: it is rendered here, and what is stored is
+    // plain HTML. Nothing component-shaped survives to send time.
+    const created = await call("/v1/templates", {
+      method: "POST",
+      body: JSON.stringify({
+        name: "React receipt",
+        alias: `react-${suffix}`,
+        subject: "Receipt for {{name}}",
+        react_tree: {
+          component: "Html",
+          children: [
+            { component: "Preview", children: ["Your receipt"] },
+            {
+              component: "Body",
+              children: [
+                {
+                  component: "Container",
+                  children: [
+                    { component: "Heading", children: ["Thanks, ", "{{name}}"] },
+                    { component: "Text", children: ["Order total: {{total}}"] },
+                    {
+                      component: "Button",
+                      props: { href: "{{receipt_url}}" },
+                      children: ["View receipt"],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    });
+    expect(created.status).toBe(201);
+    const body = await json<{ data: { id: string } }>(created);
+
+    const send = await call("/v1/emails", {
+      method: "POST",
+      body: JSON.stringify({
+        from: senderA,
+        to: "ada@example.test",
+        template: `react-${suffix}`,
+        variables: { name: "Ada", total: "£42.00", receipt_url: "https://example.test/r/1" },
+      }),
+    });
+    expect(send.status).toBe(202);
+    const sent = await json<{ id: string }>(send);
+
+    const [row] = await getDb().select().from(emails).where(eq(emails.id, sent.id)).limit(1);
+    expect(row!.subject).toBe("Receipt for Ada");
+    // Stored and sent as HTML with the variables filled in.
+    expect(row!.html).toContain("<h1");
+    expect(row!.html).toContain("Thanks, Ada");
+    expect(row!.html).toContain("£42.00");
+    expect(row!.html).toContain('href="https://example.test/r/1"');
+    expect(row!.html).not.toContain("{{name}}");
+    expect(row!.html).not.toContain("component");
+    // The text alternative exists, so a plain-text-only client still reads it.
+    expect(row!.text).toContain("Order total: £42.00");
+
+    const detail = await call(`/v1/templates/${body.data.id}`);
+    const view = await json<{
+      data: { latest_version: { version: string; status: string; has_html: boolean } };
+    }>(detail);
+    expect(view.data.latest_version).toMatchObject({
+      version: "v1",
+      status: "published",
+      has_html: true,
+    });
+  });
+
+  it("refuses React source code instead of executing it", async () => {
+    if (!(await reachable())) return;
+    const res = await call("/v1/templates", {
+      method: "POST",
+      body: JSON.stringify({
+        name: "Source template",
+        alias: `source-${suffix}`,
+        subject: "nope",
+        react_source: "export default function Email() { return null }",
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body = await json<{ error: { message: string } }>(res);
+    // The message states the boundary and the two supported paths.
+    expect(body.error.message).toContain("does not execute");
+  });
+
+  it("refuses an unknown component in a tree rather than dropping it", async () => {
+    if (!(await reachable())) return;
+    const res = await call("/v1/templates", {
+      method: "POST",
+      body: JSON.stringify({
+        name: "Bad tree",
+        alias: `badtree-${suffix}`,
+        subject: "nope",
+        react_tree: { component: "Tabs", children: ["x"] },
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body = await json<{ error: { message: string } }>(res);
+    expect(body.error.message).toContain("Unsupported component");
+  });
+
   it("keeps templates tenant-isolated in both directions", async () => {
     if (!(await reachable())) return;
     // Project B cannot read, version, send or delete project A's template.
@@ -287,7 +558,11 @@ gate("template journey through the real API (live Postgres)", () => {
       {
         method: "POST",
         body: JSON.stringify({
-          from: "someone@b.test",
+          // A sender project B may legitimately use, so the only thing wrong
+          // with this request is the cross-tenant template reference. (Stage
+          // 3.3 refuses an unauthorised `from` before template lookup, which
+          // would otherwise mask the 404 being tested.)
+          from: `b-${suffix}@test.test`,
           to: "ada@example.test",
           template: `welcome-${suffix}`,
           variables: { name: "Ada", code: "1" },

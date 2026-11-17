@@ -20,8 +20,16 @@ async function reachable(): Promise<boolean> {
 
 gate("sender resolution (live Postgres)", async () => {
   const { randomBytes } = await import("node:crypto");
-  const { getDb, organizations, organizationMembers, projects, senderIdentities, emails, users } =
-    await import("@calder/db");
+  const {
+    getDb,
+    organizations,
+    organizationMembers,
+    projects,
+    domains,
+    senderIdentities,
+    emails,
+    users,
+  } = await import("@calder/db");
   const { eq, and } = await import("drizzle-orm");
   const { resolveSender } = await import("./sender-service.js");
 
@@ -142,17 +150,71 @@ gate("sender resolution (live Postgres)", async () => {
     await expect(resolveSender(db, projId, ids.pending)).rejects.toThrow(/isn't verified yet/);
   });
 
-  it("attaches identity for known bare addresses, legacy path otherwise", async () => {
+  it("attaches identity for known bare addresses", async () => {
     if (!(await reachable())) return;
     const db = getDb();
     const known = await resolveSender(db, projId, `hello-${suffix}@test.test`);
     expect(known.senderIdentityId).toBe(ids.verified);
-    const legacy = await resolveSender(db, projId, `stranger-${suffix}@test.test`);
+  });
+
+  it("refuses an unknown bare address on a live send, naming Senders", async () => {
+    if (!(await reachable())) return;
+    const db = getDb();
+    const stranger = `stranger-${suffix}@test.test`;
+    // The hole Stage 3.3 closes: this used to resolve to an unattributed send.
+    await expect(resolveSender(db, projId, stranger)).rejects.toThrow(/Senders/);
+  });
+
+  it("allows an unknown bare address only for test-mode or platform mail", async () => {
+    if (!(await reachable())) return;
+    const db = getDb();
+    const stranger = `stranger-${suffix}@test.test`;
+    const legacy = await resolveSender(db, projId, stranger, { allowUnattributed: true });
     expect(legacy).toEqual({
       senderIdentityId: null,
-      email: `stranger-${suffix}@test.test`,
+      email: stranger,
       displayName: null,
     });
+  });
+
+  it("allows an unknown address at a verified domain once the project opts in", async () => {
+    if (!(await reachable())) return;
+    const db = getDb();
+    const address = `optin-${suffix}@optin-${suffix}.test`;
+
+    // Opt-in alone is not enough: the domain must be verified on the project.
+    await db
+      .update(projects)
+      .set({ metadata: { allowUnattributedSenders: true } })
+      .where(eq(projects.id, projId));
+    await expect(resolveSender(db, projId, address)).rejects.toThrow(/Senders/);
+
+    await db.insert(domains).values({
+      id: `dom_optin_${suffix}`,
+      projectId: projId,
+      domain: `optin-${suffix}.test`,
+      status: "verified",
+      verifiedAt: new Date(),
+    });
+    const allowed = await resolveSender(db, projId, address);
+    expect(allowed.senderIdentityId).toBeNull();
+    expect(allowed.email).toBe(address);
+
+    // A verified domain is not a blanket: another domain is still refused.
+    await expect(resolveSender(db, projId, `x-${suffix}@elsewhere.test`)).rejects.toThrow(
+      /Senders/
+    );
+
+    await db.delete(domains).where(eq(domains.id, `dom_optin_${suffix}`));
+    await db.update(projects).set({ metadata: {} }).where(eq(projects.id, projId));
+  });
+
+  it("still refuses an unknown address at a verified domain without the opt-in", async () => {
+    if (!(await reachable())) return;
+    const db = getDb();
+    // `test.test` is this suite's sending domain; verifying it does not by
+    // itself authorise raw addresses.
+    await expect(resolveSender(db, projId, `raw-${suffix}@test.test`)).rejects.toThrow(/Senders/);
   });
 
   it("hides archived senders from both resolution paths", async () => {

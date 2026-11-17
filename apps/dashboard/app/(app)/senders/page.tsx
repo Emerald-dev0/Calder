@@ -11,10 +11,12 @@ import {
   senderCreationOptions,
   streamStats,
   unattributedSends,
+  rawSenderPolicy,
 } from "./actions";
 import { gmailGate } from "../../../lib/gmail-gate";
 import { AddSender } from "./add-sender";
 import { SenderTable } from "./sender-table";
+import { RawSenderPolicyCard } from "./raw-sender-policy";
 import { DsPageHeader, StatusPill, DsBanner, StatCard } from "../../../components/design-system";
 import { EmptyState } from "../../../components/empty-state";
 import {
@@ -85,10 +87,11 @@ export default async function SendersPage({
   // back at all, and how much of the volume has no sender identity. Both are
   // loaded here so the page renders one story, not four independently-worded
   // ones.
-  const [stats, deliveryHealth, unattributed] = await Promise.all([
+  const [stats, deliveryHealth, unattributed, rawPolicy] = await Promise.all([
     streamStats(projectId),
     deliveryEventHealth(projectId),
     unattributedSends(projectId),
+    rawSenderPolicy(projectId),
   ]);
   const seg = stats[stream];
 
@@ -258,6 +261,15 @@ export default async function SendersPage({
           </div>
 
           <DeliveryEventNotice health={deliveryHealth} projectId={projectId} />
+
+          <div style={{ marginBottom: 16 }}>
+            <RawSenderPolicyCard
+              projectId={projectId}
+              enabled={rawPolicy.enabled}
+              verifiedDomains={rawPolicy.verifiedDomains}
+              canManage={rawPolicy.canManage}
+            />
+          </div>
 
           {/* Arithmetic that adds up. The sender table below is per-identity,
               so unattributed sends are invisible in it; without this line the

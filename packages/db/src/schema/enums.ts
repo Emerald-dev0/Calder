@@ -32,6 +32,13 @@ export const emailStatusEnum = pgEnum("email_status", [
   "complained",
   "failed",
   "suppressed",
+  // Stage 3.2: the provider accepted the message and is retrying it. This is
+  // not a failure and not a delivery: the recipient's mail server gave a
+  // temporary answer (mailbox full, greylisting, a busy MX), and SES will try
+  // again on its own schedule. Without this state a delayed message looked
+  // identical to one that had been delivered, so a customer watching a
+  // "delivered" message that never arrived had nothing to look at.
+  "deferred",
 ]);
 export const emailEventTypeEnum = pgEnum("email_event_type", [
   "created",
@@ -44,6 +51,10 @@ export const emailEventTypeEnum = pgEnum("email_event_type", [
   "opened",
   "clicked",
   "suppressed",
+  // A delay notification, recorded per attempt. The row keeps the latest
+  // status; the timeline keeps the history, which is what distinguishes
+  // "delivered late" from "never delivered".
+  "deferred",
   // The message was accepted and sent from an address with no sender identity
   // on the project. It is not an error (the send succeeded; rejecting it would
   // break every existing caller) but it must be queryable, because it is the
@@ -59,6 +70,9 @@ export const webhookEventEnum = pgEnum("webhook_event", [
   "email.failed",
   "email.opened",
   "email.clicked",
+  // Stage 4: a message was received, parsed and (when a route matched) threaded
+  // into a shared inbox. Additive; existing subscriptions simply do not listen.
+  "inbound.received",
 ]);
 export const webhookDeliveryStatusEnum = pgEnum("webhook_delivery_status", [
   "pending",
@@ -249,3 +263,43 @@ export const paymentStatusEnum = pgEnum("payment_status", [
   "abandoned",
 ]);
 export const paymentKindEnum = pgEnum("payment_kind", ["subscription", "credits", "burst_pass"]);
+
+/**
+ * Inbound receiving (Stage 3).
+ *
+ * Receiving is a different product surface from sending, so it gets its own
+ * status vocabularies rather than reusing `domain_status`: a receiving domain
+ * can be `active` while DNS is fine and SES rules are not yet provisioned, and
+ * a message can be `rejected` for quota while never having been parsed.
+ */
+export const receivingDomainStatusEnum = pgEnum("receiving_domain_status", [
+  "pending", // created, DNS not yet checked
+  "verifying", // check in flight
+  "verified", // TXT proof + MX both point at us
+  "failed", // last check failed (see last_error)
+  "disabled", // switched off by the customer
+]);
+
+/**
+ * Where one inbound message got to. `rejected` means we deliberately did not
+ * store the body (quota, unknown recipient domain) and the customer is still
+ * told it happened; `failed` means we tried and could not (SNS retries).
+ */
+export const inboxStatusEnum = pgEnum("inbox_status", ["active", "archived"]);
+export const conversationStatusEnum = pgEnum("conversation_status", ["open", "pending", "closed"]);
+/**
+ * Mailbox-level roles. Deliberately three and deliberately not the org roles:
+ * a workspace owner must not automatically read a support inbox they were never
+ * added to, and a support agent must not gain workspace rights by being good at
+ * support. Org owner/admin still implies `manager` (see `inboxCapabilities`) so
+ * a workspace cannot lock itself out.
+ */
+export const inboxMemberRoleEnum = pgEnum("inbox_member_role", ["viewer", "member", "manager"]);
+
+export const inboundMessageStatusEnum = pgEnum("inbound_message_status", [
+  "received", // row claimed, body not yet processed
+  "parsed", // body, headers and attachments stored
+  "routed", // assigned to an inbox/conversation (Stage 4)
+  "failed", // processing error, retryable
+  "rejected", // deliberately not stored
+]);

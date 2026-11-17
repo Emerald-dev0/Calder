@@ -4,6 +4,7 @@ import {
   describeBoot,
   getConfig,
   getDeployEnv,
+  healthThresholds,
   getRedisUrl,
   isHostedEnv,
   redisRequiredFor,
@@ -138,5 +139,37 @@ describe("alert thresholds", () => {
     setEnv({ QUEUE_DEPTH_WARN: "25", QUEUE_OLDEST_JOB_WARN_MINUTES: "2.5" });
     expect(getConfig().QUEUE_DEPTH_WARN).toBe(25);
     expect(getConfig().QUEUE_OLDEST_JOB_WARN_MINUTES).toBe(2.5);
+  });
+});
+
+describe("control plane thresholds", () => {
+  it("defaults to the documented rule of thumb: 5% after 10 sends", () => {
+    setEnv({ CONTROL_BOUNCE_ATTENTION_PCT: undefined, CONTROL_BOUNCE_MIN_SENDS: undefined });
+    expect(healthThresholds()).toEqual({
+      bounceAttentionPct: 5,
+      minSends: 10,
+      bounceSeverePct: 10,
+    });
+  });
+
+  it("takes the rule from the environment, so it can change without a deploy", () => {
+    setEnv({ CONTROL_BOUNCE_ATTENTION_PCT: "3", CONTROL_BOUNCE_MIN_SENDS: "25" });
+    const t = healthThresholds();
+    expect(t.bounceAttentionPct).toBe(3);
+    expect(t.minSends).toBe(25);
+    // Severe tracks the attention line rather than drifting independently.
+    expect(t.bounceSeverePct).toBe(6);
+  });
+
+  it("refuses a threshold outside 0–100 instead of silently clamping it", () => {
+    setEnv({ CONTROL_BOUNCE_ATTENTION_PCT: "140" });
+    expect(() => getConfig()).toThrow(/CONTROL_BOUNCE_ATTENTION_PCT/);
+    setEnv({ CONTROL_BOUNCE_ATTENTION_PCT: "5", CONTROL_BOUNCE_MIN_SENDS: "0" });
+    expect(() => getConfig()).toThrow(/CONTROL_BOUNCE_MIN_SENDS/);
+  });
+
+  it("caps the severe line at 100%", () => {
+    setEnv({ CONTROL_BOUNCE_ATTENTION_PCT: "80" });
+    expect(healthThresholds().bounceSeverePct).toBe(100);
   });
 });

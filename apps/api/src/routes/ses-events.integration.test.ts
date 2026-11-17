@@ -278,6 +278,88 @@ gate("POST /v1/ses/events (live Postgres, real RSA signatures)", async () => {
     expect((pev?.payload as Record<string, unknown>)?.eventType).toBe("delivery");
   });
 
+  it("deliveryDelay: the row becomes deferred, the attempt is on the timeline, and a later delivery wins", async () => {
+    if (!(await reachable())) return;
+    const db = getDb();
+    const id = await seedSent();
+
+    const delayRes = await post(
+      envelope({
+        message: sesMsg(providerMessageIdOf(id), "deliveryDelay", {
+          deliveryDelay: {
+            delayType: "MailboxFull",
+            timestamp: new Date().toISOString(),
+            delayedRecipients: [{ emailAddress: `to-${suffix}@example.test` }],
+          },
+        }),
+      })
+    );
+    expect(delayRes.status).toBe(200);
+    expect(((await delayRes.json()) as { status: string }).status).toBe("deferred");
+
+    const [delayed] = await db.select().from(emails).where(eq(emails.id, id)).limit(1);
+    expect(delayed?.status).toBe("deferred");
+
+    const [delayEvent] = await db
+      .select()
+      .from(emailEvents)
+      .where(and(eq(emailEvents.emailId, id), eq(emailEvents.type, "deferred")))
+      .limit(1);
+    expect((delayEvent?.data as Record<string, unknown>)?.delayType).toBe("MailboxFull");
+
+    // The retry succeeds: deferred is a waypoint, not a terminal state.
+    const deliveryRes = await post(
+      envelope({
+        message: sesMsg(providerMessageIdOf(id), "delivery", {
+          delivery: { recipients: [`to-${suffix}@example.test`], smtpResponse: "250 ok" },
+        }),
+      })
+    );
+    expect(deliveryRes.status).toBe(200);
+
+    const [delivered] = await db.select().from(emails).where(eq(emails.id, id)).limit(1);
+    expect(delivered?.status).toBe("delivered");
+
+    // A stale delay notice arriving afterwards must not resurrect "deferred".
+    const staleRes = await post(
+      envelope({
+        message: sesMsg(providerMessageIdOf(id), "deliveryDelay", {
+          deliveryDelay: { delayType: "General", delayedRecipients: [] },
+        }),
+      })
+    );
+    expect(staleRes.status).toBe(200);
+    const [afterStale] = await db.select().from(emails).where(eq(emails.id, id)).limit(1);
+    expect(afterStale?.status).toBe("delivered");
+  });
+
+  it("reject: the row fails and keeps the provider's reason", async () => {
+    if (!(await reachable())) return;
+    const db = getDb();
+    const id = await seedSent();
+
+    const res = await post(
+      envelope({
+        message: sesMsg(providerMessageIdOf(id), "reject", {
+          reject: { reason: "Message rejected: Bad content" },
+        }),
+      })
+    );
+    expect(res.status).toBe(200);
+
+    const [row] = await db.select().from(emails).where(eq(emails.id, id)).limit(1);
+    expect(row?.status).toBe("failed");
+    // Without this the customer sees "Failed" and has no idea what to change.
+    expect(row?.lastError).toBe("Message rejected: Bad content");
+
+    const [ev] = await db
+      .select()
+      .from(emailEvents)
+      .where(and(eq(emailEvents.emailId, id), eq(emailEvents.type, "failed")))
+      .limit(1);
+    expect((ev?.data as Record<string, unknown>)?.reason).toBe("Message rejected: Bad content");
+  });
+
   it("open and click are engagement events only (status stays delivered)", async () => {
     if (!(await reachable())) return;
     const db = getDb();

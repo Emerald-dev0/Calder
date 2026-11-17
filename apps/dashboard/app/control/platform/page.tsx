@@ -5,6 +5,7 @@ import {
   emailTotals,
   pipelineDaily,
   platformEmailVolume,
+  platformMailTotals,
   transportDistribution,
 } from "@/lib/control/queries";
 import { AreaChart, BarsChart } from "@/control/_components/charts";
@@ -14,11 +15,12 @@ export const dynamic = "force-dynamic";
 
 export default async function PlatformEmailPage() {
   await requireSection("platform");
-  const [totals, volume, daily, transports] = await Promise.all([
+  const [totals, volume, daily, transports, mail] = await Promise.all([
     emailTotals(30),
     platformEmailVolume(),
     pipelineDaily(30),
     transportDistribution(),
+    platformMailTotals(30),
   ]);
   const transportBars = transports.map((t) => ({
     label: `${t.transport ?? "?"}${t.provider ? ` · ${t.provider}` : ""}`,
@@ -35,13 +37,27 @@ export default async function PlatformEmailPage() {
 
       <div className="cp-stats">
         <Stat
-          label="Sent · all time"
+          label="Customer sends · all time"
           value={fmtInt(volume.liveAccepted)}
           hint={
             volume.testAccepted > 0
               ? `excludes ${fmtInt(volume.testAccepted)} test sends`
               : `${fmtInt(volume.sendingOrgs)} organizations sending`
           }
+        />
+        <Stat
+          label="Calder → users (30d)"
+          value={fmtInt(mail.companySent)}
+          hint={
+            mail.companyFailed > 0
+              ? `${fmtInt(mail.companyFailed)} refused by the provider`
+              : "sign-in, receipts, announcements"
+          }
+        />
+        <Stat
+          label="All mail (30d)"
+          value={fmtInt(mail.totalAccepted)}
+          hint="customer live + Calder's own"
         />
         <Stat
           label="Emails (30d)"
@@ -65,6 +81,31 @@ export default async function PlatformEmailPage() {
           hint={`${fmtInt(totals.complained)} complained`}
         />
       </div>
+
+      <Panel
+        title="Both ledgers"
+        caption="last 30 days · customer mail and Calder's own, never silently merged"
+      >
+        <BarList
+          items={[
+            { label: "Customer mail (live)", count: mail.customerLive },
+            { label: "Calder → its users", count: mail.companySent },
+            { label: "Test sends (not billable, not in the total)", count: mail.customerTest },
+          ]}
+        />
+        <p className="cp-panel-caption" style={{ padding: "8px 16px 4px" }}>
+          {fmtInt(mail.totalAccepted)} messages a provider accepted in this window:{" "}
+          {fmtInt(mail.customerLive)} sent by customers through the product,{" "}
+          {fmtInt(mail.companySent)} sent by Calder to its own users. The two live in separate
+          tables on purpose — a password reset must never appear in a customer&apos;s log or their
+          quota — so any page that reports only one of them understates the platform.{" "}
+          {mail.companySkipped > 0
+            ? `${fmtInt(mail.companySkipped)} Calder messages were skipped (opt-out, duplicate or no provider) and ${fmtInt(
+                mail.companyFailed
+              )} were refused by the provider.`
+            : `${fmtInt(mail.companyFailed)} Calder messages were refused by the provider.`}
+        </p>
+      </Panel>
 
       <div className="cp-grid cp-grid-2">
         <Panel title="Accepted sends" caption="per day · last 30 days">

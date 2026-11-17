@@ -49,12 +49,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // The sidebar card's plan name and ceiling come from the catalogue, never a
   // literal: "Free" for every workspace was wrong the moment Starter shipped.
+  // Everything in the chrome is about the *active* organisation. Reading
+  // `memberships[0]` here meant a user with two workspaces on different plans
+  // saw the other workspace's plan name, ceiling and domain warning.
   let monthlyQuota: number | null = PLAN_LIMITS.free.emailsPerMonth;
   let planName = PLAN_LIMITS.free.displayName;
-  const firstOrg = ctx.memberships[0]?.organization;
-  if (firstOrg) {
+  const activeOrgId = ctx.active.organization?.id ?? null;
+  if (activeOrgId) {
     try {
-      const snap = await orgUsageSnapshot(db, firstOrg.id);
+      const snap = await orgUsageSnapshot(db, activeOrgId);
       monthlyQuota = planEmailsLimit(snap.tier);
       planName = planDisplayLabel(snap.tier);
     } catch {
@@ -62,7 +65,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     }
   }
 
-  const projectIds = memberships.flatMap((m) => m.projects.map((p) => p.id));
+  const activeMembership = ctx.memberships.find((m) => m.organization.id === activeOrgId);
+  const projectIds = activeMembership?.projects.map((p) => p.id) ?? [];
   let sentThisMonth = 0;
   let verifiedDomains = 0;
   let activeKeys = 0;
@@ -101,6 +105,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             name: me?.name ?? null,
           }}
           memberships={memberships}
+          activeOrganizationId={activeOrgId}
+          activeProjectId={ctx.active.project?.id ?? null}
+          activeOrganizationName={ctx.active.organization?.name ?? null}
           showAdmin={showAdmin}
           usageSummary={{
             sentThisMonth,

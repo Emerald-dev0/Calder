@@ -53,19 +53,19 @@ These are presentation changes; billing and provider readiness are not implied.
 
 ## 2. Navigation (implemented)
 
-| Section        | Pages                                                                             |
-| -------------- | --------------------------------------------------------------------------------- |
-| OVERVIEW       | Command Center (`/control`)                                                       |
-| GROWTH         | Overview, Waitlist (+ person drill-down, CSV export), Acquisition, Referrals      |
-| CUSTOMERS      | Users, Organizations (+ 360° org detail), Projects, Customer Health, Support      |
-| COMMUNICATIONS | Overview, Broadcasts, Campaigns, Templates, Audiences, Delivery                   |
-| BILLING        | Overview, Revenue, Subscriptions, Plans, Coupons, Credits, Invoices, Entitlements |
-| PLATFORM       | Email, API, Webhooks, Deliverability, Usage                                       |
-| INFRASTRUCTURE | Overview, Redis, Queues, Workers, Database, Storage, Providers, Cron, Networking  |
-| OBSERVABILITY  | Logs, Metrics, Alerts, Incidents                                                  |
-| SECURITY       | Overview, Abuse, Security Events, Restrictions, Admin Access                      |
-| OPERATIONS     | Feature Flags, Maintenance, Status Page                                           |
-| ADMINISTRATION | Administrators, Roles, Audit Logs, Settings                                       |
+| Section        | Pages                                                                                          |
+| -------------- | ---------------------------------------------------------------------------------------------- |
+| OVERVIEW       | Command Center (`/control`)                                                                    |
+| GROWTH         | Overview, Waitlist (+ person drill-down, CSV export), Acquisition, Referrals                   |
+| CUSTOMERS      | Users, Organizations (+ 360° org detail), Projects, Domains, Inbound, Customer Health, Support |
+| COMMUNICATIONS | Overview, Broadcasts, Campaigns, Templates, Audiences, Delivery                                |
+| BILLING        | Overview, Revenue, Subscriptions, Plans, Coupons, Credits, Invoices, Entitlements              |
+| PLATFORM       | Email, API, Webhooks, Deliverability, Usage                                                    |
+| INFRASTRUCTURE | Overview, Redis, Queues, Workers, Database, Storage, Providers, Cron, Networking               |
+| OBSERVABILITY  | Logs, Metrics, Alerts, Incidents                                                               |
+| SECURITY       | Overview, Abuse, Security Events, Restrictions, Admin Access                                   |
+| OPERATIONS     | Feature Flags, Maintenance, Status Page                                                        |
+| ADMINISTRATION | Administrators, Roles, Audit Logs, Settings                                                    |
 
 Access is gated per section by `requireSection()` (`lib/control/guard.ts`);
 unauthenticated `/control` requests redirect to login; insufficient role
@@ -128,9 +128,34 @@ means "no data yet", never a fabricated value.
   required audit reason; suspension revokes every project API key in the same
   transaction. Resuming does not restore revoked keys. Automatic SES feedback
   pauses appear as `abuse_paused` with their audit record.
+- Domains: every sending domain with its public URL, ownership state, DKIM
+  state, owning workspace and last verification error; filterable by state and
+  searchable by name. Headline counts always describe the whole estate —
+  filtering changes the table, never the numbers. "Check now" re-runs
+  ownership verification through the same `attemptVerification` the customer
+  endpoint uses (shared attempt budget, no customer email from the admin path),
+  and reports the outcome verbatim: verified, mismatch, dns_error, expired.
+- Inbound: receiving domains (TXT proof, MX seen, last check, stored error),
+  inbound volume by processing state, the parse-failure rate over processed
+  mail only, parsed-but-unrouted mail, and a warning panel for the state that
+  otherwise hides behind a green badge — verified DNS with no SES receipt rule
+  recorded, where SES still refuses to deliver to us. Message bodies and
+  attachments are deliberately not shown.
 - Customer Health: scored cohorts computed live — approaching limits, dormant
-  (stopped sending), failed-delivery clusters — each row links to the org.
-- Support: internal notes + recent contacts (CRM-lite).
+  (stopped sending), failed-delivery clusters — each row links to the org. The
+  bounce attention line is configuration (`CONTROL_BOUNCE_ATTENTION_PCT`,
+  `CONTROL_BOUNCE_MIN_SENDS`) and the page prints the rule it applied.
+- Support: a triage queue over stored state, not tickets. Seven signals —
+  paused/suspended workspaces, deletions inside their grace window, domains
+  pending past a day or failed, webhooks that exhausted their retries, projects
+  with failing live sends, senders blocked by verification, transports revoked
+  by a provider — ranked critical/high/normal, oldest first within a rank, each
+  row linking to the record. "Seen" records an acknowledgement bound to the
+  evidence on screen: it lapses after 24h, reopens immediately if the condition
+  changes, and is recomputed server-side on click so stale evidence cannot be
+  acknowledged. Acknowledged rows stay visible below the queue with who, when,
+  note and expiry, and both actions are audit-logged. A signal that fails to
+  load is reported as unknown rather than rendering as calm.
 
 ### Communications
 

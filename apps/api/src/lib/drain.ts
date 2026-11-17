@@ -29,6 +29,7 @@ import {
 import { GmailTransport, resolveEmailProvider } from "@calder/providers";
 import { getGmailRefreshToken } from "@calder/auth";
 import { isTransientError } from "@calder/queue";
+import { checkAndMirrorSuppression } from "./ses-suppression.js";
 
 export const DRAIN_BATCH = 25;
 export const DRAIN_MAX_ATTEMPTS = 5;
@@ -148,6 +149,13 @@ export interface DrainResult {
   sent: number;
   failed: number;
   skipped: number;
+  /**
+   * Rows deliberately not delivered this tick because a precondition could not
+   * be verified (the provider's suppression list was unreachable). Not a
+   * failure: they stay queued with a short delay. Counted separately so an
+   * outage is visible in the cron output instead of looking like an idle tick.
+   */
+  deferred: number;
 }
 
 /**
@@ -393,6 +401,7 @@ export async function drainPendingEmails(
   let sent = 0;
   let failed = 0;
   let skipped = 0;
+  let deferred = 0;
   for (const row of claimed) {
     if ((row.attemptCount ?? 0) >= DRAIN_MAX_ATTEMPTS) {
       await db
@@ -425,11 +434,75 @@ export async function drainPendingEmails(
         type: "suppressed",
         data: {
           reason: blocked.reason,
-          scope: blocked.crossProject ? "organization" : "project",
+          scope: blocked.source ?? (blocked.crossProject ? "organization" : "project"),
         },
       });
       skipped++;
       continue;
+    }
+
+    // The provider's own account-level suppression list, asked immediately
+    // before delivery. Our table only holds what we observed; SES holds what
+    // the account observed, and it will refuse the address regardless of what
+    // our database says. Test-env rows go through the mock provider and never
+    // reach SES, so they are exempt.
+    if (row.env !== "test") {
+      const verdict = await checkAndMirrorSuppression(row.to, { db });
+      if (verdict.state === "suppressed") {
+        await db
+          .update(emails)
+          .set({
+            status: "suppressed",
+            lastError: `ses_${verdict.reason.toLowerCase()}`,
+            updatedAt: now,
+          })
+          .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
+        await releaseCreditsForEmail(db, { emailId: row.id, reason: "suppressed by provider" });
+        await recordDrainEvent(db, {
+          id: `ev_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+          emailId: row.id,
+          projectId: row.projectId,
+          type: "suppressed",
+          data: { reason: verdict.reason.toLowerCase(), scope: "account" },
+        });
+        skipped++;
+        continue;
+      }
+      if (verdict.state === "unknown") {
+        // Fail closed: without an answer we do not hand the message over. The
+        // row is requeued rather than failed, because an unreachable provider
+        // API says nothing about the customer's mail.
+        const exhausted = (row.attemptCount ?? 0) >= DRAIN_MAX_ATTEMPTS;
+        const delay = 60_000;
+        await db
+          .update(emails)
+          .set(
+            exhausted
+              ? {
+                  status: "failed" as const,
+                  lastError: "suppression_check_unavailable",
+                  updatedAt: now,
+                }
+              : {
+                  status: "queued" as const,
+                  lastError: "suppression_check_unavailable",
+                  nextAttemptAt: new Date(now.getTime() + delay),
+                  updatedAt: now,
+                }
+          )
+          .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
+        if (exhausted) {
+          await releaseCreditsForEmail(db, { emailId: row.id, reason: "suppression unverifiable" });
+          failed++;
+        } else {
+          deferred++;
+        }
+        logger.warn(
+          { emailId: row.id, exhausted },
+          "drain: suppression state unverifiable, not sending (fail closed)"
+        );
+        continue;
+      }
     }
 
     // Organization status is re-read immediately before delivery (never cached).
@@ -750,5 +823,5 @@ export async function drainPendingEmails(
     failed++;
   }
 
-  return { ok: true, checked: claimed.length, sent, failed, skipped };
+  return { ok: true, checked: claimed.length, sent, failed, skipped, deferred };
 }

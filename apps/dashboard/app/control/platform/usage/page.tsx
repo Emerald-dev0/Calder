@@ -40,16 +40,16 @@ export default async function PlatformUsagePage() {
       <PageHeader
         eyebrow="Platform"
         title="Usage"
-        subtitle="Metered consumption across the platform. Billing meters at the canonical accepted-send event — identical for API and SMTP."
+        subtitle="Metered consumption across the platform. Billing meters at the canonical accepted-send event — identical for API and SMTP. Calder's own mail to its users is not in these numbers: it is never billed, so counting it here would inflate every customer's usage."
       />
 
       <div className="cp-stats">
         <Stat
-          label="Emails sent · all time"
+          label="Customer sends · all time"
           value={fmtInt(volume.liveAccepted)}
           hint={
             volume.firstAcceptedAt
-              ? `since ${fmtDate(volume.firstAcceptedAt)}`
+              ? `billable · since ${fmtDate(volume.firstAcceptedAt)}`
               : "no send accepted yet"
           }
         />

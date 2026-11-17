@@ -208,3 +208,116 @@ export async function getSesDomainIdentity(
     configurationSetName: out.ConfigurationSetName ?? null,
   };
 }
+
+// ---- Account-level suppression (SES is the authority) ----------------------
+
+/**
+ * SES keeps one suppression list per AWS *account*, maintained from bounces and
+ * complaints. It is not per identity, per configuration set or per customer, and
+ * mail to an address on it is refused before it is ever sent.
+ *
+ * Two operations are needed and they answer different questions:
+ *
+ *   `getSuppressedDestination`  — is THIS address suppressed right now?
+ *                                 Used immediately before delivery.
+ *   `listSuppressedDestinations` — what has the account accumulated?
+ *                                 Used to mirror the list locally.
+ *
+ * Both are read-only. Calder must never write to the list: a bounce belongs to
+ * whoever observed it, and deleting an entry is an operator decision made in
+ * AWS, with the reputation consequences that follow.
+ */
+
+/** SES's vocabulary, kept verbatim so a row cannot be mistaken for ours. */
+export type SesSuppressionReason = "BOUNCE" | "COMPLAINT";
+
+export type SesSuppressedDestination =
+  | { suppressed: false }
+  | {
+      suppressed: true;
+      reason: SesSuppressionReason;
+      /** When SES last updated the entry, if it reported one. */
+      lastUpdateTime: Date | null;
+    };
+
+function sesClient(client?: SESv2Client): SESv2Client {
+  return client ?? new SESv2Client({ region: process.env.AWS_REGION ?? "us-east-1" });
+}
+
+/**
+ * Ask SES whether one address is suppressed.
+ *
+ * `NotFoundException` is the SDK's way of saying "not on the list" — a normal
+ * answer, not an error, and treating it as one would make every clean send a
+ * failure. Any other error is thrown so the caller can decide what an
+ * unverifiable answer means (the delivery path fails closed).
+ */
+export async function getSuppressedDestination(
+  email: string,
+  client?: SESv2Client
+): Promise<SesSuppressedDestination> {
+  const { GetSuppressedDestinationCommand } = await import("@aws-sdk/client-sesv2");
+  try {
+    const out = await sesClient(client).send(
+      new GetSuppressedDestinationCommand({ EmailAddress: email })
+    );
+    const reason = out.SuppressedDestination?.Reason;
+    return {
+      suppressed: true,
+      reason: reason === "COMPLAINT" ? "COMPLAINT" : "BOUNCE",
+      lastUpdateTime: out.SuppressedDestination?.LastUpdateTime ?? null,
+    };
+  } catch (err) {
+    const name = (err as { name?: string }).name;
+    if (name === "NotFoundException" || name === "BadRequestException") {
+      // BadRequest covers addresses SES refuses to look up (malformed). It is
+      // not a suppression, and the send will fail on its own if it is invalid.
+      return { suppressed: false };
+    }
+    throw err;
+  }
+}
+
+export interface SesSuppressedDestinationEntry {
+  email: string;
+  reason: SesSuppressionReason;
+  lastUpdateTime: Date | null;
+}
+
+/**
+ * One page of the account suppression list.
+ *
+ * `nextToken` is whatever SES returned; null means the listing is complete.
+ * There is no `NextToken` on the last page, which is why "done" is expressed as
+ * null rather than as an empty array — an empty page mid-listing is legal.
+ */
+export async function listSuppressedDestinations(
+  opts: {
+    pageSize?: number;
+    nextToken?: string | null;
+    /** Only entries updated at or after this instant. */
+    since?: Date;
+    client?: SESv2Client;
+  } = {}
+): Promise<{ entries: SesSuppressedDestinationEntry[]; nextToken: string | null }> {
+  const { ListSuppressedDestinationsCommand } = await import("@aws-sdk/client-sesv2");
+  const out = await sesClient(opts.client).send(
+    new ListSuppressedDestinationsCommand({
+      PageSize: opts.pageSize ?? 1000,
+      ...(opts.nextToken ? { NextToken: opts.nextToken } : {}),
+      ...(opts.since ? { StartDate: opts.since } : {}),
+    })
+  );
+  const entries = (out.SuppressedDestinationSummaries ?? []).flatMap((entry) => {
+    const email = entry.EmailAddress;
+    if (!email) return [];
+    return [
+      {
+        email,
+        reason: entry.Reason === "COMPLAINT" ? ("COMPLAINT" as const) : ("BOUNCE" as const),
+        lastUpdateTime: entry.LastUpdateTime ?? null,
+      },
+    ];
+  });
+  return { entries, nextToken: out.NextToken ?? null };
+}

@@ -14,6 +14,7 @@ import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { clientIp } from "../../../../../lib/client-ip";
 import { getConfig } from "@calder/config";
 import { postLoginRedirect } from "../../../../../lib/control/post-login";
+import { invitedOrgCookieHeader } from "../../../../../lib/org-cookie";
 import { sendSecurityEmail } from "../../../../../lib/send-security-email";
 
 /** OAuth landing: validate, link-or-create user, seal session, enter app. */
@@ -62,7 +63,7 @@ export async function GET(
     return clearOAuthCookies(NextResponse.redirect(new URL("/login?error=denied", redirectOrigin)));
   }
   try {
-    const sessionId = await completeOAuth(
+    const { sessionId, invitedOrganizationIds } = await completeOAuth(
       provider,
       code,
       state,
@@ -99,6 +100,8 @@ export async function GET(
     res.headers.set("Referrer-Policy", "no-referrer");
     res.headers.set("Cache-Control", "no-store");
     res.headers.append("Set-Cookie", sessionCookieHeader(sealed, 30 * 24 * 60 * 60));
+    const invitedOrg = invitedOrgCookieHeader(invitedOrganizationIds);
+    if (invitedOrg) res.headers.append("Set-Cookie", invitedOrg);
     return clearOAuthCookies(res);
   } catch {
     return clearOAuthCookies(NextResponse.redirect(new URL("/login?error=failed", redirectOrigin)));

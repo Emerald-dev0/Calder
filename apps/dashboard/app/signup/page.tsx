@@ -12,8 +12,15 @@ export const metadata = {
 // Google and GitHub even when production had them.
 export const dynamic = "force-dynamic";
 
-export default function SignupPage() {
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string; email?: string }>;
+}) {
   const providers = configuredProviders();
+  // Both are hints: `next` is re-validated server-side on verification, and the
+  // email only prefills a field the person can change. Neither grants anything.
+  const query = await searchParams;
 
   return (
     <div className="login-split">
@@ -48,7 +55,7 @@ export default function SignupPage() {
 
       <div className="login-form-wrap">
         <div className="login-form">
-          <SignupForm providers={providers} />
+          <SignupForm providers={providers} initialEmail={query.email ?? ""} />
         </div>
       </div>
     </div>

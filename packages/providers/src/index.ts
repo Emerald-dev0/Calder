@@ -4,8 +4,13 @@ export {
   getSesAccountStatus,
   createSesDomainIdentity,
   getSesDomainIdentity,
+  getSuppressedDestination,
+  listSuppressedDestinations,
   type SesAccountStatus,
   type SesIdentityDnsRecord,
+  type SesSuppressedDestination,
+  type SesSuppressedDestinationEntry,
+  type SesSuppressionReason,
 } from "./ses.js";
 export {
   GmailTransport,
@@ -24,3 +29,11 @@ export {
   type EmailProviderStatus,
   type ResolveEmailProviderOptions,
 } from "./resolve.js";
+export {
+  S3RawMessageStore,
+  getRawMessageStore,
+  setRawMessageStoreForTests,
+  InboundStorageNotConfigured,
+  InboundObjectNotFound,
+  type RawMessageStore,
+} from "./inbound-storage.js";

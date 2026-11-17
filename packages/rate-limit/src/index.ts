@@ -70,6 +70,17 @@ export const rateLimitPresets = {
   otp: { windowMs: 60_000, max: 5 },
   waitlist: { windowMs: 60_000, max: 5 }, // unauthenticated public signup
   dashboard: { windowMs: 60_000, max: 120 },
+  // Reading is not free: a list call hydrates rows, joins projects and walks an
+  // index. Before this, only writes were metered, so one key could hammer
+  // `GET /v1/emails` (and `/domains`, `/suppressions`, `/templates`, `/jobs`)
+  // as fast as the database would answer. The ceiling is high enough that no
+  // honest client notices: 600 reads a minute is ten a second, sustained.
+  read: { windowMs: 60_000, max: 600 },
+  // Key creation and rotation are credential operations: each one mints a
+  // secret with live-send authority. There is no legitimate reason to do it
+  // twenty times an hour, and a script that does is either burning an
+  // allowance or probing. Per key and per project.
+  keyAdmin: { windowMs: 3_600_000, max: 20 },
   // First-party analytics beacon: batched events (≤20/batch), real browsers
   // send a handful of batches per minute; abusive floods get shed cheaply.
   beacon: { windowMs: 60_000, max: 120 },

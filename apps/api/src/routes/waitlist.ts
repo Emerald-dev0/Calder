@@ -1,7 +1,7 @@
 import { randomInt } from "node:crypto";
 import { Hono } from "hono";
 import { getDb, waitlistSignups } from "@calder/db";
-import { getConfig } from "@calder/config";
+import { getConfig, marketingUrl } from "@calder/config";
 import { INTERNAL_PROJECT_ID } from "../services/email-service.js";
 import { joinWaitlistSchema } from "@calder/validation";
 import { eq, lte, count } from "drizzle-orm";
@@ -240,7 +240,6 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
   // Dynamic template: admin can change via PUT /v1/admin/waitlist/confirmation without a deploy.
   try {
     const { sendInternalEmail } = await import("../services/email-service.js");
-    const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
     const { signUnsubscribeToken: signToken } = await import("@calder/auth");
     const confirmUnsub = `${getConfig().API_URL.replace(/\/$/, "")}/v1/unsubscribe?token=${signToken(INTERNAL_PROJECT_ID, email)}`;
     let subject = `You're in. Welcome to Calder.`;
@@ -271,7 +270,7 @@ waitlist.post("/", rateLimitMiddleware("waitlist"), async (c) => {
       s
         .replace(/\{\{first_name\}\}/g, escape(firstName ?? "there"))
         .replace(/\{\{email\}\}/g, email)
-        .replace(/\{\{referral_link\}\}/g, `${appUrl}/waitlist?ref=${ticketRef}`)
+        .replace(/\{\{referral_link\}\}/g, marketingUrl(`/waitlist?ref=${ticketRef}`))
         .replace(/\{\{referral_code\}\}/g, ticketRef);
     const { FLYER_BASE64, FLYER_FILENAME, FLYER_CONTENT_TYPE } = await import("../assets/flyer.js");
     await sendInternalEmail({

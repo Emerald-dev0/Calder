@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { SendEmailInput } from "@calder/validation";
 import { createQueue } from "@calder/queue";
 import { captureError, logger, queueEnqueueFailures } from "@calder/observability";
-import { getConfig, isProduction, planDisplayName } from "@calder/config";
+import { getConfig, isProduction, marketingUrl, planDisplayName } from "@calder/config";
 import { AppError } from "../errors/index.js";
 import type { DbClient, OrganizationQuotaDecision } from "@calder/db";
 
@@ -99,7 +99,7 @@ function notifyAllowance(
           percent: Math.round((quota.usage / limit) * 100),
           resetsOn: quota.period.end.toISOString().slice(0, 10),
           periodEnd: quota.period.end.toISOString().slice(0, 10),
-          pricingUrl: `${getConfig().APP_URL.replace(/\/$/, "")}/usage`,
+          pricingUrl: marketingUrl("/pricing"),
         },
       });
     } catch (err) {
@@ -171,13 +171,38 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
   try {
     const { getDb } = await import("@calder/db");
     const { resolveSender } = await import("./sender-service.js");
-    const resolved = await resolveSender(getDb(), projectId, input.from);
+    // Test-mode sends are mocked at the provider, so there is no identity to
+    // hold them to; live sends must resolve to something we can vouch for.
+    const resolved = await resolveSender(getDb(), projectId, input.from, {
+      allowUnattributed: env === "test",
+    });
     senderIdentityId = resolved.senderIdentityId;
     senderEmail = resolved.email;
     senderName = resolved.displayName;
     attributed = resolved.senderIdentityId !== null;
   } catch (err) {
-    if (err instanceof AppError) throw err;
+    if (err instanceof AppError) {
+      // Precedence matters here. An organization that cannot send at all (a
+      // suspension, an abuse pause, an exhausted plan) should learn that from
+      // the gate that actually stops it — not from a sender error it could fix
+      // and still be refused. The authoritative eligibility decision is still
+      // taken inside the admission transaction below; this only picks which
+      // refusal to report first.
+      if (err.code === "sender_not_ready" || err.code === "validation_error") {
+        const { checkOrganizationSendingEligibility } = await import("@calder/db");
+        const { getDbClient } = await import("./sender-service.js");
+        const { assertOrganizationAdmissionAllowed } =
+          await import("../lib/organization-sending.js");
+        const decision = await checkOrganizationSendingEligibility(getDbClient(), {
+          organizationId: params.organizationId,
+          projectId,
+          env,
+          phase: "ingest",
+        });
+        assertOrganizationAdmissionAllowed(decision);
+      }
+      throw err;
+    }
     // Sender authorization is a trust-boundary check. A hosted API must not
     // turn a database outage into an unscoped bare-address send; only the
     // local development scaffold may retain the legacy fallback.
@@ -191,8 +216,9 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
     }
     logger.warn({ projectId }, "Sender resolution unavailable, legacy path (development only)");
   }
-  // Template send-by-alias: latest version wins; missing variables are a
-  // 400 naming every gap (silent defaults send the wrong email to someone).
+  // Template send-by-alias: the newest **published** version wins. A draft is
+  // never sendable — that is what makes it a draft. Missing variables are a 400
+  // naming every gap (silent defaults send the wrong email to someone).
   let subject = input.subject;
   let html = input.html ?? null;
   let text = input.text ?? null;
@@ -215,44 +241,48 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
           "Create it via POST /v1/templates first."
         );
       }
-      const [latest] = await db
-        .select()
+      const { pickSendableVersion, renderTemplate } = await import("@calder/email");
+      const versions = await db
+        .select({
+          version: templateVersions.version,
+          status: templateVersions.status,
+          subject: templateVersions.subject,
+          html: templateVersions.html,
+          text: templateVersions.text,
+          publishedAt: templateVersions.publishedAt,
+        })
         .from(templateVersions)
-        .where(eq(templateVersions.templateId, tpl.id))
-        .orderBy(desc(templateVersions.createdAt))
-        .limit(1);
-      if (!latest || (!latest.subject && !latest.html && !latest.text)) {
+        .where(eq(templateVersions.templateId, tpl.id));
+      const latest = pickSendableVersion(
+        versions.map((v) => ({
+          ...v,
+          status: (v.status === "published" ? "published" : "draft") as "published" | "draft",
+        }))
+      );
+      if (!latest) {
         throw new AppError(
-          "validation_error",
-          `Template "${input.template}" has no content yet.`,
-          400,
+          "template_not_published",
+          versions.length === 0
+            ? `Template "${input.template}" has no versions yet — add one and publish it before sending.`
+            : `Template "${input.template}" has no published version, so it cannot be sent.`,
+          422,
           undefined,
-          "Add a version via POST /v1/templates/:id/versions first."
+          versions.length === 0
+            ? "Add a version via POST /v1/templates/:id/versions, then publish it."
+            : "Publish the version you want to send (POST /v1/templates/:id/versions/:version/publish)."
         );
       }
-      subject = subject ?? latest.subject ?? "";
-      html = html ?? latest.html ?? null;
-      text = text ?? latest.text ?? null;
-      const vars = (input.variables as Record<string, string> | undefined) ?? {};
-      const missing = new Set<string>();
-      const fill = (s: string | null): string | null =>
-        s === null
-          ? null
-          : s.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (m, key: string) => {
-              const v = vars[key];
-              if (v === undefined) {
-                missing.add(key);
-                return m;
-              }
-              return v;
-            });
-      subject = fill(subject) ?? "";
-      html = fill(html);
-      text = fill(text);
-      if (missing.size > 0) {
+      const rendered = renderTemplate(
+        { subject: latest.subject, html: latest.html, text: latest.text },
+        (input.variables as Record<string, string> | undefined) ?? {}
+      );
+      subject = subject ?? rendered.subject;
+      html = html ?? rendered.html;
+      text = text ?? rendered.text;
+      if (rendered.missing.length > 0) {
         throw new AppError(
           "validation_error",
-          `Missing template variables: ${[...missing].join(", ")}.`,
+          `Missing template variables: ${rendered.missing.join(", ")}.`,
           400,
           undefined,
           "Pass every {{variable}} in the variables object."
@@ -303,7 +333,10 @@ export async function handleSendEmail(params: HandleSendEmailParams): Promise<{
         "suppressed",
         `${describeBlock(blocked)} The email was not queued.`,
         422,
-        { reason: blocked.reason, scope: blocked.crossProject ? "organization" : "project" },
+        {
+          reason: blocked.reason,
+          scope: blocked.source ?? (blocked.crossProject ? "organization" : "project"),
+        },
         "Remove the address from the suppression list first, or send to a different recipient."
       );
     }
@@ -713,7 +746,9 @@ async function resolveInternalSender(db: DbClient, requested?: string): Promise<
   if (requested.startsWith("sender_")) {
     try {
       const { resolveSender } = await import("./sender-service.js");
-      const out = await resolveSender(db, INTERNAL_PROJECT_ID, requested);
+      const out = await resolveSender(db, INTERNAL_PROJECT_ID, requested, {
+        allowUnattributed: true,
+      });
       return out.email;
     } catch {
       // fall through to label check
@@ -738,7 +773,9 @@ async function resolveInternalSender(db: DbClient, requested?: string): Promise<
   // Also allow any verified sender email of the internal project
   try {
     const { resolveSender } = await import("./sender-service.js");
-    const out = await resolveSender(db, INTERNAL_PROJECT_ID, requested);
+    const out = await resolveSender(db, INTERNAL_PROJECT_ID, requested, {
+      allowUnattributed: true,
+    });
     return out.email;
   } catch {
     throw new AppError(

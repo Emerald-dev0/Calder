@@ -36,8 +36,9 @@ async function audit(
   }
 }
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { getTenantContext } from "../../../lib/auth";
-import { getConfig } from "@calder/config";
+import { dashboardUrl } from "@calder/config";
 import { sendCompanyEmailQuietly } from "@calder/notify";
 
 function rid(prefix: string): string {
@@ -159,6 +160,28 @@ export async function inviteMember(orgId: string, email: string, role: Role) {
       .limit(1);
     if (existing[0]) throw new Error("That address is already on the team.");
   }
+  // Seats are a plan entitlement (1 / 2 / 5), counted as members **plus**
+  // pending invitations — an invitation is already a promised seat. Without
+  // this, a one-seat workspace could invite the whole company and the plan
+  // would only be discovered at acceptance time, when refusing is hostile.
+  const { assertCanCreateResource, ResourceLimitError } = await import("@calder/db");
+  try {
+    await assertCanCreateResource(db, orgId, "seats");
+  } catch (err) {
+    if (err instanceof ResourceLimitError) {
+      throw new Error(
+        `${err.message} Your ${err.displayName} plan includes ${
+          err.limit ?? "no"
+        } seat${err.limit === 1 ? "" : "s"}.${
+          err.upgradeDisplayName
+            ? ` Upgrade to ${err.upgradeDisplayName} to invite more people.`
+            : ""
+        }`
+      );
+    }
+    throw err;
+  }
+
   const rawToken = randomBytes(32).toString("hex");
   const tokenHash = createHash("sha256").update(rawToken).digest("hex");
   const inviteId = rid("inv");
@@ -172,8 +195,7 @@ export async function inviteMember(orgId: string, email: string, role: Role) {
     invitedBy: inviter.user.userId,
     expiresAt,
   });
-  const appUrl = getConfig().APP_URL.replace(/\/$/, "");
-  const inviteLink = `${appUrl}/invite/${rawToken}`;
+  const inviteLink = dashboardUrl(`/invite/${rawToken}`);
 
   const [organization] = await db
     .select({ name: organizations.name })
@@ -351,22 +373,13 @@ export async function removeMember(orgId: string, membershipId: string) {
  * Public preview for /invite/[token]: resolves the org name + state without
  * authentication (the 256-bit token IS the capability). Never exposes member
  * lists, emails beyond the invitee's own, or raw tokens.
+ *
+ * The rules live in `lib/invites.ts` so the preview and the acceptance cannot
+ * disagree about whether a link is still usable.
  */
 export async function getInvitePreview(token: string) {
-  if (!/^[a-f0-9]{64}$/.test(token)) return { state: "invalid" as const };
-  const tokenHash = createHash("sha256").update(token).digest("hex");
-  const db = getDb();
-  const rows = await db
-    .select({ invite: orgInvitations, orgName: organizations.name })
-    .from(orgInvitations)
-    .innerJoin(organizations, eq(orgInvitations.organizationId, organizations.id))
-    .where(eq(orgInvitations.tokenHash, tokenHash))
-    .limit(1);
-  const row = rows[0];
-  if (!row) return { state: "invalid" as const };
-  if (row.invite.acceptedAt) return { state: "accepted" as const, orgName: row.orgName };
-  if (row.invite.expiresAt < new Date()) return { state: "expired" as const, orgName: row.orgName };
-  return { state: "valid" as const, orgName: row.orgName, email: row.invite.email };
+  const { previewInvitation } = await import("../../../lib/invites");
+  return previewInvitation(token);
 }
 
 export async function revokeInvite(orgId: string, inviteId: string) {
@@ -551,7 +564,7 @@ export async function requestEmailChange(formData: FormData) {
     from: ctx.user.email,
     to: next,
   });
-  const link = `${getConfig().APP_URL.replace(/\/$/, "")}/api/auth/email-change/confirm?token=${encodeURIComponent(token)}`;
+  const link = dashboardUrl(`/api/auth/email-change/confirm?token=${encodeURIComponent(token)}`);
 
   await sendCompanyEmailQuietly(db, {
     id: "account.email_change_requested",
@@ -582,7 +595,7 @@ export async function requestDataExport() {
   const db = getDb();
   const { signExportToken } = await import("../../../lib/data-export");
   const { token } = signExportToken(ctx.user.userId);
-  const link = `${getConfig().APP_URL.replace(/\/$/, "")}/api/account/export?token=${encodeURIComponent(token)}`;
+  const link = dashboardUrl(`/api/account/export?token=${encodeURIComponent(token)}`);
 
   await sendCompanyEmailQuietly(db, {
     id: "account.data_export_ready",
@@ -625,4 +638,94 @@ export async function setCalderBranding(formData: FormData) {
       and(eq(projects.id, projectId), eq(projects.organizationId, membership.organization.id))
     );
   redirect(`/settings?org=${encodeURIComponent(membership.organization.id)}`);
+}
+
+/* ── Deletion (F-08) ────────────────────────────────────────────────────────
+ *
+ * These actions schedule; they never delete. The typed confirmation is checked
+ * again inside `@calder/db` against the stored slug or email, so a crafted POST
+ * cannot delete a workspace by sending `confirmation=true`. Membership is
+ * re-checked here as well, because the form is only a hint.
+ *
+ * Refusals redirect with a code rather than throwing: a wrong word typed at a
+ * destructive form is a normal outcome, not an error page.
+ */
+
+function deletionRedirect(code: string): never {
+  redirect(`/settings?deletion=${encodeURIComponent(code)}`);
+}
+
+export async function requestWorkspaceDeletionAction(formData: FormData): Promise<void> {
+  const ctx = await getTenantContext();
+  const organizationId = String(formData.get("organizationId") ?? "");
+  const confirmation = String(formData.get("confirmation") ?? "");
+
+  const membership = ctx.memberships.find((m) => m.organization.id === organizationId);
+  if (!membership || membership.role !== "owner") deletionRedirect("forbidden");
+
+  const { DeletionError, requestOrganizationDeletion } = await import("@calder/db");
+  try {
+    await requestOrganizationDeletion(getDb(), {
+      organizationId,
+      actorUserId: ctx.user.userId,
+      confirmation,
+    });
+  } catch (error) {
+    if (error instanceof DeletionError) deletionRedirect(error.code);
+    deletionRedirect("error");
+  }
+  revalidatePath("/settings");
+  revalidatePath("/");
+  deletionRedirect("requested");
+}
+
+export async function cancelWorkspaceDeletionAction(formData: FormData): Promise<void> {
+  const ctx = await getTenantContext();
+  const organizationId = String(formData.get("organizationId") ?? "");
+  const membership = ctx.memberships.find((m) => m.organization.id === organizationId);
+  if (!membership || membership.role !== "owner") deletionRedirect("forbidden");
+
+  const { DeletionError, cancelOrganizationDeletion } = await import("@calder/db");
+  try {
+    await cancelOrganizationDeletion(getDb(), {
+      organizationId,
+      actorUserId: ctx.user.userId,
+    });
+  } catch (error) {
+    if (error instanceof DeletionError) deletionRedirect(error.code);
+    deletionRedirect("error");
+  }
+  revalidatePath("/settings");
+  deletionRedirect("cancelled");
+}
+
+export async function requestAccountDeletionAction(formData: FormData): Promise<void> {
+  const ctx = await getTenantContext();
+  const confirmation = String(formData.get("confirmation") ?? "");
+
+  const { DeletionError, requestAccountDeletion } = await import("@calder/db");
+  try {
+    await requestAccountDeletion(getDb(), {
+      userId: ctx.user.userId,
+      confirmation,
+    });
+  } catch (error) {
+    if (error instanceof DeletionError) deletionRedirect(error.code);
+    deletionRedirect("error");
+  }
+  revalidatePath("/settings");
+  deletionRedirect("account_requested");
+}
+
+export async function cancelAccountDeletionAction(): Promise<void> {
+  const ctx = await getTenantContext();
+  const { DeletionError, cancelAccountDeletion } = await import("@calder/db");
+  try {
+    await cancelAccountDeletion(getDb(), { userId: ctx.user.userId });
+  } catch (error) {
+    if (error instanceof DeletionError) deletionRedirect(error.code);
+    deletionRedirect("error");
+  }
+  revalidatePath("/settings");
+  deletionRedirect("account_cancelled");
 }

@@ -6,6 +6,7 @@ import { AppError, validationError } from "../errors/index.js";
 import { generateApiKey } from "@calder/auth";
 import { randomUUID } from "node:crypto";
 import { decodeApiCursor, encodeApiCursor } from "../lib/pagination.js";
+import { rateLimitMiddleware } from "../middleware/rate-limit.js";
 
 const keys = new Hono<Env>();
 
@@ -30,7 +31,7 @@ function present(row: Record<string, unknown>) {
 }
 
 // GET /v1/keys, key management requires full scope
-keys.get("/", authMiddleware, async (c) => {
+keys.get("/", authMiddleware, rateLimitMiddleware("read"), async (c) => {
   const a = auth(c);
   requireScope(a, "manage");
   const { getDb, apiKeys } = await import("@calder/db");
@@ -65,7 +66,7 @@ keys.get("/", authMiddleware, async (c) => {
 });
 
 // POST /v1/keys, secret is shown exactly once here
-keys.post("/", authMiddleware, async (c) => {
+keys.post("/", authMiddleware, rateLimitMiddleware("keyAdmin"), async (c) => {
   const a = auth(c);
   requireScope(a, "manage");
   const body = await c.req.json().catch(() => null);
@@ -150,7 +151,7 @@ keys.post("/", authMiddleware, async (c) => {
 // POST /v1/keys/:id/rotate — atomically creates a replacement and revokes
 // the old key. The new secret is shown exactly once; the old key is never
 // accepted after this transaction commits.
-keys.post("/:id/rotate", authMiddleware, async (c) => {
+keys.post("/:id/rotate", authMiddleware, rateLimitMiddleware("keyAdmin"), async (c) => {
   const a = auth(c);
   requireScope(a, "manage");
   const id = c.req.param("id");

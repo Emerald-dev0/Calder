@@ -1,28 +1,336 @@
-import { ComingSoon } from "../../../components/coming-soon";
-
-export const metadata = { title: "Calder — Inbox" };
+import Link from "next/link";
+import { Inbox as InboxIcon, Search } from "lucide-react";
+import {
+  getDb,
+  inboxes,
+  listConversations,
+  unreadConversationCounts,
+  unreadConversationIds,
+} from "@calder/db";
+import { requireDashboardFeaturePage } from "../../../lib/feature-gate";
+import { eq } from "drizzle-orm";
+import { getTenantContext, resolveProject } from "../../../lib/auth";
+import { visibleInboxesForProject } from "../../../lib/inbox/guard";
+import { ProjectPicker } from "../project-picker";
+import { markRead } from "./actions";
+import { DsBanner, DsPageHeader, StatusPill } from "../../../components/design-system";
+import { EmptyState } from "../../../components/empty-state";
 
 /**
- * Inbound email does not exist in this release.
+ * Shared inbox.
  *
- * This page previously rendered an "Inbound Inbox" PRO badge, a fake webhook
- * preview and a plan gate selling inbound routing that has no ingestion
- * pipeline, no MX handling and no inbound event. Outbound webhooks are real;
- * receiving mail is not. The honest surface is Coming Soon with a pointer to
- * what does work.
+ * The rail only lists inboxes this person may open — organisation owners and
+ * admins see all of them, everyone else sees the ones they were added to. An
+ * `?inbox=` id outside that set is ignored rather than 403'd, so a stale
+ * bookmark lands somewhere usable instead of on an error page.
+ *
+ * Conversations are listed from the same query the conversation page reads, and
+ * nothing here claims mail is being received: if inbound is not configured the
+ * banner says so.
+ *
+ * Unread is per person and per thread: the rail badge and the dots both come
+ * from `unreadConversationCounts` / `unreadConversationIds`, which implement the
+ * single rule that a conversation is unread when it moved after the later of
+ * "I opened this thread" and "I marked this inbox read". A shared badge that
+ * cleared because a colleague read one thread would be worse than no badge.
  */
-export default function InboxPage() {
+export default async function InboxPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    project?: string;
+    inbox?: string;
+    status?: string;
+    q?: string;
+    mine?: string;
+  }>;
+}) {
+  // Not launched: this page belongs to `inbound_email`, which is `coming_soon`
+  // in the feature registry. Refusing here rather than in a layout is
+  // deliberate — Next renders a layout and its page in parallel, so a layout's
+  // notFound() still lets the page render and returns 200. A 404 says the
+  // truth; a greyed-out nav item does not.
+  requireDashboardFeaturePage("inbound_email");
+
+  const query = await searchParams;
+  const ctx = await getTenantContext();
+  const scope = resolveProject(ctx, query.project);
+
+  if (!scope) {
+    return (
+      <div>
+        <DsPageHeader
+          icon={<InboxIcon size={18} />}
+          title="Inbox"
+          description="No project found."
+        />
+        <EmptyState
+          title="No project found"
+          description="Inboxes belong to a project. Create one in your workspace settings."
+          actionLabel="Configure workspace"
+          actionHref="/settings"
+        />
+      </div>
+    );
+  }
+
+  const projectId = scope.project.id;
+  const { rows: visible, userId } = await visibleInboxesForProject(projectId);
+
+  if (visible.length === 0) {
+    return (
+      <div>
+        <DsPageHeader
+          icon={<InboxIcon size={18} />}
+          title="Inbox"
+          description="Shared mailboxes for this project."
+          actions={
+            <ProjectPicker
+              projects={ctx.memberships.flatMap((m) => m.projects)}
+              currentId={projectId}
+              basePath="/inbox"
+            />
+          }
+        />
+        <EmptyState
+          title="No inbox you can open"
+          description="Either this project has no inbox yet, or you have not been added to one. Organisation owners and admins can create inboxes and add people."
+          actionLabel="Inbox settings"
+          actionHref={`/inbox/settings?project=${projectId}`}
+        />
+      </div>
+    );
+  }
+
+  const selected = visible.find((i) => i.id === query.inbox) ?? visible[0]!;
+  const status =
+    query.status === "all" || query.status === "pending" || query.status === "closed"
+      ? query.status
+      : "open";
+
+  const db = getDb();
+  const [{ rows }, unreadPerInbox, unreadInSelected, inboxRowResult] = await Promise.all([
+    listConversations(db, {
+      inboxId: selected.id,
+      status,
+      q: query.q?.trim() || undefined,
+      assigneeUserId: query.mine === "1" ? userId : undefined,
+      limit: 50,
+    }),
+    unreadConversationCounts(db, { userId, organizationId: scope.organization.id }),
+    unreadConversationIds(db, { userId, inboxId: selected.id }),
+    db.select().from(inboxes).where(eq(inboxes.id, selected.id)).limit(1),
+  ]);
+  const [inboxRow] = inboxRowResult;
+  const unreadByInbox = new Map(unreadPerInbox.perInbox.map((u) => [u.inboxId, u.unread]));
+  const selectedUnread = unreadByInbox.get(selected.id) ?? 0;
+
   return (
-    <ComingSoon
-      feature="inbound_email"
-      title="Inbound Inbox"
-      description="Receiving email is not part of the Calder MVP. Outbound email delivery, templates, signed webhooks and transactional suppression are available today."
-      alternative={{ href: "/emails", label: "View outbound email" }}
-      checklist={[
-        "No MX or inbound ingestion endpoint exists",
-        "No inbound webhook event is emitted",
-        "Outbound webhooks are available under Webhooks",
-      ]}
-    />
+    <div>
+      <DsPageHeader
+        icon={<InboxIcon size={18} />}
+        title={inboxRow?.name ?? "Inbox"}
+        badge={
+          <StatusPill
+            status={selected.capabilities.includes("manageSettings") ? "active" : "info"}
+            label={
+              selected.role.startsWith("org:")
+                ? `${selected.role.slice(4)} (workspace)`
+                : selected.role
+            }
+          />
+        }
+        description={
+          <span className="mono" style={{ fontSize: 12 }}>
+            {(inboxRow?.replyToAddress ?? "") || "received mail"}
+          </span>
+        }
+        actions={
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <ProjectPicker
+              projects={ctx.memberships.flatMap((m) => m.projects)}
+              currentId={projectId}
+              basePath="/inbox"
+            />
+            {selectedUnread > 0 && (
+              <form
+                action={async () => {
+                  "use server";
+                  await markRead(selected.id);
+                }}
+              >
+                <button className="ds-btn ds-btn-ghost" type="submit">
+                  Mark {selectedUnread} read
+                </button>
+              </form>
+            )}
+            <Link className="ds-btn ds-btn-ghost" href={`/inbox/settings?project=${projectId}`}>
+              Inbox settings
+            </Link>
+          </div>
+        }
+      />
+
+      <div style={{ display: "grid", gridTemplateColumns: "200px minmax(0, 1fr)", gap: 20 }}>
+        <nav aria-label="Inboxes">
+          <div style={{ display: "grid", gap: 6 }}>
+            {visible.map((inbox) => {
+              const unread = unreadByInbox.get(inbox.id) ?? 0;
+              return (
+                <Link
+                  key={inbox.id}
+                  href={`/inbox?inbox=${inbox.id}&project=${projectId}`}
+                  className={`ds-btn ${inbox.id === selected.id ? "ds-btn-primary" : "ds-btn-ghost"}`}
+                  style={{ justifyContent: "space-between", gap: 8 }}
+                  aria-label={
+                    unread > 0 ? `${inbox.name}, ${unread} unread conversations` : inbox.name
+                  }
+                >
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{inbox.name}</span>
+                  {unread > 0 && (
+                    <span
+                      className="mono"
+                      style={{
+                        minWidth: 18,
+                        padding: "0 5px",
+                        borderRadius: 999,
+                        background: "var(--color-danger, #d92d20)",
+                        color: "#fff",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        lineHeight: "16px",
+                        textAlign: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {unread > 99 ? "99+" : unread}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+
+        <div>
+          <form
+            method="get"
+            action="/inbox"
+            style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}
+          >
+            <input type="hidden" name="inbox" value={selected.id} />
+            <input type="hidden" name="project" value={projectId} />
+            <input
+              name="q"
+              defaultValue={query.q ?? ""}
+              placeholder="Search subject, people, message text"
+              className="ds-input"
+              style={{ flex: "1 1 260px" }}
+              aria-label="Search conversations"
+            />
+            <select name="status" defaultValue={status} className="ds-select" aria-label="Status">
+              <option value="open">Open</option>
+              <option value="pending">Pending</option>
+              <option value="closed">Closed</option>
+              <option value="all">All</option>
+            </select>
+            <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12 }}>
+              <input type="checkbox" name="mine" value="1" defaultChecked={query.mine === "1"} />
+              Assigned to me
+            </label>
+            <button className="ds-btn ds-btn-secondary" type="submit">
+              <Search size={13} /> Filter
+            </button>
+          </form>
+
+          {rows.length === 0 ? (
+            <EmptyState
+              title="No conversations"
+              description={
+                query.q
+                  ? "Nothing matches that search in this inbox."
+                  : "No conversations match these filters yet."
+              }
+            />
+          ) : (
+            <div style={{ display: "grid", gap: 8 }}>
+              {rows.map((conversation) => {
+                const unread = unreadInSelected.has(conversation.id);
+                return (
+                  <Link
+                    key={conversation.id}
+                    href={`/inbox/${conversation.id}`}
+                    className="ds-card"
+                    style={{
+                      padding: 14,
+                      display: "block",
+                      textDecoration: "none",
+                      color: "inherit",
+                    }}
+                  >
+                    <div
+                      style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}
+                    >
+                      <StatusPill status={conversation.status} />
+                      {unread && (
+                        <span
+                          aria-label="Unread"
+                          title="New since you last opened this conversation"
+                          style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: 999,
+                            background: "var(--color-accent)",
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
+                      <strong style={{ fontSize: 13, fontWeight: unread ? 750 : 600 }}>
+                        {conversation.subject ?? "(no subject)"}
+                      </strong>
+                      {conversation.assigneeName && (
+                        <span style={{ fontSize: 11, opacity: 0.75 }}>
+                          → {conversation.assigneeName}
+                        </span>
+                      )}
+                      <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.6 }}>
+                        {conversation.lastMessageAt.toISOString().slice(0, 16).replace("T", " ")}{" "}
+                        UTC
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>
+                      {conversation.participants.slice(0, 3).join(", ")}
+                      {conversation.participants.length > 3
+                        ? ` +${conversation.participants.length - 3}`
+                        : ""}
+                      {" · "}
+                      {conversation.messageCount} message
+                      {conversation.messageCount === 1 ? "" : "s"}
+                    </div>
+                    {conversation.labels.length > 0 && (
+                      <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                        {conversation.labels.map((label) => (
+                          <span key={label} className="ds-pill">
+                            {label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          <div style={{ marginTop: 16 }}>
+            <DsBanner
+              tone="neutral"
+              title="Receiving is separate from sending"
+              description="Mail arrives here when a receiving domain is verified, its SES receipt rule is recorded, and an address routes to this inbox. Replies send from the inbox's own sender identity and count as outbound email."
+            />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

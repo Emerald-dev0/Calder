@@ -366,13 +366,23 @@ export default async function CommandCenter({
       <div className="cp-stats">
         <Stat
           label="Emails sent · all time"
-          value={pulse ? fmtInt(pulse.emails.acceptedAllTime) : "—"}
-          hint={pulse ? `${fmtInt(pulse.emails.acceptedToday)} today` : undefined}
+          value={pulse ? fmtInt(pulse.emails.totalAllTime) : "—"}
+          hint={
+            pulse
+              ? `${fmtInt(pulse.emails.acceptedAllTime)} customer · ${fmtInt(
+                  pulse.emails.companyAllTime
+                )} Calder's own`
+              : undefined
+          }
         />
         <Stat
           label="Emails today"
-          value={pulse ? fmtInt(pulse.emails.acceptedToday) : "—"}
-          hint="accepted by the provider"
+          value={pulse ? fmtInt(pulse.emails.acceptedToday + pulse.emails.companyToday) : "—"}
+          hint={
+            pulse
+              ? `${fmtInt(pulse.emails.companyToday)} of them Calder → its users`
+              : "accepted by the provider"
+          }
         />
         <Stat
           label="Signups"
@@ -398,7 +408,9 @@ export default async function CommandCenter({
           value={pulse ? fmtInt(pulse.domains.total) : "—"}
           hint={
             pulse
-              ? `${fmtInt(pulse.domains.verified)} verified · ${fmtInt(pulse.domains.today)} today`
+              ? `${fmtInt(pulse.domains.verified)} verified of ${fmtInt(
+                  pulse.domains.total
+                )} · names on the Domains page`
               : undefined
           }
         />

@@ -1,7 +1,7 @@
-import { count, desc, gte, sql } from "drizzle-orm";
-import { companyEmails, emailPreferences, getDb } from "@calder/db";
+import Link from "next/link";
+import { and, count, desc, gte, inArray, isNotNull, sql } from "drizzle-orm";
+import { companyEmails, emailPreferences, getDb, users } from "@calder/db";
 import {
-  COMPANY_EMAILS,
   COMPANY_EMAIL_IDS,
   companyEmailDefinition,
   isOptionalCategory,
@@ -10,6 +10,22 @@ import {
 } from "@calder/notify";
 import { requireSection } from "@/lib/control/guard";
 import { READ_ONLY_ROLES } from "@/lib/control/roles";
+import { previewSampleData, resolveCataloguePreview } from "@/lib/control/email-preview";
+import {
+  DRAFT_BODY_SKELETON,
+  DRAFT_LIMITS,
+  MERGE_FIELDS,
+  PREVIEW_PERSONA,
+  draftFromSearchParams,
+  renderDraftPreview,
+  validateDraft,
+} from "@/lib/control/company-draft";
+import {
+  AUDIENCE_OPTIONS,
+  describeAudience,
+  parseAudience,
+  requiresUnverifiedConfirmation,
+} from "@/lib/control/audience";
 import { Badge, Empty, PageHeader, Panel, Stat } from "@/app/control/_components/ui";
 import { sendTestToSelf, sendToProductUsers } from "./actions";
 
@@ -39,7 +55,23 @@ function fmtDate(value: Date | string | number | null | undefined): string {
 export default async function CompanyEmailPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sent?: string; skipped?: string; failed?: string; test?: string }>;
+  searchParams: Promise<{
+    sent?: string;
+    skipped?: string;
+    failed?: string;
+    test?: string;
+    preview?: string;
+    /** `operator` = broadcasts sent from this console; `all` = every company email. */
+    scope?: string;
+    /** `verified` (default) or `everyone`, chosen per send. */
+    audience?: string;
+    /** The GET preview step: the operator's own draft, read back from the URL. */
+    template?: string;
+    title?: string;
+    body?: string;
+    ctaLabel?: string;
+    ctaUrl?: string;
+  }>;
 }) {
   const ctx = await requireSection("communications");
   const query = await searchParams;
@@ -61,17 +93,33 @@ export default async function CompanyEmailPage({
     .from(emailPreferences)
     .where(sql`jsonb_array_length(${emailPreferences.disabledCategories}) > 0`);
 
+  // "Last sent" must mean accepted by a provider, not "a row exists". The
+  // previous shape took max(created_at) over every status, so a template whose
+  // only attempts were refused still showed a delivery date beside a total of
+  // zero — the page asserting a send that never happened. Evidence is now
+  // strictly the accepted subset, and refused/skipped attempts are counted
+  // separately so a row can say "tried, never accepted".
   const lastSent = await db
     .select({
       template: companyEmails.template,
-      at: sql<Date | string>`max(${companyEmails.createdAt})`,
+      at: sql<
+        Date | string | null
+      >`max(${companyEmails.createdAt}) filter (where ${companyEmails.status} = 'sent')`,
       sent: sql<number>`count(*) filter (where ${companyEmails.status} = 'sent')`,
+      failed: sql<number>`count(*) filter (where ${companyEmails.status} = 'failed')`,
+      skipped: sql<number>`count(*) filter (where ${companyEmails.status} = 'skipped')`,
+      attempts: count(),
     })
     .from(companyEmails)
     .groupBy(companyEmails.template);
 
   const lastSentBy = new Map(lastSent.map((row) => [row.template, row]));
 
+  // Default to the broadcasts this console sent. The newest twelve *company*
+  // emails are almost always sign-in notices, which made this table look like
+  // the page had nothing to do with the operator's own sends.
+  const scope = query.scope === "all" ? "all" : "operator";
+  const broadcastTemplates = SENDABLE.map((option) => option.id);
   const recent = await db
     .select({
       id: companyEmails.id,
@@ -83,28 +131,72 @@ export default async function CompanyEmailPage({
       createdAt: companyEmails.createdAt,
     })
     .from(companyEmails)
+    .where(
+      scope === "operator"
+        ? and(
+            inArray(companyEmails.template, broadcastTemplates),
+            gte(companyEmails.createdAt, since)
+          )
+        : undefined
+    )
     .orderBy(desc(companyEmails.createdAt))
     .limit(12);
 
   const readOnly = (READ_ONLY_ROLES as string[]).includes(ctx.role);
-  const previewId = "updates.announcement" as const;
+
+  // Who this run would reach, in both directions. "Mail every verified account"
+  // is a number an operator should see rather than infer — and so is how many
+  // accounts the narrow audience would leave out.
+  const [verifiedRow] = await db
+    .select({ n: count() })
+    .from(users)
+    .where(isNotNull(users.emailVerifiedAt));
+  const [totalRow] = await db.select({ n: count() }).from(users);
+  const verifiedCount = Number(verifiedRow?.n ?? 0);
+  const totalCount = Number(totalRow?.n ?? 0);
+  const audienceScope = parseAudience(query.audience);
+  const audienceCount = audienceScope === "everyone" ? totalCount : verifiedCount;
+
+  const selectedTemplate = SENDABLE.some((option) => option.id === query.template)
+    ? (query.template as (typeof SENDABLE)[number]["id"])
+    : SENDABLE[0].id;
+
+  // The draft preview. The compose form is a GET form, so what is rendered here
+  // is exactly what the operator typed — same renderer, same footer — instead of
+  // the sample that used to sit under a "I have read the preview" checkbox.
+  const draft = draftFromSearchParams(query);
+  const draftValidation = draft ? validateDraft(draft) : null;
+  const draftPreview =
+    draft && draftValidation?.ok ? renderDraftPreview(selectedTemplate, draft) : null;
+
+  // Previewing the catalogue is an operator capability (F-05). The resolver is
+  // told we are the Control Plane *after* `requireSection` has run, and refuses
+  // an unknown id rather than falling back to something plausible.
+  const previewId =
+    resolveCataloguePreview({
+      id: query.preview ?? "updates.announcement",
+      audience: "operator",
+    }) ?? "updates.announcement";
   const preview = renderCompanyEmail({
     id: previewId,
-    data: {
-      title: "A change worth knowing about",
-      body: "This is the exact layout an operator send uses. Replace this copy with the real announcement; the footer, the unsubscribe and the reason line stay identical.",
-      ctaLabel: "Read the details",
-      ctaUrl: "https://calder.click/changelog",
-    },
+    data: previewSampleData(previewId),
     urls: defaultUrls(),
     preview: true,
   });
 
-  const catalogue = COMPANY_EMAIL_IDS.map((id) => ({
-    id,
-    definition: companyEmailDefinition(id)!,
-    evidence: lastSentBy.get(id),
-  }));
+  const catalogue = COMPANY_EMAIL_IDS.map((id) => {
+    const row = lastSentBy.get(id);
+    const sent = Number(row?.sent ?? 0);
+    return {
+      id,
+      definition: companyEmailDefinition(id)!,
+      // Only an accepted send counts as evidence.
+      evidence: row && sent > 0 ? { ...row, at: row.at as Date | string, sent } : undefined,
+      attempts: Number(row?.attempts ?? 0),
+      failed: Number(row?.failed ?? 0),
+      skipped: Number(row?.skipped ?? 0),
+    };
+  });
 
   return (
     <>
@@ -160,11 +252,11 @@ export default async function CompanyEmailPage({
       </div>
 
       <Panel
-        title="Send to product users"
+        title="Write it"
         caption={
           readOnly
             ? "Your role can inspect this page but not send."
-            : "Verified accounts only, capped at 500 per run. Optional categories are honoured per recipient."
+            : "Preview the exact email before it goes anywhere. Choose who it reaches; the cap is 500 recipients per run."
         }
       >
         {readOnly ? (
@@ -172,10 +264,14 @@ export default async function CompanyEmailPage({
             Ask a founder or an operator with write access to send.
           </p>
         ) : (
-          <form action={sendToProductUsers} style={{ display: "grid", gap: 12, maxWidth: 720 }}>
+          <form
+            method="get"
+            style={{ display: "grid", gap: 12, maxWidth: 720 }}
+            aria-label="Compose a company email"
+          >
             <label style={{ display: "grid", gap: 6, fontSize: 12.5, fontWeight: 600 }}>
               Template
-              <select name="template" className="cp-select" defaultValue={SENDABLE[0].id}>
+              <select name="template" className="cp-select" defaultValue={selectedTemplate}>
                 {SENDABLE.map((option) => (
                   <option key={option.id} value={option.id}>
                     {option.label}
@@ -185,51 +281,201 @@ export default async function CompanyEmailPage({
             </label>
             <label style={{ display: "grid", gap: 6, fontSize: 12.5, fontWeight: 600 }}>
               Title
-              <input name="title" className="cp-input" required minLength={3} maxLength={120} />
+              <input
+                name="title"
+                className="cp-input"
+                required
+                minLength={DRAFT_LIMITS.titleMin}
+                maxLength={DRAFT_LIMITS.titleMax}
+                defaultValue={draft?.title ?? ""}
+                placeholder="What changed, in one line"
+              />
             </label>
             <label style={{ display: "grid", gap: 6, fontSize: 12.5, fontWeight: 600 }}>
               Body
-              <textarea name="body" className="cp-input" rows={4} required minLength={20} />
+              <textarea
+                name="body"
+                className="cp-input"
+                rows={6}
+                required
+                minLength={DRAFT_LIMITS.bodyMin}
+                maxLength={DRAFT_LIMITS.bodyMax}
+                defaultValue={draft?.body ?? `${DRAFT_BODY_SKELETON}Something shipped this week.`}
+              />
             </label>
+            <p style={{ fontSize: 12, color: "var(--cp-muted)", margin: 0 }}>
+              Merge fields: {MERGE_FIELDS.map((field) => `{{${field}}}`).join(", ")} — replaced with
+              each recipient&apos;s own name, or &quot;there&quot; when the account has none. Any
+              other field is refused rather than sent literally.
+            </p>
+            <label style={{ display: "grid", gap: 6, fontSize: 12.5, fontWeight: 600 }}>
+              Audience
+              <select name="audience" className="cp-select" defaultValue={audienceScope}>
+                {AUDIENCE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p style={{ fontSize: 12, color: "var(--cp-muted)", margin: 0 }}>
+              {describeAudience(audienceScope, verifiedCount, totalCount)}{" "}
+              {AUDIENCE_OPTIONS.find((option) => option.value === audienceScope)?.description}
+            </p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <label style={{ display: "grid", gap: 6, fontSize: 12.5, fontWeight: 600 }}>
                 Button label (optional)
-                <input name="ctaLabel" className="cp-input" maxLength={40} />
+                <input
+                  name="ctaLabel"
+                  className="cp-input"
+                  maxLength={DRAFT_LIMITS.ctaLabelMax}
+                  defaultValue={draft?.ctaLabel ?? ""}
+                />
               </label>
               <label style={{ display: "grid", gap: 6, fontSize: 12.5, fontWeight: 600 }}>
                 Button URL (optional)
-                <input name="ctaUrl" className="cp-input" type="url" />
+                <input
+                  name="ctaUrl"
+                  className="cp-input"
+                  type="url"
+                  defaultValue={draft?.ctaUrl ?? ""}
+                />
               </label>
             </div>
-            <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12.5 }}>
-              <input type="checkbox" name="confirm" required />I have read the preview below and
-              understand this mails every verified account.
-            </label>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="submit" className="cp-btn">
-                Send batch
+            <div>
+              <button type="submit" className="cp-btn primary">
+                Preview this draft
               </button>
-              <button type="submit" formAction={sendTestToSelf} className="cp-btn">
-                Send test to me
-              </button>
+              <p style={{ fontSize: 12, color: "var(--cp-muted)", margin: "6px 0 0" }}>
+                Previewing renders your words through the real template. Nothing is sent until you
+                confirm below the preview.
+              </p>
             </div>
           </form>
         )}
       </Panel>
 
-      <Panel title="Preview — announcement" caption="Sample values, real templates." flush>
-        <iframe
-          title="Announcement preview"
-          srcDoc={preview.document}
-          sandbox=""
-          style={{ width: "100%", height: 520, border: 0, background: "#fff" }}
-        />
-      </Panel>
+      {draft && draftValidation && !draftValidation.ok ? (
+        <Panel title="Preview failed" caption="nothing has been sent" flush>
+          <div className="cp-panel-body">
+            <p style={{ margin: 0, fontSize: 13.5 }}>{draftValidation.error}</p>
+          </div>
+        </Panel>
+      ) : null}
+
+      {draftPreview && draft ? (
+        <>
+          <Panel
+            title="Preview — your draft"
+            caption={`rendered with ${PREVIEW_PERSONA.name} as the recipient · subject “${draftPreview.subject}”`}
+            flush
+          >
+            <iframe
+              title="Preview of your draft"
+              srcDoc={draftPreview.document}
+              sandbox=""
+              style={{ width: "100%", height: 560, border: 0, background: "#fff" }}
+            />
+          </Panel>
+
+          <Panel
+            title="Send this draft"
+            caption={
+              readOnly
+                ? "Your role can inspect this page but not send."
+                : `${describeAudience(audienceScope, verifiedCount, totalCount)} Optional categories are honoured per recipient.`
+            }
+          >
+            {readOnly ? (
+              <p style={{ fontSize: 13.5, color: "var(--cp-muted)", margin: 0 }}>
+                Ask a founder or an operator with write access to send.
+              </p>
+            ) : (
+              <form action={sendToProductUsers} style={{ display: "grid", gap: 12, maxWidth: 720 }}>
+                <input type="hidden" name="template" value={selectedTemplate} />
+                <input type="hidden" name="title" value={draft.title} />
+                <input type="hidden" name="body" value={draft.body} />
+                <input type="hidden" name="ctaLabel" value={draft.ctaLabel ?? ""} />
+                <input type="hidden" name="ctaUrl" value={draft.ctaUrl ?? ""} />
+                <input type="hidden" name="audience" value={audienceScope} />
+                <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12.5 }}>
+                  <input type="checkbox" name="confirm" required />I have read the preview above and
+                  understand this mails {audienceCount}{" "}
+                  {audienceScope === "everyone" ? "accounts" : "verified accounts"}.
+                </label>
+                {requiresUnverifiedConfirmation(audienceScope) ? (
+                  <label
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "flex-start",
+                      fontSize: 12.5,
+                      color: "var(--color-warning)",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      name="confirmUnverified"
+                      required
+                      style={{ marginTop: 3 }}
+                    />
+                    <span>
+                      I understand {Math.max(0, totalCount - verifiedCount)} of these accounts never
+                      confirmed their address. Some may not exist, and a bounce is charged to
+                      Calder&apos;s sending reputation, not just this run.
+                    </span>
+                  </label>
+                ) : null}
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button type="submit" className="cp-btn primary">
+                    Send batch
+                  </button>
+                  <button type="submit" formAction={sendTestToSelf} className="cp-btn">
+                    Send test to me
+                  </button>
+                </div>
+                <p style={{ fontSize: 12, color: "var(--cp-muted)", margin: 0 }}>
+                  A double submit collapses onto the same rows: the batch key is derived from this
+                  exact content and the UTC day.
+                </p>
+              </form>
+            )}
+          </Panel>
+        </>
+      ) : null}
+
+      {!draft || !draftValidation?.ok ? (
+        <Panel
+          title={`Catalogue sample — ${previewId}`}
+          caption="A fixed sample of one catalogue template, with stand-in values. This is not your draft."
+          flush
+        >
+          <iframe
+            title={`Preview of ${previewId}`}
+            srcDoc={preview.document}
+            sandbox=""
+            style={{ width: "100%", height: 520, border: 0, background: "#fff" }}
+          />
+        </Panel>
+      ) : null}
 
       <Panel
-        title="Recent sends"
-        caption="Newest first, including skips — a skip is an answer, not a gap."
+        title={scope === "all" ? "Recent company mail (everything)" : "Recent broadcasts"}
+        caption={
+          scope === "all"
+            ? "Every company email, newest first — security notices included. Skips are shown too: a skip is an answer, not a gap."
+            : "Broadcasts sent from this console in the last 30 days, newest first, skips included."
+        }
         flush
+        action={
+          <Link
+            className="cp-btn"
+            style={{ fontSize: 12, padding: "3px 10px" }}
+            href={`/control/communications/company?scope=${scope === "all" ? "operator" : "all"}`}
+          >
+            {scope === "all" ? "Show broadcasts only" : "Show all company mail"}
+          </Link>
+        }
       >
         {recent.length === 0 ? (
           <Empty title="No company email yet">
@@ -282,10 +528,11 @@ export default async function CompanyEmailPage({
               <th>Audience</th>
               <th>Last sent</th>
               <th>Sent total</th>
+              <th>Preview</th>
             </tr>
           </thead>
           <tbody>
-            {catalogue.map(({ id, definition, evidence }) => (
+            {catalogue.map(({ id, definition, evidence, attempts, failed, skipped }) => (
               <tr key={id}>
                 <td>
                   <div className="mono" style={{ fontSize: 12 }}>
@@ -301,8 +548,34 @@ export default async function CompanyEmailPage({
                   </Badge>
                 </td>
                 <td>{definition.audience}</td>
-                <td>{evidence ? fmtDate(evidence.at) : "never sent"}</td>
-                <td>{evidence ? Number(evidence.sent) : 0}</td>
+                <td>
+                  {evidence ? (
+                    fmtDate(evidence.at)
+                  ) : attempts > 0 ? (
+                    <span style={{ color: "var(--color-warning)" }}>never accepted</span>
+                  ) : (
+                    "never sent"
+                  )}
+                </td>
+                <td>
+                  {evidence ? Number(evidence.sent) : 0}
+                  {!evidence && attempts > 0 ? (
+                    <div className="mono" style={{ fontSize: 11, color: "var(--cp-faint)" }}>
+                      {attempts} attempted
+                      {failed > 0 ? ` · ${failed} refused` : ""}
+                      {skipped > 0 ? ` · ${skipped} skipped` : ""}
+                    </div>
+                  ) : null}
+                </td>
+                <td>
+                  <a
+                    className="cp-btn"
+                    style={{ fontSize: 12, padding: "3px 10px" }}
+                    href={`/control/communications/company?preview=${encodeURIComponent(id)}`}
+                  >
+                    Preview
+                  </a>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -311,9 +584,11 @@ export default async function CompanyEmailPage({
 
       <p style={{ fontSize: 12, color: "var(--cp-faint)", marginTop: 14 }}>
         {COMPANY_EMAIL_IDS.length} templates in the catalogue ·{" "}
-        {Object.keys(COMPANY_EMAILS).filter((id) => lastSentBy.has(id)).length} have real delivery
-        history. The rest are either waiting on a feature or are sent by a scheduled job outside
-        this console.
+        {catalogue.filter((c) => c.evidence).length} have at least one message a provider accepted,
+        and {catalogue.filter((c) => !c.evidence && c.attempts > 0).length} have only ever been
+        refused or skipped. A catalogue entry is a declaration of intent, not proof of delivery: the
+        remaining {catalogue.filter((c) => c.attempts === 0).length} may be gated on a feature, sent
+        by a scheduled job outside this console, or simply never triggered.
       </p>
     </>
   );

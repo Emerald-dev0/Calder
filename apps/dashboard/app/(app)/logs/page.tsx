@@ -26,6 +26,7 @@ const ALLOWED_TYPES = new Set([
   "created",
   "queued",
   "sent",
+  "deferred",
   "delivered",
   "bounced",
   "complained",

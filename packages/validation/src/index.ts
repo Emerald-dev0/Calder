@@ -234,6 +234,22 @@ export const createTemplateVersionSchema = z.object({
   subject: z.string().max(998).optional(),
   html: z.string().max(1_000_000).optional(),
   text: z.string().max(1_000_000).optional(),
+  /**
+   * The variables this version expects. Omitted means "infer from the
+   * template"; declared means enforced (publishing refuses a placeholder the
+   * declaration does not mention).
+   */
+  variables: z
+    .array(
+      z.union([
+        z.string().max(100),
+        z.object({ name: z.string().max(100), required: z.boolean().optional() }),
+      ])
+    )
+    .max(100)
+    .optional(),
+  /** Publish as part of saving. Refused if the version would not be sendable. */
+  publish: z.boolean().optional(),
 });
 
 // ── Suppressions ─────────────────────────────────────────────

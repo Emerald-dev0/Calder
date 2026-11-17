@@ -13,7 +13,7 @@ import {
   type DbClient,
 } from "@calder/db";
 import { signUnsubscribeToken } from "@calder/auth";
-import { getConfig } from "@calder/config";
+import { apiUrl, dashboardUrl } from "@calder/config";
 import { AppError } from "../errors/index.js";
 import { logger } from "@calder/observability";
 import { handleSendEmail } from "./email-service.js";
@@ -66,10 +66,15 @@ function rid(prefix: string): string {
   return `${prefix}_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
 }
 
-/** The unsubscribe URL a marketing recipient sees. Signed, project-scoped. */
+/**
+ * The unsubscribe URL a marketing recipient sees. Signed, project-scoped.
+ *
+ * `/v1/*` is served by the API origin. This used to be built from `APP_URL`
+ * (the marketing host, which has no `/v1` route), so the opt-out link in every
+ * broadcast 404'd — an opt-out that does not resolve is a compliance problem.
+ */
 export function broadcastUnsubscribeUrl(projectId: string, email: string): string {
-  const appUrl = (process.env.APP_URL ?? "https://calder.click").replace(/\/$/, "");
-  return `${appUrl}/v1/unsubscribe?token=${signUnsubscribeToken(projectId, email)}`;
+  return apiUrl(`/v1/unsubscribe?token=${signUnsubscribeToken(projectId, email)}`);
 }
 
 /**
@@ -98,7 +103,7 @@ export async function prepareLinks(
   db: DbClient,
   input: { broadcastId: string; html: string }
 ): Promise<{ html: string; links: number }> {
-  const appUrl = (getConfig().APP_URL ?? "https://calder.click").replace(/\/$/, "");
+  const appUrl = apiUrl();
   const urls = new Set<string>();
   for (const match of input.html.matchAll(/href="(https?:\/\/[^"]+)"/g)) {
     const url = match[1]!;
@@ -433,7 +438,7 @@ async function notifyBroadcastOutcome(
         complained: total("failed"),
         sent: total("sent") + total("delivered"),
         reason: input.reason,
-        reportUrl: `${getConfig().APP_URL.replace(/\/$/, "")}/broadcasts/${input.broadcastId}`,
+        reportUrl: dashboardUrl(`/broadcasts/${input.broadcastId}`),
       },
     });
   } catch (err) {

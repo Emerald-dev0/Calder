@@ -22,7 +22,7 @@ export default async function WorkersPage() {
       />
 
       <div className="cp-stats">
-        <Stat label="Processed (24h)" value={fmtInt(sent24h)} hint="sent + delivered" />
+        <Stat label="Processed (24h)" value={fmtInt(sent24h)} hint="sent + deferred + delivered" />
         <Stat label="Throughput" value={`${fmtInt(avgPerHour)}/h`} hint="average per active hour" />
         <Stat label="Waiting" value={fmtInt(queue.inFlight)} hint="queue-derived backlog" />
         <Stat

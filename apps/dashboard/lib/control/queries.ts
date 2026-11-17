@@ -25,24 +25,29 @@ import {
 import {
   apiKeys,
   auditLogs,
+  companyEmails,
   contacts,
   creditPurchases,
   creditTransactions,
   domains,
   emailEvents,
   emails,
+  inboundMessages,
+  inboxes,
   orgInvitations,
   organizationMembers,
   organizations,
   payments,
   planPrices,
   plans,
+  receivingDomains,
   projectTransports,
   projects,
   senderIdentities,
   sessions,
   subscriptions,
   suppressions,
+  triageAcknowledgements,
   usageRecords,
   users,
   waitlistSignups,
@@ -50,6 +55,28 @@ import {
   webhooks,
 } from "@calder/db";
 import { getDb, gmailAllowanceForTransport } from "@calder/db";
+import {
+  summariseInbound,
+  type InboundStatus,
+  type InboundSummary,
+  type ReceivingDomainStatus,
+} from "./inbound-summary";
+import {
+  countTriage,
+  buildTriageQueue,
+  type BlockedSenderRow,
+  type FailingProjectRow,
+  type FailingWebhookRow,
+  type ProblemDomainRow,
+  type RevokedTransportRow,
+  type TriageQueue,
+} from "./triage";
+import {
+  latestAcksByItem,
+  splitByAcknowledgement,
+  type AckRecord,
+  type AcknowledgedItem,
+} from "./acknowledgements";
 
 /**
  * Control Plane data access. Every function here is a live query — the
@@ -977,7 +1004,17 @@ export async function emailTotals(days: number | null): Promise<EmailTotals> {
  * extrapolated.
  */
 export interface PlatformPulse {
-  emails: { acceptedAllTime: number; acceptedToday: number; rowsEverCreated: number };
+  emails: {
+    /** Customer messages the provider accepted (live environment only). */
+    acceptedAllTime: number;
+    acceptedToday: number;
+    rowsEverCreated: number;
+    /** Calder's own mail to its users: a separate ledger, counted separately. */
+    companyAllTime: number;
+    companyToday: number;
+    /** acceptedAllTime + companyAllTime — every message this platform moved. */
+    totalAllTime: number;
+  };
   signups: { today: number; week: number; total: number };
   organizations: { today: number; total: number };
   projects: { total: number };
@@ -1010,6 +1047,8 @@ export async function platformPulse(): Promise<PlatformPulse> {
         emailsAllTime,
         emailsToday,
         emailRows,
+        companyAllTime,
+        companyToday,
         signupsToday,
         signupsWeek,
         signupsTotal,
@@ -1039,6 +1078,19 @@ export async function platformPulse(): Promise<PlatformPulse> {
             .where(and(liveAccepted, gte(emails.createdAt, today)))
         ),
         scalar(tx.select({ value: count() }).from(emails)),
+        // Calder's own mail is a different ledger on purpose (see
+        // schema/company-emails.ts): a password reset is not a customer send.
+        // Counting it separately here is what lets the Command Center show one
+        // honest total without corrupting any customer's usage figure.
+        scalar(
+          tx.select({ value: count() }).from(companyEmails).where(eq(companyEmails.status, "sent"))
+        ),
+        scalar(
+          tx
+            .select({ value: count() })
+            .from(companyEmails)
+            .where(and(eq(companyEmails.status, "sent"), gte(companyEmails.createdAt, today)))
+        ),
         scalar(tx.select({ value: count() }).from(users).where(gte(users.createdAt, today))),
         scalar(tx.select({ value: count() }).from(users).where(gte(users.createdAt, weekAgo))),
         scalar(tx.select({ value: count() }).from(users)),
@@ -1091,6 +1143,9 @@ export async function platformPulse(): Promise<PlatformPulse> {
           acceptedAllTime: emailsAllTime,
           acceptedToday: emailsToday,
           rowsEverCreated: emailRows,
+          companyAllTime,
+          companyToday,
+          totalAllTime: emailsAllTime + companyAllTime,
         },
         signups: { today: signupsToday, week: signupsWeek, total: signupsTotal },
         organizations: { today: orgsToday, total: orgsTotal },
@@ -1473,7 +1528,9 @@ export async function workerThroughput(): Promise<Array<{ hour: string; sent: nu
     .where(
       and(
         gte(emails.updatedAt, new Date(Date.now() - DAY_MS)),
-        inArray(emails.status, ["sent", "delivered"])
+        // `deferred` belongs here: the worker did hand the message over, and
+        // throughput measures our side of the send, not the recipient's.
+        inArray(emails.status, ["sent", "deferred", "delivered"])
       )
     )
     .groupBy(sql`1`)
@@ -2022,4 +2079,658 @@ export async function systemAudiences(): Promise<AudienceCount[]> {
       href: "/control/platform/usage",
     },
   ];
+}
+
+/* ------------------------------------------------------------------ *
+ * Mail totals across both ledgers
+ * ------------------------------------------------------------------ */
+
+/**
+ * How much mail Calder actually moved.
+ *
+ * There are two ledgers and they are not interchangeable: `emails` records
+ * what customers send through the product, `company_emails` records what
+ * Calder sends to its own users (sign-in links, receipts, announcements).
+ * Reporting one of them as "total email sent" understates the platform by
+ * the whole of the other — an operator reads "33 sent" while the provider
+ * invoice covers thousands. This returns both, plus a deliberate total that
+ * says which parts it adds up.
+ */
+export interface PlatformMailTotals {
+  /** Window in days, or null for all time. */
+  windowDays: number | null;
+  /** Customer messages the provider accepted, split by send environment. */
+  customerLive: number;
+  customerTest: number;
+  /** Calder's own mail, by terminal state. */
+  companySent: number;
+  companySkipped: number;
+  companyFailed: number;
+  companyQueued: number;
+  /** customerLive + companySent: every message a provider agreed to deliver. */
+  totalAccepted: number;
+}
+
+export async function platformMailTotals(days: number | null = null): Promise<PlatformMailTotals> {
+  const db = getDb();
+  const since = days === null ? null : new Date(Date.now() - days * DAY_MS);
+
+  const [customerRows, companyRows] = await Promise.all([
+    db
+      .select({ env: emails.env, n: count() })
+      .from(emails)
+      .where(
+        and(
+          inArray(emails.status, [...ACCEPTED_EMAIL_STATUSES]),
+          since ? gte(emails.createdAt, since) : undefined
+        )
+      )
+      .groupBy(emails.env),
+    db
+      .select({ status: companyEmails.status, n: count() })
+      .from(companyEmails)
+      .where(since ? gte(companyEmails.createdAt, since) : undefined)
+      .groupBy(companyEmails.status),
+  ]);
+
+  const customer = new Map(customerRows.map((r) => [r.env, Number(r.n)]));
+  const company = new Map(companyRows.map((r) => [r.status, Number(r.n)]));
+  const pick = (m: Map<string, number>, k: string) => m.get(k) ?? 0;
+
+  const customerLive = pick(customer, "live");
+  const companySent = pick(company, "sent");
+  return {
+    windowDays: days,
+    customerLive,
+    customerTest: pick(customer, "test"),
+    companySent,
+    companySkipped: pick(company, "skipped"),
+    companyFailed: pick(company, "failed"),
+    companyQueued: pick(company, "queued"),
+    totalAccepted: customerLive + companySent,
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * Domains
+ * ------------------------------------------------------------------ */
+
+export type DomainStatusFilter = "all" | "verified" | "pending" | "failed" | "expired";
+
+export interface DomainStatusCounts {
+  total: number;
+  verified: number;
+  pending: number;
+  failed: number;
+  expired: number;
+}
+
+export interface DomainOverviewRow {
+  id: string;
+  domain: string;
+  /** The URL a customer would type. Always https — these are public hosts. */
+  url: string;
+  status: DomainStatusFilter;
+  verificationMethod: string | null;
+  sesIdentityStatus: string | null;
+  dkimStatus: string | null;
+  dkimRecordCount: number;
+  verifiedAt: Date | null;
+  createdAt: Date;
+  lastVerifyError: string | null;
+  projectId: string;
+  projectName: string;
+  projectSlug: string;
+  organizationId: string;
+  organizationName: string;
+}
+
+export interface DomainOverview {
+  /** Counts cover every domain, never just the filtered view. */
+  counts: DomainStatusCounts;
+  rows: DomainOverviewRow[];
+  filter: DomainStatusFilter;
+  search: string;
+}
+
+/**
+ * Every sending domain in the estate, with the persona an operator needs to
+ * answer "is this customer set up?" — the name, the URL, the workspace it
+ * belongs to, and whether DKIM is actually in place.
+ *
+ * The verification figure is `domains.status`, the same field the verifier
+ * writes. DKIM is reported next to it rather than folded in: a domain can be
+ * ownership-verified and still be unable to sign, and conflating the two
+ * would hide exactly the failure that lands mail in spam.
+ */
+export async function domainOverview(
+  filter: DomainStatusFilter = "all",
+  search = ""
+): Promise<DomainOverview> {
+  const db = getDb();
+  const term = search.trim();
+
+  const [countRows, rows] = await Promise.all([
+    db.select({ status: domains.status, n: count() }).from(domains).groupBy(domains.status),
+    db
+      .select({
+        id: domains.id,
+        domain: domains.domain,
+        status: domains.status,
+        verificationMethod: domains.verificationMethod,
+        sesIdentityStatus: domains.sesIdentityStatus,
+        dkimStatus: domains.dkimStatus,
+        dkimRecords: domains.dkimRecords,
+        verifiedAt: domains.verifiedAt,
+        createdAt: domains.createdAt,
+        lastVerifyError: domains.lastVerifyError,
+        projectId: projects.id,
+        projectName: projects.name,
+        projectSlug: projects.slug,
+        organizationId: organizations.id,
+        organizationName: organizations.name,
+      })
+      .from(domains)
+      .innerJoin(projects, eq(domains.projectId, projects.id))
+      .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+      .where(
+        and(
+          filter === "all" ? undefined : eq(domains.status, filter),
+          term ? ilike(domains.domain, `%${term}%`) : undefined
+        )
+      )
+      .orderBy(desc(domains.createdAt))
+      .limit(500),
+  ]);
+
+  const byStatus = new Map<string, number>(countRows.map((r) => [r.status, Number(r.n)]));
+  const at = (k: string) => byStatus.get(k) ?? 0;
+  return {
+    counts: {
+      total: countRows.reduce((acc, r) => acc + Number(r.n), 0),
+      verified: at("verified"),
+      pending: at("pending"),
+      failed: at("failed"),
+      expired: at("expired"),
+    },
+    rows: rows.map((r) => ({
+      ...r,
+      url: `https://${r.domain}`,
+      dkimRecordCount: Array.isArray(r.dkimRecords) ? r.dkimRecords.length : 0,
+    })),
+    filter,
+    search: term,
+  };
+}
+
+/* ── Support triage ─────────────────────────────────────────────────────── */
+
+/**
+ * Load every triage signal.
+ *
+ * Each signal is read independently: if one query fails (a table mid-migration,
+ * a permission change), the rest of the queue still renders and the failure is
+ * named in `unreadable`. A support surface that shows an empty queue because a
+ * query threw is worse than one that shows nine items and admits it could not
+ * check the tenth.
+ */
+/** The Support page's queue: open work plus what an operator has already seen. */
+export interface SupportQueue extends TriageQueue {
+  /** Acknowledged and still covered: hidden from the open queue, never deleted. */
+  acknowledged: AcknowledgedItem[];
+  /** Distinct items that carry any acknowledgement history. */
+  acknowledgementCount: number;
+}
+
+export async function triageQueue(now = new Date()): Promise<SupportQueue> {
+  const db = getDb();
+  const unreadable: string[] = [];
+
+  const signal = async <T>(label: string, fn: () => Promise<T>, fallback: T): Promise<T> => {
+    try {
+      return await fn();
+    } catch {
+      unreadable.push(label);
+      return fallback;
+    }
+  };
+
+  const dayAgo = new Date(now.getTime() - DAY_MS);
+  const weekAgo = new Date(now.getTime() - 7 * DAY_MS);
+
+  const [
+    pausedWorkspaces,
+    pendingDeletions,
+    problemDomains,
+    failingWebhooks,
+    failingProjects,
+    blockedSenders,
+    revokedTransports,
+  ] = await Promise.all([
+    signal(
+      "workspaces paused or suspended",
+      async () => {
+        const rows = await db
+          .select({
+            id: organizations.id,
+            name: organizations.name,
+            status: organizations.sendingStatus,
+            sendingStatusReason: organizations.sendingStatusReason,
+            sendingStatusAt: organizations.sendingStatusAt,
+          })
+          .from(organizations)
+          .where(inArray(organizations.sendingStatus, ["abuse_paused", "suspended"]))
+          .orderBy(asc(organizations.sendingStatusAt))
+          .limit(200);
+        return rows.map((r) => ({
+          ...r,
+          status: r.status as "abuse_paused" | "suspended",
+        }));
+      },
+      []
+    ),
+
+    signal(
+      "workspaces awaiting deletion",
+      async () => {
+        const rows = await db
+          .select({
+            id: organizations.id,
+            name: organizations.name,
+            deletionRequestedAt: organizations.deletionRequestedAt,
+            deletionScheduledFor: organizations.deletionScheduledFor,
+          })
+          .from(organizations)
+          .where(isNotNull(organizations.deletionScheduledFor))
+          .orderBy(asc(organizations.deletionScheduledFor))
+          .limit(200);
+        // WHERE isIsNotNull makes this non-null in SQL; the cast keeps the
+        // type honest without pretending the column is NOT NULL.
+        return rows.map((r) => ({ ...r, deletionScheduledFor: r.deletionScheduledFor as Date }));
+      },
+      []
+    ),
+
+    signal(
+      "domains that are not verified",
+      async () => {
+        const rows = await db
+          .select({
+            id: domains.id,
+            domain: domains.domain,
+            status: domains.status,
+            organizationId: organizations.id,
+            organizationName: organizations.name,
+            createdAt: domains.createdAt,
+            lastVerifyError: domains.lastVerifyError,
+          })
+          .from(domains)
+          .innerJoin(projects, eq(domains.projectId, projects.id))
+          .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+          .where(inArray(domains.status, ["pending", "failed", "expired"]))
+          .orderBy(asc(domains.createdAt))
+          .limit(200);
+        return rows as ProblemDomainRow[];
+      },
+      []
+    ),
+
+    signal(
+      "webhook deliveries that gave up",
+      async () => {
+        const rows = await db
+          .select({
+            webhookId: webhookDeliveries.webhookId,
+            url: webhooks.url,
+            organizationName: organizations.name,
+            lastError: webhookDeliveries.lastError,
+            lastAttemptAt: max(webhookDeliveries.createdAt),
+            attempts: count(),
+          })
+          .from(webhookDeliveries)
+          .innerJoin(webhooks, eq(webhookDeliveries.webhookId, webhooks.id))
+          .innerJoin(projects, eq(webhooks.projectId, projects.id))
+          .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+          .where(
+            and(
+              eq(webhookDeliveries.status, "exhausted"),
+              gte(webhookDeliveries.createdAt, weekAgo)
+            )
+          )
+          .groupBy(
+            webhookDeliveries.webhookId,
+            webhooks.url,
+            organizations.name,
+            webhookDeliveries.lastError
+          )
+          .limit(100);
+        // One webhook can give up several times with different errors; keep
+        // the row with the most failures per webhook so the queue says
+        // "12 events lost", not twelve near-identical lines.
+        const byWebhook = new Map<string, FailingWebhookRow>();
+        for (const r of rows) {
+          const existing = byWebhook.get(r.webhookId);
+          const attempts = Number(r.attempts);
+          if (!existing || attempts > existing.failedAttempts) {
+            byWebhook.set(r.webhookId, {
+              id: r.webhookId,
+              url: r.url,
+              organizationName: r.organizationName,
+              failedAttempts: attempts,
+              lastError: r.lastError,
+              lastAttemptAt: r.lastAttemptAt ? new Date(r.lastAttemptAt) : null,
+            });
+          }
+        }
+        return [...byWebhook.values()];
+      },
+      []
+    ),
+
+    signal(
+      "projects with failing sends",
+      async () => {
+        const rows = await db
+          .select({
+            projectId: projects.id,
+            projectName: projects.name,
+            organizationId: organizations.id,
+            organizationName: organizations.name,
+            status: emails.status,
+            n: count(),
+          })
+          .from(emails)
+          .innerJoin(projects, eq(emails.projectId, projects.id))
+          .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+          .where(
+            and(
+              inArray(emails.status, ["failed", "bounced"]),
+              gte(emails.createdAt, dayAgo),
+              eq(emails.env, "live")
+            )
+          )
+          .groupBy(projects.id, projects.name, organizations.id, organizations.name, emails.status)
+          .limit(500);
+        const byProject = new Map<string, FailingProjectRow>();
+        for (const r of rows) {
+          const row = byProject.get(r.projectId) ?? {
+            projectId: r.projectId,
+            projectName: r.projectName,
+            organizationId: r.organizationId,
+            organizationName: r.organizationName,
+            failed: 0,
+            bounced: 0,
+            windowHours: 24,
+          };
+          if (r.status === "failed") row.failed += Number(r.n);
+          else row.bounced += Number(r.n);
+          byProject.set(r.projectId, row);
+        }
+        // Test sends are excluded above; a project whose only failures are
+        // bounces still belongs here, so rank on the two counts together.
+        return [...byProject.values()].filter((p) => p.failed + p.bounced > 0);
+      },
+      []
+    ),
+
+    signal(
+      "sender identities blocked by verification",
+      async () => {
+        const rows = await db
+          .select({
+            id: senderIdentities.id,
+            email: senderIdentities.email,
+            organizationId: organizations.id,
+            organizationName: organizations.name,
+            status: senderIdentities.status,
+            statusReason: senderIdentities.statusReason,
+            updatedAt: senderIdentities.updatedAt,
+          })
+          .from(senderIdentities)
+          .innerJoin(projects, eq(senderIdentities.projectId, projects.id))
+          .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+          .where(
+            and(
+              inArray(senderIdentities.status, ["failed", "disabled"]),
+              isNull(senderIdentities.archivedAt)
+            )
+          )
+          .limit(200);
+        return rows as BlockedSenderRow[];
+      },
+      []
+    ),
+
+    signal(
+      "transports withdrawn by a provider",
+      async () => {
+        const rows = await db
+          .select({
+            id: projectTransports.id,
+            label: projectTransports.label,
+            type: projectTransports.type,
+            organizationId: organizations.id,
+            organizationName: organizations.name,
+            updatedAt: projectTransports.updatedAt,
+          })
+          .from(projectTransports)
+          .innerJoin(projects, eq(projectTransports.projectId, projects.id))
+          .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+          .where(eq(projectTransports.status, "revoked"))
+          .limit(200);
+        return rows as RevokedTransportRow[];
+      },
+      []
+    ),
+  ]);
+
+  // Acknowledgements are read separately so a failure here cannot hide work:
+  // an unreadable ack table means every item shows as open, which is the
+  // safe direction. `signal` records that it happened.
+  const ackRows = await signal(
+    "acknowledgements",
+    async () => {
+      const rows = await db
+        .select({
+          id: triageAcknowledgements.id,
+          itemId: triageAcknowledgements.itemId,
+          fingerprint: triageAcknowledgements.fingerprint,
+          title: triageAcknowledgements.title,
+          note: triageAcknowledgements.note,
+          acknowledgedByUserId: triageAcknowledgements.acknowledgedByUserId,
+          acknowledgedByEmail: users.email,
+          acknowledgedAt: triageAcknowledgements.acknowledgedAt,
+          reopenedAt: triageAcknowledgements.reopenedAt,
+        })
+        .from(triageAcknowledgements)
+        .leftJoin(users, eq(triageAcknowledgements.acknowledgedByUserId, users.id))
+        .orderBy(desc(triageAcknowledgements.acknowledgedAt))
+        .limit(2000);
+      return rows as AckRecord[];
+    },
+    []
+  );
+
+  const queue = buildTriageQueue({
+    now,
+    pausedWorkspaces,
+    pendingDeletions,
+    problemDomains,
+    failingWebhooks,
+    failingProjects,
+    blockedSenders,
+    revokedTransports,
+  });
+
+  // `checked` travels with the queue so the page can state which signals were
+  // looked at even when they are all quiet.
+  const split = splitByAcknowledgement(queue.items, ackRows, now);
+  return {
+    ...queue,
+    items: split.open,
+    counts: countTriage(split.open),
+    acknowledged: split.acknowledged,
+    acknowledgementCount: latestAcksByItem(ackRows).size,
+    unreadable,
+  };
+}
+
+/* ── Inbound ────────────────────────────────────────────────────────────── */
+
+export interface InboundDomainRow {
+  id: string;
+  domain: string;
+  status: string;
+  mxHost: string;
+  mxPriority: number;
+  observedMx: Array<{ exchange: string; priority: number }> | null;
+  lastCheckedAt: Date | null;
+  lastError: string | null;
+  provisionedAt: Date | null;
+  organizationId: string;
+  organizationName: string;
+  projectName: string;
+  createdAt: Date;
+}
+
+export interface InboundMessageRow {
+  id: string;
+  fromAddress: string | null;
+  subject: string | null;
+  recipientDomain: string;
+  status: string;
+  failureReason: string | null;
+  receivedAt: Date;
+  organizationId: string;
+  organizationName: string;
+  projectName: string;
+  inboxName: string | null;
+}
+
+export interface InboundOverview extends InboundSummary {
+  /** Counts live on `domains` (from InboundSummary); these are the rows. */
+  domainRows: InboundDomainRow[];
+  recent: InboundMessageRow[];
+  failures: InboundMessageRow[];
+}
+
+/**
+ * Everything the Control Plane knows about mail arriving.
+ *
+ * The sending side has had a page since the beginning; receiving was invisible,
+ * which meant the first sign of a broken MX or a parser regression was a
+ * customer saying "nobody is getting our replies". This reads both halves —
+ * whether domains are proven, and whether the mail that arrives is processed —
+ * because they fail independently: perfect DNS with a broken parser loses mail
+ * just as completely as a missing MX record.
+ *
+ * Rates come from `summariseInbound` so the "no events means null, not 0%"
+ * rule is testable without a database.
+ */
+export async function inboundOverview(days = 30): Promise<InboundOverview> {
+  const db = getDb();
+  const since = new Date(Date.now() - days * DAY_MS);
+
+  const [statusRows, domainRows, inboxCount, unrouted, domains, recent, failures] =
+    await Promise.all([
+      db
+        .select({ status: inboundMessages.status, n: count() })
+        .from(inboundMessages)
+        .where(gte(inboundMessages.receivedAt, since))
+        .groupBy(inboundMessages.status),
+      db
+        .select({ status: receivingDomains.status, n: count() })
+        .from(receivingDomains)
+        .groupBy(receivingDomains.status),
+      scalar(db.select({ value: count() }).from(inboxes)),
+      scalar(
+        db
+          .select({ value: count() })
+          .from(inboundMessages)
+          .where(
+            and(
+              gte(inboundMessages.receivedAt, since),
+              isNull(inboundMessages.inboxId),
+              eq(inboundMessages.status, "parsed")
+            )
+          )
+      ),
+      db
+        .select({
+          id: receivingDomains.id,
+          domain: receivingDomains.domain,
+          status: receivingDomains.status,
+          mxHost: receivingDomains.mxHost,
+          mxPriority: receivingDomains.mxPriority,
+          observedMx: receivingDomains.observedMx,
+          lastCheckedAt: receivingDomains.lastCheckedAt,
+          lastError: receivingDomains.lastError,
+          provisionedAt: receivingDomains.provisionedAt,
+          organizationId: organizations.id,
+          organizationName: organizations.name,
+          projectName: projects.name,
+          createdAt: receivingDomains.createdAt,
+        })
+        .from(receivingDomains)
+        .innerJoin(projects, eq(receivingDomains.projectId, projects.id))
+        .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+        .orderBy(desc(receivingDomains.createdAt))
+        .limit(100),
+      db
+        .select({
+          id: inboundMessages.id,
+          fromAddress: inboundMessages.fromAddress,
+          subject: inboundMessages.subject,
+          recipientDomain: inboundMessages.recipientDomain,
+          status: inboundMessages.status,
+          failureReason: inboundMessages.failureReason,
+          receivedAt: inboundMessages.receivedAt,
+          organizationId: inboundMessages.organizationId,
+          organizationName: organizations.name,
+          projectName: projects.name,
+          inboxName: inboxes.name,
+        })
+        .from(inboundMessages)
+        .innerJoin(projects, eq(inboundMessages.projectId, projects.id))
+        .innerJoin(organizations, eq(inboundMessages.organizationId, organizations.id))
+        .leftJoin(inboxes, eq(inboundMessages.inboxId, inboxes.id))
+        .orderBy(desc(inboundMessages.receivedAt))
+        .limit(25),
+      db
+        .select({
+          id: inboundMessages.id,
+          fromAddress: inboundMessages.fromAddress,
+          subject: inboundMessages.subject,
+          recipientDomain: inboundMessages.recipientDomain,
+          status: inboundMessages.status,
+          failureReason: inboundMessages.failureReason,
+          receivedAt: inboundMessages.receivedAt,
+          organizationId: inboundMessages.organizationId,
+          organizationName: organizations.name,
+          projectName: projects.name,
+          inboxName: inboxes.name,
+        })
+        .from(inboundMessages)
+        .innerJoin(projects, eq(inboundMessages.projectId, projects.id))
+        .innerJoin(organizations, eq(inboundMessages.organizationId, organizations.id))
+        .leftJoin(inboxes, eq(inboundMessages.inboxId, inboxes.id))
+        .where(and(eq(inboundMessages.status, "failed"), gte(inboundMessages.receivedAt, since)))
+        .orderBy(desc(inboundMessages.receivedAt))
+        .limit(25),
+    ]);
+
+  const summary = summariseInbound({
+    windowDays: days,
+    statusRows: statusRows as Array<{ status: InboundStatus; n: number }>,
+    domainRows: domainRows as Array<{ status: ReceivingDomainStatus; n: number }>,
+    inboxes: inboxCount,
+    unrouted,
+  });
+
+  return {
+    ...summary,
+    domainRows: domains as InboundDomainRow[],
+    recent: recent as InboundMessageRow[],
+    failures: failures as InboundMessageRow[],
+  };
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { publicUrl } from "./urls.js";
 
 /**
  * Centralized, validated environment configuration.
@@ -78,6 +79,35 @@ const envSchema = z.object({
   // (/v1/ses/events). Unset = events from any properly-signed topic pass, but
   // subscription confirmations are never auto-approved. Set before launch.
   SES_SNS_TOPIC_ARNS: z.string().optional(),
+  // ── Inbound email (Stage 3) ──────────────────────────────────────────────
+  // Receiving is separate infrastructure from sending: SES receipt rules,
+  // an S3 bucket for raw MIME, SNS notifications, and MX on a *different*
+  // hostname. Every knob is off by default so a deploy that has not done the
+  // AWS work cannot silently accept mail.
+  INBOUND_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  /** Bucket the SES receipt rule writes raw MIME into. Empty = inbound off. */
+  INBOUND_BUCKET: z.string().optional(),
+  /** Key prefix inside the bucket; kept in one place so lifecycle rules match. */
+  INBOUND_S3_PREFIX: z.string().default("inbound/"),
+  /** MX target customers point their receiving subdomain at. */
+  INBOUND_MX_HOST: z.string().default("inbound.calder.click"),
+  /** SES receipt rule set that holds our per-domain rules (recorded, not created). */
+  INBOUND_SES_RULE_SET: z.string().optional(),
+  /**
+   * Comma-separated SNS topic ARNs allowed to deliver inbound notifications.
+   * Unlike the delivery-feedback endpoint, an empty list here is a hard
+   * refusal: accepting signed notifications from any topic would let any AWS
+   * account write messages into a customer's inbox.
+   */
+  INBOUND_SNS_TOPIC_ARNS: z.string().optional(),
+  /** Hard ceiling on a stored message; SES receipts cap at 40 MB upstream. */
+  INBOUND_MAX_BYTES: z.coerce.number().int().positive().default(26_214_400),
+  /** Per-body storage cap; longer bodies keep their prefix plus the raw object. */
+  INBOUND_MAX_BODY_CHARS: z.coerce.number().int().positive().default(262_144),
+
   // Sender for Calder's own mail (verification codes, magic links, receipts).
   // SES sandbox only delivers from a verified identity, so this must be
   // settable without a deploy. Defaults to "Calder <hello@calder.click>".
@@ -144,6 +174,16 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("true")
     .transform((v) => v === "true"),
+  // Control Plane attention lines (Customers → Health).
+  //
+  // These were hardcoded in the page: "10 sends" and "5%" appeared only inside
+  // a filter expression, so changing them meant a deploy of the dashboard and
+  // nobody outside the file could see what rule produced a row. A threshold is
+  // an operating decision, not a rendering detail, so it lives in validated
+  // config with the defaults spelled out.
+  CONTROL_BOUNCE_ATTENTION_PCT: z.coerce.number().min(0).max(100).default(5),
+  CONTROL_BOUNCE_MIN_SENDS: z.coerce.number().int().min(1).default(10),
+
   // API health, evaluated from in-process request metrics over the last window.
   API_ALERT_WINDOW_MINUTES: z.coerce.number().positive().default(5),
   API_5XX_WARN_PERCENT: z.coerce.number().min(0).max(100).default(5),
@@ -174,6 +214,35 @@ export function getConfig(): Env {
 
 export function resetConfig(): void {
   cached = null;
+}
+
+// ── Control Plane thresholds ─────────────────────────────────
+
+export interface HealthThresholds {
+  /** Bounce rate (percent) above which a sender needs a look. */
+  bounceAttentionPct: number;
+  /** Minimum sends before a rate is trusted at all. */
+  minSends: number;
+  /** Rate (percent) at which the row is treated as bad rather than a warning. */
+  bounceSeverePct: number;
+}
+
+/**
+ * The bounce attention rule, in one place.
+ *
+ * A percentage over a handful of sends is noise: one bounce in three sends is
+ * 33% and means nothing. So a rate is only calculated once a sender has
+ * cleared `minSends`, and "severe" is defined relative to the attention line
+ * rather than as a second independent number that could drift above or below
+ * it. Both come from config so the page can state the rule it applied.
+ */
+export function healthThresholds(): HealthThresholds {
+  const cfg = getConfig();
+  return {
+    bounceAttentionPct: cfg.CONTROL_BOUNCE_ATTENTION_PCT,
+    minSends: cfg.CONTROL_BOUNCE_MIN_SENDS,
+    bounceSeverePct: Math.min(100, cfg.CONTROL_BOUNCE_ATTENTION_PCT * 2),
+  };
 }
 
 export function isProduction(): boolean {
@@ -339,6 +408,38 @@ export function redisTargetLabel(url: string | null): string {
     return "invalid";
   }
 }
+
+/**
+ * Absolute links to one of the three deployed surfaces.
+ *
+ * Use `dashboardUrl` for anything that lives in the product app (settings,
+ * invites, exports), `marketingUrl` for the public site (pricing, docs) and
+ * `apiUrl` for `/v1/*`. Never build a URL from the wrong base — see
+ * `./urls.ts` for the invitation 404 that pattern caused.
+ */
+export function dashboardUrl(path = ""): string {
+  return publicUrl("dashboard", getConfig().DASHBOARD_URL, path, hostedUrlOptions());
+}
+
+export function marketingUrl(path = ""): string {
+  return publicUrl("marketing", getConfig().APP_URL, path, hostedUrlOptions());
+}
+
+export function apiUrl(path = ""): string {
+  return publicUrl("api", getConfig().API_URL, path, hostedUrlOptions());
+}
+
+function hostedUrlOptions() {
+  return { hosted: isHostedEnv(), env: process.env };
+}
+
+export {
+  joinUrl,
+  publicUrl,
+  assertConfiguredUrl,
+  UrlConfigError,
+  type PublicHostKind,
+} from "./urls.js";
 
 export * from "./plan-limits.js";
 export * from "./credits.js";

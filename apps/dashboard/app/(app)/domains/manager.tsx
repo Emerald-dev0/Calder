@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Globe, Plus, RefreshCw, ShieldCheck, KeyRound } from "lucide-react";
 import {
   addDomain,
+  checkDomainAuth,
   checkDomainDns,
   regenerateDomainToken,
   linkDomainToSes,
@@ -116,6 +117,92 @@ function DnsRecordRow({
   );
 }
 
+interface AuthCheckView {
+  state: "pass" | "missing" | "broken" | "warning";
+  detail: string;
+  found: string[];
+}
+interface AuthReport {
+  spf: AuthCheckView;
+  dmarc: AuthCheckView;
+}
+
+const AUTH_TONE: Record<AuthCheckView["state"], "success" | "warning" | "danger" | "neutral"> = {
+  pass: "success",
+  warning: "warning",
+  broken: "danger",
+  missing: "danger",
+};
+
+const AUTH_LABEL: Record<AuthCheckView["state"], string> = {
+  pass: "Pass",
+  warning: "Warning",
+  broken: "Broken",
+  missing: "Missing",
+};
+
+/**
+ * Four independent facts, not one badge.
+ *
+ * "Verified" only ever meant "you proved you own the domain". It says nothing
+ * about whether SPF authorises the sending provider or whether DMARC would
+ * reject the result, and those are the two reasons a verified domain still
+ * lands in spam. Each row states what was found and what to change.
+ */
+function AuthenticationRow({
+  label,
+  check,
+  loading,
+}: {
+  label: string;
+  check: AuthCheckView;
+  loading: boolean;
+}) {
+  return (
+    <div
+      data-testid={`auth-${label.toLowerCase().replace(/\s+/g, "-")}`}
+      style={{
+        display: "flex",
+        gap: 10,
+        padding: "10px 0",
+        borderTop: "1px solid var(--color-border)",
+        alignItems: "flex-start",
+      }}
+    >
+      <div style={{ width: 110, fontSize: 13, fontWeight: 600 }}>{label}</div>
+      <div style={{ minWidth: 90 }}>
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            padding: "2px 8px",
+            borderRadius: 999,
+            border: "1px solid var(--color-border)",
+            color:
+              AUTH_TONE[check.state] === "success"
+                ? "var(--color-success)"
+                : AUTH_TONE[check.state] === "warning"
+                  ? "var(--color-warning)"
+                  : AUTH_TONE[check.state] === "danger"
+                    ? "var(--color-danger)"
+                    : "var(--color-muted)",
+          }}
+        >
+          {loading ? "Checking…" : AUTH_LABEL[check.state]}
+        </span>
+      </div>
+      <div style={{ flex: 1, fontSize: 12, color: "var(--color-muted)", lineHeight: 1.5 }}>
+        {check.detail}
+        {check.found.length > 0 && (
+          <div style={{ marginTop: 4, fontFamily: "var(--font-mono, monospace)" }}>
+            {check.found.join(" · ")}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function DomainRow({
   domain,
 }: {
@@ -142,6 +229,21 @@ export function DomainRow({
       : null,
   );
   const [busy, setBusy] = React.useState(false);
+  const [authReport, setAuthReport] = React.useState<AuthReport | null>(null);
+  const [authBusy, setAuthBusy] = React.useState(false);
+  const [authError, setAuthError] = React.useState<string | null>(null);
+
+  async function runAuthCheck() {
+    setAuthBusy(true);
+    setAuthError(null);
+    try {
+      setAuthReport(await checkDomainAuth(domain.id));
+    } catch (e) {
+      setAuthError(e instanceof Error ? e.message : "DNS check failed.");
+    } finally {
+      setAuthBusy(false);
+    }
+  }
 
   async function check() {
     setBusy(true);
@@ -405,7 +507,7 @@ export function DomainRow({
                         type="TXT"
                         purpose="DMARC Policy"
                         host={`_dmarc.${domain.domain}`}
-                        value="v=DMARC1; p=none; pct=100; adkim=s; aspf=s"
+                        value="v=DMARC1; p=none; pct=100; adkim=r; aspf=r"
                       />
                     </tbody>
                   </table>
@@ -430,6 +532,106 @@ export function DomainRow({
                 <DsBanner tone="danger" title="SES diagnostic" description={detail} />
               </div>
             )}
+
+            <div style={{ marginTop: 18 }} data-testid="domain-auth">
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>
+                    Sending authentication
+                  </p>
+                  <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--color-muted)" }}>
+                    Ownership and DKIM come from our records; SPF and DMARC are read from DNS
+                    now, not assumed.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="ds-btn ds-btn-secondary"
+                  onClick={() => void runAuthCheck()}
+                  disabled={authBusy}
+                  data-testid="auth-check"
+                >
+                  <RefreshCw size={13} />
+                  <span>{authBusy ? "Checking DNS…" : "Check authentication"}</span>
+                </button>
+              </div>
+
+              {authError && (
+                <p role="alert" style={{ margin: "8px 0 0", fontSize: 13 }}>
+                  {authError}
+                </p>
+              )}
+
+              <div style={{ marginTop: 10 }}>
+                <AuthenticationRow
+                  label="Ownership"
+                  loading={false}
+                  check={{
+                    state:
+                      state === "verified" ? "pass" : state === "pending" ? "missing" : "broken",
+                    detail:
+                      state === "verified"
+                        ? "This workspace proved control of the domain."
+                        : `Ownership is ${state}. Publish the _calder TXT record, then check again.`,
+                    found: [],
+                  }}
+                />
+                <AuthenticationRow
+                  label="DKIM"
+                  loading={false}
+                  check={{
+                    state:
+                      dkimStatus === "SUCCESS"
+                        ? "pass"
+                        : dkim.length > 0
+                          ? "warning"
+                          : "missing",
+                    detail:
+                      dkimStatus === "SUCCESS"
+                        ? "Mail is cryptographically signed as this domain."
+                        : dkim.length > 0
+                          ? `DKIM is ${dkimStatus ?? "pending"}. Publish the CNAME records and refresh.`
+                          : "No DKIM records yet — link this domain to the sending provider first.",
+                    found: [],
+                  }}
+                />
+                {authReport ? (
+                  <>
+                    <AuthenticationRow label="SPF" loading={false} check={authReport.spf} />
+                    <AuthenticationRow label="DMARC" loading={false} check={authReport.dmarc} />
+                  </>
+                ) : (
+                  <>
+                    <AuthenticationRow
+                      label="SPF"
+                      loading={authBusy}
+                      check={{
+                        state: "warning",
+                        detail: "Not checked yet — press Check authentication to read DNS.",
+                        found: [],
+                      }}
+                    />
+                    <AuthenticationRow
+                      label="DMARC"
+                      loading={authBusy}
+                      check={{
+                        state: "warning",
+                        detail: "Not checked yet — press Check authentication to read DNS.",
+                        found: [],
+                      }}
+                    />
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>

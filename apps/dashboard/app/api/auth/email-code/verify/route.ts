@@ -19,6 +19,7 @@ import { sendSecurityEmail } from "../../../../../lib/send-security-email";
 import { postLoginRedirect } from "../../../../../lib/control/post-login";
 import { sameOriginRequest } from "../../../../../lib/csrf";
 import { readPreviousSessionId } from "../../../../../lib/previous-session";
+import { invitedOrgCookieHeader } from "../../../../../lib/org-cookie";
 
 /**
  * POST /api/auth/email-code/verify { email, code, purpose, next? }
@@ -102,6 +103,9 @@ export async function POST(req: Request): Promise<Response> {
       }
       const res = NextResponse.json({ ok: true, redirectTo });
       res.headers.append("Set-Cookie", sessionCookieHeader(sealed, 30 * 24 * 60 * 60));
+      // First sign-in of an invited person: land them in the invited workspace.
+      const invitedOrg = invitedOrgCookieHeader(result.invitedOrganizationIds);
+      if (invitedOrg) res.headers.append("Set-Cookie", invitedOrg);
       return res;
     }
 

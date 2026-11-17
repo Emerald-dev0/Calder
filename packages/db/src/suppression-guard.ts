@@ -31,6 +31,7 @@
 import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { projects } from "./schema/projects.js";
 import { suppressions } from "./schema/emails.js";
+import { sesSuppressions } from "./schema/ses-suppressions.js";
 import type { DbClient } from "./client.js";
 
 /** The two email streams, mirroring the `email_stream` pg enum. */
@@ -66,11 +67,18 @@ export function blocksStream(reason: string, stream: EmailStream): boolean {
 }
 
 export interface BlockingSuppression {
+  /** `ses:<email>` for account-level rows: SES has no per-row id. */
   id: string;
   email: string;
   reason: string;
   projectId: string;
   organizationId: string | null;
+  /**
+   * Where the block came from. `account` means the SES account suppression
+   * list — it applies to every project of every customer on this deployment,
+   * because the sending reputation is shared by the whole AWS account.
+   */
+  source?: "project" | "organization" | "account";
   /** True when the match came from another project in the same organization. */
   crossProject: boolean;
   /** True when the reason blocks every stream (false = marketing only). */
@@ -92,6 +100,34 @@ export async function findBlockingSuppression(
   if (!email) return null;
 
   const orgWide = [...ORG_WIDE_SUPPRESSION_REASONS];
+
+  // The SES account list first: it is the widest scope and the one AWS will
+  // enforce anyway. Answering from here costs one indexed lookup and means a
+  // suppressed address is refused at ingest — before it is queued, counted or
+  // shown to the customer as accepted — without asking AWS on the hot path.
+  const [account] = await db
+    .select({
+      email: sesSuppressions.email,
+      reason: sesSuppressions.reason,
+    })
+    .from(sesSuppressions)
+    .where(eq(sesSuppressions.email, email))
+    .limit(1);
+
+  if (account) {
+    // `BOUNCE` / `COMPLAINT` are facts about the mailbox, so they block every
+    // stream and every project. A row exists for a reason: fail closed.
+    return {
+      id: `ses:${account.email}`,
+      email: account.email,
+      reason: account.reason.toLowerCase(),
+      projectId: input.projectId,
+      organizationId: null,
+      crossProject: true,
+      blocksAllStreams: true,
+      source: "account",
+    };
+  }
 
   const rows = await db
     .select({
@@ -139,6 +175,7 @@ export async function findBlockingSuppression(
       organizationId: row.organizationId,
       crossProject: row.projectId !== input.projectId,
       blocksAllStreams: !isMarketingOnlyReason(row.reason),
+      source: row.projectId === input.projectId ? "project" : "organization",
     };
   }
   return null;
@@ -146,6 +183,16 @@ export async function findBlockingSuppression(
 
 /** Human-readable explanation for a refusal, naming the scope that matched. */
 export function describeBlock(block: BlockingSuppression): string {
+  // An account-level block is not "another project in this workspace": it is
+  // the sending provider refusing the address for every customer, and the
+  // customer cannot fix it by adding a suppression of their own.
+  if (block.source === "account") {
+    const why = block.reason === "complaint" ? "a spam complaint" : "a hard bounce";
+    return (
+      `Recipient is on the sending provider's account suppression list after ${why}. ` +
+      `No address on that list can be mailed from this deployment; it is cleared in AWS, not here.`
+    );
+  }
   const where = block.crossProject ? "another project in this workspace" : "this project";
   const what = block.blocksAllStreams ? "" : " for broadcast mail";
   return `Recipient is suppressed${what} (${block.reason}) in ${where}.`;

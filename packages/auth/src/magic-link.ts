@@ -71,7 +71,7 @@ export async function consumeMagicLink(
   rawToken: string,
   meta: Parameters<typeof rotateSession>[2] = {},
   previousSessionId?: string | null
-): Promise<string> {
+): Promise<{ sessionId: string; invitedOrganizationIds: string[] }> {
   const raw = rawToken.trim();
   if (!/^[a-f0-9]{64}$/.test(raw)) throw new Error("This link is invalid or expired.");
   const db = getDb();
@@ -125,7 +125,7 @@ export async function consumeMagicLink(
   });
 
   await ensureFounderAccess(db, result.userId, row.email);
-  await acceptPendingInvites(db, result.userId, row.email);
+  const invitedOrganizationIds = await acceptPendingInvites(db, result.userId, row.email);
 
-  return result.sessionId;
+  return { sessionId: result.sessionId, invitedOrganizationIds };
 }

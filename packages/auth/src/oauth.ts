@@ -1,6 +1,6 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { Google, GitHub, generateState, generateCodeVerifier } from "arctic";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import {
   getDb,
   users,
@@ -132,7 +132,9 @@ async function fetchGithubProfile(accessToken: string): Promise<OAuthProfile> {
 
 /**
  * Complete OAuth: validate state, exchange code, link-or-create user,
- * open a session. Returns the session id to seal into the cookie.
+ * open a session. Returns the session id to seal into the cookie, plus the
+ * organisations joined by invitation during the call so the caller can open
+ * one of them instead of the account's default workspace.
  */
 export async function completeOAuth(
   provider: OAuthProvider,
@@ -142,7 +144,7 @@ export async function completeOAuth(
   codeVerifier: string | null,
   meta: Parameters<typeof rotateSession>[2] = {},
   previousSessionId?: string | null
-): Promise<string> {
+): Promise<{ sessionId: string; invitedOrganizationIds: string[] }> {
   if (provider !== "google" && provider !== "github") {
     throw new Error("Unknown OAuth provider.");
   }
@@ -259,9 +261,9 @@ export async function completeOAuth(
   });
 
   await ensureFounderAccess(db, result.userId, result.userEmail);
-  await acceptPendingInvites(db, result.userId, result.userEmail);
+  const invitedOrganizationIds = await acceptPendingInvites(db, result.userId, result.userEmail);
 
-  return result.sessionId;
+  return { sessionId: result.sessionId, invitedOrganizationIds };
 }
 
 /**
@@ -310,6 +312,12 @@ export async function disconnectOAuthAccount(
  * Invite auto-accept: any pending, unexpired invitation matching this email
  * becomes a membership on login/signup. Idempotent (unique index guards
  * double-accept); expired or already-accepted rows are ignored.
+ *
+ * Returns the organisations joined, newest invitation first, so the caller can
+ * open the workspace the person was most recently invited to instead of
+ * whatever organisation happened to be created first. Callers used to discard
+ * this list entirely, which is why an invited teammate signed in and landed in
+ * their own empty workspace.
  */
 export async function acceptPendingInvites(
   db: ReturnType<typeof getDb>,
@@ -320,7 +328,8 @@ export async function acceptPendingInvites(
   const pending = await db
     .select()
     .from(orgInvitations)
-    .where(eq(orgInvitations.email, email.toLowerCase()));
+    .where(eq(orgInvitations.email, email.toLowerCase()))
+    .orderBy(desc(orgInvitations.createdAt), desc(orgInvitations.id));
   const accepted: string[] = [];
   for (const inv of pending) {
     if (inv.acceptedAt || inv.expiresAt < now) continue;

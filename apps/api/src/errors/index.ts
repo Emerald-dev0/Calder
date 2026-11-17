@@ -16,6 +16,8 @@ export type ErrorCode =
   | "suppressed"
   | "idempotency_conflict"
   | "sender_not_ready"
+  /** A template exists but has no published version, so nothing may be sent. 422. */
+  | "template_not_published"
   | "plan_limit_reached"
   | "organization_sending_unavailable"
   /** The feature exists in code but is not part of this release. 403. */

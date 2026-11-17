@@ -67,7 +67,7 @@ emails.post("/", authMiddleware, rateLimitMiddleware("sending"), async (c) => {
 });
 
 // GET /v1/emails/:id, fetch email status (tenant-scoped, identity included)
-emails.get("/:id", authMiddleware, async (c) => {
+emails.get("/:id", authMiddleware, rateLimitMiddleware("read"), async (c) => {
   const auth = c.get("auth" as never) as { projectId: string };
   const id = c.req.param("id");
 
@@ -113,7 +113,7 @@ emails.get("/:id", authMiddleware, async (c) => {
 
 // GET /v1/emails, list (tenant-scoped). Filters: sender, status, since.
 // Pagination: cursor (preferred) or legacy page/per_page.
-emails.get("/", authMiddleware, async (c) => {
+emails.get("/", authMiddleware, rateLimitMiddleware("read"), async (c) => {
   const auth = c.get("auth" as never) as { projectId: string };
   const sender = c.req.query("sender") ?? undefined;
   const status = c.req.query("status") ?? undefined;

@@ -24,6 +24,7 @@ export const STATUSES = [
   "queued",
   "sending",
   "sent",
+  "deferred",
   "delivered",
   "bounced",
   "complained",

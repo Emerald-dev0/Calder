@@ -16,6 +16,7 @@ import {
   ShieldBan,
   BarChart3,
   Inbox,
+  MailOpen,
   Webhook,
   KeyRound,
   Code2,
@@ -32,7 +33,6 @@ import {
   PanelLeftOpen,
   Menu,
   X,
-  Bell,
   BookOpen,
   LogOut,
   Keyboard,
@@ -42,6 +42,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { ContextSwitcher, type ContextMembership } from "./context-switcher";
+import { NotificationBell } from "./notification-bell";
 import {
   Avatar,
   Kbd,
@@ -58,6 +59,10 @@ export interface ShellProps {
     name?: string | null;
   };
   memberships: ContextMembership[];
+  /** Server-resolved context: the organisation and project this page is about. */
+  activeOrganizationId: string | null;
+  activeProjectId: string | null;
+  activeOrganizationName: string | null;
   showAdmin: boolean;
   usageSummary: {
     sentThisMonth: number;
@@ -93,6 +98,9 @@ interface NavGroup {
 export function AppShell({
   user,
   memberships,
+  activeOrganizationId,
+  activeProjectId,
+  activeOrganizationName,
   showAdmin,
   usageSummary,
   children,
@@ -109,11 +117,9 @@ export function AppShell({
     open: false,
   });
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
-  const [notifOpen, setNotifOpen] = React.useState(false);
   const [envMode, setEnvMode] = React.useState<"live" | "test">("live");
 
   const userMenuRef = React.useRef<HTMLDivElement>(null);
-  const notifRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     try {
@@ -134,9 +140,6 @@ export function AppShell({
     const onClickOutside = (e: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserMenuOpen(false);
-      }
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
-        setNotifOpen(false);
       }
     };
     window.addEventListener("mousedown", onClickOutside);
@@ -205,7 +208,11 @@ export function AppShell({
     });
   }
 
-  const projectParam = searchParams.get("project");
+  // Context lives in a validated cookie now, so links no longer depend on the
+  // current URL carrying `?project=`. Appending it keeps individual links
+  // shareable and makes the page's intent explicit in the address bar; the
+  // cookie is what makes it survive a click to a page that forgot to.
+  const projectParam = activeProjectId ?? searchParams.get("project");
   const withProject = React.useCallback(
     (href: string) => {
       if (!projectParam) return href;
@@ -229,6 +236,7 @@ export function AppShell({
             icon: <Globe size={16} />,
             badgeWarn: usageSummary.verifiedDomains === 0 && memberships.length > 0,
           },
+          { label: "Receiving", href: "/receiving", icon: <MailOpen size={16} /> },
           {
             label: "Broadcasts",
             href: "/broadcasts",
@@ -256,7 +264,7 @@ export function AppShell({
           { label: "Deliveries", href: "/deliveries", icon: <Send size={16} /> },
           { label: "Senders", href: "/senders", icon: <UserCheck size={16} /> },
           { label: "Suppressions", href: "/suppressions", icon: <ShieldBan size={16} /> },
-          { label: "Inbox", href: "/inbox", icon: <Inbox size={16} />, soon: true },
+          { label: "Inbox", href: "/inbox", icon: <Inbox size={16} /> },
         ],
       },
       {
@@ -288,7 +296,7 @@ export function AppShell({
   };
 
   // Compute Breadcrumbs
-  const currentOrgName = memberships[0]?.organization.name ?? "Workspace";
+  const currentOrgName = activeOrganizationName ?? memberships[0]?.organization.name ?? "Workspace";
   const activeEntry = React.useMemo(() => {
     for (const g of navGroups) {
       for (const item of g.items) {
@@ -371,7 +379,12 @@ export function AppShell({
             </button>
           </div>
 
-          <ContextSwitcher memberships={memberships} collapsed={collapsed} />
+          <ContextSwitcher
+            memberships={memberships}
+            activeOrganizationId={activeOrganizationId}
+            activeProjectId={activeProjectId}
+            collapsed={collapsed}
+          />
         </div>
 
         {/* Scrollable Navigation */}
@@ -896,60 +909,8 @@ export function AppShell({
               )}
             </button>
 
-            {/* Notifications Bell */}
-            <div ref={notifRef} style={{ position: "relative" }}>
-              <button
-                type="button"
-                onClick={() => setNotifOpen((v) => !v)}
-                className="ds-btn ds-btn-ghost ds-btn-icon ds-btn-sm"
-                aria-label="Notifications"
-                title="System notifications"
-              >
-                <Bell size={15} />
-              </button>
-              {notifOpen && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "calc(100% + 8px)",
-                    right: 0,
-                    width: 310,
-                    background: "var(--color-surface)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "var(--radius-lg)",
-                    boxShadow: "var(--shadow-lg)",
-                    padding: 12,
-                    zIndex: 80,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: 8,
-                    }}
-                  >
-                    <span style={{ fontSize: 12.5, fontWeight: 700 }}>Notifications</span>
-                    <span className="mono" style={{ fontSize: 11, color: "var(--color-muted)" }}>
-                      All caught up
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      padding: "14px 10px",
-                      borderRadius: "var(--radius-md)",
-                      background: "var(--color-surface-elevated)",
-                      fontSize: 12,
-                      color: "var(--color-muted)",
-                      textAlign: "center",
-                    }}
-                  >
-                    No bounce spikes, webhook failures, or DNS alerts in the last 24 hours.
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Notifications Bell — real rows from `notifications`, nothing invented */}
+            <NotificationBell />
 
             {/* Quick Docs Link */}
             <Link

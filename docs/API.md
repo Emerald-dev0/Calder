@@ -56,11 +56,53 @@ Beyond validation (`400`), send endpoints can fail at ingest with:
 Templates are part of the MVP and are versioned. A template has a project-unique
 `alias` used at send time.
 
+A version is a **draft until published**, and only a published version can send.
+
 - `POST /v1/templates` creates the template and, when `subject`/`html`/`text` are
-  present, its first version (`v1`). Duplicate alias on the same project → `409`.
-- `POST /v1/templates/:id/versions` appends an immutable version (`v2`, `v3`, …).
-  Editing never mutates history; "rollback" is posting the old content again.
-- `GET /v1/templates/:id/versions` lists versions newest first.
+  present, its first version (`v1`) — published, because a brand-new template has
+  nothing to compare against. It is validated first; a version that could not
+  send is refused. Duplicate alias on the same project → `409`.
+- `POST /v1/templates/:id/versions` appends a version (`v2`, `v3`, …) as a
+  **draft**. Editing never mutates history; "rollback" is publishing an older
+  version again. Body: `subject`/`html`/`text`, optional `variables`, optional
+  `publish: true` (publish in the same call, refused if it would not be sendable).
+- `POST /v1/templates/:id/versions/:version/publish` validates and publishes.
+  Idempotent (`idempotent: true` on a repeat). Refusals are `400` with
+  `details.problems[]`: `no_subject`, `no_body`, `undeclared_variable`,
+  `missing_preview_variable`, `empty_preview_variable` — each naming the
+  variables involved. Optional `preview` data is checked as well.
+- `POST /v1/templates/:id/versions/:version/preview` renders a version with
+  `variables` and returns `{ rendered: { subject, html, text, missing[] },
+problems[] }`. Drafts preview fine — that is what a draft is for.
+- `variables` declares what the template expects: `["name"]` or
+  `[{ "name": "name", "required": true }]`. Omitting it means "infer from the
+  template"; declaring it means enforced — publishing refuses a `{{placeholder}}`
+  the declaration never mentions, because a caller cannot pass what was never
+  announced.
+- `GET /v1/templates/:id` returns `latest_version` (newest of any status),
+  `published_version` (what sends resolve, `null` until published) and
+  `draft_version` (a waiting edit, or `null`).
+- `react_tree` — a React Email element **tree** — may be sent instead of `html`:
+  `{ "component": "Html", "children": [...] }`. Supported components:
+  `Html`, `Head`, `Preview`, `Body`, `Container`, `Section`, `Row`, `Column`,
+  `Heading`, `Text`, `Link`, `Button`, `Hr`, `Img`. It is rendered server-side to
+  email-safe HTML (inline styles, table layout) plus a text alternative, and
+  **the rendered output is stored on the version** — no component tree reaches
+  send time. Text is escaped, `href`/`src` are limited to `http(s)`/`mailto` (and
+  `{{placeholders}}`), props outside that whitelist are dropped, and unknown
+  components are refused rather than skipped (a receipt must not lose its total).
+  Trees are bounded to 40 levels and 2 000 elements.
+- `react_source` is **not accepted**. Compiling customer React server-side would
+  execute their code beside every tenant's data and provider credentials; render
+  it with `@react-email/render` in your own build and post `html`/`text`, or post
+  `react_tree`.
+- `GET /v1/templates/:id/versions` lists versions newest first, with `status`.
+- `GET /v1/templates/:id/prompt` returns a deterministic brief (`{ prompt }`) built
+  from this template's own facts — name, alias, subject, which bodies exist,
+  declared variables, and the sending domain when one is verified. It states
+  which variables may be used and forbids inventing others, so an assistant's
+  rewrite cannot reference a value the send will never receive. The dashboard
+  shows the same text on the template page with a copy button.
 - `DELETE /v1/templates/:id` removes the template. Emails already sent from it
   keep their rendered content and delivery history.
 
@@ -78,8 +120,10 @@ POST /v1/emails
 
 - The template must exist on the requesting project; a cross-project alias is
   `404`, exactly as if it did not exist.
-- The latest version is resolved at ingest and rendered **before** the message
-  is queued, so a provider never receives `{{placeholder}}` text.
+- The newest **published** version is resolved at ingest and rendered before the
+  message is queued, so a provider never receives `{{placeholder}}` text. A
+  template with no published version is `422 template_not_published`; a newer
+  draft never changes what a send renders.
 - Every `{{variable}}` referenced by subject/HTML/text must be supplied. A
   missing one is `400 validation_error` naming each gap, and nothing is queued.
 - `subject`/`html`/`text` in the request override the template where supplied.
@@ -136,7 +180,20 @@ never returned.
 
 ## Rate limits
 
-Per API key, project, and organization; different limits for sending vs. verification vs. dashboard endpoints. Responses include limit/remaining/reset.
+Per API key, project, and organization; different limits for sending, reading,
+credential operations, verification and dashboard endpoints.
+
+| Bucket     | Window | Limit       | Applies to                                                                            |
+| ---------- | ------ | ----------- | ------------------------------------------------------------------------------------- |
+| `sending`  | 1 min  | 100 per key | `POST /v1/emails`, `/v1/emails/batch`                                                 |
+| `read`     | 1 min  | 600 per key | `GET` on `/v1/emails`, `/v1/domains`, `/v1/keys`, `/v1/suppressions`, `/v1/templates` |
+| `keyAdmin` | 1 hr   | 20 per key  | `POST /v1/keys`, `POST /v1/keys/:id/rotate`                                           |
+
+Every metered response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and
+`X-RateLimit-Reset` (unix seconds). A refusal is `429 rate_limit_error` **with a
+`Retry-After` header in whole seconds**, so a client can wait exactly as long as
+the window needs instead of guessing — a 429 without it invites the blind retry
+loop the limit exists to stop.
 
 ## Sandbox / test mode
 
@@ -167,12 +224,23 @@ verification — those gates run at ingest regardless of stream.
 
 The `from` address must resolve to an identity the project's active transport owns:
 
-- **Verified domain** (SES/managed transports): any address on the domain.
+- **Sender identity** (`sender_xxx`, or a bare address that matches one): must be
+  `verified` or `connected` and not archived. `pending`, `disabled` and archived
+  senders are refused with `422 sender_not_ready` and a sentence saying what to do.
+- **Verified domain** (SES/managed transports) — for live sends this requires the
+  project to opt in: a bare address at a domain the project has verified is
+  accepted **only** when "Send from addresses without a sender identity" is on in
+  Senders (off by default, owner/admin only, audited).
 - **Connected Gmail** (gmail transport): exactly the connected address, the
   transport pins the sender, spoofing is structurally impossible.
+- **Test mode**: any address, because the provider is mocked and nothing leaves
+  the account.
 
-Unowned senders fail closed (`domain_not_verified` / `550`) with an explanation
-pointing at verification or graduation, never silent, never delivered anyway.
+Anything else is refused before the message is recorded: `422 sender_not_ready`,
+message names Senders. Unowned senders fail closed (`domain_not_verified` / `550`)
+with an explanation pointing at verification or graduation, never silent, never
+delivered anyway. When an organization is suspended or paused, that refusal takes
+precedence — the workspace hears the reason it is actually blocked.
 
 ## SES feedback ingress (`POST /v1/ses/events`)
 
@@ -183,7 +251,11 @@ origins, plus an optional topic allowlist (`SES_SNS_TOPIC_ARNS`, also required
 to auto-confirm subscriptions). Accepts SNS envelopes (`text/plain` body):
 delivery/open/click advance truth, permanent bounces and complaints update
 the email and auto-insert a `suppressions` row, transient bounces only record
-an event. Recent-window permanent-bounce/complaint rates can atomically move an
+an event. `deliveryDelay` notifications move the row to `deferred` — accepted by
+the provider, delivery retrying, not a failure — and the attempt is recorded on
+the timeline; a later delivery advances it normally, and a delay arriving after
+a delivery never pulls the row backwards. `reject` and rendering failures fail
+the row and copy the provider's own reason into `lastError`. Recent-window permanent-bounce/complaint rates can atomically move an
 organization from `active` to `abuse_paused` after the configured minimum live
 send denominator; the event, pause, and audit row commit together. Idempotent
 on the SNS MessageId — replays are acknowledged no-ops. Unknown message ids
@@ -313,6 +385,20 @@ value: "calder-verification=cvt_…", expiresAt}`. 409 if another
 - `DELETE /v1/domains/:id`.
 - `GET /v1/domains` → secret-free projections (challenge visible only while
   pending/failed).
+- `GET /v1/domains/:id/auth` → **sending readiness as four independent facts**:
+  `ownership`, `dkim`, `spf`, `dmarc`. Ownership and DKIM come from our own
+  records; SPF and DMARC are read from DNS at request time (apex TXT and
+  `_dmarc.<domain>`), rate-limited with the verification bucket. Each fact is
+  `{state: "pass" | "warning" | "missing" | "broken", detail, found[]}`, where
+  `found` is the record exactly as published and `detail` says what to change.
+  The checks that matter in practice: no SPF, two SPF records (RFC 7208 §4.5
+  makes that a permanent error, worse than none), an SPF record that omits
+  `include:amazonses.com`, `+all`, no DMARC, `p=none` (monitoring only),
+  `pct<100`, and `p=quarantine|reject` combined with `aspf=s` — strict SPF
+  alignment fails because the return path for SES mail is `*.amazonses.com`, so
+  the customer's own policy would reject their mail. A DNS failure is reported
+  as unknown, never as passing and never as "missing" (which would invite a
+  duplicate record).
 
 ### Outbound branding
 

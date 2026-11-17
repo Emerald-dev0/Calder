@@ -212,6 +212,12 @@ export interface LoginWithPasswordResult {
     email: string;
     name: string | null;
   };
+  /**
+   * Organisations joined by invitation during this login, newest first.
+   * The dashboard opens the first one, so an invited teammate lands in the
+   * workspace they were invited to rather than their own empty account.
+   */
+  invitedOrganizationIds?: string[];
 }
 
 /**
@@ -355,12 +361,17 @@ export async function loginWithPassword(
   }
 
   await ensureFounderAccess(db, authenticated.userId, authenticated.email);
-  await acceptPendingInvites(db, authenticated.userId, authenticated.email);
+  const invitedOrganizationIds = await acceptPendingInvites(
+    db,
+    authenticated.userId,
+    authenticated.email
+  );
 
   return {
     needsVerification: false,
     email: authenticated.email,
     sessionId: authenticated.sessionId,
+    invitedOrganizationIds,
     user: {
       id: authenticated.userId,
       email: authenticated.email,
@@ -377,7 +388,7 @@ export async function verifySignupCode(
   code: string,
   meta: Parameters<typeof createSession>[1] = {},
   previousSessionId?: string | null
-): Promise<{ ok: true; sessionId: string }> {
+): Promise<{ ok: true; sessionId: string; invitedOrganizationIds: string[] }> {
   const normalized = normalizeEmail(email);
   await verifyEmailCode(normalized, code, "verification");
 
@@ -402,8 +413,8 @@ export async function verifySignupCode(
   });
 
   await ensureFounderAccess(db, result.userId, result.email);
-  await acceptPendingInvites(db, result.userId, result.email);
-  return { ok: true, sessionId: result.sessionId };
+  const invitedOrganizationIds = await acceptPendingInvites(db, result.userId, result.email);
+  return { ok: true, sessionId: result.sessionId, invitedOrganizationIds };
 }
 
 /**

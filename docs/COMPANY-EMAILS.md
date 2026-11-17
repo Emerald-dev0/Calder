@@ -117,6 +117,35 @@ a matter of calling the id from the Bachs webhook handler once it exists.
 **Control → Communications → Company email**, which previews the real template,
 requires a confirmation, honours opt-outs per recipient and audit-logs the batch.
 
+The composer treats the preview as a gate rather than a decoration: the compose
+form is a GET step that renders **your** draft through the real template (same
+footer, same opt-out link, subject included), and the send form carries that
+exact draft in hidden fields. What was read is what is sent.
+
+Two details of the copy are enforced, not suggested:
+
+- **`{{name}}`** is the only merge field. It resolves per recipient to the
+  account's first name, or `there` when there is none, and is substituted once
+  per recipient before the renderer's escaping — so nobody can be mailed
+  somebody else's name, and a name containing markup is escaped like any other
+  value. Any other field (`{{first_name}}`, `{{company}}`) is **refused** at
+  preview and again at send, because the alternative is shipping a literal
+  placeholder to hundreds of inboxes.
+- **Audience** is a per-send choice: verified accounts (default) or every
+  account including unverified addresses. The wide option requires its own
+  acknowledgement — an unverified address may not exist, and a bounce is
+  charged to Calder's sending reputation — and the server enforces that
+  independently of the form. Unknown or absent values parse to the narrow
+  audience, so a malformed request cannot widen a mailshot. The batch key stays
+  content-addressed, so re-running the same announcement with the wider audience
+  reaches exactly the accounts that did not get it, and nobody twice.
+
+The catalogue table reports **accepted** sends only: "last sent" is derived from
+`company_emails` rows with `status = 'sent'`, with refused and skipped attempts
+counted separately, and the footer separates the three states that exist
+(accepted at least once, only ever refused or skipped, never attempted). A
+catalogue entry is a declaration of intent, not proof of delivery.
+
 `legal.policy_update` needs a published-policy source to quote; `monthly_digest`
 needs a scheduling job that aggregates a period per workspace. Both have copy
 and consent plumbing ready.

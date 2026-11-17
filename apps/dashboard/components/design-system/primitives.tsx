@@ -416,6 +416,7 @@ export type StatusKind =
   | "healthy"
   | "live"
   | "sent"
+  | "deferred"
   | "queued"
   | "sending"
   | "created"
@@ -453,6 +454,9 @@ const STATUS_META: Record<
   unattributed: { tone: "warning", label: "Unattributed", icon: AlertTriangle },
   live: { tone: "success", label: "Live", icon: CheckCircle2 },
   sent: { tone: "info", label: "Sent", icon: Send },
+  // Accepted by the provider, delivery retrying: warning, not danger — the
+  // message has not failed, and a full mailbox usually resolves itself.
+  deferred: { tone: "warning", label: "Delayed", icon: Clock },
   queued: { tone: "warning", label: "Queued", icon: Clock },
   sending: { tone: "info", label: "Sending", icon: Clock },
   created: { tone: "warning", label: "Created", icon: Clock },

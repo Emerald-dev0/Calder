@@ -1,5 +1,5 @@
 import { createVerify, X509Certificate, randomUUID } from "node:crypto";
-import { getConfig } from "@calder/config";
+import { dashboardUrl, getConfig } from "@calder/config";
 import { logger } from "@calder/observability";
 import type { DbClient } from "@calder/db";
 import { AppError } from "../errors/index.js";
@@ -224,6 +224,11 @@ export interface SesMessage {
   };
   open?: { ipAddress?: string; timestamp?: string };
   click?: { ipAddress?: string; link?: string; timestamp?: string };
+  deliveryDelay?: {
+    timestamp?: string;
+    delayType?: string;
+    delayedRecipients?: SesRecipientList[];
+  };
   reject?: { reason?: string };
   failure?: { errorMessage?: string };
 }
@@ -254,14 +259,27 @@ export function parseSesMessage(env: SnsEnvelope): SesMessage {
  * "opened"/"clicked" status — those exist only as email_event_type rows
  * (same model as Resend: status ends at delivered; engagement is events).
  */
-type Progress = "created" | "queued" | "sending" | "sent" | "delivered";
+type Progress = "created" | "queued" | "sending" | "sent" | "deferred" | "delivered";
+/**
+ * Gaps, not consecutive numbers: `deferred` was inserted between `sent` and
+ * `delivered` (Stage 3.2) and a future state should not have to renumber the
+ * matrix to fit.
+ *
+ * `deferred` ranks *below* `delivered` on purpose. A delay notice that arrives
+ * after the delivery notice is stale, and a delay must never pull a delivered
+ * row backwards; the reverse — delivered after deferred — is the common case
+ * and must advance.
+ */
 const PROGRESS_RANK: Record<Progress, number> = {
   created: 0,
-  queued: 1,
-  sending: 2,
-  sent: 3,
-  delivered: 4,
+  queued: 10,
+  sending: 20,
+  sent: 30,
+  deferred: 35,
+  delivered: 40,
 };
+const DELIVERED = PROGRESS_RANK.delivered;
+const DEFERRED = PROGRESS_RANK.deferred;
 /** Terminal/authoritative: provider feedback never overrides these. */
 const STICKY = new Set(["bounced", "complained", "failed", "suppressed"]);
 
@@ -274,6 +292,14 @@ export interface StatusTransition {
   suppression: "bounce" | "complaint" | null;
   /** Recipient list the action applies to. */
   recipients: string[];
+  /**
+   * The provider's explanation, verbatim, when it refused the message. Copied
+   * onto `emails.lastError` so the row says *why* it failed instead of just
+   * that it did — SES's reject reasons name the actual problem ("Message
+   * rejected: Bad content"), and they are the only place that information
+   * exists.
+   */
+  failureReason: string | null;
 }
 
 /**
@@ -293,6 +319,7 @@ export function classifySesEvent(currentStatus: string, msg: SesMessage): Status
     eventType: null,
     suppression: null as null,
     recipients: [] as string[],
+    failureReason: null as string | null,
   };
   const sticky = STICKY.has(currentStatus);
   const rank = (s: string) => (s in PROGRESS_RANK ? PROGRESS_RANK[s as Progress] : -1);
@@ -303,8 +330,28 @@ export function classifySesEvent(currentStatus: string, msg: SesMessage): Status
       return { ...none };
     case "delivery": {
       const recipients = msg.delivery?.recipients ?? msg.mail.destination ?? [];
-      const status = !sticky && rank(currentStatus) < 4 ? "delivered" : null;
-      return { status, eventType: "delivered", suppression: null, recipients };
+      // `deferred` → `delivered` is the whole point of tracking the delay, so
+      // the comparison is against the rank, not against a single predecessor.
+      const status = !sticky && rank(currentStatus) < DELIVERED ? "delivered" : null;
+      return { status, eventType: "delivered", suppression: null, recipients, failureReason: null };
+    }
+    case "deliverydelay": {
+      // SES accepted the message and is retrying it: the recipient's server
+      // answered with a temporary error. Never a failure, never a delivery.
+      // A row already delivered (or terminal) keeps its status; the attempt is
+      // still recorded, because "delivered on the fourth try" is worth seeing.
+      const recipients =
+        msg.deliveryDelay?.delayedRecipients?.map((r) => r.emailAddress) ??
+        msg.mail.destination ??
+        [];
+      const moves = !sticky && rank(currentStatus) < DEFERRED;
+      return {
+        status: moves ? "deferred" : null,
+        eventType: "deferred",
+        suppression: null,
+        recipients,
+        failureReason: null,
+      };
     }
     case "open":
       // Engagement is event-only: no opened/clicked status exists in the schema.
@@ -313,6 +360,7 @@ export function classifySesEvent(currentStatus: string, msg: SesMessage): Status
         eventType: "opened",
         suppression: null,
         recipients: msg.mail.destination ?? [],
+        failureReason: null,
       };
     case "click":
       return {
@@ -320,6 +368,7 @@ export function classifySesEvent(currentStatus: string, msg: SesMessage): Status
         eventType: "clicked",
         suppression: null,
         recipients: msg.mail.destination ?? [],
+        failureReason: null,
       };
     case "bounce": {
       const recipients = (msg.bounce?.bouncedRecipients ?? []).map((r) => r.emailAddress);
@@ -334,6 +383,7 @@ export function classifySesEvent(currentStatus: string, msg: SesMessage): Status
         eventType: "bounced",
         suppression: "bounce",
         recipients,
+        failureReason: null,
       };
     }
     case "complaint": {
@@ -343,6 +393,7 @@ export function classifySesEvent(currentStatus: string, msg: SesMessage): Status
         eventType: "complained",
         suppression: "complaint",
         recipients,
+        failureReason: null,
       };
     }
     case "reject":
@@ -351,6 +402,10 @@ export function classifySesEvent(currentStatus: string, msg: SesMessage): Status
         eventType: "failed",
         suppression: null,
         recipients: msg.mail.destination ?? [],
+        // A reject is SES refusing to attempt delivery at all (content policy,
+        // a banned header, an unverified sender). It is the customer's problem
+        // to fix, so the reason has to reach them.
+        failureReason: msg.reject?.reason ?? "Rejected by the sending provider.",
       };
     case "rendering failure":
       return {
@@ -358,6 +413,8 @@ export function classifySesEvent(currentStatus: string, msg: SesMessage): Status
         eventType: "failed",
         suppression: null,
         recipients: msg.mail.destination ?? [],
+        failureReason:
+          msg.failure?.errorMessage ?? "The sending provider could not render this message.",
       };
     default:
       return { ...none };
@@ -493,7 +550,12 @@ export async function applySesEvent(
     if (transition.status) {
       await tx
         .update(emails)
-        .set({ status: transition.status as never, updatedAt: now })
+        .set({
+          status: transition.status as never,
+          // The provider's words, kept so the row is actionable on its own.
+          ...(transition.failureReason ? { lastError: transition.failureReason } : {}),
+          updatedAt: now,
+        })
         .where(and(eq(emails.id, row.id), eq(emails.projectId, row.projectId)));
     }
     if (transition.eventType) {
@@ -510,6 +572,9 @@ export async function applySesEvent(
           ...(msg.delivery?.smtpResponse ? { smtpResponse: msg.delivery.smtpResponse } : {}),
           ...(msg.click?.link ? { link: msg.click.link } : {}),
           ...(msg.reject?.reason ? { reason: msg.reject.reason } : {}),
+          ...(msg.failure?.errorMessage ? { reason: msg.failure.errorMessage } : {}),
+          ...(msg.deliveryDelay?.delayType ? { delayType: msg.deliveryDelay.delayType } : {}),
+          ...(msg.deliveryDelay?.timestamp ? { delayTimestamp: msg.deliveryDelay.timestamp } : {}),
           ...(msg.complaint?.complaintFeedbackType
             ? { complaintFeedbackType: msg.complaint.complaintFeedbackType }
             : {}),
@@ -701,7 +766,7 @@ async function notifyAbusePause(
             signal === "complaint_rate"
               ? "recipients marked it as spam"
               : "mailboxes rejected the address",
-          suppressionsUrl: `${getConfig().APP_URL.replace(/\/$/, "")}/suppressions`,
+          suppressionsUrl: dashboardUrl("/suppressions"),
         },
       });
     }

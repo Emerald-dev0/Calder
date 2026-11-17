@@ -6,6 +6,7 @@ import {
   templates,
   templateVersions,
   senderIdentities,
+  domains,
   apiKeys,
   insertApiKeyForActiveOrganization,
 } from "@calder/db";
@@ -40,18 +41,40 @@ export async function createTemplate(
   if (dup) throw new Error(`Alias "${alias}" is taken on this project.`);
   const id = rid("tpl");
   await db.insert(templates).values({ id, projectId, name, alias });
+  const { extractVariables, normaliseVariables, validateForPublish } =
+    await import("@calder/email");
+  const variables = normaliseVariables(extractVariables(input.subject, input.html, input.text));
+  const content = {
+    subject: input.subject.trim() || null,
+    html: input.html || null,
+    text: input.text || null,
+  };
+  // A brand-new template has nothing to compare against, so its first version is
+  // published — but only if it would actually be sendable.
+  const problems = validateForPublish(content, variables);
+  if (problems.length > 0) {
+    throw new Error(problems.map((p) => p.message).join(" "));
+  }
   await db.insert(templateVersions).values({
     id: rid("tplv"),
     templateId: id,
     version: "v1",
-    subject: input.subject.trim() || null,
-    html: input.html || null,
-    text: input.text || null,
+    subject: content.subject,
+    html: content.html,
+    text: content.text,
+    status: "published",
+    publishedAt: new Date(),
+    variables,
   });
   return { id };
 }
 
-/** Editing a template appends an immutable version; sends always take latest. */
+/**
+ * Editing a template appends a version, as a **draft**.
+ *
+ * Saving is not sending: the previous published version stays live until
+ * someone publishes this one, so a half-finished edit cannot reach a recipient.
+ */
 export async function addTemplateVersion(
   projectId: string,
   templateId: string,
@@ -75,6 +98,10 @@ export async function addTemplateVersion(
     .orderBy(desc(templateVersions.createdAt))
     .limit(1);
   const n = Number((latest?.version ?? "v0").slice(1)) + 1;
+  const { extractVariables, normaliseVariables } = await import("@calder/email");
+  // Declaring what the template uses is part of saving: publishing refuses a
+  // placeholder the template never announced.
+  const variables = normaliseVariables(extractVariables(input.subject, input.html, input.text));
   await db.insert(templateVersions).values({
     id: rid("tplv"),
     templateId,
@@ -82,8 +109,110 @@ export async function addTemplateVersion(
     subject: input.subject.trim() || null,
     html: input.html || null,
     text: input.text || null,
+    status: "draft",
+    variables,
   });
   return { version: `v${n}` };
+}
+
+/**
+ * Publish a version, after the same validation the API performs.
+ *
+ * Returns the problems instead of throwing so the editor can list them; a
+ * publish that silently did nothing would be worse than a refusal.
+ */
+export async function publishTemplateVersion(
+  projectId: string,
+  templateId: string,
+  version: string
+): Promise<{ ok: true; version: string } | { ok: false; problems: string[] }> {
+  await assertProjectManager(projectId);
+  const db = getDb();
+  const [row] = await db
+    .select({
+      id: templateVersions.id,
+      version: templateVersions.version,
+      status: templateVersions.status,
+      subject: templateVersions.subject,
+      html: templateVersions.html,
+      text: templateVersions.text,
+      variables: templateVersions.variables,
+    })
+    .from(templateVersions)
+    .innerJoin(templates, eq(templateVersions.templateId, templates.id))
+    .where(
+      and(
+        eq(templateVersions.templateId, templateId),
+        eq(templates.projectId, projectId),
+        eq(templateVersions.version, version)
+      )
+    )
+    .limit(1);
+  if (!row) throw new Error("Template version not found.");
+
+  const { validateForPublish, normaliseVariables } = await import("@calder/email");
+  const problems = validateForPublish(
+    { subject: row.subject, html: row.html, text: row.text },
+    normaliseVariables(row.variables)
+  );
+  if (problems.length > 0) return { ok: false, problems: problems.map((p) => p.message) };
+
+  if (row.status !== "published") {
+    await db
+      .update(templateVersions)
+      .set({ status: "published", publishedAt: new Date() })
+      .where(eq(templateVersions.id, row.id));
+  }
+  return { ok: true, version: row.version };
+}
+
+/**
+ * The "copy AI prompt" text, built from this template's own facts.
+ *
+ * Deterministic: two clicks produce the same text, so two people comparing notes
+ * are looking at the same brief.
+ */
+export async function templateAiPrompt(projectId: string, templateId: string): Promise<string> {
+  await assertProjectManager(projectId);
+  const db = getDb();
+  const [tpl] = await db
+    .select()
+    .from(templates)
+    .where(and(eq(templates.id, templateId), eq(templates.projectId, projectId)))
+    .limit(1);
+  if (!tpl) throw new Error("Template not found.");
+  const [version] = await db
+    .select({
+      subject: templateVersions.subject,
+      html: templateVersions.html,
+      text: templateVersions.text,
+      variables: templateVersions.variables,
+    })
+    .from(templateVersions)
+    .where(eq(templateVersions.templateId, templateId))
+    .orderBy(desc(templateVersions.createdAt))
+    .limit(1);
+  const [verified] = await db
+    .select({ domain: domains.domain })
+    .from(domains)
+    .where(and(eq(domains.projectId, projectId), eq(domains.status, "verified")))
+    .limit(1);
+  const { buildTemplatePrompt, extractVariables, normaliseVariables } =
+    await import("@calder/email");
+  const declared = normaliseVariables(version?.variables);
+  return buildTemplatePrompt({
+    name: tpl.name,
+    alias: tpl.alias ?? null,
+    subject: version?.subject ?? null,
+    description: tpl.description ?? null,
+    hasHtml: Boolean(version?.html),
+    hasText: Boolean(version?.text),
+    variables:
+      declared.length > 0
+        ? declared
+        : normaliseVariables(extractVariables(version?.subject, version?.html, version?.text)),
+    sendingDomain: verified?.domain ?? null,
+  });
 }
 
 export async function deleteTemplate(projectId: string, templateId: string) {

@@ -1,11 +1,18 @@
 import Link from "next/link";
-import { getDb, domains, resolveOrgTier } from "@calder/db";
+import {
+  accountDeletionStatus,
+  getDb,
+  domains,
+  organizationDeletionStatus,
+  resolveOrgTier,
+} from "@calder/db";
 import { eq } from "drizzle-orm";
 import { getTenantContext } from "../../../lib/auth";
 import { getTeam, listMySessions, requestDataExport, setCalderBranding } from "./actions";
 import { InviteForm, MemberRow, RevokeInviteButton } from "./team";
 import { NewOrgForm, NewProjectForm } from "./workspace-forms";
 import { SessionsCard } from "./sessions";
+import { DeletionZone, deletionNotice } from "./deletion";
 import { EmailChangeForm } from "./account";
 import { DsBanner } from "../../../components/design-system";
 import { Settings, Building2, Users, Shield, CreditCard, FolderGit2, BellRing } from "lucide-react";
@@ -14,13 +21,24 @@ import { DsPageHeader, StatusPill } from "../../../components/design-system";
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ org?: string; emailChange?: string; dataExport?: string }>;
+  searchParams: Promise<{
+    org?: string;
+    emailChange?: string;
+    dataExport?: string;
+    deletion?: string;
+  }>;
 }) {
   const query = await searchParams;
   const ctx = await getTenantContext();
-  const orgId = ctx.memberships.some((m) => m.organization.id === query.org)
-    ? (query.org as string)
-    : (ctx.memberships[0]?.organization.id ?? null);
+  // `?org=` is validated against membership, and the default is the same active
+  // organisation the rest of the app is showing — not `memberships[0]`, which
+  // is how settings used to disagree with the page you came from.
+  const requestedOrg = typeof query.org === "string" && query.org ? query.org : null;
+  const requestedMembership = requestedOrg
+    ? ctx.memberships.find((m) => m.organization.id === requestedOrg)
+    : undefined;
+  const orgAccessDenied = Boolean(requestedOrg && !requestedMembership);
+  const orgId = requestedMembership?.organization.id ?? ctx.active.organization?.id ?? null;
 
   if (!orgId) {
     return (
@@ -81,8 +99,28 @@ export default async function SettingsPage({
   const canAdminister = team.callerRole === "owner";
   const pending = team.invites.filter((i) => !i.acceptedAt && !i.expired);
 
+  // Deletion state for the danger zone. Read here rather than in the component
+  // so the page can render the schedule as a date, which is the only form of
+  // "seven days" a person can actually plan around.
+  const [workspaceDeletionStatus, accountDeletionStatusView] = await Promise.all([
+    organizationDeletionStatus(getDb(), orgId),
+    accountDeletionStatus(getDb(), ctx.user.userId),
+  ]);
+  const activeOrganizationRecord =
+    ctx.memberships.find((m) => m.organization.id === orgId)?.organization ?? null;
+  const workspaceSlug = activeOrganizationRecord?.slug ?? "";
+
   return (
     <div>
+      {orgAccessDenied ? (
+        <DsBanner
+          tone="warning"
+          title="That organisation isn't yours"
+          description={`You don't have access to ${requestedOrg}. Showing ${
+            ctx.active.organization?.name ?? "your workspace"
+          } instead — an organisation id in a URL is a request, never a grant.`}
+        />
+      ) : null}
       <DsPageHeader
         icon={<Settings size={18} />}
         title="Organization & Security Settings"
@@ -101,6 +139,36 @@ export default async function SettingsPage({
           </Link>
         }
       />
+
+      <div className="ds-card" style={{ marginBottom: 20 }}>
+        <div className="ds-card-header">
+          <div>
+            <h2 className="ds-card-title">Projects</h2>
+            <p className="ds-card-subtitle">
+              Project settings, including moving a project to another organisation you administer.
+            </p>
+          </div>
+          <div style={{ flexShrink: 0 }}>
+            <Link
+              href="/settings/projects"
+              className="ds-btn ds-btn-secondary"
+              style={{ textDecoration: "none" }}
+            >
+              <FolderGit2 size={14} />
+              <span>Manage projects</span>
+            </Link>
+          </div>
+        </div>
+        <div className="ds-card-body">
+          <p style={{ margin: 0, fontSize: 13, color: "var(--color-muted)" }}>
+            {orgProjects.length === 0
+              ? "No projects in this organisation yet."
+              : `${orgProjects.length} project${orgProjects.length === 1 ? "" : "s"}: ${orgProjects
+                  .map((p) => p.name)
+                  .join(", ")}.`}
+          </p>
+        </div>
+      </div>
 
       <div className="ds-card" style={{ marginBottom: 20 }}>
         <div className="ds-card-header">
@@ -267,6 +335,7 @@ export default async function SettingsPage({
         )}
       </div>
 
+      {deletionNotice(query.deletion)}
       {emailChangeNotice(query.emailChange)}
       {query.dataExport === "sent" ? (
         <div style={{ marginTop: 4 }}>
@@ -319,6 +388,22 @@ export default async function SettingsPage({
           </div>
         </div>
       </div>
+
+      <DeletionZone
+        workspace={
+          activeOrganizationRecord
+            ? {
+                id: activeOrganizationRecord.id,
+                name: activeOrganizationRecord.name,
+                slug: workspaceSlug,
+              }
+            : null
+        }
+        workspaceStatus={workspaceDeletionStatus}
+        canDeleteWorkspace={canAdminister}
+        accountEmail={ctx.user.email}
+        accountStatus={accountDeletionStatusView}
+      />
 
       {/* Section: Workspace & Projects */}
       <div id="workspace" className="ds-grid-2">

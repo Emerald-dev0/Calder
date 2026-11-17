@@ -28,6 +28,9 @@ import {
   streamStats as streamStatsSvc,
   unarchiveSender as unarchiveSenderSvc,
   unattributedSends as unattributedSendsSvc,
+  rawSenderPolicy as rawSenderPolicySvc,
+  setRawSenderPolicy as setRawSenderPolicySvc,
+  type RawSenderPolicy,
   updateSenderDisplayName as updateSenderDisplayNameSvc,
   type DefaultKind,
   type DispatchStatus,
@@ -229,4 +232,23 @@ export async function testSendStatus(
 
 export async function senderCreationOptions(projectId: string) {
   return senderCreationOptionsSvc(await actor(), projectId);
+}
+
+/** Whether live sends may use a bare address at a domain this project verified. */
+export async function rawSenderPolicy(projectId: string): Promise<RawSenderPolicy> {
+  return rawSenderPolicySvc(await actor(), projectId);
+}
+
+export async function setRawSenderPolicy(
+  projectId: string,
+  enabled: boolean
+): Promise<{ ok: true; policy: RawSenderPolicy } | { ok: false; error: string }> {
+  try {
+    return { ok: true, policy: await setRawSenderPolicySvc(await actor(), projectId, enabled) };
+  } catch (error) {
+    if (error instanceof SenderInputError || error instanceof SenderNotFoundError) {
+      return { ok: false, error: error.message };
+    }
+    throw error;
+  }
 }

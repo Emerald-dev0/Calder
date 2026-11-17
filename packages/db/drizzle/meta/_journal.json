@@ -281,6 +281,69 @@
       "when": 1794258712085,
       "tag": "0039_white_lady_mastermind",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1794652948571,
+      "tag": "0040_happy_shaman",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794653330492,
+      "tag": "0041_tiny_vargas",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1794654696103,
+      "tag": "0042_careless_clea",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1794665895501,
+      "tag": "0043_lame_ben_urich",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1794670922901,
+      "tag": "0044_talented_hardball",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1794671465285,
+      "tag": "0045_salty_morph",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1794818685888,
+      "tag": "0046_tired_mad_thinker",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794859033036,
+      "tag": "0047_wet_jubilee",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1794905073381,
+      "tag": "0048_triage_acknowledgements",
+      "breakpoints": true
     }
   ]
 }

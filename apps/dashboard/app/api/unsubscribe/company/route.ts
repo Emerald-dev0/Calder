@@ -1,5 +1,5 @@
 import { getDb } from "@calder/db";
-import { getConfig } from "@calder/config";
+import { dashboardUrl } from "@calder/config";
 import { isOptionalCategory, setCategoryDisabled, verifyPreferenceToken } from "@calder/notify";
 
 /**
@@ -89,7 +89,7 @@ export async function GET(request: Request): Promise<Response> {
       `<p style="font-size:15px;line-height:1.6;color:#404040;margin:0 0 20px;">
          This unsubscribe link is not valid. You can change every email preference from your account settings instead.
        </p>
-       <a href="${getConfig().APP_URL.replace(/\/$/, "")}/settings/notifications"
+       <a href="${dashboardUrl("/settings/notifications")}"
           style="display:inline-block;padding:12px 22px;border-radius:999px;background:#1E3A8A;color:#fff;text-decoration:none;font-weight:600;font-size:14px;">
          Open email settings
        </a>`,

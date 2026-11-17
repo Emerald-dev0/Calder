@@ -29,6 +29,26 @@ Worker `/ready` checks the queue driver, a Redis `PING`, `select 1`, and the age
 of its own heartbeat. A worker that has never published a heartbeat is **not**
 ready: a process that boots and cannot reach its queue must not look healthy.
 
+### The daily sweep destroys data — read its summary
+
+`runScheduledMaintenance` (the scheduled tick on `/v1/cron/drain`, and the
+manual `/v1/cron/maintenance`) ends with two jobs that are not repairs:
+
+| Job         | What it does                                                                                                                                                                                                     | What "good" looks like                                                                                                                                                                               |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `retention` | Clears `subject`/`html`/`text`/`attachments`/`metadata`/`cc`/`bcc` on messages past each plan's `retentionDays`, replaces the subject with `(removed by retention)`, and deletes those messages' `email_events`. | `truncated: false`. `failures` names any workspace still holding data past its window. `redacted` / `eventsDeleted` are normally non-zero on the first run after a cap raise and zero on quiet days. |
+| `purges`    | Deletes workspaces, projects and accounts whose seven-day deletion window has passed.                                                                                                                            | `failures` empty; `truncated` means the bound (25 per target per run) stopped it and the next tick continues.                                                                                        |
+
+Two things are deliberately not errors: a workspace on a contract plan
+(`retentionDays: null`) is counted in `organizationsUnlimited` and never touched,
+and a message that could still be sent (`created`, `queued`, `sending`,
+`deferred`) keeps its body however old it is — an empty envelope delivered later
+is worse than a body we hold a day too long.
+
+Neither job is reversible, so neither runs on a customer request: retention is
+plan-driven, and deletion only happens after an owner typed the workspace slug
+or their own email address and waited out the window (or cancelled it).
+
 ## 2. Redis requirement matrix (§6–7)
 
 | Process           | development / test   | staging / production              |
