@@ -1,0 +1,13 @@
+{
+  "$comment": "Accepted dependency advisories. Each entry names the advisory it covers, who owns the risk, why it is accepted, and when the acceptance ends. An entry that has expired stops suppressing anything: the audit returns to failing. The gate only consults this file for high and critical findings — low and moderate never fail CI. Remove an entry the moment the dependency is upgraded, and expect the gate to name it as stale if you forget.",
+  "exceptions": [
+    {
+      "id": 1247710,
+      "module": "picomatch",
+      "severity": "high",
+      "owner": "founder (@Emerald-dev0)",
+      "reason": "ReDoS in single-branch repeated extglobs, dev-only: picomatch 4.0.7 is reached only through eslint and vite (fdir/tinyglobby), never by a shipped route. No patched release exists yet (pnpm reports patched <0.0.0), so it cannot be upgraded on its own; revisit as soon as 4.0.8 or later lands. Production surface unaffected — apps/api, apps/web, apps/dashboard and packages/* do not depend on it.",
+      "expires": "2027-01-31"
+    }
+  ]
+}

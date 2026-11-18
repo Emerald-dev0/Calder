@@ -12,6 +12,8 @@ import { postLoginRedirect } from "../../../../../lib/control/post-login";
 import { invitedOrgCookieHeader } from "../../../../../lib/org-cookie";
 import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { sendSecurityEmail } from "../../../../../lib/send-security-email";
+import { getDb } from "@calder/db";
+import { sendWelcomeEmail } from "../../../../../lib/send-welcome-email";
 
 /**
  * M6.1: the callback consumes blindly by design (GET from any mail client),
@@ -71,6 +73,9 @@ export async function GET(req: Request): Promise<Response> {
         action: "auth.magic_link.redeemed",
       }).catch(() => {});
       await sendSecurityEmail({ to: sessionUser.email, event: "new_login" });
+      // Same key as every other door: the first sign-in path to arrive sends
+      // the welcome, the rest replay it.
+      await sendWelcomeEmail(getDb(), sessionUser);
     }
     const res = redirectSafe(target);
     res.headers.append("Set-Cookie", sessionCookieHeader(sealed, 30 * 24 * 60 * 60));

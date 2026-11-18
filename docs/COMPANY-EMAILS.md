@@ -31,44 +31,44 @@ is a feature.
 
 ## Wired (36)
 
-| Id                                   | Fires from                                        | Key                                        |
-| ------------------------------------ | ------------------------------------------------- | ------------------------------------------ |
-| `account.verification_code`          | signup / resend (`api/auth/email-code`)           | `otp:verification:<email>:<code>`          |
-| `account.password_reset_code`        | reset request (`lib/send-auth-email.ts`)          | `otp:reset:<email>:<code>`                 |
-| `account.welcome`                    | first verification (`api/auth/email-code/verify`) | per user                                   |
-| `account.locked_out`                 | login lockout (`LoginLockedError`)                | `lock:<userId>:<lockedUntil>`              |
-| `account.email_change_requested`     | `requestEmailChange()`                            | `email-change:<user>:<address>:<expiry>`   |
-| `account.email_changed`              | `/api/auth/email-change/confirm`                  | `email-changed:<new/old>:<user>:<address>` |
-| `account.data_export_ready`          | `requestDataExport()` → signed one-hour link      | `export:<user>:<minute>`                   |
-| `account.data_export_failed`         | the export route's failure path                   | per attempt                                |
-| `account.new_sign_in`                | login, magic link, OAuth callback                 | per sign-in                                |
-| `account.password_changed`           | `api/auth/password-change`                        | per change                                 |
-| `account.password_reset_completed`   | `api/auth/password-reset`                         | per reset                                  |
-| `account.sign_in_method_added`       | OAuth callback                                    | per provider link                          |
-| `account.sign_in_method_removed`     | `api/auth/oauth/disconnect`                       | per provider unlink                        |
-| `account.sessions_revoked`           | `signOutOtherSessions()`                          | per event                                  |
-| `organization.invitation`            | `inviteMember()`                                  | `invite:<invitationId>`                    |
-| `organization.invitation_reminder`   | cron `/v1/cron/company-email`                     | `<invitationId>:<expiresAt>`               |
-| `organization.invitation_accepted`   | verification of an invited address                | per invitation                             |
-| `organization.role_changed`          | `updateMemberRole()`                              | `role:<membership>:<role>:<epoch>`         |
-| `organization.member_removed`        | `removeMember()`                                  | `removed:<membershipId>`                   |
-| `organization.ownership_transferred` | `transferOwnership()` (both sides)                | `ownership:<org>:<to/from>:<user>:<epoch>` |
-| `organization.workspace_created`     | `completeOnboarding()`                            | `workspace-created:<orgId>:<userId>`       |
-| `operations.domain_verified`         | `POST /v1/domains/:id/verify` (verified)          | per verification instant                   |
-| `operations.domain_failed`           | same route (DNS error / TXT mismatch)             | one per domain per day                     |
-| `operations.api_key_created`         | `POST /v1/keys`                                   | per key                                    |
-| `operations.api_key_revoked`         | `DELETE /v1/keys/:id`                             | per key                                    |
-| `operations.api_key_expiring`        | cron `/v1/cron/company-email`                     | `<keyId>:<expiryDate>`                     |
-| `operations.webhook_failing`         | worker, delivery ladder exhausted                 | one per endpoint per day                   |
-| `operations.webhook_disabled`        | worker, 5 consecutive exhausted deliveries        | one per endpoint per day                   |
-| `operations.bounce_rate_warning`     | SES feedback pause (`autoPaused`)                 | `abuse:permanent_bounce_rate:<org>:<day>`  |
-| `operations.complaint_rate_warning`  | SES feedback pause (`autoPaused`)                 | `abuse:complaint_rate:<org>:<day>`         |
-| `operations.broadcast_completed`     | broadcast send finishes                           | `broadcast:<id>:sent`                      |
-| `operations.broadcast_paused`        | broadcast pauses on the plan allowance            | `broadcast:<id>:paused`                    |
-| `usage.warning_80`                   | ingest, inside the 80–82% band                    | `usage:80:<org>:<periodEnd>`               |
-| `usage.exhausted_100`                | ingest refuses with `plan_limit_reached`          | `usage:100:<org>:<periodEnd>`              |
-| `updates.announcement`               | control plane → Company email → Send batch        | `operator:<contentHash>:<userId>`          |
-| `updates.product_update`             | same console                                      | `operator:<contentHash>:<userId>`          |
+| Id                                   | Fires from                                                        | Key                                        |
+| ------------------------------------ | ----------------------------------------------------------------- | ------------------------------------------ |
+| `account.verification_code`          | signup / resend (`api/auth/email-code`)                           | `otp:verification:<email>:<code>`          |
+| `account.password_reset_code`        | reset request (`lib/send-auth-email.ts`)                          | `otp:reset:<email>:<code>`                 |
+| `account.welcome`                    | first sign-in on any path: email code, OAuth callback, magic link | `welcome:<userId>`                         |
+| `account.locked_out`                 | login lockout (`LoginLockedError`)                                | `lock:<userId>:<lockedUntil>`              |
+| `account.email_change_requested`     | `requestEmailChange()`                                            | `email-change:<user>:<address>:<expiry>`   |
+| `account.email_changed`              | `/api/auth/email-change/confirm`                                  | `email-changed:<new/old>:<user>:<address>` |
+| `account.data_export_ready`          | `requestDataExport()` → signed one-hour link                      | `export:<user>:<minute>`                   |
+| `account.data_export_failed`         | the export route's failure path                                   | per attempt                                |
+| `account.new_sign_in`                | login, magic link, OAuth callback                                 | per sign-in                                |
+| `account.password_changed`           | `api/auth/password-change`                                        | per change                                 |
+| `account.password_reset_completed`   | `api/auth/password-reset`                                         | per reset                                  |
+| `account.sign_in_method_added`       | OAuth callback                                                    | per provider link                          |
+| `account.sign_in_method_removed`     | `api/auth/oauth/disconnect`                                       | per provider unlink                        |
+| `account.sessions_revoked`           | `signOutOtherSessions()`                                          | per event                                  |
+| `organization.invitation`            | `inviteMember()`                                                  | `invite:<invitationId>`                    |
+| `organization.invitation_reminder`   | cron `/v1/cron/company-email`                                     | `<invitationId>:<expiresAt>`               |
+| `organization.invitation_accepted`   | verification of an invited address                                | per invitation                             |
+| `organization.role_changed`          | `updateMemberRole()`                                              | `role:<membership>:<role>:<epoch>`         |
+| `organization.member_removed`        | `removeMember()`                                                  | `removed:<membershipId>`                   |
+| `organization.ownership_transferred` | `transferOwnership()` (both sides)                                | `ownership:<org>:<to/from>:<user>:<epoch>` |
+| `organization.workspace_created`     | `completeOnboarding()`                                            | `workspace-created:<orgId>:<userId>`       |
+| `operations.domain_verified`         | `POST /v1/domains/:id/verify` (verified)                          | per verification instant                   |
+| `operations.domain_failed`           | same route (DNS error / TXT mismatch)                             | one per domain per day                     |
+| `operations.api_key_created`         | `POST /v1/keys`                                                   | per key                                    |
+| `operations.api_key_revoked`         | `DELETE /v1/keys/:id`                                             | per key                                    |
+| `operations.api_key_expiring`        | cron `/v1/cron/company-email`                                     | `<keyId>:<expiryDate>`                     |
+| `operations.webhook_failing`         | worker, delivery ladder exhausted                                 | one per endpoint per day                   |
+| `operations.webhook_disabled`        | worker, 5 consecutive exhausted deliveries                        | one per endpoint per day                   |
+| `operations.bounce_rate_warning`     | SES feedback pause (`autoPaused`)                                 | `abuse:permanent_bounce_rate:<org>:<day>`  |
+| `operations.complaint_rate_warning`  | SES feedback pause (`autoPaused`)                                 | `abuse:complaint_rate:<org>:<day>`         |
+| `operations.broadcast_completed`     | broadcast send finishes                                           | `broadcast:<id>:sent`                      |
+| `operations.broadcast_paused`        | broadcast pauses on the plan allowance                            | `broadcast:<id>:paused`                    |
+| `usage.warning_80`                   | ingest, inside the 80–82% band                                    | `usage:80:<org>:<periodEnd>`               |
+| `usage.exhausted_100`                | ingest refuses with `plan_limit_reached`                          | `usage:100:<org>:<periodEnd>`              |
+| `updates.announcement`               | control plane → Company email → Send batch                        | `operator:<contentHash>:<userId>`          |
+| `updates.product_update`             | same console                                                      | `operator:<contentHash>:<userId>`          |
 
 ## Not wired — and why
 
@@ -122,7 +122,7 @@ form is a GET step that renders **your** draft through the real template (same
 footer, same opt-out link, subject included), and the send form carries that
 exact draft in hidden fields. What was read is what is sent.
 
-Two details of the copy are enforced, not suggested:
+Every detail below is enforced server-side, not suggested by the form:
 
 - **`{{name}}`** is the only merge field. It resolves per recipient to the
   account's first name, or `there` when there is none, and is substituted once
@@ -131,14 +131,74 @@ Two details of the copy are enforced, not suggested:
   value. Any other field (`{{first_name}}`, `{{company}}`) is **refused** at
   preview and again at send, because the alternative is shipping a literal
   placeholder to hundreds of inboxes.
-- **Audience** is a per-send choice: verified accounts (default) or every
-  account including unverified addresses. The wide option requires its own
-  acknowledgement — an unverified address may not exist, and a bounce is
-  charged to Calder's sending reputation — and the server enforces that
-  independently of the form. Unknown or absent values parse to the narrow
-  audience, so a malformed request cannot widen a mailshot. The batch key stays
-  content-addressed, so re-running the same announcement with the wider audience
-  reaches exactly the accounts that did not get it, and nobody twice.
+- **Audience** is a per-send choice, and there are three. Verified accounts
+  (the default), every account including unverified addresses, or **specific
+  people** named by address. The wide option requires its own acknowledgement —
+  an unverified address may not exist, and a bounce is charged to Calder's
+  sending reputation — and the server enforces that independently of the form,
+  computed from the addresses actually in the run rather than from the menu item
+  that produced them. Unknown or absent values parse to the narrow audience, so a
+  malformed request cannot widen a mailshot.
+- **A named list means accounts.** An address that belongs to no user is refused
+  and named, never silently dropped, so the composer cannot be used to mail
+  strangers and an operator cannot believe they reached someone they did not.
+  The resolution runs on the page (so the preview says "4 of 6 matched, 2 not
+  accounts") and again in the action (which is the gate).
+- **From** is a closed list. `COMPANY_EMAIL_SENDERS` declares the extra
+  addresses this deployment may send as, and `AUTH_EMAIL_FROM` — the sender
+  every transactional email already uses — is always on it, default first. The
+  page resolves the choice through the same function the action enforces, and
+  an address off the list is a refusal rather than a fallback: sending from a
+  different address than the one previewed is exactly the lie this console
+  exists to avoid. Nothing here invents an address; an entry must be a real,
+  SES-verified identity.
+- **A run is bounded, a batch is not.** One press sends to at most
+  `COMPANY_BROADCAST_RUN_SIZE` recipients (150 by default, 1–500): a provider
+  call is a network round trip, and one request has to finish. Recipients the
+  batch has already reached — read from the per-recipient idempotency keys, not
+  from a counter — are excluded from the next run, so a list of any size is
+  finished by pressing again, with the same draft kept in the form. The page
+  states who this press reaches, how many never confirmed their address, and how
+  many follow.
+- **A replay is not a send.** Re-clicking the same content on the same UTC day
+  collapses onto the same rows, and those rows are reported as _already had it_,
+  not counted as sent. (The previous shape counted a replay as `sent`, which let
+  a no-op report a full batch.)
+- **Optional categories ride the marketing stream.** `updates.*` goes out on the
+  SES marketing configuration set (`SES_CONFIGURATION_SET_BROADCAST`), so a
+  mailshot's bounces land on marketing reputation rather than on the stream that
+  carries verification codes and password resets. Account mail stays
+  transactional.
+
+A note to yourself from **Send test to me** is marked `operatorTest` in its
+`company_emails` row, and every "sent" number and "last sent" date on the page
+excludes those rows: a test is not a send to customers.
+
+### Who each class of mail comes from
+
+| Mail                                                  | From                                                              | Why                                                                                                                                  |
+| ----------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Verification codes, password resets, security notices | `AUTH_EMAIL_FROM` (`Calder <hello@calder.click>`)                 | Nobody can unsubscribe from these, so they keep a stable, automated-looking sender and stay on the transactional stream.             |
+| `account.welcome`                                     | `COMPANY_WELCOME_FROM`, else the default sender                   | This is the one email whose copy says _"reply to this email — it reaches a person"_. Point it at a mailbox someone actually reads.   |
+| Operator broadcasts (`updates.*`)                     | whichever address the operator picks from `COMPANY_EMAIL_SENDERS` | Replies should reach whoever can answer the question the broadcast asks — support, usually — without changing where codes come from. |
+
+The welcome email is sent from every door a person can come in through — email
+verification, the OAuth callback, the magic-link callback — under one
+person-scoped key (`welcome:<userId>`). The first path to arrive sends it; every
+later sign-in is a replay that sends nothing, so nobody is welcomed twice and
+nobody who signed up with Google is missed.
+
+It has one more guard: an account older than `WELCOME_WINDOW_DAYS` (7) is not
+welcomed. Without that, extending the welcome to the OAuth and magic-link paths
+would have mailed "Welcome aboard" at their next sign-in to every existing user
+who had never received one — months after they joined, and with no undo. A
+welcome is for someone arriving.
+
+Every one of those addresses must be verifiable at SES on Calder's own domain
+(any local part of a verified domain is fine). `COMPANY_WELCOME_FROM` must also
+appear in `COMPANY_EMAIL_SENDERS` (or be `AUTH_EMAIL_FROM`); a value that does not
+is ignored with a logged warning and the default sender is used, because a typo
+should not stop a new user from being welcomed.
 
 The catalogue table reports **accepted** sends only: "last sent" is derived from
 `company_emails` rows with `status = 'sent'`, with refused and skipped attempts

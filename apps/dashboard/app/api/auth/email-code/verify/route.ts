@@ -16,6 +16,7 @@ import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { clientIp } from "../../../../../lib/client-ip";
 import { safeAuthError } from "../../../../../lib/auth-error";
 import { sendSecurityEmail } from "../../../../../lib/send-security-email";
+import { sendWelcomeEmail } from "../../../../../lib/send-welcome-email";
 import { postLoginRedirect } from "../../../../../lib/control/post-login";
 import { sameOriginRequest } from "../../../../../lib/csrf";
 import { readPreviousSessionId } from "../../../../../lib/previous-session";
@@ -88,17 +89,10 @@ export async function POST(req: Request): Promise<Response> {
         }).catch(() => {});
         await sendSecurityEmail({ to: sessionUser.email, event: "new_login" });
 
-        // Onboarding is keyed to the person, so it can only ever fire once:
-        // the first verification claims the key, later sign-ins replay it.
-        const { sendCompanyEmailQuietly } = await import("@calder/notify");
+        // Onboarding is keyed to the person, so every sign-in path can call it:
+        // the first one claims the key, later ones replay it and send nothing.
         const db = getDb();
-        await sendCompanyEmailQuietly(db, {
-          id: "account.welcome",
-          to: sessionUser.email,
-          userId: sessionUser.userId,
-          idempotencyKey: `welcome:${sessionUser.userId}`,
-          data: { name: sessionUser.name ?? undefined },
-        });
+        await sendWelcomeEmail(db, sessionUser);
         await notifyInvitersOfAcceptance(db, sessionUser.email, sessionUser.name ?? null);
       }
       const res = NextResponse.json({ ok: true, redirectTo });

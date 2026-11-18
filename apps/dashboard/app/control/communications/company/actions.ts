@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { eq, inArray } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auditLogs, emailPreferences, getDb, users } from "@calder/db";
@@ -14,10 +14,18 @@ import {
   validateDraft,
 } from "@/lib/control/company-draft";
 import {
-  audienceFilter,
   parseAudience,
+  parseSelectedAddresses,
   requiresUnverifiedConfirmation,
 } from "@/lib/control/audience";
+import {
+  batchKeyFor,
+  mailedUserIds,
+  recipientKeyFor,
+  resolveSelectedUsers,
+} from "@/lib/control/audience-recipients";
+import { batchProgress, nextRecipients, runSize } from "@/lib/control/company-send";
+import { findCompanySender } from "@/lib/control/senders";
 
 /**
  * Operator sends to the product's own users.
@@ -31,23 +39,28 @@ import {
  *    optional, so an operator cannot invent a mandatory category;
  *  - the consent table is applied per recipient inside `sendCompanyEmail`,
  *    which means the count an operator sees here is a ceiling, not a promise;
- *  - the batch key is derived from the content, so a double submit (or a
- *    refresh-caused resubmit) collapses onto the same rows instead of mailing
- *    everybody twice.
+ *  - the From line is one of the deployment's declared senders, never free text;
+ *  - the batch key is derived from the content, so a double submit collapses
+ *    onto the same rows instead of mailing everybody twice.
+ *
+ * A run sends at most `runSize()` recipients. That bounds one *request*, not who
+ * can be reached: recipients this batch has already reached are excluded from
+ * the next run, so a list of any size is finished by pressing the button again
+ * and the page says how many are left. The previous shape refused outright above
+ * 500 with "split the audience" — an instruction the console gave no way to
+ * follow.
  */
 
 const SENDABLE = ["updates.announcement", "updates.product_update"] as const;
 type Sendable = (typeof SENDABLE)[number];
 
-/** Hard cap per run: one request must finish, and the rest are told, not lost. */
-const MAX_RECIPIENTS = 500;
-
-function batchKey(template: string, subject: string, body: string): string {
-  // Content-addressed and day-scoped: editing the copy produces a new batch,
-  // re-clicking the same button does not.
-  const day = new Date().toISOString().slice(0, 10);
-  const hash = Buffer.from(`${template}|${subject}|${body}|${day}`, "utf8").toString("base64url");
-  return hash.slice(0, 40);
+function redirectParams(input: Record<string, string | number | undefined>): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(input)) {
+    if (value === undefined) continue;
+    params.set(key, String(value));
+  }
+  return params.toString();
 }
 
 export async function sendToProductUsers(formData: FormData) {
@@ -80,14 +93,35 @@ export async function sendToProductUsers(formData: FormData) {
     throw new Error("Confirm you have read the preview before sending.");
   }
 
-  // The wide audience is a separate decision from "I read the preview": it
-  // spends sending reputation on addresses that may not exist, so it has its
-  // own acknowledgement and the server, not the form, enforces it.
-  const audience = parseAudience(formData.get("audience"));
-  if (requiresUnverifiedConfirmation(audience) && formData.get("confirmUnverified") !== "on") {
+  // From. An unknown address is a refusal, not a fallback: sending from an
+  // address other than the one on screen is the lie this console exists to avoid.
+  const sender = findCompanySender(formData.get("from"));
+  if (!sender) {
     throw new Error(
-      "Confirm that you understand the wide audience includes unverified addresses before sending."
+      "Choose a sending address from the list. Nothing was sent — Calder only sends from addresses its deployment declares."
     );
+  }
+
+  // Who.
+  const audience = parseAudience(formData.get("audience"));
+  const selectedRaw = String(formData.get("selected") ?? "");
+  let selectedIds: string[] = [];
+  if (audience === "selected") {
+    const { addresses, truncated } = parseSelectedAddresses(selectedRaw);
+    if (truncated) throw new Error("Too many names in one run: name at most 500 addresses.");
+    if (addresses.length === 0) {
+      throw new Error("Name at least one account, or choose a different audience.");
+    }
+    const resolution = await resolveSelectedUsers(getDb(), addresses);
+    if (resolution.unmatched.length > 0) {
+      const named = resolution.unmatched.slice(0, 8).join(", ");
+      const more =
+        resolution.unmatched.length > 8 ? ` and ${resolution.unmatched.length - 8} more` : "";
+      throw new Error(
+        `These addresses belong to no Calder account, so they cannot be mailed: ${named}${more}. Remove them, or invite those people first.`
+      );
+    }
+    selectedIds = resolution.matched.map((row) => row.id);
   }
 
   // Render once before the first recipient: a template error must not
@@ -95,17 +129,45 @@ export async function sendToProductUsers(formData: FormData) {
   renderDraftPreview(template, draft);
 
   const db = getDb();
-  const recipients = await db
-    .select({ id: users.id, email: users.email, name: users.name })
-    .from(users)
-    // Narrow by default. The predicate itself lives in lib/control/audience so
-    // the wide path is a deliberate branch rather than a missing filter that
-    // someone could widen by accident later.
-    .where(audienceFilter(audience))
-    .limit(MAX_RECIPIENTS + 1);
-  if (recipients.length > MAX_RECIPIENTS) {
+  const batch = batchKeyFor(template, title, body);
+  const alreadyMailed = await mailedUserIds(db, batch);
+  const limit = runSize();
+  const candidates = await nextRecipients(db, {
+    scope: audience,
+    selectedIds,
+    mailedIds: alreadyMailed,
+    // One extra row is how we know there is more to do without counting twice.
+    limit: limit + 1,
+  });
+
+  if (candidates.length === 0) {
+    // Nothing left: say so, rather than reporting a phantom batch of zero.
+    redirect(
+      `/control/communications/company?${redirectParams({
+        template,
+        audience,
+        from: sender.email,
+        done: 1,
+        remaining: 0,
+        sent: 0,
+        skipped: 0,
+        failed: 0,
+      })}`
+    );
+  }
+
+  const run = candidates.slice(0, limit);
+  const unverifiedInRun = run.filter((row) => row.emailVerifiedAt === null).length;
+
+  // The unverified acknowledgement is computed from the recipients actually in
+  // this run, so it applies to a hand-picked list too. The risk is a property of
+  // the addresses, not of the menu item that produced them.
+  if (
+    requiresUnverifiedConfirmation(unverifiedInRun) &&
+    formData.get("confirmUnverified") !== "on"
+  ) {
     throw new Error(
-      `This run would mail more than ${MAX_RECIPIENTS} people. Split the audience before sending.`
+      "Confirm that you understand the wide audience includes unverified addresses before sending."
     );
   }
 
@@ -116,7 +178,7 @@ export async function sendToProductUsers(formData: FormData) {
     .where(
       inArray(
         emailPreferences.userId,
-        recipients.length > 0 ? recipients.map((r) => r.id) : ["none"]
+        run.map((recipient) => recipient.id)
       )
     );
   const optedOut = new Set(
@@ -125,12 +187,12 @@ export async function sendToProductUsers(formData: FormData) {
       .map((row) => row.userId)
   );
 
-  const batch = batchKey(template, title, body);
   let sent = 0;
   let skipped = 0;
   let failed = 0;
+  let replayed = 0;
 
-  for (const recipient of recipients) {
+  for (const recipient of run) {
     if (optedOut.has(recipient.id)) {
       skipped += 1;
       continue;
@@ -142,13 +204,24 @@ export async function sendToProductUsers(formData: FormData) {
       id: template,
       to: recipient.email,
       userId: recipient.id,
-      idempotencyKey: `operator:${batch}:${recipient.id}`,
+      from: sender.label,
+      idempotencyKey: recipientKeyFor(batch, recipient.id),
       data: personalisedEmailData(draft, { name: recipient.name }),
     });
-    if (result.status === "sent") sent += 1;
+    // A replay is a row that already exists: nothing was sent, so nothing may be
+    // counted as sent. The old shape counted it as sent, which let a same-day
+    // re-run report a full batch that never left the building.
+    if (result.replay) replayed += 1;
+    else if (result.status === "sent") sent += 1;
     else if (result.status === "failed") failed += 1;
     else skipped += 1;
   }
+
+  const progress = await batchProgress(db, {
+    scope: audience,
+    selectedIds,
+    mailedIds: new Set([...alreadyMailed, ...run.map((row) => row.id)]),
+  });
 
   try {
     await db.insert(auditLogs).values({
@@ -162,28 +235,62 @@ export async function sendToProductUsers(formData: FormData) {
         title,
         batch,
         audience,
-        recipients: recipients.length,
+        from: sender.email,
+        recipients: run.length,
         sent,
         skipped,
         failed,
+        replayed,
+        remaining: progress.remaining,
       },
     });
   } catch {
     // The sends already happened; an audit write failure must not hide them.
   }
 
+  // The named list travels back in the URL so "send the rest" needs no retyping.
+  // A very long list is not carried: silently truncating it would change who the
+  // next press reaches, so the page is told instead and asks for it again.
+  const selectedEcho =
+    audience === "selected" && selectedRaw.length <= 2000 ? selectedRaw : undefined;
+  const selectedTooLong = audience === "selected" && selectedEcho === undefined ? 1 : undefined;
+
   revalidatePath("/control/communications/company");
-  redirect(`/control/communications/company?sent=${sent}&skipped=${skipped}&failed=${failed}`);
+  redirect(
+    `/control/communications/company?${redirectParams({
+      sent,
+      skipped,
+      failed,
+      replayed,
+      remaining: progress.remaining,
+      template,
+      title,
+      body,
+      ctaLabel: draft.ctaLabel,
+      ctaUrl: draft.ctaUrl,
+      audience,
+      // Keep the named list so "send the rest" is one click with the same people,
+      // instead of retyping an audience the page already proved.
+      selected: selectedEcho,
+      selectedTooLong,
+      from: sender.email,
+    })}`
+  );
 }
 
 /**
  * One person, to check the thing renders in a real client before it is sent to
- * everyone. Always the operator's own address, never an arbitrary one.
+ * everyone. Always the operator's own address, never an arbitrary one — and
+ * through the same sender the batch will use, because "it looked fine" is worth
+ * nothing if the batch leaves from a different address.
  */
 export async function sendTestToSelf(formData: FormData) {
   const ctx = await requireSection("communications");
   const template = String(formData.get("template") ?? "") as Sendable;
   if (!SENDABLE.includes(template)) throw new Error("Unknown template.");
+
+  const sender = findCompanySender(formData.get("from"));
+  if (!sender) throw new Error("Choose a sending address from the list first.");
 
   const db = getDb();
   const draft = {
@@ -202,15 +309,18 @@ export async function sendTestToSelf(formData: FormData) {
   const [self] = await db
     .select({ name: users.name })
     .from(users)
-    .where(eq(users.id, ctx.user.userId))
+    .where(inArray(users.id, [ctx.user.userId]))
     .limit(1);
 
   await sendCompanyEmail(db, {
     id: template,
     to: ctx.email,
     userId: ctx.user.userId,
+    from: sender.label,
     idempotencyKey: `operator-test:${template}:${ctx.user.userId}:${Date.now()}`,
-    data: personalisedEmailData(draft, { name: self?.name ?? null }),
+    // Marked so the catalogue's "last sent" evidence cannot count a note to
+    // yourself as a send to customers.
+    data: { ...personalisedEmailData(draft, { name: self?.name ?? null }), operatorTest: true },
   });
 
   revalidatePath("/control/communications/company");

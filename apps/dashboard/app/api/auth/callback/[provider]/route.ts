@@ -16,6 +16,8 @@ import { getConfig } from "@calder/config";
 import { postLoginRedirect } from "../../../../../lib/control/post-login";
 import { invitedOrgCookieHeader } from "../../../../../lib/org-cookie";
 import { sendSecurityEmail } from "../../../../../lib/send-security-email";
+import { getDb } from "@calder/db";
+import { sendWelcomeEmail } from "../../../../../lib/send-welcome-email";
 
 /** OAuth landing: validate, link-or-create user, seal session, enter app. */
 export async function GET(
@@ -95,6 +97,10 @@ export async function GET(
       }).catch(() => {});
       await sendSecurityEmail({ to: sessionUser.email, event: "new_login", provider });
       await sendSecurityEmail({ to: sessionUser.email, event: "oauth_connected", provider });
+      // Somebody who signed up with a provider never saw a verification code,
+      // so this is the only welcome they will get. Keyed to the person, so a
+      // returning user's login is a replay that sends nothing.
+      await sendWelcomeEmail(getDb(), sessionUser);
     }
     const res = NextResponse.redirect(new URL(target, redirectOrigin));
     res.headers.set("Referrer-Policy", "no-referrer");

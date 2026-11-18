@@ -93,7 +93,15 @@ If a future high/critical advisory cannot be upgraded immediately, the
 security owner must record the advisory ID, affected path, production exposure,
 mitigation, owner, and a deadline in the PR/incident tracker. The exception is
 time-bound and CI must be changed only to an explicit advisory-ID exception,
-never a blanket severity bypass. If a secret is detected, stop the release,
+never a blanket severity bypass. Those exceptions live in
+`security/audit-exceptions.json` — one entry per advisory, naming the module, the
+owner, the reason and the date it stops counting. The gate reads that file and
+nothing else: an expired entry suppresses nothing (the audit returns to failing
+and says why), an entry that matched no advisory is reported as stale so the file
+cannot fill with history, and only high/critical findings consult it at all. The
+first entry is advisory 1247710 (picomatch ReDoS), accepted because 4.0.7 is the
+current release — pnpm reports no patched version — and it is reached only
+through eslint and vite, never by a shipped route. If a secret is detected, stop the release,
 revoke/rotate the credential at its issuer, identify access using audit logs,
 remove it from the repository/history where feasible, and document customer
 notification and follow-up in the incident record. Do not paste the secret into
