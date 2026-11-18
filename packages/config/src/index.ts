@@ -123,6 +123,15 @@ const envSchema = z.object({
    */
   COMPANY_EMAIL_SENDERS: z.string().optional(),
   /**
+   * Sender for `account.welcome` only, e.g. `Daniel <danieloluwadare@calder.click>`.
+   *
+   * The welcome copy promises that a reply reaches a person, so the mailbox
+   * behind it is a deployment decision rather than an implementation detail.
+   * Must be one of COMPANY_EMAIL_SENDERS (or AUTH_EMAIL_FROM); an address that
+   * is not on the list is ignored with a warning and the default sender is used.
+   */
+  COMPANY_WELCOME_FROM: z.string().optional(),
+  /**
    * Recipients per broadcast request. This is a duration budget, not a product
    * limit: the console excludes everyone a batch has already reached, so a
    * larger list finishes over consecutive presses. Bounded 1-500 here because

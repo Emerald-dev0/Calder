@@ -13,6 +13,7 @@ import {
   type EmailCodePurpose,
 } from "@calder/auth";
 import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
+import { logger } from "@calder/observability";
 import { clientIp } from "../../../../../lib/client-ip";
 import { safeAuthError } from "../../../../../lib/auth-error";
 import { sendSecurityEmail } from "../../../../../lib/send-security-email";
@@ -91,11 +92,23 @@ export async function POST(req: Request): Promise<Response> {
         // Onboarding is keyed to the person, so it can only ever fire once:
         // the first verification claims the key, later sign-ins replay it.
         const { sendCompanyEmailQuietly } = await import("@calder/notify");
+        const { resolveWelcomeSender } = await import("@/lib/control/senders");
         const db = getDb();
+        // The welcome copy says a reply reaches a person, so the From is the
+        // deployment's choice (`COMPANY_WELCOME_FROM`) rather than whatever
+        // address the verification codes use.
+        const welcome = resolveWelcomeSender();
+        if (welcome.ignored) {
+          logger.warn(
+            { configured: welcome.ignored, usedInstead: welcome.sender.email },
+            "COMPANY_WELCOME_FROM is not on the declared sender list; the welcome email used the default sender"
+          );
+        }
         await sendCompanyEmailQuietly(db, {
           id: "account.welcome",
           to: sessionUser.email,
           userId: sessionUser.userId,
+          from: welcome.sender.label,
           idempotencyKey: `welcome:${sessionUser.userId}`,
           data: { name: sessionUser.name ?? undefined },
         });

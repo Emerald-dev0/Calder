@@ -95,6 +95,37 @@ export function defaultCompanySender(env: NodeJS.ProcessEnv = process.env): Comp
 }
 
 /**
+ * The sender for the welcome email.
+ *
+ * `account.welcome` is the one company email whose copy makes a promise about
+ * people — "reply to this email, it reaches a person" — so which mailbox that is
+ * belongs to the deployment, not to a hard-coded address. A founder's address is
+ * the honest From for a welcome note; `hello@` is the honest From for everything
+ * automated.
+ *
+ * The value must be on the declared list. If it is not — a typo, or an address
+ * nobody verified at SES — the deployment's default sender is used and the
+ * mismatch is logged: refusing to send a welcome email is worse than sending it
+ * from the usual address, and pretending the override worked is worse than both.
+ */
+export function resolveWelcomeSender(env: NodeJS.ProcessEnv = process.env): {
+  sender: CompanySender;
+  /** The configured value that was not on the list, when there was one. */
+  ignored: string | null;
+} {
+  const wanted = env.COMPANY_WELCOME_FROM?.trim();
+  if (!wanted) return { sender: defaultCompanySender(env), ignored: null };
+
+  const found = findCompanySender(wanted, env);
+  if (found) return { sender: found, ignored: null };
+
+  // Nothing here logs or throws: this file is pure so the rule can be tested
+  // without a build. The caller that sends the welcome email reports the
+  // mismatch to the log, where an operator will see it next to the send.
+  return { sender: defaultCompanySender(env), ignored: wanted };
+}
+
+/**
  * The submitted choice, if it is on the list — otherwise `null`.
  *
  * The action turns `null` into a refusal rather than a fallback: silently sending

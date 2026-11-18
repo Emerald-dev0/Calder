@@ -174,6 +174,20 @@ A note to yourself from **Send test to me** is marked `operatorTest` in its
 `company_emails` row, and every "sent" number and "last sent" date on the page
 excludes those rows: a test is not a send to customers.
 
+### Who each class of mail comes from
+
+| Mail                                                  | From                                                              | Why                                                                                                                                  |
+| ----------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Verification codes, password resets, security notices | `AUTH_EMAIL_FROM` (`Calder <hello@calder.click>`)                 | Nobody can unsubscribe from these, so they keep a stable, automated-looking sender and stay on the transactional stream.             |
+| `account.welcome`                                     | `COMPANY_WELCOME_FROM`, else the default sender                   | This is the one email whose copy says _"reply to this email — it reaches a person"_. Point it at a mailbox someone actually reads.   |
+| Operator broadcasts (`updates.*`)                     | whichever address the operator picks from `COMPANY_EMAIL_SENDERS` | Replies should reach whoever can answer the question the broadcast asks — support, usually — without changing where codes come from. |
+
+Every one of those addresses must be verifiable at SES on Calder's own domain
+(any local part of a verified domain is fine). `COMPANY_WELCOME_FROM` must also
+appear in `COMPANY_EMAIL_SENDERS` (or be `AUTH_EMAIL_FROM`); a value that does not
+is ignored with a logged warning and the default sender is used, because a typo
+should not stop a new user from being welcomed.
+
 The catalogue table reports **accepted** sends only: "last sent" is derived from
 `company_emails` rows with `status = 'sent'`, with refused and skipped attempts
 counted separately, and the footer separates the three states that exist

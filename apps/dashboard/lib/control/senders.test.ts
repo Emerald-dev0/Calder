@@ -5,6 +5,7 @@ import {
   defaultCompanySender,
   findCompanySender,
   parseSenderEntry,
+  resolveWelcomeSender,
 } from "./senders";
 
 const env = (overrides: Record<string, string | undefined> = {}): NodeJS.ProcessEnv =>
@@ -100,5 +101,40 @@ describe("findCompanySender", () => {
     expect(findCompanySender("Calder Support", envWithList)).toBeNull();
     expect(findCompanySender("", envWithList)).toBeNull();
     expect(findCompanySender(undefined, envWithList)).toBeNull();
+  });
+});
+
+describe("resolveWelcomeSender", () => {
+  const envWithList = env({
+    COMPANY_EMAIL_SENDERS:
+      "Calder Support <support@calder.click>, Daniel <danieloluwadare@calder.click>",
+    AUTH_EMAIL_FROM: "Calder <hello@calder.click>",
+  });
+
+  it("uses the address the deployment chose for the welcome email", () => {
+    const { sender, ignored } = resolveWelcomeSender({
+      ...envWithList,
+      COMPANY_WELCOME_FROM: "danieloluwadare@calder.click",
+    });
+    expect(sender.email).toBe("danieloluwadare@calder.click");
+    expect(sender.name).toBe("Daniel");
+    expect(ignored).toBeNull();
+  });
+
+  it("falls back to the default sender when nothing is chosen", () => {
+    expect(resolveWelcomeSender(envWithList).sender.email).toBe("support@calder.click");
+    expect(resolveWelcomeSender(env()).sender.email).toBe("hello@calder.click");
+  });
+
+  it("ignores an address that is not on the declared list, and says which", () => {
+    // A typo must not become a From: the welcome email still goes out, from the
+    // address this deployment sends with — and the caller is told why, so the
+    // log carries the mismatch instead of the operator wondering.
+    const { sender, ignored } = resolveWelcomeSender({
+      ...envWithList,
+      COMPANY_WELCOME_FROM: "someone@elsewhere.example",
+    });
+    expect(sender.email).toBe("support@calder.click");
+    expect(ignored).toBe("someone@elsewhere.example");
   });
 });
