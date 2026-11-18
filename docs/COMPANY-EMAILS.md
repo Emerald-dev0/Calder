@@ -188,6 +188,12 @@ person-scoped key (`welcome:<userId>`). The first path to arrive sends it; every
 later sign-in is a replay that sends nothing, so nobody is welcomed twice and
 nobody who signed up with Google is missed.
 
+It has one more guard: an account older than `WELCOME_WINDOW_DAYS` (7) is not
+welcomed. Without that, extending the welcome to the OAuth and magic-link paths
+would have mailed "Welcome aboard" at their next sign-in to every existing user
+who had never received one — months after they joined, and with no undo. A
+welcome is for someone arriving.
+
 Every one of those addresses must be verifiable at SES on Calder's own domain
 (any local part of a verified domain is fine). `COMPANY_WELCOME_FROM` must also
 appear in `COMPANY_EMAIL_SENDERS` (or be `AUTH_EMAIL_FROM`); a value that does not
