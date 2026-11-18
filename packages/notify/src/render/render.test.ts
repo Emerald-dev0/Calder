@@ -170,3 +170,80 @@ describe("operator-written bodies keep their shape", () => {
     expect(out.html).toContain("&lt;script&gt;");
   });
 });
+
+describe("operator-written bodies can be formatted", () => {
+  it("renders bold and italic", () => {
+    const out = renderCompanyEmail({
+      id: "updates.announcement",
+      data: { title: "T", body: "The **Growth** plan is now _cheaper_." },
+      urls,
+    });
+    expect(out.html).toContain("<strong");
+    expect(out.html).toContain(">Growth</strong>");
+    expect(out.html).toContain("<em>cheaper</em>");
+    expect(out.html).not.toContain("**");
+    expect(out.html).not.toContain("_cheaper_");
+  });
+
+  it("turns bullet and numbered lines into lists", () => {
+    const out = renderCompanyEmail({
+      id: "updates.product_update",
+      data: {
+        title: "T",
+        body: "What changed:\n- Billing\n- Inboxes\n\nThen:\n1. Sign in\n2. Look around",
+      },
+      urls,
+    });
+    expect(out.html).toContain("<ul");
+    expect(out.html.match(/<li /g)?.length).toBe(4);
+    expect(out.html).toContain("<ol");
+    // The bullet glyph itself is markup, not something the reader should see.
+    expect(out.html).not.toContain("- Billing");
+  });
+
+  it("links inline, through safeUrl", () => {
+    const out = renderCompanyEmail({
+      id: "updates.announcement",
+      data: { title: "T", body: "Read [the spec](https://calder.click/spec) first." },
+      urls,
+    });
+    expect(out.html).toContain('href="https://calder.click/spec"');
+    expect(out.html).toContain(">the spec</a>");
+  });
+
+  it("shows a javascript: link as text instead of linking it", () => {
+    const out = renderCompanyEmail({
+      id: "updates.announcement",
+      data: { title: "T", body: "Click [here](javascript:alert(1)) now." },
+      urls,
+    });
+    expect(out.html).not.toContain('href="javascript');
+    // Left visible rather than silently deleted: the author sees it did nothing.
+    expect(out.html).toContain("[here](javascript:alert(1))");
+  });
+
+  it("escapes markup inside formatted text", () => {
+    const out = renderCompanyEmail({
+      id: "updates.announcement",
+      data: { title: "T", body: "**<img src=x onerror=alert(1)>**" },
+      urls,
+    });
+    expect(out.html).not.toContain("<img");
+    expect(out.html).toContain("&lt;img");
+  });
+
+  it("gives the text part the same words without the markup", () => {
+    const out = renderCompanyEmail({
+      id: "updates.announcement",
+      data: { title: "T", body: "**Bold** and [a link](https://calder.click)." },
+      urls,
+    });
+    expect(out.text).toContain("Bold");
+    expect(out.text).toContain("a link");
+    // The plain-text alternative cannot be clicked, so the address is spelled out.
+    expect(out.text).toContain("https://calder.click");
+    expect(out.text).not.toContain("**");
+    expect(out.text).not.toContain("](");
+    expect(out.subject).not.toContain("**");
+  });
+});

@@ -100,7 +100,9 @@ export function renderCompanyEmail(input: RenderCompanyEmailInput): RenderedComp
 
   const inner = [
     heading(content.heading),
-    ...content.intro.map(paragraph),
+    // Operator-written copy arrives pre-rendered (rich-text.ts) so bold, lists
+    // and links survive; generated copy is plain paragraphs.
+    ...(content.introHtml ?? content.intro.map(paragraph)),
     content.code ? codeBlock(content.code, content.codeCaption) : "",
     content.details?.length ? detailsTable(content.details) : "",
     content.callout

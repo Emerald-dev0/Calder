@@ -55,8 +55,43 @@ export function paragraph(text: string): string {
   // note types paragraphs and single newlines (a sign-off, an address block);
   // without this the HTML collapses every one of them into a wall of text —
   // which is what a broadcast composed in the console used to look like.
-  const safe = escapeHtml(text).replace(/\r\n|\n/g, "<br />");
-  return `<p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:${PALETTE.body};">${safe}</p>`;
+  return paragraphHtml(escapeHtml(text).replace(/\r\n|\n/g, "<br />"));
+}
+
+/**
+ * The same paragraph shell for content that has already been rendered.
+ *
+ * Only `rich-text.ts` may call this, and only with HTML it produced itself:
+ * every character of the operator's text inside it has been through
+ * `escapeHtml` first. Nothing from a form reaches this function unescaped.
+ */
+export function paragraphHtml(inner: string): string {
+  return `<p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:${PALETTE.body};">${inner}</p>`;
+}
+
+/** A bulleted or numbered list, from already-rendered item HTML. */
+export function richList(items: string[], ordered = false): string {
+  const tag = ordered ? "ol" : "ul";
+  const body = items
+    .map(
+      (item) =>
+        `<li style="margin:0 0 6px;font-size:15px;line-height:1.6;color:${PALETTE.body};">${item}</li>`
+    )
+    .join("");
+  return `<${tag} style="margin:0 0 16px;padding-left:22px;font-size:15px;line-height:1.6;color:${PALETTE.body};">${body}</${tag}>`;
+}
+
+/** A link inside a paragraph, from an href already vetted by `safeUrl`. */
+export function richLink(href: string, labelHtml: string): string {
+  return `<a href="${escapeHtml(href)}" style="color:${PALETTE.link};text-decoration:underline;">${labelHtml}</a>`;
+}
+
+export function richStrong(labelHtml: string): string {
+  return `<strong style="font-weight:700;color:${PALETTE.ink};">${labelHtml}</strong>`;
+}
+
+export function richEm(labelHtml: string): string {
+  return `<em>${labelHtml}</em>`;
 }
 
 export function muted(text: string): string {

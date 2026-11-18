@@ -1,4 +1,5 @@
 import type { CompanyEmailId } from "../catalogue.js";
+import { plainFromRich, renderRichText } from "./rich-text.js";
 
 /**
  * Copy for every email in the catalogue.
@@ -26,7 +27,14 @@ export interface CompanyEmailContent {
   subject: string;
   preheader: string;
   heading: string;
+  /** Paragraphs, escaped and laid out by the renderer. */
   intro: string[];
+  /**
+   * Pre-rendered paragraphs for copy an operator wrote, from `rich-text.ts`.
+   * When present the renderer uses this instead of `intro` (which must then
+   * carry the same words as plain text, for the multipart alternative).
+   */
+  introHtml?: string[];
   details?: Array<{ label: string; value: string }>;
   code?: string;
   codeCaption?: string;
@@ -51,21 +59,11 @@ const greeting = (d: Data): string => {
 };
 
 /**
- * An operator's body text, as paragraphs.
+ * Text flattened onto one line, for a preheader (which cannot hold a break).
  *
- * Blank lines separate paragraphs (each becomes its own `<p>`); single newlines
- * stay inside one and render as `<br>`. A composer that treats a typed
- * announcement as one string produces a wall of text in the inbox, which is not
- * what the person writing it sees in the box.
+ * Operator-written bodies go through `plainFromRich` first — this only tightens
+ * the whitespace that is left.
  */
-function bodyParagraphs(text: string): string[] {
-  return text
-    .split(/\n\s*\n/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
-
-/** The same text flattened, for a preheader that cannot contain a line break. */
 function oneLine(text: string, limit: number): string {
   return text.replace(/\s+/g, " ").trim().slice(0, limit);
 }
@@ -861,20 +859,26 @@ export const TEMPLATES: Record<CompanyEmailId, Builder> = {
   }),
 
   /* ── Optional ───────────────────────────────────────────────────────── */
-  "updates.product_update": (d, u) => ({
-    subject: s(d, "title", "What's new in Calder"),
-    preheader: oneLine(s(d, "body", "A short update from the team."), 120),
-    heading: s(d, "title", "What's new in Calder"),
-    intro: bodyParagraphs(s(d, "body", "")),
-    cta: s(d, "ctaUrl") ? { label: s(d, "ctaLabel", "Read more"), url: s(d, "ctaUrl") } : undefined,
-    footnote:
-      "You receive product updates because you opted in. Account, billing and security mail is separate.",
-    linkLine: {
-      text: "Prefer fewer emails?",
-      label: "Manage what you receive",
-      url: u.preferences,
-    },
-  }),
+  "updates.product_update": (d, u) => {
+    const body = renderRichText(s(d, "body", ""));
+    return {
+      subject: s(d, "title", "What's new in Calder"),
+      preheader: oneLine(plainFromRich(s(d, "body", "A short update from the team.")), 120),
+      heading: s(d, "title", "What's new in Calder"),
+      intro: body.text,
+      introHtml: body.html,
+      cta: s(d, "ctaUrl")
+        ? { label: s(d, "ctaLabel", "Read more"), url: s(d, "ctaUrl") }
+        : undefined,
+      footnote:
+        "You receive product updates because you opted in. Account, billing and security mail is separate.",
+      linkLine: {
+        text: "Prefer fewer emails?",
+        label: "Manage what you receive",
+        url: u.preferences,
+      },
+    };
+  },
 
   "updates.monthly_digest": (d, u) => ({
     subject: `Your Calder recap for ${s(d, "period", "last month")}`,
@@ -896,20 +900,26 @@ export const TEMPLATES: Record<CompanyEmailId, Builder> = {
     },
   }),
 
-  "updates.announcement": (d, u) => ({
-    subject: s(d, "title", "An announcement from Calder"),
-    preheader: oneLine(s(d, "body", ""), 120),
-    heading: s(d, "title", "An announcement from Calder"),
-    intro: bodyParagraphs(s(d, "body", "")),
-    cta: s(d, "ctaUrl") ? { label: s(d, "ctaLabel", "Read more"), url: s(d, "ctaUrl") } : undefined,
-    footnote:
-      "You receive announcements because you opted in. Account, billing and security mail is separate.",
-    linkLine: {
-      text: "Prefer fewer emails?",
-      label: "Manage what you receive",
-      url: u.preferences,
-    },
-  }),
+  "updates.announcement": (d, u) => {
+    const body = renderRichText(s(d, "body", ""));
+    return {
+      subject: s(d, "title", "An announcement from Calder"),
+      preheader: oneLine(plainFromRich(s(d, "body", "")), 120),
+      heading: s(d, "title", "An announcement from Calder"),
+      intro: body.text,
+      introHtml: body.html,
+      cta: s(d, "ctaUrl")
+        ? { label: s(d, "ctaLabel", "Read more"), url: s(d, "ctaUrl") }
+        : undefined,
+      footnote:
+        "You receive announcements because you opted in. Account, billing and security mail is separate.",
+      linkLine: {
+        text: "Prefer fewer emails?",
+        label: "Manage what you receive",
+        url: u.preferences,
+      },
+    };
+  },
 
   /* ── Shared-inbox activity ───────────────────────────────────────────── */
   "inbox.new_conversation": (d, u) => ({

@@ -155,11 +155,21 @@ Every detail below is enforced server-side, not suggested by the form:
   different address than the one previewed is exactly the lie this console
   exists to avoid. Nothing here invents an address; an entry must be a real,
   SES-verified identity.
-- **The body keeps the shape it was typed in.** Blank lines become paragraphs and
-  single newlines become line breaks; every character is escaped first, so the
-  only markup in the inbox is the template's. Before this, a three-paragraph
-  announcement arrived as one run-on block, because the renderer wrapped the
-  whole body in a single `<p>`.
+- **The body keeps the shape it was typed in, and can be formatted.** Blank lines
+  become paragraphs and single newlines become line breaks; `**bold**`,
+  `_italic_`, a line starting with `-` or `1.` (a list), and `[label](https://…)`
+  (an inline link) become real formatting. Every character is escaped first, so
+  the only markup in the inbox is what `rich-text.ts` emits from the operator's
+  own words: the composer deliberately does not accept HTML, because sanitising
+  operator HTML at send time is a moving target on a mailshot that cannot be
+  recalled. Links go through the same `safeUrl` as the CTA — an absolute
+  http(s) URL, or nothing; a `javascript:` link is left as visible text rather
+  than silently deleted, so the author can see it did not become a link. The
+  buttons above the box (bold, italic, bullets, numbers, link) only insert these
+  markers at the cursor; with JS off the textarea takes the same markers. The
+  plain-text alternative carries the same words with the markers removed.
+  Before any of this, a three-paragraph announcement arrived as one run-on
+  block, because the renderer wrapped the whole body in a single `<p>`.
 - **Only two templates can be broadcast**, `updates.announcement` and
   `updates.product_update`. The rest of the catalogue is event-driven — a key
   being created is not something an operator should be able to fake by pressing

@@ -41,6 +41,7 @@ import {
 } from "@/lib/control/company-send";
 import { companySenders, defaultCompanySender, findCompanySender } from "@/lib/control/senders";
 import { Badge, Empty, PageHeader, Panel, Stat } from "@/app/control/_components/ui";
+import { BodyEditor } from "./body-editor";
 import { PeoplePicker } from "./people-picker";
 import { sendTestToSelf, sendToProductUsers } from "./actions";
 
@@ -444,18 +445,12 @@ export default async function CompanyEmailPage({
                 placeholder="What changed, in one line"
               />
             </label>
-            <label style={{ display: "grid", gap: 6, fontSize: 12.5, fontWeight: 600 }}>
-              Body
-              <textarea
-                name="body"
-                className="cp-input"
-                rows={6}
-                required
-                minLength={DRAFT_LIMITS.bodyMin}
-                maxLength={DRAFT_LIMITS.bodyMax}
-                defaultValue={draft?.body ?? `${DRAFT_BODY_SKELETON}Something shipped this week.`}
-              />
-            </label>
+            <BodyEditor
+              name="body"
+              minLength={DRAFT_LIMITS.bodyMin}
+              maxLength={DRAFT_LIMITS.bodyMax}
+              defaultValue={draft?.body ?? `${DRAFT_BODY_SKELETON}Something shipped this week.`}
+            />
             <p style={{ fontSize: 12, color: "var(--cp-muted)", margin: 0 }}>
               Merge fields: {MERGE_FIELDS.map((field) => `{{${field}}}`).join(", ")} — replaced with
               each recipient&apos;s own name, or &quot;there&quot; when the account has none. Any
