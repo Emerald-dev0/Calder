@@ -16,6 +16,7 @@ import { getRateLimiter, rateLimitPresets } from "@calder/rate-limit";
 import { clientIp } from "../../../../../lib/client-ip";
 import { safeAuthError } from "../../../../../lib/auth-error";
 import { sendSecurityEmail } from "../../../../../lib/send-security-email";
+import { sendWelcomeEmail } from "../../../../../lib/send-welcome-email";
 import { postLoginRedirect } from "../../../../../lib/control/post-login";
 import { sameOriginRequest } from "../../../../../lib/csrf";
 import { readPreviousSessionId } from "../../../../../lib/previous-session";
@@ -90,7 +91,6 @@ export async function POST(req: Request): Promise<Response> {
 
         // Onboarding is keyed to the person, so every sign-in path can call it:
         // the first one claims the key, later ones replay it and send nothing.
-        const { sendWelcomeEmail } = await import("@/lib/send-welcome-email");
         const db = getDb();
         await sendWelcomeEmail(db, sessionUser);
         await notifyInvitersOfAcceptance(db, sessionUser.email, sessionUser.name ?? null);
