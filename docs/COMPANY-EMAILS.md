@@ -139,11 +139,14 @@ Every detail below is enforced server-side, not suggested by the form:
   computed from the addresses actually in the run rather than from the menu item
   that produced them. Unknown or absent values parse to the narrow audience, so a
   malformed request cannot widen a mailshot.
-- **A named list means accounts.** An address that belongs to no user is refused
-  and named, never silently dropped, so the composer cannot be used to mail
-  strangers and an operator cannot believe they reached someone they did not.
-  The resolution runs on the page (so the preview says "4 of 6 matched, 2 not
-  accounts") and again in the action (which is the gate).
+- **A named list means accounts, and you pick them.** The audience list is a
+  searchable checkbox list of real accounts (newest first, 1,000 loaded), with a
+  paste box beside it for anyone older than that window. Both feed one list. An
+  address that belongs to no user is refused and named, never silently dropped,
+  so the composer cannot be used to mail strangers and an operator cannot believe
+  they reached someone they did not. The resolution runs on the page (so the
+  preview says "4 of 6 matched, 2 not accounts") and again in the action (which
+  is the gate).
 - **From** is a closed list. `COMPANY_EMAIL_SENDERS` declares the extra
   addresses this deployment may send as, and `AUTH_EMAIL_FROM` — the sender
   every transactional email already uses — is always on it, default first. The
@@ -152,6 +155,25 @@ Every detail below is enforced server-side, not suggested by the form:
   different address than the one previewed is exactly the lie this console
   exists to avoid. Nothing here invents an address; an entry must be a real,
   SES-verified identity.
+- **The body keeps the shape it was typed in, and can be formatted.** Blank lines
+  become paragraphs and single newlines become line breaks; `**bold**`,
+  `_italic_`, a line starting with `-` or `1.` (a list), and `[label](https://…)`
+  (an inline link) become real formatting. Every character is escaped first, so
+  the only markup in the inbox is what `rich-text.ts` emits from the operator's
+  own words: the composer deliberately does not accept HTML, because sanitising
+  operator HTML at send time is a moving target on a mailshot that cannot be
+  recalled. Links go through the same `safeUrl` as the CTA — an absolute
+  http(s) URL, or nothing; a `javascript:` link is left as visible text rather
+  than silently deleted, so the author can see it did not become a link. The
+  buttons above the box (bold, italic, bullets, numbers, link) only insert these
+  markers at the cursor; with JS off the textarea takes the same markers. The
+  plain-text alternative carries the same words with the markers removed.
+  Before any of this, a three-paragraph announcement arrived as one run-on
+  block, because the renderer wrapped the whole body in a single `<p>`.
+- **Only two templates can be broadcast**, `updates.announcement` and
+  `updates.product_update`. The rest of the catalogue is event-driven — a key
+  being created is not something an operator should be able to fake by pressing
+  a button.
 - **A run is bounded, a batch is not.** One press sends to at most
   `COMPANY_BROADCAST_RUN_SIZE` recipients (150 by default, 1–500): a provider
   call is a network round trip, and one request has to finish. Recipients the
