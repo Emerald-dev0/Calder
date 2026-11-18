@@ -133,3 +133,40 @@ describe("renderCompanyEmail", () => {
     );
   });
 });
+
+describe("operator-written bodies keep their shape", () => {
+  it("turns blank lines into paragraphs", () => {
+    const out = renderCompanyEmail({
+      id: "updates.announcement",
+      data: {
+        title: "Pricing changes on 1 March",
+        body: "Hi {{name}},\n\nTwo plans change. The rest do not.\n\n— Daniel",
+      },
+      urls,
+    });
+    // Three blocks: greeting, the news, the sign-off. One string would have
+    // arrived as a single run-on paragraph.
+    expect(out.html.match(/<p /g)?.length ?? 0).toBeGreaterThanOrEqual(3);
+    expect(out.html).toContain("Two plans change.");
+    expect(out.html).toContain("— Daniel");
+  });
+
+  it("keeps a single newline as a line break inside one paragraph", () => {
+    const out = renderCompanyEmail({
+      id: "updates.product_update",
+      data: { title: "What shipped", body: "Hi,\nDaniel" },
+      urls,
+    });
+    expect(out.html).toContain("Hi,<br />Daniel");
+  });
+
+  it("still escapes the body — a line break is our markup, not theirs", () => {
+    const out = renderCompanyEmail({
+      id: "updates.announcement",
+      data: { title: "T", body: "<script>alert(1)</script>\n\nSecond" },
+      urls,
+    });
+    expect(out.html).not.toContain("<script>");
+    expect(out.html).toContain("&lt;script&gt;");
+  });
+});

@@ -41,6 +41,7 @@ import {
 } from "@/lib/control/company-send";
 import { companySenders, defaultCompanySender, findCompanySender } from "@/lib/control/senders";
 import { Badge, Empty, PageHeader, Panel, Stat } from "@/app/control/_components/ui";
+import { PeoplePicker } from "./people-picker";
 import { sendTestToSelf, sendToProductUsers } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -86,8 +87,10 @@ export default async function CompanyEmailPage({
     scope?: string;
     /** `verified` (default), `everyone`, or `selected`, chosen per send. */
     audience?: string;
-    /** The addresses typed for a `selected` audience, kept across the preview. */
+    /** Addresses ticked in the picker, kept across the preview. */
     selected?: string;
+    /** Addresses pasted in the fallback box (people outside the loaded list). */
+    selectedText?: string;
     /** Which declared sender this draft goes out as. */
     from?: string;
     /** Set when the batch has already reached everyone in scope. */
@@ -190,10 +193,28 @@ export default async function CompanyEmailPage({
   const [totalRow] = await db.select({ n: count() }).from(users);
   const verifiedCount = Number(verifiedRow?.n ?? 0);
   const totalCount = Number(totalRow?.n ?? 0);
+  // The picker's list, newest first. The cap is stated on the page rather than
+  // implied: an operator looking for someone older keeps the paste box.
+  const PEOPLE_LIMIT = 1000;
+  const pickerPeople = await db
+    .select({ email: users.email, name: users.name, emailVerifiedAt: users.emailVerifiedAt })
+    .from(users)
+    .orderBy(desc(users.createdAt))
+    .limit(PEOPLE_LIMIT);
+  const people = pickerPeople.map((person) => ({
+    email: person.email,
+    name: person.name,
+    verified: person.emailVerifiedAt !== null,
+  }));
+
   const audienceScope = parseAudience(query.audience);
-  const selectedInput = typeof query.selected === "string" ? query.selected : "";
-  const { addresses: selectedAddresses, truncated: selectedTruncated } =
-    parseSelectedAddresses(selectedInput);
+  const pickedInput = typeof query.selected === "string" ? query.selected : "";
+  const pastedInput = typeof query.selectedText === "string" ? query.selectedText : "";
+  // Two ways in, one list out: the picker for browsing accounts, the box for
+  // anyone outside the loaded window. The server merges the same way.
+  const { addresses: selectedAddresses, truncated: selectedTruncated } = parseSelectedAddresses(
+    [pickedInput, pastedInput].filter(Boolean).join(",")
+  );
   // Resolving the named list on the page is what lets the preview say "4 of 6
   // matched" instead of showing a count the send might refuse.
   const selectedResolution =
@@ -454,19 +475,29 @@ export default async function CompanyEmailPage({
               {audienceCopy}{" "}
               {AUDIENCE_OPTIONS.find((option) => option.value === audienceScope)?.description}
             </p>
-            <label style={{ display: "grid", gap: 6, fontSize: 12.5, fontWeight: 600 }}>
+            <div style={{ display: "grid", gap: 6, fontSize: 12.5, fontWeight: 600 }}>
               People — used only when the audience is “Specific people”
+              <PeoplePicker
+                people={people}
+                selected={selectedAddresses}
+                total={totalCount}
+                limit={PEOPLE_LIMIT}
+                readOnly={readOnly}
+              />
+            </div>
+            <label style={{ display: "grid", gap: 6, fontSize: 12.5, fontWeight: 600 }}>
+              …or paste addresses this list does not show
               <textarea
-                name="selected"
+                name="selectedText"
                 className="cp-input"
-                rows={3}
-                defaultValue={selectedInput}
+                rows={2}
+                defaultValue={pastedInput}
                 maxLength={4000}
                 placeholder="ada@example.com, grace@example.com"
               />
             </label>
             <p style={{ fontSize: 12, color: "var(--cp-muted)", margin: 0 }}>
-              Existing accounts only. An address with no account is refused and named, so this
+              Existing accounts only — an address with no account is refused and named, so this
               console cannot be used to mail strangers.
               {selectedTruncated ? " Only the first 500 addresses were read." : ""}
             </p>
@@ -576,7 +607,8 @@ export default async function CompanyEmailPage({
                 <input type="hidden" name="ctaLabel" value={draft.ctaLabel ?? ""} />
                 <input type="hidden" name="ctaUrl" value={draft.ctaUrl ?? ""} />
                 <input type="hidden" name="audience" value={audienceScope} />
-                <input type="hidden" name="selected" value={selectedInput} />
+                <input type="hidden" name="selected" value={pickedInput} />
+                <input type="hidden" name="selectedText" value={pastedInput} />
                 <input type="hidden" name="from" value={chosenSender.email} />
                 <label
                   style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5 }}

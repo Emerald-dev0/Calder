@@ -51,7 +51,12 @@ export function heading(text: string): string {
 }
 
 export function paragraph(text: string): string {
-  return `<p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:${PALETTE.body};">${escapeHtml(text)}</p>`;
+  // Escape first, then honour the author's line breaks. An operator writing a
+  // note types paragraphs and single newlines (a sign-off, an address block);
+  // without this the HTML collapses every one of them into a wall of text —
+  // which is what a broadcast composed in the console used to look like.
+  const safe = escapeHtml(text).replace(/\r\n|\n/g, "<br />");
+  return `<p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:${PALETTE.body};">${safe}</p>`;
 }
 
 export function muted(text: string): string {

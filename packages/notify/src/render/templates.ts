@@ -50,6 +50,26 @@ const greeting = (d: Data): string => {
   return name ? `Hi ${name.split(" ")[0]},` : "Hi,";
 };
 
+/**
+ * An operator's body text, as paragraphs.
+ *
+ * Blank lines separate paragraphs (each becomes its own `<p>`); single newlines
+ * stay inside one and render as `<br>`. A composer that treats a typed
+ * announcement as one string produces a wall of text in the inbox, which is not
+ * what the person writing it sees in the box.
+ */
+function bodyParagraphs(text: string): string[] {
+  return text
+    .split(/\n\s*\n/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+/** The same text flattened, for a preheader that cannot contain a line break. */
+function oneLine(text: string, limit: number): string {
+  return text.replace(/\s+/g, " ").trim().slice(0, limit);
+}
+
 type Builder = (d: Data, u: RenderUrls) => CompanyEmailContent;
 
 export const TEMPLATES: Record<CompanyEmailId, Builder> = {
@@ -843,9 +863,9 @@ export const TEMPLATES: Record<CompanyEmailId, Builder> = {
   /* ── Optional ───────────────────────────────────────────────────────── */
   "updates.product_update": (d, u) => ({
     subject: s(d, "title", "What's new in Calder"),
-    preheader: s(d, "body", "A short update from the team.").slice(0, 120),
+    preheader: oneLine(s(d, "body", "A short update from the team."), 120),
     heading: s(d, "title", "What's new in Calder"),
-    intro: [s(d, "body", "")].filter(Boolean),
+    intro: bodyParagraphs(s(d, "body", "")),
     cta: s(d, "ctaUrl") ? { label: s(d, "ctaLabel", "Read more"), url: s(d, "ctaUrl") } : undefined,
     footnote:
       "You receive product updates because you opted in. Account, billing and security mail is separate.",
@@ -878,9 +898,9 @@ export const TEMPLATES: Record<CompanyEmailId, Builder> = {
 
   "updates.announcement": (d, u) => ({
     subject: s(d, "title", "An announcement from Calder"),
-    preheader: s(d, "body", "").slice(0, 120),
+    preheader: oneLine(s(d, "body", ""), 120),
     heading: s(d, "title", "An announcement from Calder"),
-    intro: [s(d, "body", "")].filter(Boolean),
+    intro: bodyParagraphs(s(d, "body", "")),
     cta: s(d, "ctaUrl") ? { label: s(d, "ctaLabel", "Read more"), url: s(d, "ctaUrl") } : undefined,
     footnote:
       "You receive announcements because you opted in. Account, billing and security mail is separate.",

@@ -104,7 +104,14 @@ export async function sendToProductUsers(formData: FormData) {
 
   // Who.
   const audience = parseAudience(formData.get("audience"));
-  const selectedRaw = String(formData.get("selected") ?? "");
+  // The picker and the paste box are one list: ticking people and pasting an
+  // address the list does not show must not silently discard either.
+  const selectedRaw = [
+    String(formData.get("selected") ?? ""),
+    String(formData.get("selectedText") ?? ""),
+  ]
+    .filter(Boolean)
+    .join(",");
   let selectedIds: string[] = [];
   if (audience === "selected") {
     const { addresses, truncated } = parseSelectedAddresses(selectedRaw);

@@ -196,21 +196,47 @@ pnpm launch-check          # exits non-zero when the path is not launch-ready
 
 ### Environment variables by project
 
-| Variable                   | web | dashboard | api      | worker   |
-| -------------------------- | --- | --------- | -------- | -------- |
-| `AWS_ACCESS_KEY_ID/SECRET` |     |           | required | required |
-| `AWS_REGION=us-east-1`     |     |           | required | required |
-| `AUTH_EMAIL_FROM`          |     | required  |          |          |
-| `SES_FROM_DOMAIN`          |     |           | required |          |
-| `DATABASE_URL`             |     | required  | required | required |
-| `REDIS_URL`                |     | required  | required | required |
-| `CALDER_ENV`               |     |           | optional | optional |
-| `SENTRY_DSN`               |     |           | optional | optional |
-| `WORKER_EXPECTED`          |     |           | optional | required |
-| `CRON_SECRET`              |     | required  | required |          |
-| `ADMIN_API_KEY`            |     |           | required |          |
-| `ALLOWED_ORIGINS`          |     |           | required |          |
-| `API_URL`                  |     | required  | required |          |
+| Variable                          | web | dashboard | api      | worker   |
+| --------------------------------- | --- | --------- | -------- | -------- |
+| `AWS_ACCESS_KEY_ID/SECRET`        |     | required  | required | required |
+| `AWS_REGION=us-east-1`            |     | required  | required | required |
+| `AUTH_EMAIL_FROM`                 |     | required  | optional |          |
+| `COMPANY_EMAIL_SENDERS`           |     | optional  |          |          |
+| `COMPANY_WELCOME_FROM`            |     | optional  |          |          |
+| `COMPANY_BROADCAST_RUN_SIZE`      |     | optional  |          |          |
+| `SES_CONFIGURATION_SET_BROADCAST` |     | optional  | optional |          |
+| `SES_FROM_DOMAIN`                 |     |           | required |          |
+| `DATABASE_URL`                    |     | required  | required | required |
+| `REDIS_URL`                       |     | required  | required | required |
+| `CALDER_ENV`                      |     |           | optional | optional |
+| `SENTRY_DSN`                      |     |           | optional | optional |
+| `WORKER_EXPECTED`                 |     |           | optional | required |
+| `CRON_SECRET`                     |     | required  | required |          |
+| `ADMIN_API_KEY`                   |     |           | required |          |
+| `ALLOWED_ORIGINS`                 |     |           | required |          |
+| `API_URL`                         |     | required  | required |          |
+
+Both the dashboard and the API send Calder's own mail, through the same
+`@calder/notify` package, so both need SES credentials and a sender. What each
+one sends is different, which is why the variable table above has `optional` in
+places:
+
+| Project              | Sends                                                                                                                                                                       |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **calder-dashboard** | verification codes, password resets, sign-in and security notices, the welcome email, and anything an operator broadcasts from **Control → Communications → Company email** |
+| **calder-api**       | workspace notices triggered by the API — API key created/revoked, domain verified/failed — and the cron sweep (invitation reminders, expiring keys)                         |
+
+A missing `AWS_ACCESS_KEY_ID` on the dashboard does not fail quietly: in
+production `resolveEmailProvider` throws rather than falling back to the mock,
+so signup returns an error instead of pretending to send. `AUTH_EMAIL_FROM` on
+the API is optional only because the package falls back to
+`Calder <hello@calder.click>`; set it explicitly if that is not the address you
+want workspace notices to come from.
+
+`COMPANY_EMAIL_SENDERS`, `COMPANY_WELCOME_FROM` and `COMPANY_BROADCAST_RUN_SIZE`
+are read by the dashboard alone — the composer and the welcome email live there.
+Setting them on **calder-api** has no effect, which is worth knowing before
+wondering why the composer's From list still shows one address.
 
 ### The cron secret (`CRON_SECRET`)
 
