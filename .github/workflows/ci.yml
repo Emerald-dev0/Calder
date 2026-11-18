@@ -199,6 +199,12 @@ jobs:
       # Output is captured and uploaded on failure: GitHub's job-log endpoint
       # has been returning EOF for this repo, which makes a red Test step
       # undiagnosable without it.
+      #
+      # The suites in this step share one Postgres, which is why `pnpm test` runs
+      # packages one at a time (`--concurrency=1`) and the dashboard runs its
+      # files one at a time: a test that reads a platform-wide count twice — the
+      # Domains page counts against its own filtered reads — saw another
+      # suite's insert land between the two and failed on a green tree.
       - name: Test
         shell: bash
         run: |
